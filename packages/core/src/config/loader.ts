@@ -1,13 +1,23 @@
 import { readFile } from 'node:fs/promises';
+import { parse } from 'yaml';
+import { validateConfigOrThrow } from './validator.js';
 import type { AppframeConfig } from './schema.js';
-import { validateConfig } from './validator.js';
 
 export async function loadConfig(configPath: string): Promise<AppframeConfig> {
-  const content = await readFile(configPath, 'utf-8');
+  let content: string;
+  try {
+    content = await readFile(configPath, 'utf-8');
+  } catch {
+    throw new Error(`Config file not found: ${configPath}`);
+  }
 
-  // Dynamic import for yaml parser — will be added as dependency
-  const { parse } = await import('yaml');
-  const raw: unknown = parse(content);
+  let raw: unknown;
+  try {
+    raw = parse(content);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    throw new Error(`Failed to parse YAML config: ${message}`);
+  }
 
-  return validateConfig(raw);
+  return validateConfigOrThrow(raw);
 }

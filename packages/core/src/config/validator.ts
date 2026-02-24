@@ -1,28 +1,45 @@
+import { ZodError } from 'zod';
+import { appframeConfigSchema } from './schema.js';
 import type { AppframeConfig } from './schema.js';
 
-export function validateConfig(raw: unknown): AppframeConfig {
-  if (!raw || typeof raw !== 'object') {
-    throw new Error('Config must be a YAML object');
+export interface ValidationResult {
+  success: true;
+  config: AppframeConfig;
+}
+
+export interface ValidationError {
+  success: false;
+  errors: FormattedError[];
+}
+
+export interface FormattedError {
+  path: string;
+  message: string;
+}
+
+export function validateConfig(raw: unknown): ValidationResult | ValidationError {
+  try {
+    const config = appframeConfigSchema.parse(raw);
+    return { success: true, config };
+  } catch (err) {
+    if (err instanceof ZodError) {
+      const errors = err.issues.map((e) => ({
+        path: e.path.join('.'),
+        message: e.message,
+      }));
+      return { success: false, errors };
+    }
+    throw err;
   }
+}
 
-  const config = raw as Record<string, unknown>;
-
-  if (!config['app'] || typeof config['app'] !== 'object') {
-    throw new Error('Config must have an "app" section');
+export function validateConfigOrThrow(raw: unknown): AppframeConfig {
+  const result = validateConfig(raw);
+  if (!result.success) {
+    const messages = result.errors
+      .map((e) => (e.path ? `  ${e.path}: ${e.message}` : `  ${e.message}`))
+      .join('\n');
+    throw new Error(`Invalid appframe config:\n${messages}`);
   }
-
-  if (!config['theme'] || typeof config['theme'] !== 'object') {
-    throw new Error('Config must have a "theme" section');
-  }
-
-  if (!config['screens'] || !Array.isArray(config['screens'])) {
-    throw new Error('Config must have a "screens" array');
-  }
-
-  if (!config['output'] || typeof config['output'] !== 'object') {
-    throw new Error('Config must have an "output" section');
-  }
-
-  // TODO: Deep validation with JSON Schema (Phase 2)
-  return raw as AppframeConfig;
+  return result.config;
 }

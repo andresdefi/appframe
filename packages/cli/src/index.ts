@@ -1,40 +1,22 @@
 #!/usr/bin/env node
 
+import { Command } from 'commander';
 import { VERSION } from '@appframe/core';
+import { initCommand } from './commands/init.js';
+import { generateCommand } from './commands/generate.js';
+import { validateCommand } from './commands/validate.js';
+import { framesCommand } from './commands/frames.js';
 
-const args = process.argv.slice(2);
+const program = new Command();
 
-if (args.includes('--version') || args.includes('-v')) {
-  console.log(`appframe v${VERSION}`);
-  process.exit(0);
-}
+program
+  .name('appframe')
+  .description('Generate professional App Store & Play Store promotional screenshots')
+  .version(VERSION, '-v, --version');
 
-if (args.includes('--help') || args.includes('-h') || args.length === 0) {
-  console.log(`
-appframe v${VERSION}
-Generate professional App Store & Play Store promotional screenshots.
+program.addCommand(initCommand);
+program.addCommand(generateCommand);
+program.addCommand(validateCommand);
+program.addCommand(framesCommand);
 
-Usage:
-  appframe <command> [options]
-
-Commands:
-  init        Create a new appframe config for your app
-  generate    Generate screenshots from config
-  preview     Open web preview for tweaking
-  capture     Capture screenshots from simulator/emulator
-  frames      Manage device frames
-  validate    Validate config file
-  upload      Upload screenshots to stores
-
-Options:
-  -v, --version  Show version
-  -h, --help     Show help
-
-Run "appframe <command> --help" for more info on a command.
-`);
-  process.exit(0);
-}
-
-console.log(`Unknown command: ${args[0]}`);
-console.log('Run "appframe --help" for usage information.');
-process.exit(1);
+program.parse();

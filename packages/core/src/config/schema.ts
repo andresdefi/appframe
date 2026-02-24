@@ -1,89 +1,140 @@
-export interface AppframeConfig {
-  app: AppConfig;
-  theme: ThemeConfig;
-  frames: FrameConfig;
-  screens: ScreenConfig[];
-  locales?: Record<string, LocaleConfig>;
-  output: OutputConfig;
-}
+import { z } from 'zod';
 
-export interface AppConfig {
-  name: string;
-  description: string;
-  platforms: Platform[];
-  features: string[];
-}
+// --- Shared enums/primitives ---
 
-export type Platform = 'ios' | 'android';
+const hexColor = z
+  .string()
+  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Must be a valid hex color');
 
-export interface ThemeConfig {
-  style: TemplateStyle;
-  colors: ColorConfig;
-  font: string;
-  fontWeight: number;
-}
+export const platformSchema = z.enum(['ios', 'android']);
+export const templateStyleSchema = z.enum(['minimal', 'bold', 'dark', 'playful']);
+export const frameStyleSchema = z.enum(['flat', '3d', 'floating', 'none']);
+export const layoutVariantSchema = z.enum([
+  'center',
+  'left',
+  'right',
+  'angled-left',
+  'angled-right',
+  'floating',
+  'side-by-side',
+]);
 
-export type TemplateStyle = 'minimal' | 'bold' | 'dark' | 'playful';
+// --- App section ---
 
-export interface ColorConfig {
-  primary: string;
-  secondary: string;
-  background: string;
-  text: string;
-  subtitle?: string;
-}
+export const appConfigSchema = z.object({
+  name: z.string().min(1, 'App name is required'),
+  description: z.string().min(1, 'App description is required'),
+  platforms: z.array(platformSchema).min(1, 'At least one platform required'),
+  features: z.array(z.string()).default([]),
+});
 
-export interface FrameConfig {
-  ios?: string;
-  android?: string;
-  style: FrameStyle;
-}
+// --- Theme section ---
 
-export type FrameStyle = 'flat' | '3d' | 'floating' | 'none';
+export const colorConfigSchema = z.object({
+  primary: hexColor,
+  secondary: hexColor,
+  background: hexColor,
+  text: hexColor,
+  subtitle: hexColor.optional(),
+});
 
-export interface ScreenConfig {
-  screenshot: string;
-  headline: string;
-  subtitle?: string;
-  layout: LayoutVariant;
-  device?: string;
-  background?: string;
-}
+export const themeConfigSchema = z.object({
+  style: templateStyleSchema,
+  colors: colorConfigSchema,
+  font: z.string().default('inter'),
+  fontWeight: z.number().int().min(100).max(900).default(600),
+});
 
-export type LayoutVariant =
-  | 'center'
-  | 'left'
-  | 'right'
-  | 'angled-left'
-  | 'angled-right'
-  | 'floating'
-  | 'side-by-side';
+// --- Frames section ---
 
-export interface LocaleConfig {
-  screens: LocaleScreenConfig[];
-}
+export const frameConfigSchema = z.object({
+  ios: z.string().optional(),
+  android: z.string().optional(),
+  style: frameStyleSchema.default('flat'),
+});
 
-export interface LocaleScreenConfig {
-  headline: string;
-  subtitle?: string;
-}
+// --- Screen section ---
 
-export interface OutputConfig {
-  platforms: Platform[];
-  ios?: IOSOutputConfig;
-  android?: AndroidOutputConfig;
-  directory: string;
-}
+export const screenConfigSchema = z.object({
+  screenshot: z.string().min(1, 'Screenshot path is required'),
+  headline: z.string().min(1, 'Headline is required'),
+  subtitle: z.string().optional(),
+  layout: layoutVariantSchema.default('center'),
+  device: z.string().optional(),
+  background: z.string().optional(),
+});
 
-export interface IOSOutputConfig {
-  sizes: number[];
-  format: 'png' | 'jpeg';
-  quality?: number;
-}
+// --- Locale section ---
 
-export interface AndroidOutputConfig {
-  sizes: string[];
-  format: 'png' | 'jpeg';
-  quality?: number;
-  featureGraphic?: boolean;
-}
+export const localeScreenConfigSchema = z.object({
+  headline: z.string().min(1),
+  subtitle: z.string().optional(),
+});
+
+export const localeConfigSchema = z.object({
+  screens: z.array(localeScreenConfigSchema),
+});
+
+// --- Output section ---
+
+export const iosOutputConfigSchema = z.object({
+  sizes: z.array(z.number()).default([6.7, 6.5]),
+  format: z.enum(['png', 'jpeg']).default('png'),
+  quality: z.number().int().min(1).max(100).optional(),
+});
+
+export const androidOutputConfigSchema = z.object({
+  sizes: z.array(z.string()).default(['phone']),
+  format: z.enum(['png', 'jpeg']).default('png'),
+  quality: z.number().int().min(1).max(100).optional(),
+  featureGraphic: z.boolean().default(false),
+});
+
+export const outputConfigSchema = z.object({
+  platforms: z.array(platformSchema).min(1),
+  ios: iosOutputConfigSchema.optional(),
+  android: androidOutputConfigSchema.optional(),
+  directory: z.string().default('./output'),
+});
+
+// --- Full config ---
+
+export const appframeConfigSchema = z
+  .object({
+    app: appConfigSchema,
+    theme: themeConfigSchema,
+    frames: frameConfigSchema.default({ style: 'flat' }),
+    screens: z.array(screenConfigSchema).min(1, 'At least one screen is required'),
+    locales: z.record(z.string(), localeConfigSchema).optional(),
+    output: outputConfigSchema,
+  })
+  .refine(
+    (config) => {
+      if (!config.locales) return true;
+      return Object.values(config.locales).every(
+        (locale) => locale.screens.length === config.screens.length,
+      );
+    },
+    {
+      message: 'Each locale must have the same number of screens as the main screens array',
+      path: ['locales'],
+    },
+  );
+
+// --- Inferred types ---
+
+export type Platform = z.infer<typeof platformSchema>;
+export type TemplateStyle = z.infer<typeof templateStyleSchema>;
+export type FrameStyle = z.infer<typeof frameStyleSchema>;
+export type LayoutVariant = z.infer<typeof layoutVariantSchema>;
+export type AppConfig = z.infer<typeof appConfigSchema>;
+export type ColorConfig = z.infer<typeof colorConfigSchema>;
+export type ThemeConfig = z.infer<typeof themeConfigSchema>;
+export type FrameConfig = z.infer<typeof frameConfigSchema>;
+export type ScreenConfig = z.infer<typeof screenConfigSchema>;
+export type LocaleScreenConfig = z.infer<typeof localeScreenConfigSchema>;
+export type LocaleConfig = z.infer<typeof localeConfigSchema>;
+export type IOSOutputConfig = z.infer<typeof iosOutputConfigSchema>;
+export type AndroidOutputConfig = z.infer<typeof androidOutputConfigSchema>;
+export type OutputConfig = z.infer<typeof outputConfigSchema>;
+export type AppframeConfig = z.infer<typeof appframeConfigSchema>;

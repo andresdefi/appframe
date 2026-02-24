@@ -1,0 +1,92 @@
+# appframe config — TradeFlow (Tradesperson Management)
+
+app:
+  name: "TradeFlow"
+  description: "Job management app for tradespeople — scheduling, invoicing, and client management"
+  platforms: [ios, android]
+  features:
+    - Job scheduling and calendar
+    - Professional invoicing
+    - Client management (CRM)
+    - Time tracking
+    - Photo documentation
+    - Offline support
+
+theme:
+  style: dark
+  colors:
+    primary: "#F59E0B"
+    secondary: "#3B82F6"
+    background: "#0A0A0F"
+    text: "#F8FAFC"
+    subtitle: "#94A3B8"
+  font: inter
+  fontWeight: 600
+
+frames:
+  ios: iphone-16-pro-max
+  android: pixel-10
+  style: 3d
+
+screens:
+  - screenshot: screenshots/dashboard.png
+    headline: "Your jobs, at a glance"
+    subtitle: "One dashboard for everything"
+    layout: center
+
+  - screenshot: screenshots/schedule.png
+    headline: "Never double-book again"
+    subtitle: "Smart scheduling that works"
+    layout: angled-right
+
+  - screenshot: screenshots/invoice.png
+    headline: "Get paid faster"
+    subtitle: "Professional invoices in seconds"
+    layout: left
+
+  - screenshot: screenshots/clients.png
+    headline: "Know every client"
+    subtitle: "Full history at your fingertips"
+    layout: angled-left
+
+  - screenshot: screenshots/photos.png
+    headline: "Document every job"
+    subtitle: "Before, during, and after photos"
+    layout: center
+
+locales:
+  en:
+    screens:
+      - headline: "Your jobs, at a glance"
+        subtitle: "One dashboard for everything"
+      - headline: "Never double-book again"
+        subtitle: "Smart scheduling that works"
+      - headline: "Get paid faster"
+        subtitle: "Professional invoices in seconds"
+      - headline: "Know every client"
+        subtitle: "Full history at your fingertips"
+      - headline: "Document every job"
+        subtitle: "Before, during, and after photos"
+  es:
+    screens:
+      - headline: "Tus trabajos, de un vistazo"
+        subtitle: "Un panel para todo"
+      - headline: "Nunca reserves doble"
+        subtitle: "Programacion inteligente que funciona"
+      - headline: "Cobra mas rapido"
+        subtitle: "Facturas profesionales en segundos"
+      - headline: "Conoce a cada cliente"
+        subtitle: "Historial completo a tu alcance"
+      - headline: "Documenta cada trabajo"
+        subtitle: "Fotos del antes, durante y despues"
+
+output:
+  platforms: [ios, android]
+  ios:
+    sizes: [6.7, 6.5]
+    format: png
+  android:
+    sizes: ["phone"]
+    format: png
+    featureGraphic: true
+  directory: ./output

@@ -20,7 +20,8 @@
   "dependencies": {
     "@appframe/core": "workspace:*"
   },
-  "keywords": [],
+  "files": ["dist"],
+  "keywords": ["app-store-connect", "google-play", "upload", "screenshots"],
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

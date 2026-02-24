@@ -1,2 +1,2 @@
-// App Store Connect API integration — Phase 10
-export {};
+export { AppStoreConnectClient, loadAppleCredentials, resolvePrivateKey } from './client.js';
+export { generateJwt } from './jwt.js';

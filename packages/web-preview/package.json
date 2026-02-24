@@ -22,7 +22,8 @@
     "cors": "^2.8.6",
     "express": "^5.2.1"
   },
-  "keywords": [],
+  "files": ["dist", "public"],
+  "keywords": ["app-store", "screenshots", "preview"],
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

@@ -17,7 +17,8 @@
     "clean": "rm -rf dist *.tsbuildinfo",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
+  "files": ["dist", "templates"],
+  "keywords": ["app-store", "play-store", "screenshots", "device-frames", "promotional"],
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

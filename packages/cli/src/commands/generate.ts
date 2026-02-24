@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolve } from 'node:path';
 import chalk from 'chalk';
-import { loadConfig } from '@appframe/core';
+import { loadConfig, generateScreenshots } from '@appframe/core';
 
 interface GenerateOptions {
   config: string;
@@ -43,7 +43,9 @@ export const generateCommand = new Command('generate')
 
       const locales = options.locale
         ? [options.locale]
-        : ['default', ...Object.keys(config.locales ?? {})];
+        : config.locales
+          ? Object.keys(config.locales)
+          : ['default'];
 
       const screens = options.screen !== undefined
         ? [config.screens[parseInt(options.screen, 10)]]
@@ -66,7 +68,36 @@ export const generateCommand = new Command('generate')
       return;
     }
 
-    // TODO: Rendering pipeline (Phase 5)
-    console.log(chalk.yellow('Rendering engine not yet implemented (Phase 5).'));
-    console.log(chalk.dim(`Config loaded: ${config.app.name} — ${config.screens.length} screens`));
+    console.log(chalk.blue(`Generating screenshots for ${chalk.bold(config.app.name)}...\n`));
+
+    const startTime = Date.now();
+
+    try {
+      const result = await generateScreenshots({
+        configPath,
+        platform: options.platform,
+        locale: options.locale,
+        screenIndex: options.screen !== undefined ? parseInt(options.screen, 10) : undefined,
+        outputDir: options.output ? resolve(options.output) : undefined,
+        templateOverride: options.template,
+        onProgress: (current, total, name) => {
+          const pct = Math.round((current / total) * 100);
+          process.stdout.write(`\r  ${chalk.dim(`[${pct}%]`)} Rendering ${chalk.cyan(name)}...`);
+        },
+      });
+
+      console.log('\n');
+
+      for (const screenshot of result.screenshots) {
+        const sizeKb = Math.round(screenshot.fileSize / 1024);
+        console.log(`  ${chalk.green('+')} ${screenshot.outputPath} ${chalk.dim(`(${screenshot.width}x${screenshot.height}, ${sizeKb}KB)`)}`);
+      }
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(chalk.green(`\nDone! ${result.screenshots.length} screenshots generated in ${elapsed}s.`));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      console.log(chalk.red(`\nGeneration failed: ${message}`));
+      process.exit(1);
+    }
   });

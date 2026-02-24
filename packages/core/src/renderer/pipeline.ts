@@ -1,0 +1,197 @@
+import { readFile, mkdir } from 'node:fs/promises';
+import { join, dirname, resolve } from 'node:path';
+import { loadConfig } from '../config/loader.js';
+import { getFrame, getDefaultFrame, loadFrameManifest } from '../frames/loader.js';
+import { TemplateEngine } from '../templates/engine.js';
+import type { TemplateContext } from '../templates/engine.js';
+import { Renderer } from './renderer.js';
+import { getTargetSizes } from './sizes.js';
+import type { GenerateOptions, GenerateResult, RenderResult, ScreenshotSize } from './types.js';
+import type { AppframeConfig, ScreenConfig, TemplateStyle } from '../config/schema.js';
+import type { FrameDefinition } from '../frames/types.js';
+
+async function screenshotToDataUrl(screenshotPath: string): Promise<string> {
+  try {
+    const buffer = await readFile(screenshotPath);
+    const base64 = buffer.toString('base64');
+    const ext = screenshotPath.toLowerCase().endsWith('.jpg') || screenshotPath.toLowerCase().endsWith('.jpeg')
+      ? 'jpeg'
+      : 'png';
+    return `data:image/${ext};base64,${base64}`;
+  } catch {
+    // Return a placeholder gradient if screenshot not found
+    return 'data:image/svg+xml;base64,' + Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800">
+        <defs>
+          <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#667eea"/>
+            <stop offset="100%" style="stop-color:#764ba2"/>
+          </linearGradient>
+        </defs>
+        <rect width="400" height="800" fill="url(#g)"/>
+        <text x="200" y="400" text-anchor="middle" fill="white" font-family="sans-serif" font-size="16">Screenshot placeholder</text>
+      </svg>`
+    ).toString('base64');
+  }
+}
+
+async function loadFrameSvgContent(frame: FrameDefinition): Promise<string> {
+  return readFile(frame.framePath, 'utf-8');
+}
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+}
+
+export async function generateScreenshots(options: GenerateOptions): Promise<GenerateResult> {
+  const startTime = Date.now();
+  const config = await loadConfig(options.configPath);
+  const configDir = dirname(resolve(options.configPath));
+
+  await loadFrameManifest();
+
+  const templateEngine = new TemplateEngine();
+  const renderer = new Renderer();
+
+  try {
+    await renderer.init();
+
+    const results: RenderResult[] = [];
+    const sizes = getTargetSizesFromConfig(config);
+
+    // Determine locales to generate
+    const locales = getLocalesToGenerate(config, options.locale);
+
+    // Determine screens to generate
+    const screens = options.screenIndex !== undefined
+      ? [{ screen: config.screens[options.screenIndex]!, index: options.screenIndex }]
+      : config.screens.map((screen, index) => ({ screen, index }));
+
+    const totalSteps = sizes.length * locales.length * screens.length;
+    let currentStep = 0;
+
+    for (const size of sizes) {
+      // Filter by platform if specified
+      if (options.platform && options.platform !== 'all' && size.platform !== options.platform) {
+        continue;
+      }
+
+      for (const locale of locales) {
+        for (const { screen, index } of screens) {
+          currentStep++;
+
+          // Get localized text
+          const headline = getLocalizedText(config, index, locale, 'headline') ?? screen.headline;
+          const subtitle = getLocalizedText(config, index, locale, 'subtitle') ?? screen.subtitle;
+
+          // Resolve screenshot path
+          const screenshotPath = join(configDir, screen.screenshot);
+          const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+
+          // Resolve frame
+          const frame = await resolveFrame(config, screen, size.platform);
+          let frameSvg: string | null = null;
+          if (frame && config.frames.style !== 'none') {
+            frameSvg = await loadFrameSvgContent(frame);
+          }
+
+          // Build template context
+          const style = (options.templateOverride as TemplateStyle | undefined) ?? config.theme.style;
+          const context: TemplateContext = {
+            headline,
+            subtitle,
+            screenshotDataUrl,
+            style,
+            colors: config.theme.colors,
+            font: config.theme.font,
+            fontWeight: config.theme.fontWeight,
+            layout: screen.layout,
+            frame: frame ?? null,
+            frameStyle: config.frames.style,
+            frameSvg,
+            canvasWidth: size.width,
+            canvasHeight: size.height,
+          };
+
+          // Render template to HTML
+          const html = await templateEngine.render(context);
+
+          // Generate output path
+          const outputDir = options.outputDir ?? join(configDir, config.output.directory);
+          await mkdir(outputDir, { recursive: true });
+
+          const filename = `${sanitizeFilename(config.app.name)}_${size.platform}_${size.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}_${locale}_${index + 1}.png`;
+          const outputPath = join(outputDir, filename);
+
+          options.onProgress?.(currentStep, totalSteps, filename);
+
+          // Render to PNG
+          const result = await renderer.render({
+            html,
+            width: size.width,
+            height: size.height,
+            outputPath,
+          });
+
+          results.push(result);
+        }
+      }
+    }
+
+    return {
+      screenshots: results,
+      totalTime: Date.now() - startTime,
+    };
+  } finally {
+    await renderer.close();
+  }
+}
+
+function getTargetSizesFromConfig(config: AppframeConfig): ScreenshotSize[] {
+  return getTargetSizes(
+    config.output.platforms,
+    config.output.ios?.sizes,
+    config.output.android?.sizes,
+    config.output.android?.featureGraphic,
+  );
+}
+
+function getLocalesToGenerate(config: AppframeConfig, filterLocale?: string): string[] {
+  if (filterLocale) return [filterLocale];
+  if (!config.locales || Object.keys(config.locales).length === 0) return ['default'];
+  return Object.keys(config.locales);
+}
+
+function getLocalizedText(
+  config: AppframeConfig,
+  screenIndex: number,
+  locale: string,
+  field: 'headline' | 'subtitle',
+): string | undefined {
+  if (locale === 'default' || !config.locales) return undefined;
+  const localeConfig = config.locales[locale];
+  if (!localeConfig) return undefined;
+  const localeScreen = localeConfig.screens[screenIndex];
+  if (!localeScreen) return undefined;
+  return localeScreen[field];
+}
+
+async function resolveFrame(
+  config: AppframeConfig,
+  screen: ScreenConfig,
+  platform: 'ios' | 'android',
+): Promise<FrameDefinition | undefined> {
+  // Screen-level override
+  if (screen.device) {
+    return getFrame(screen.device);
+  }
+
+  // Config-level frame for this platform
+  const configFrame = platform === 'ios' ? config.frames.ios : config.frames.android;
+  if (configFrame) {
+    return getFrame(configFrame);
+  }
+
+  // Default frame for platform
+  return getDefaultFrame(platform);
+}

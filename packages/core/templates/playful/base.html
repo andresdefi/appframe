@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: {{ canvasWidth }}px;
+      height: {{ canvasHeight }}px;
+      overflow: hidden;
+      font-family: '{{ font | capitalize }}', 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .canvas {
+      width: {{ canvasWidth }}px;
+      height: {{ canvasHeight }}px;
+      position: relative;
+      overflow: hidden;
+      background: {{ colors.background }};
+    }
+
+    /* Fun decorative shapes */
+    .shape {
+      position: absolute;
+      opacity: 0.15;
+    }
+
+    .shape-circle-1 {
+      width: {{ (canvasWidth * 0.3) | round }}px;
+      height: {{ (canvasWidth * 0.3) | round }}px;
+      border-radius: 50%;
+      background: {{ colors.primary }};
+      top: {{ (canvasHeight * 0.05) | round }}px;
+      right: -{{ (canvasWidth * 0.05) | round }}px;
+    }
+
+    .shape-circle-2 {
+      width: {{ (canvasWidth * 0.2) | round }}px;
+      height: {{ (canvasWidth * 0.2) | round }}px;
+      border-radius: 50%;
+      background: {{ colors.secondary }};
+      bottom: {{ (canvasHeight * 0.15) | round }}px;
+      left: -{{ (canvasWidth * 0.05) | round }}px;
+    }
+
+    .shape-dots {
+      width: {{ (canvasWidth * 0.25) | round }}px;
+      height: {{ (canvasWidth * 0.25) | round }}px;
+      top: {{ (canvasHeight * 0.7) | round }}px;
+      right: {{ (canvasWidth * 0.05) | round }}px;
+      background-image: radial-gradient({{ colors.primary }} 2px, transparent 2px);
+      background-size: {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.03) | round }}px;
+      opacity: 0.2;
+    }
+
+    .shape-wave {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: {{ (canvasHeight * 0.15) | round }}px;
+      opacity: 0.06;
+    }
+
+    .shape-wave svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .content {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      padding: {{ (canvasWidth * 0.07) | round }}px;
+      gap: {{ (canvasWidth * 0.04) | round }}px;
+      position: relative;
+      z-index: 1;
+
+      {% if layout == 'center' or layout == 'floating' %}
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+      {% elif layout == 'left' %}
+        flex-direction: row;
+        justify-content: space-between;
+      {% elif layout == 'right' %}
+        flex-direction: row-reverse;
+        justify-content: space-between;
+      {% elif layout == 'angled-left' or layout == 'angled-right' %}
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+      {% endif %}
+    }
+
+    .text-area {
+      z-index: 2;
+      {% if layout == 'left' or layout == 'right' %}
+        flex: 0 0 40%;
+        text-align: left;
+      {% endif %}
+    }
+
+    .headline {
+      font-size: {{ (canvasWidth * 0.07) | round }}px;
+      font-weight: {{ fontWeight | default(700) }};
+      color: {{ colors.text }};
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      margin-bottom: {{ (canvasWidth * 0.015) | round }}px;
+    }
+
+    .subtitle {
+      font-size: {{ (canvasWidth * 0.033) | round }}px;
+      color: {{ colors.subtitle or colors.text }};
+      opacity: {{ 1 if colors.subtitle else 0.6 }};
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    /* Badge-style accent behind headline */
+    .headline-accent {
+      display: inline-block;
+      background: linear-gradient(135deg, {{ colors.primary }}20, {{ colors.secondary }}20);
+      border-radius: {{ (canvasWidth * 0.02) | round }}px;
+      padding: {{ (canvasWidth * 0.01) | round }}px {{ (canvasWidth * 0.025) | round }}px;
+      margin-bottom: {{ (canvasWidth * 0.01) | round }}px;
+    }
+
+    .device-area {
+      position: relative;
+      z-index: 1;
+      {% if layout == 'left' or layout == 'right' %}
+        flex: 0 0 55%;
+      {% endif %}
+    }
+
+    .device-wrapper {
+      position: relative;
+      display: inline-block;
+
+      {% if layout == 'center' %}
+        max-height: {{ (canvasHeight * 0.56) | round }}px;
+        filter: drop-shadow(0 {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.06) | round }}px rgba(0,0,0,0.15));
+        transform: rotate(-2deg);
+      {% elif layout == 'left' or layout == 'right' %}
+        max-height: {{ (canvasHeight * 0.76) | round }}px;
+        filter: drop-shadow(0 {{ (canvasWidth * 0.02) | round }}px {{ (canvasWidth * 0.05) | round }}px rgba(0,0,0,0.15));
+        transform: rotate(2deg);
+      {% elif layout == 'angled-left' %}
+        max-height: {{ (canvasHeight * 0.56) | round }}px;
+        transform: perspective(900px) rotateY(10deg) rotate(-3deg);
+        filter: drop-shadow(0 {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.06) | round }}px rgba(0,0,0,0.2));
+      {% elif layout == 'angled-right' %}
+        max-height: {{ (canvasHeight * 0.56) | round }}px;
+        transform: perspective(900px) rotateY(-10deg) rotate(3deg);
+        filter: drop-shadow(0 {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.06) | round }}px rgba(0,0,0,0.2));
+      {% elif layout == 'floating' %}
+        max-height: {{ (canvasHeight * 0.56) | round }}px;
+        filter: drop-shadow(0 {{ (canvasWidth * 0.04) | round }}px {{ (canvasWidth * 0.08) | round }}px rgba(0,0,0,0.2));
+      {% endif %}
+    }
+
+    .device-wrapper svg {
+      height: 100%;
+      max-height: inherit;
+      width: auto;
+      display: block;
+    }
+
+    .device-wrapper .screenshot-img {
+      position: absolute;
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="shape shape-circle-1"></div>
+    <div class="shape shape-circle-2"></div>
+    <div class="shape shape-dots"></div>
+    <div class="shape-wave">
+      <svg viewBox="0 0 1440 320" preserveAspectRatio="none">
+        <path fill="{{ colors.primary }}" d="M0,224L60,213.3C120,203,240,181,360,186.7C480,192,600,224,720,229.3C840,235,960,213,1080,192C1200,171,1320,149,1380,138.7L1440,128L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z"></path>
+      </svg>
+    </div>
+    <div class="content">
+      {% if layout == 'left' %}
+        <div class="text-area">
+          <div class="headline">{{ headline }}</div>
+          {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+        </div>
+        <div class="device-area">
+          <div class="device-wrapper">
+            {% if frameSvg and frameStyle != 'none' %}
+              {{ frameSvg | safe }}
+              <img class="screenshot-img" src="{{ screenshotDataUrl }}"
+                style="left: {{ frame.screenArea.x * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
+                       top: {{ frame.screenArea.y * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
+                       width: {{ frame.screenArea.width * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
+                       height: {{ frame.screenArea.height * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
+                       border-radius: {{ frame.screenArea.borderRadius * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;">
+            {% else %}
+              <img src="{{ screenshotDataUrl }}" style="position: relative; width: {{ (canvasWidth * 0.42) | round }}px; border-radius: {{ (canvasWidth * 0.05) | round }}px;">
+            {% endif %}
+          </div>
+        </div>
+      {% elif layout == 'right' %}
+        <div class="device-area">
+          <div class="device-wrapper">
+            {% if frameSvg and frameStyle != 'none' %}
+              {{ frameSvg | safe }}
+              <img class="screenshot-img" src="{{ screenshotDataUrl }}"
+                style="left: {{ frame.screenArea.x * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
+                       top: {{ frame.screenArea.y * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
+                       width: {{ frame.screenArea.width * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
+                       height: {{ frame.screenArea.height * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
+                       border-radius: {{ frame.screenArea.borderRadius * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;">
+            {% else %}
+              <img src="{{ screenshotDataUrl }}" style="position: relative; width: {{ (canvasWidth * 0.42) | round }}px; border-radius: {{ (canvasWidth * 0.05) | round }}px;">
+            {% endif %}
+          </div>
+        </div>
+        <div class="text-area">
+          <div class="headline">{{ headline }}</div>
+          {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+        </div>
+      {% else %}
+        <div class="text-area">
+          <div class="headline">{{ headline }}</div>
+          {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+        </div>
+        <div class="device-area">
+          <div class="device-wrapper">
+            {% if frameSvg and frameStyle != 'none' %}
+              {{ frameSvg | safe }}
+              <img class="screenshot-img" src="{{ screenshotDataUrl }}"
+                style="left: {{ frame.screenArea.x * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;
+                       top: {{ frame.screenArea.y * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;
+                       width: {{ frame.screenArea.width * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;
+                       height: {{ frame.screenArea.height * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;
+                       border-radius: {{ frame.screenArea.borderRadius * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;">
+            {% else %}
+              <img src="{{ screenshotDataUrl }}" style="position: relative; width: {{ (canvasWidth * 0.55) | round }}px; border-radius: {{ (canvasWidth * 0.05) | round }}px;">
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

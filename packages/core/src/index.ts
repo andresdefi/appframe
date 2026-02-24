@@ -40,4 +40,16 @@ export type {
   FrameSize,
 } from './frames/index.js';
 
+export { TemplateEngine } from './templates/index.js';
+export type { TemplateContext } from './templates/index.js';
+
+export { Renderer } from './renderer/renderer.js';
+export { generateScreenshots } from './renderer/pipeline.js';
+export type {
+  RenderOptions,
+  RenderResult,
+  GenerateOptions,
+  GenerateResult,
+} from './renderer/types.js';
+
 export const VERSION = '0.1.0';

@@ -299,6 +299,11 @@
         <input type="range" id="device-top" min="5" max="40" step="1" value="15">
         <span class="range-value" id="device-top-value">15%</span>
       </div>
+      <label for="device-rotation">Device Rotation</label>
+      <div class="range-row">
+        <input type="range" id="device-rotation" min="-15" max="15" step="1" value="0">
+        <span class="range-value" id="device-rotation-value">0°</span>
+      </div>
     </div>
 
     <div class="section">
@@ -361,6 +366,7 @@
     var config = null;
     var currentScreen = 0;
     var debounceTimer = null;
+    var framesData = [];
 
     function clearChildren(el) {
       while (el.firstChild) el.removeChild(el.firstChild);
@@ -402,10 +408,10 @@
 
       // Frames
       var framesRes = await fetch(API + '/api/frames');
-      var frames = await framesRes.json();
+      framesData = await framesRes.json();
       var frameSelect = document.getElementById('frame-id');
       clearChildren(frameSelect);
-      frames.forEach(function(f) {
+      framesData.forEach(function(f) {
         addOption(frameSelect, f.id, f.name + ' (' + f.year + ')');
       });
 
@@ -489,6 +495,7 @@
         frameStyle: document.getElementById('frame-style').value,
         deviceScale: parseInt(document.getElementById('device-scale').value, 10),
         deviceTop: parseInt(document.getElementById('device-top').value, 10),
+        deviceRotation: parseInt(document.getElementById('device-rotation').value, 10),
       };
     }
 
@@ -642,16 +649,97 @@
       throttledRender();
     });
 
-    // Device layout sliders
+    // Direct iframe DOM manipulation for device sliders — no server round-trip
+    function updateDeviceInIframe() {
+      var iframe = document.getElementById('preview-iframe');
+      var doc = iframe.contentDocument || iframe.contentWindow.document;
+      if (!doc) return;
+
+      var wrapper = doc.querySelector('.device-wrapper');
+      if (!wrapper) return;
+
+      var deviceScale = parseInt(document.getElementById('device-scale').value, 10);
+      var deviceTop = parseInt(document.getElementById('device-top').value, 10);
+      var canvasWidth = 400;
+      var canvasHeight = 868;
+      var dw = Math.round(canvasWidth * deviceScale / 100);
+
+      var deviceRotation = parseInt(document.getElementById('device-rotation').value, 10);
+
+      wrapper.style.width = dw + 'px';
+      wrapper.style.top = Math.round(canvasHeight * deviceTop / 100) + 'px';
+      wrapper.style.setProperty('--device-rotation', deviceRotation + 'deg');
+
+      // Update screenshot clip positions based on frame data
+      var frameId = document.getElementById('frame-id').value;
+      var frameStyle = document.getElementById('frame-style').value;
+      var frame = framesData.find(function(f) { return f.id === frameId; });
+      var clip = wrapper.querySelector('.screenshot-clip');
+
+      if (clip && frame && frameStyle !== 'none') {
+        var fw = frame.frameSize.width;
+        var sa = frame.screenArea;
+        clip.style.left = Math.round(sa.x * dw / fw) + 'px';
+        clip.style.top = Math.round(sa.y * dw / fw) + 'px';
+        clip.style.width = Math.round(sa.width * dw / fw) + 'px';
+        clip.style.height = Math.round(sa.height * dw / fw) + 'px';
+        clip.style.borderRadius = Math.round(sa.borderRadius * dw / fw) + 'px';
+      }
+
+      // Update SVG width
+      var svg = wrapper.querySelector('svg');
+      if (svg) {
+        svg.style.width = '100%';
+      }
+
+      // Reposition background decorations to track device position
+      var deviceTopPx = Math.round(canvasHeight * deviceTop / 100);
+
+      // Glow template: .glow-1 and .glow-2
+      var glow1 = doc.querySelector('.glow-1');
+      if (glow1) glow1.style.top = deviceTopPx + 'px';
+      var glow2 = doc.querySelector('.glow-2');
+      if (glow2) glow2.style.top = Math.round(canvasHeight * (deviceTop + 30) / 100) + 'px';
+
+      // Bold template: .orb-1 and .orb-2
+      var orb1 = doc.querySelector('.orb-1');
+      if (orb1) orb1.style.top = Math.round(canvasHeight * (deviceTop - 15) / 100) + 'px';
+      var orb2 = doc.querySelector('.orb-2');
+      if (orb2) orb2.style.top = Math.round(canvasHeight * (deviceTop + 25) / 100) + 'px';
+
+      // Clean template: .bg-glow
+      var bgGlow = doc.querySelector('.bg-glow');
+      if (bgGlow) bgGlow.style.top = Math.round(canvasHeight * (deviceTop + 5) / 100) + 'px';
+
+      // Playful template: reposition shapes
+      var shape1 = doc.querySelector('.shape-1');
+      if (shape1) shape1.style.top = Math.round(canvasHeight * (deviceTop - 20) / 100) + 'px';
+      var shape3 = doc.querySelector('.shape-3');
+      if (shape3) shape3.style.top = Math.round(canvasHeight * (deviceTop + 20) / 100) + 'px';
+
+      // Branded template: reposition bg-shapes
+      var bgShape1 = doc.querySelector('.bg-shape-1');
+      if (bgShape1) bgShape1.style.top = Math.round(canvasHeight * (deviceTop - 20) / 100) + 'px';
+    }
+
+    // Device layout sliders — instant DOM update while dragging, full render on release
     document.getElementById('device-scale').addEventListener('input', function() {
       document.getElementById('device-scale-value').textContent = this.value + '%';
-      throttledRender();
+      updateDeviceInIframe();
     });
+    document.getElementById('device-scale').addEventListener('change', renderPreview);
 
     document.getElementById('device-top').addEventListener('input', function() {
       document.getElementById('device-top-value').textContent = this.value + '%';
-      throttledRender();
+      updateDeviceInIframe();
     });
+    document.getElementById('device-top').addEventListener('change', renderPreview);
+
+    document.getElementById('device-rotation').addEventListener('input', function() {
+      document.getElementById('device-rotation-value').textContent = this.value + '°';
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-rotation').addEventListener('change', renderPreview);
 
     // Preview background toggle
     document.querySelectorAll('input[name="preview-bg"]').forEach(function(radio) {

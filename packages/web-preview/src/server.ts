@@ -90,6 +90,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         height = 868,
         deviceTop,
         deviceScale,
+        deviceRotation,
       } = req.body as {
         screenIndex?: number;
         locale?: string;
@@ -106,6 +107,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         height?: number;
         deviceTop?: number;
         deviceScale?: number;
+        deviceRotation?: number;
       };
 
       const screen = config.screens[screenIndex];
@@ -144,6 +146,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         canvasHeight: height,
         deviceTop,
         deviceScale,
+        deviceRotation,
       };
 
       const html = await templateEngine.render(context);
@@ -173,6 +176,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         height = 868,
         deviceTop,
         deviceScale,
+        deviceRotation,
       } = req.body as {
         screenIndex?: number;
         locale?: string;
@@ -189,6 +193,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         height?: number;
         deviceTop?: number;
         deviceScale?: number;
+        deviceRotation?: number;
       };
 
       const screen = config.screens[screenIndex];
@@ -230,6 +235,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         canvasHeight: height,
         deviceTop,
         deviceScale,
+        deviceRotation,
       };
 
       const html = await templateEngine.render(context);
@@ -273,6 +279,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         sizeKey = 'ios-6.7',
         deviceTop,
         deviceScale,
+        deviceRotation,
       } = req.body as {
         screenIndex?: number;
         locale?: string;
@@ -289,6 +296,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         sizeKey?: string;
         deviceTop?: number;
         deviceScale?: number;
+        deviceRotation?: number;
       };
 
       // Get the store size dimensions
@@ -335,6 +343,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         canvasHeight: sizeSpec.height,
         deviceTop,
         deviceScale,
+        deviceRotation,
       };
 
       const html = await templateEngine.render(context);

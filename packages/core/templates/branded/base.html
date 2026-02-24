@@ -5,6 +5,7 @@
   {% set devScale = deviceScale | default(92) %}
   {% set devTop = deviceTop | default(15) %}
   {% set dw = (canvasWidth * devScale / 100) | round %}
+  {% set devRotation = deviceRotation | default(0) %}
   <style>
     {{ fontFaceCss | safe }}
 
@@ -35,7 +36,7 @@
       width: {{ (canvasWidth * 0.75) | round }}px;
       height: {{ (canvasWidth * 0.75) | round }}px;
       background: {{ colors.secondary }};
-      top: -{{ (canvasWidth * 0.2) | round }}px;
+      top: {{ (canvasHeight * (devTop - 20) / 100) | round }}px;
       right: -{{ (canvasWidth * 0.2) | round }}px;
       opacity: 0.35;
     }
@@ -86,20 +87,23 @@
       z-index: 1;
       width: {{ dw }}px;
       top: {{ (canvasHeight * devTop / 100) | round }}px;
+      --device-rotation: {{ devRotation }}deg;
 
       {% if layout == 'left' %}
         left: {{ (canvasWidth * 0.10) | round }}px;
+        transform: rotate(var(--device-rotation));
       {% elif layout == 'right' %}
         right: {{ (canvasWidth * 0.10) | round }}px;
+        transform: rotate(var(--device-rotation));
       {% elif layout == 'angled-left' %}
         left: 50%;
-        transform: translateX(-50%) perspective(900px) rotateY(8deg);
+        transform: translateX(-50%) perspective(900px) rotateY(8deg) rotate(var(--device-rotation));
       {% elif layout == 'angled-right' %}
         left: 50%;
-        transform: translateX(-50%) perspective(900px) rotateY(-8deg);
+        transform: translateX(-50%) perspective(900px) rotateY(-8deg) rotate(var(--device-rotation));
       {% else %}
         left: 50%;
-        transform: translateX(-50%);
+        transform: translateX(-50%) rotate(var(--device-rotation));
       {% endif %}
 
       filter: drop-shadow(0 {{ (canvasWidth * 0.025) | round }}px {{ (canvasWidth * 0.06) | round }}px rgba(0,0,0,0.25));

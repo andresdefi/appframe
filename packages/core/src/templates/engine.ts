@@ -33,8 +33,9 @@ export interface TemplateContext {
   canvasHeight: number;
 
   // Device positioning (optional overrides)
-  deviceTop?: number;   // Device Y position as % of canvas height (default: 15)
-  deviceScale?: number; // Device width as % of canvas width (default: 92)
+  deviceTop?: number;      // Device Y position as % of canvas height (default: 15)
+  deviceScale?: number;    // Device width as % of canvas width (default: 92)
+  deviceRotation?: number; // Device rotation in degrees (default: 0)
 
   // Injected by engine
   fontFaceCss?: string;

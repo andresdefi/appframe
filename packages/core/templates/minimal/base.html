@@ -5,6 +5,7 @@
   {% set devScale = deviceScale | default(92) %}
   {% set devTop = deviceTop | default(15) %}
   {% set dw = (canvasWidth * devScale / 100) | round %}
+  {% set devRotation = deviceRotation | default(0) %}
   <style>
     {{ fontFaceCss | safe }}
 
@@ -63,20 +64,23 @@
       z-index: 1;
       width: {{ dw }}px;
       top: {{ (canvasHeight * devTop / 100) | round }}px;
+      --device-rotation: {{ devRotation }}deg;
 
       {% if layout == 'left' %}
         left: {{ (canvasWidth * 0.10) | round }}px;
+        transform: rotate(var(--device-rotation));
       {% elif layout == 'right' %}
         right: {{ (canvasWidth * 0.10) | round }}px;
+        transform: rotate(var(--device-rotation));
       {% elif layout == 'angled-left' %}
         left: 50%;
-        transform: translateX(-50%) perspective(1200px) rotateY(6deg);
+        transform: translateX(-50%) perspective(1200px) rotateY(6deg) rotate(var(--device-rotation));
       {% elif layout == 'angled-right' %}
         left: 50%;
-        transform: translateX(-50%) perspective(1200px) rotateY(-6deg);
+        transform: translateX(-50%) perspective(1200px) rotateY(-6deg) rotate(var(--device-rotation));
       {% else %}
         left: 50%;
-        transform: translateX(-50%);
+        transform: translateX(-50%) rotate(var(--device-rotation));
       {% endif %}
 
       {% if layout == 'floating' %}

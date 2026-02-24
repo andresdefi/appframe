@@ -18,11 +18,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@appframe/core": "workspace:*"
+    "@appframe/core": "workspace:*",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
   },
   "keywords": [],
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6"
   }
 }

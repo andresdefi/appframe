@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>appframe — Preview</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #141420;
+      --surface-2: #1e1e2e;
+      --border: #2a2a3a;
+      --text: #e2e8f0;
+      --text-dim: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 320px;
+      min-width: 320px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header h1 { font-size: 16px; font-weight: 600; }
+    .sidebar-header .app-name { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+    .section {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+
+    input[type="text"], select, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      margin-bottom: 10px;
+    }
+
+    input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 60px; }
+
+    input[type="color"] {
+      width: 32px; height: 32px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+      padding: 2px;
+    }
+
+    .color-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .color-row label { margin: 0; flex: 1; }
+
+    .btn-row { display: flex; gap: 8px; }
+
+    .btn {
+      padding: 8px 16px; border-radius: 6px; font-size: 13px;
+      font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
+    }
+
+    .btn-primary { background: var(--accent); color: white; flex: 1; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); }
+
+    .screen-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+
+    .screen-tab {
+      padding: 6px 12px; border-radius: 6px; font-size: 12px;
+      cursor: pointer; background: var(--surface-2);
+      border: 1px solid var(--border); color: var(--text-dim); transition: all 0.15s;
+    }
+
+    .screen-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+    .preview-area {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 40px; overflow: auto; background: var(--bg);
+      background-image: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+      background-size: 24px 24px;
+    }
+
+    .preview-container {
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      border-radius: 8px; overflow: hidden;
+    }
+
+    .preview-container img { display: block; max-height: 80vh; width: auto; }
+
+    .loading-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(10, 10, 15, 0.8);
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+
+    .loading-overlay.visible { opacity: 1; }
+
+    .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status-bar {
+      position: fixed; bottom: 0; left: 320px; right: 0;
+      padding: 8px 20px; background: var(--surface);
+      border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--text-dim);
+      display: flex; justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>appframe</h1>
+      <div class="app-name" id="app-name">Loading...</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Screens</div>
+      <div class="screen-tabs" id="screen-tabs"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Text</div>
+      <label for="headline">Headline</label>
+      <textarea id="headline" rows="2"></textarea>
+      <label for="subtitle">Subtitle</label>
+      <input type="text" id="subtitle" placeholder="Optional subtitle">
+    </div>
+
+    <div class="section">
+      <div class="section-title">Style</div>
+      <label for="template">Template</label>
+      <select id="template">
+        <option value="minimal">Minimal</option>
+        <option value="bold">Bold</option>
+        <option value="dark">Dark</option>
+        <option value="playful">Playful</option>
+      </select>
+      <label for="layout">Layout</label>
+      <select id="layout">
+        <option value="center">Center</option>
+        <option value="left">Left</option>
+        <option value="right">Right</option>
+        <option value="angled-left">Angled Left</option>
+        <option value="angled-right">Angled Right</option>
+        <option value="floating">Floating</option>
+      </select>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Colors</div>
+      <div class="color-row"><label>Primary</label><input type="color" id="color-primary"></div>
+      <div class="color-row"><label>Secondary</label><input type="color" id="color-secondary"></div>
+      <div class="color-row"><label>Background</label><input type="color" id="color-background"></div>
+      <div class="color-row"><label>Text</label><input type="color" id="color-text"></div>
+      <div class="color-row"><label>Subtitle</label><input type="color" id="color-subtitle"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Device Frame</div>
+      <select id="frame-id"><option value="">Loading...</option></select>
+      <label for="frame-style">Frame Style</label>
+      <select id="frame-style">
+        <option value="flat">Flat</option>
+        <option value="3d">3D</option>
+        <option value="floating">Floating</option>
+        <option value="none">None</option>
+      </select>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Locale</div>
+      <select id="locale"><option value="default">Default</option></select>
+    </div>
+
+    <div class="section">
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-refresh">Refresh Preview</button>
+        <button class="btn btn-secondary" id="btn-reload">Reload Config</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-area">
+    <div class="preview-container">
+      <img id="preview-img" alt="Preview">
+      <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <span id="status-text">Ready</span>
+    <span id="status-size"></span>
+  </div>
+
+  <script>
+    const API = '';
+    let config = null;
+    let currentScreen = 0;
+    let debounceTimer = null;
+
+    function clearChildren(el) {
+      while (el.firstChild) el.removeChild(el.firstChild);
+    }
+
+    function addOption(select, value, text) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = text;
+      select.appendChild(opt);
+    }
+
+    async function init() {
+      const res = await fetch(API + '/api/config');
+      config = await res.json();
+
+      document.getElementById('app-name').textContent = config.app.name;
+
+      // Screen tabs
+      const tabs = document.getElementById('screen-tabs');
+      config.screens.forEach(function(screen, i) {
+        const tab = document.createElement('div');
+        tab.className = 'screen-tab' + (i === 0 ? ' active' : '');
+        tab.textContent = String(i + 1);
+        tab.title = screen.headline;
+        tab.addEventListener('click', function() { selectScreen(i); });
+        tabs.appendChild(tab);
+      });
+
+      // Locales
+      const localeSelect = document.getElementById('locale');
+      clearChildren(localeSelect);
+      addOption(localeSelect, 'default', 'Default');
+      if (config.locales) {
+        Object.keys(config.locales).forEach(function(locale) {
+          addOption(localeSelect, locale, locale.toUpperCase());
+        });
+      }
+
+      // Frames
+      const framesRes = await fetch(API + '/api/frames');
+      const frames = await framesRes.json();
+      const frameSelect = document.getElementById('frame-id');
+      clearChildren(frameSelect);
+      frames.forEach(function(f) {
+        addOption(frameSelect, f.id, f.name + ' (' + f.year + ')');
+      });
+
+      applyConfigToControls();
+      renderPreview();
+    }
+
+    function applyConfigToControls() {
+      const screen = config.screens[currentScreen];
+      document.getElementById('headline').value = screen.headline;
+      document.getElementById('subtitle').value = screen.subtitle || '';
+      document.getElementById('template').value = config.theme.style;
+      document.getElementById('layout').value = screen.layout;
+      document.getElementById('color-primary').value = config.theme.colors.primary;
+      document.getElementById('color-secondary').value = config.theme.colors.secondary;
+      document.getElementById('color-background').value = config.theme.colors.background;
+      document.getElementById('color-text').value = config.theme.colors.text;
+      document.getElementById('color-subtitle').value = config.theme.colors.subtitle || '#64748B';
+      document.getElementById('frame-style').value = config.frames.style;
+
+      var frameId = config.frames.ios || config.frames.android || '';
+      if (frameId) {
+        var frameSelect = document.getElementById('frame-id');
+        for (var i = 0; i < frameSelect.options.length; i++) {
+          if (frameSelect.options[i].value === frameId) {
+            frameSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
+    function selectScreen(index) {
+      currentScreen = index;
+      var tabs = document.querySelectorAll('.screen-tab');
+      tabs.forEach(function(tab, i) {
+        tab.classList.toggle('active', i === index);
+      });
+
+      var locale = document.getElementById('locale').value;
+      var screen = config.screens[currentScreen];
+      var headline = screen.headline;
+      var subtitle = screen.subtitle || '';
+
+      if (locale !== 'default' && config.locales && config.locales[locale]) {
+        var ls = config.locales[locale].screens[currentScreen];
+        if (ls) {
+          headline = ls.headline || headline;
+          subtitle = ls.subtitle || subtitle;
+        }
+      }
+
+      document.getElementById('headline').value = headline;
+      document.getElementById('subtitle').value = subtitle;
+      renderPreview();
+    }
+
+    async function renderPreview() {
+      var loading = document.getElementById('loading');
+      loading.classList.add('visible');
+      document.getElementById('status-text').textContent = 'Rendering...';
+
+      var body = {
+        screenIndex: currentScreen,
+        locale: document.getElementById('locale').value,
+        style: document.getElementById('template').value,
+        layout: document.getElementById('layout').value,
+        headline: document.getElementById('headline').value,
+        subtitle: document.getElementById('subtitle').value || undefined,
+        colors: {
+          primary: document.getElementById('color-primary').value,
+          secondary: document.getElementById('color-secondary').value,
+          background: document.getElementById('color-background').value,
+          text: document.getElementById('color-text').value,
+          subtitle: document.getElementById('color-subtitle').value,
+        },
+        frameId: document.getElementById('frame-id').value,
+        frameStyle: document.getElementById('frame-style').value,
+        width: 400,
+        height: 868,
+      };
+
+      try {
+        var res = await fetch(API + '/api/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          var err = await res.json();
+          throw new Error(err.error || 'Preview failed');
+        }
+
+        var blob = await res.blob();
+        var url = URL.createObjectURL(blob);
+        document.getElementById('preview-img').src = url;
+
+        var sizeKb = Math.round(blob.size / 1024);
+        document.getElementById('status-size').textContent = sizeKb + 'KB';
+        document.getElementById('status-text').textContent = 'Ready';
+      } catch (err) {
+        document.getElementById('status-text').textContent = 'Error: ' + err.message;
+      } finally {
+        loading.classList.remove('visible');
+      }
+    }
+
+    function debouncedRender() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(renderPreview, 500);
+    }
+
+    document.getElementById('btn-refresh').addEventListener('click', renderPreview);
+
+    document.getElementById('btn-reload').addEventListener('click', async function() {
+      await fetch(API + '/api/reload', { method: 'POST' });
+      var res = await fetch(API + '/api/config');
+      config = await res.json();
+      applyConfigToControls();
+      renderPreview();
+    });
+
+    ['template', 'layout', 'frame-id', 'frame-style', 'locale'].forEach(function(id) {
+      document.getElementById(id).addEventListener('change', function() {
+        if (id === 'locale') selectScreen(currentScreen);
+        else renderPreview();
+      });
+    });
+
+    ['headline', 'subtitle'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', debouncedRender);
+    });
+
+    ['color-primary', 'color-secondary', 'color-background', 'color-text', 'color-subtitle'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', debouncedRender);
+    });
+
+    init();
+  </script>
+</body>
+</html>

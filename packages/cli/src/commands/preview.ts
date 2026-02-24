@@ -16,11 +16,17 @@ export const previewCommand = new Command('preview')
     const port = parseInt(options.port, 10);
 
     console.log(chalk.blue('Starting appframe preview server...\n'));
-    console.log(chalk.dim(`  Config: ${configPath}`));
-    console.log(chalk.dim(`  Port:   ${port}`));
-    console.log();
 
-    // TODO: Web preview implementation (Phase 8)
-    console.log(chalk.yellow('Web preview not yet implemented (Phase 8).'));
-    console.log(chalk.dim('For now, use "appframe generate" to render screenshots directly.'));
+    try {
+      const { startPreviewServer } = await import('@appframe/web-preview');
+      await startPreviewServer({ configPath, port });
+
+      console.log();
+      console.log(chalk.green(`  Preview: http://localhost:${port}`));
+      console.log(chalk.dim('  Press Ctrl+C to stop.\n'));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      console.log(chalk.red(`Failed to start preview server: ${message}`));
+      process.exit(1);
+    }
   });

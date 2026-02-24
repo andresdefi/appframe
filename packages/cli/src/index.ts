@@ -6,6 +6,9 @@ import { initCommand } from './commands/init.js';
 import { generateCommand } from './commands/generate.js';
 import { validateCommand } from './commands/validate.js';
 import { framesCommand } from './commands/frames.js';
+import { captureCommand } from './commands/capture.js';
+import { previewCommand } from './commands/preview.js';
+import { uploadCommand } from './commands/upload.js';
 
 const program = new Command();
 
@@ -18,5 +21,8 @@ program.addCommand(initCommand);
 program.addCommand(generateCommand);
 program.addCommand(validateCommand);
 program.addCommand(framesCommand);
+program.addCommand(captureCommand);
+program.addCommand(previewCommand);
+program.addCommand(uploadCommand);
 
 program.parse();

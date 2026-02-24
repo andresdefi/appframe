@@ -1,0 +1,28 @@
+{
+  "name": "@appframe/store-upload",
+  "version": "0.1.0",
+  "description": "Upload screenshots to App Store Connect and Google Play Console",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@appframe/core": "workspace:*"
+  },
+  "keywords": [],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

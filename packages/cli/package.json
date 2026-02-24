@@ -1,0 +1,31 @@
+{
+  "name": "appframe",
+  "version": "0.1.0",
+  "description": "Generate professional App Store & Play Store promotional screenshots",
+  "type": "module",
+  "bin": {
+    "appframe": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@appframe/core": "workspace:*"
+  },
+  "keywords": [
+    "app-store",
+    "play-store",
+    "screenshots",
+    "promotional",
+    "cli"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

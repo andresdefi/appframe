@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="412" height="876" viewBox="0 0 412 876" fill="none">
+  <!-- Pixel 10 frame -->
+  <rect x="0" y="0" width="412" height="876" rx="48" ry="48" fill="#1A1A1A"/>
+  <rect x="4" y="4" width="404" height="868" rx="44" ry="44" fill="#0D0D0D"/>
+  <rect x="16" y="16" width="380" height="844" rx="40" ry="40" fill="#000000"/>
+  <!-- Camera punch-hole -->
+  <circle cx="206" cy="32" r="8" fill="#1A1A1A"/>
+</svg>

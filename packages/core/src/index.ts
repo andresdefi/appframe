@@ -26,4 +26,18 @@ export type {
   FormattedError,
 } from './config/index.js';
 
+export {
+  loadFrameManifest,
+  getFrame,
+  listFrames,
+  getDefaultFrame,
+} from './frames/index.js';
+
+export type {
+  FrameManifest,
+  FrameDefinition,
+  ScreenArea,
+  FrameSize,
+} from './frames/index.js';
+
 export const VERSION = '0.1.0';

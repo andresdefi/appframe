@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="524" height="732" viewBox="0 0 524 732" fill="none">
+  <!-- iPad Pro 11" frame -->
+  <rect x="0" y="0" width="524" height="732" rx="26" ry="26" fill="#1A1A1A"/>
+  <rect x="4" y="4" width="516" height="724" rx="23" ry="23" fill="#0D0D0D"/>
+  <rect x="22" y="22" width="480" height="688" rx="18" ry="18" fill="#000000"/>
+  <!-- Camera -->
+  <circle cx="262" cy="11" r="4" fill="#2A2A2A"/>
+</svg>

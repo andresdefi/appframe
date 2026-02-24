@@ -4,6 +4,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { TemplateStyle, LayoutVariant, ColorConfig, FrameStyle } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
+import { loadAllFontFaces } from '../fonts/loader.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -30,18 +31,29 @@ export interface TemplateContext {
   // Canvas dimensions (final output size)
   canvasWidth: number;
   canvasHeight: number;
+
+  // Device positioning (optional overrides)
+  deviceTop?: number;   // Device Y position as % of canvas height (default: 15)
+  deviceScale?: number; // Device width as % of canvas width (default: 92)
+
+  // Injected by engine
+  fontFaceCss?: string;
 }
 
 export interface TemplateRenderOptions {
   templateDir?: string;
+  fontsDir?: string;
 }
 
 export class TemplateEngine {
   private env: nunjucks.Environment;
   private templateDir: string;
+  private fontsDir?: string;
+  private fontFaceCache: string | null = null;
 
   constructor(options?: TemplateRenderOptions) {
     this.templateDir = options?.templateDir ?? join(__dirname, '..', '..', 'templates');
+    this.fontsDir = options?.fontsDir;
     this.env = nunjucks.configure(this.templateDir, {
       autoescape: true,
       noCache: true,
@@ -49,9 +61,17 @@ export class TemplateEngine {
   }
 
   async render(context: TemplateContext): Promise<string> {
+    // Load and cache font-face CSS
+    if (!this.fontFaceCache) {
+      this.fontFaceCache = await loadAllFontFaces(this.fontsDir);
+    }
+
     const templatePath = this.resolveTemplatePath(context.style, context.layout);
     const templateContent = await readFile(templatePath, 'utf-8');
-    return this.env.renderString(templateContent, context);
+    return this.env.renderString(templateContent, {
+      ...context,
+      fontFaceCss: this.fontFaceCache,
+    });
   }
 
   private resolveTemplatePath(style: TemplateStyle, _layout: LayoutVariant): string {

@@ -54,7 +54,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   // API: List available templates
   app.get('/api/templates', (_req, res) => {
-    res.json(['minimal', 'bold', 'dark', 'playful']);
+    res.json(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial']);
+  });
+
+  // API: List available fonts
+  app.get('/api/fonts', (_req, res) => {
+    res.json([
+      { id: 'inter', name: 'Inter', weights: [400, 500, 600, 700, 800] },
+      { id: 'space-grotesk', name: 'Space Grotesk', weights: [400, 500, 600, 700] },
+    ]);
   });
 
   // API: Render a single screen preview
@@ -62,6 +70,90 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   await renderer.init();
 
   const templateEngine = new TemplateEngine();
+
+  // API: Render HTML only (no Playwright screenshot — used by iframe preview)
+  app.post('/api/preview-html', async (req, res) => {
+    try {
+      const {
+        screenIndex = 0,
+        locale = 'default',
+        style,
+        layout,
+        headline,
+        subtitle,
+        colors,
+        font,
+        fontWeight,
+        frameId,
+        frameStyle: fStyle,
+        width = 400,
+        height = 868,
+        deviceTop,
+        deviceScale,
+      } = req.body as {
+        screenIndex?: number;
+        locale?: string;
+        style?: TemplateStyle;
+        layout?: LayoutVariant;
+        headline?: string;
+        subtitle?: string;
+        colors?: Record<string, string>;
+        font?: string;
+        fontWeight?: number;
+        frameId?: string;
+        frameStyle?: FrameStyle;
+        width?: number;
+        height?: number;
+        deviceTop?: number;
+        deviceScale?: number;
+      };
+
+      const screen = config.screens[screenIndex];
+      if (!screen) {
+        res.status(400).json({ error: `Screen index ${screenIndex} not found` });
+        return;
+      }
+
+      const resolvedHeadline = headline ?? getLocaleText(config, screenIndex, locale, 'headline') ?? screen.headline;
+      const resolvedSubtitle = subtitle ?? getLocaleText(config, screenIndex, locale, 'subtitle') ?? screen.subtitle;
+
+      const screenshotPath = join(configDir, screen.screenshot);
+      const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+
+      const frame = frameId
+        ? await getFrame(frameId)
+        : await getDefaultFrame('ios');
+      let frameSvg: string | null = null;
+      if (frame && (fStyle ?? config.frames.style) !== 'none') {
+        frameSvg = await readFile(frame.framePath, 'utf-8');
+      }
+
+      const context: TemplateContext = {
+        headline: resolvedHeadline,
+        subtitle: resolvedSubtitle,
+        screenshotDataUrl,
+        style: style ?? config.theme.style,
+        colors: colors ? { ...config.theme.colors, ...colors } : config.theme.colors,
+        font: font ?? config.theme.font,
+        fontWeight: fontWeight ?? config.theme.fontWeight,
+        layout: layout ?? screen.layout,
+        frame: frame ?? null,
+        frameStyle: fStyle ?? config.frames.style,
+        frameSvg,
+        canvasWidth: width,
+        canvasHeight: height,
+        deviceTop,
+        deviceScale,
+      };
+
+      const html = await templateEngine.render(context);
+      res.set('Content-Type', 'text/html');
+      res.send(html);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
 
   app.post('/api/preview', async (req, res) => {
     try {
@@ -79,6 +171,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         frameStyle: fStyle,
         width = 400,
         height = 868,
+        deviceTop,
+        deviceScale,
       } = req.body as {
         screenIndex?: number;
         locale?: string;
@@ -93,6 +187,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         frameStyle?: FrameStyle;
         width?: number;
         height?: number;
+        deviceTop?: number;
+        deviceScale?: number;
       };
 
       const screen = config.screens[screenIndex];
@@ -132,6 +228,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         frameSvg,
         canvasWidth: width,
         canvasHeight: height,
+        deviceTop,
+        deviceScale,
       };
 
       const html = await templateEngine.render(context);
@@ -149,6 +247,113 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       await unlink(tmpPath);
 
       res.set('Content-Type', 'image/png');
+      res.send(imageBuffer);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // API: Export full-resolution screenshot
+  app.post('/api/export', async (req, res) => {
+    try {
+      const {
+        screenIndex = 0,
+        locale = 'default',
+        style,
+        layout,
+        headline,
+        subtitle,
+        colors,
+        font,
+        fontWeight,
+        frameId,
+        frameStyle: fStyle,
+        platform = 'ios',
+        sizeKey = 'ios-6.7',
+        deviceTop,
+        deviceScale,
+      } = req.body as {
+        screenIndex?: number;
+        locale?: string;
+        style?: TemplateStyle;
+        layout?: LayoutVariant;
+        headline?: string;
+        subtitle?: string;
+        colors?: Record<string, string>;
+        font?: string;
+        fontWeight?: number;
+        frameId?: string;
+        frameStyle?: FrameStyle;
+        platform?: string;
+        sizeKey?: string;
+        deviceTop?: number;
+        deviceScale?: number;
+      };
+
+      // Get the store size dimensions
+      const { STORE_SIZES } = await import('@appframe/core');
+      const sizeSpec = STORE_SIZES[sizeKey];
+      if (!sizeSpec) {
+        res.status(400).json({ error: `Unknown size: ${sizeKey}` });
+        return;
+      }
+
+      const screen = config.screens[screenIndex];
+      if (!screen) {
+        res.status(400).json({ error: `Screen index ${screenIndex} not found` });
+        return;
+      }
+
+      const resolvedHeadline = headline ?? getLocaleText(config, screenIndex, locale, 'headline') ?? screen.headline;
+      const resolvedSubtitle = subtitle ?? getLocaleText(config, screenIndex, locale, 'subtitle') ?? screen.subtitle;
+
+      const screenshotPath = join(configDir, screen.screenshot);
+      const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+
+      const frame = frameId
+        ? await getFrame(frameId)
+        : await getDefaultFrame(platform as 'ios' | 'android');
+      let frameSvg: string | null = null;
+      if (frame && (fStyle ?? config.frames.style) !== 'none') {
+        frameSvg = await readFile(frame.framePath, 'utf-8');
+      }
+
+      const context: TemplateContext = {
+        headline: resolvedHeadline,
+        subtitle: resolvedSubtitle,
+        screenshotDataUrl,
+        style: style ?? config.theme.style,
+        colors: colors ? { ...config.theme.colors, ...colors } : config.theme.colors,
+        font: font ?? config.theme.font,
+        fontWeight: fontWeight ?? config.theme.fontWeight,
+        layout: layout ?? screen.layout,
+        frame: frame ?? null,
+        frameStyle: fStyle ?? config.frames.style,
+        frameSvg,
+        canvasWidth: sizeSpec.width,
+        canvasHeight: sizeSpec.height,
+        deviceTop,
+        deviceScale,
+      };
+
+      const html = await templateEngine.render(context);
+
+      const tmpPath = join(configDir, `.appframe-export-${Date.now()}.png`);
+      await renderer.render({
+        html,
+        width: sizeSpec.width,
+        height: sizeSpec.height,
+        outputPath: tmpPath,
+      });
+
+      const imageBuffer = await readFile(tmpPath);
+      const { unlink } = await import('node:fs/promises');
+      await unlink(tmpPath);
+
+      const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${screenIndex + 1}_${sizeKey}.png`;
+      res.set('Content-Type', 'image/png');
+      res.set('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(imageBuffer);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';

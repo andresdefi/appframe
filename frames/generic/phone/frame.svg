@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="422" height="892" viewBox="0 0 422 892" fill="none">
-  <!-- Generic modern phone frame -->
-  <rect x="0" y="0" width="422" height="892" rx="52" ry="52" fill="#1A1A1A"/>
-  <rect x="4" y="4" width="414" height="884" rx="48" ry="48" fill="#0D0D0D"/>
-  <rect x="16" y="16" width="390" height="860" rx="44" ry="44" fill="#000000"/>
+  <!-- Generic modern phone frame - thin bezel -->
+  <rect x="0" y="0" width="422" height="892" rx="50" ry="50" fill="#111111"/>
+  <rect x="3" y="3" width="416" height="886" rx="48" ry="48" fill="#0A0A0A"/>
+  <rect x="8" y="8" width="406" height="876" rx="46" ry="46" fill="#000000"/>
 </svg>

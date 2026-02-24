@@ -76,10 +76,13 @@ Choose from these template styles:
 - bold: Vibrant gradients, big text. Best for: social, entertainment, lifestyle
 - dark: Premium, sleek, glowing accents. Best for: finance, pro tools, music, photography
 - playful: Colorful, fun shapes. Best for: games, education, kids, casual
+- clean: Zero decoration, huge screenshot, just text + device. Best for: any app wanting a modern, no-frills look (like YouTube, Uber, Base)
+- branded: Strong brand color background, large device. Best for: apps with a strong brand identity (like Vipps, FINN, Blocket)
+- editorial: Elegant, muted tones, refined typography. Best for: lifestyle, wellness, premium apps (like Lively, Tiimo, BankID)
 
 Return a theme config as JSON:
 {
-  "style": "minimal|bold|dark|playful",
+  "style": "minimal|bold|dark|playful|clean|branded|editorial",
   "colors": {
     "primary": "#hex",
     "secondary": "#hex",

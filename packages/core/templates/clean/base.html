@@ -14,7 +14,7 @@
       width: {{ canvasWidth }}px;
       height: {{ canvasHeight }}px;
       overflow: hidden;
-      font-family: '{{ font | capitalize }}', 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+      font-family: '{{ font | capitalize }}', 'Inter', -apple-system, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -23,58 +23,26 @@
       height: {{ canvasHeight }}px;
       position: relative;
       overflow: hidden;
-      background: {{ colors.background }};
+      background: linear-gradient(160deg, {{ colors.background }}, {{ colors.primary }}22 50%, {{ colors.background }});
     }
 
-    .shape {
+    .bg-glow {
       position: absolute;
+      width: {{ (canvasWidth * 0.8) | round }}px;
+      height: {{ (canvasWidth * 0.8) | round }}px;
       border-radius: 50%;
-    }
-
-    .shape-1 {
-      width: {{ (canvasWidth * 0.5) | round }}px;
-      height: {{ (canvasWidth * 0.5) | round }}px;
-      background: {{ colors.primary }};
-      opacity: 0.55;
-      top: -{{ (canvasWidth * 0.1) | round }}px;
-      right: -{{ (canvasWidth * 0.12) | round }}px;
-    }
-
-    .shape-2 {
-      width: {{ (canvasWidth * 0.35) | round }}px;
-      height: {{ (canvasWidth * 0.35) | round }}px;
-      background: {{ colors.secondary }};
-      opacity: 0.45;
-      bottom: {{ (canvasHeight * 0.12) | round }}px;
-      left: -{{ (canvasWidth * 0.1) | round }}px;
-    }
-
-    .shape-3 {
-      width: {{ (canvasWidth * 0.2) | round }}px;
-      height: {{ (canvasWidth * 0.2) | round }}px;
-      background: {{ colors.primary }};
-      opacity: 0.3;
-      top: {{ (canvasHeight * 0.42) | round }}px;
-      right: {{ (canvasWidth * 0.03) | round }}px;
-    }
-
-    .shape-4 {
-      width: {{ (canvasWidth * 0.12) | round }}px;
-      height: {{ (canvasWidth * 0.12) | round }}px;
-      background: {{ colors.secondary }};
-      opacity: 0.35;
-      top: {{ (canvasHeight * 0.08) | round }}px;
-      left: {{ (canvasWidth * 0.05) | round }}px;
-      border-radius: 30%;
-      transform: rotate(15deg);
+      background: radial-gradient(circle, {{ colors.primary }}18, transparent 70%);
+      top: {{ (canvasHeight * 0.25) | round }}px;
+      left: 50%;
+      transform: translateX(-50%);
     }
 
     .text-area {
       position: absolute;
       z-index: 2;
       top: {{ (canvasHeight * 0.03) | round }}px;
-      left: {{ (canvasWidth * 0.06) | round }}px;
-      right: {{ (canvasWidth * 0.06) | round }}px;
+      left: {{ (canvasWidth * 0.07) | round }}px;
+      right: {{ (canvasWidth * 0.07) | round }}px;
       {% if layout == 'left' %}
         text-align: left;
       {% elif layout == 'right' %}
@@ -85,17 +53,17 @@
     }
 
     .headline {
-      font-size: {{ (canvasWidth * 0.09) | round }}px;
+      font-size: {{ (canvasWidth * 0.085) | round }}px;
       font-weight: {{ fontWeight | default(700) }};
       color: {{ colors.text }};
       line-height: 1.1;
-      letter-spacing: -0.015em;
+      letter-spacing: -0.025em;
     }
 
     .subtitle {
       font-size: {{ (canvasWidth * 0.036) | round }}px;
       color: {{ colors.subtitle or colors.text }};
-      opacity: {{ 1 if colors.subtitle else 0.6 }};
+      opacity: {{ 1 if colors.subtitle else 0.55 }};
       font-weight: 400;
       line-height: 1.4;
       margin-top: {{ (canvasWidth * 0.012) | round }}px;
@@ -109,25 +77,20 @@
 
       {% if layout == 'left' %}
         left: {{ (canvasWidth * 0.10) | round }}px;
-        transform: rotate(2deg);
       {% elif layout == 'right' %}
         right: {{ (canvasWidth * 0.10) | round }}px;
-        transform: rotate(-2deg);
       {% elif layout == 'angled-left' %}
         left: 50%;
-        transform: translateX(-50%) perspective(900px) rotateY(10deg) rotate(-2deg);
+        transform: translateX(-50%) perspective(1200px) rotateY(6deg);
       {% elif layout == 'angled-right' %}
         left: 50%;
-        transform: translateX(-50%) perspective(900px) rotateY(-10deg) rotate(2deg);
-      {% elif layout == 'floating' %}
-        left: 50%;
-        transform: translateX(-50%) rotate(-2deg);
+        transform: translateX(-50%) perspective(1200px) rotateY(-6deg);
       {% else %}
         left: 50%;
-        transform: translateX(-50%) rotate(-3deg);
+        transform: translateX(-50%);
       {% endif %}
 
-      filter: drop-shadow(0 {{ (canvasWidth * 0.025) | round }}px {{ (canvasWidth * 0.06) | round }}px rgba(0,0,0,0.22));
+      filter: drop-shadow(0 {{ (canvasWidth * 0.02) | round }}px {{ (canvasWidth * 0.05) | round }}px rgba(0,0,0,0.15));
     }
 
     .device-wrapper svg { width: 100%; height: auto; display: block; }
@@ -137,10 +100,7 @@
 </head>
 <body>
   <div class="canvas">
-    <div class="shape shape-1"></div>
-    <div class="shape shape-2"></div>
-    <div class="shape shape-3"></div>
-    <div class="shape shape-4"></div>
+    <div class="bg-glow"></div>
     <div class="text-area">
       <div class="headline">{{ headline }}</div>
       {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
@@ -157,7 +117,7 @@
           <img src="{{ screenshotDataUrl }}">
         </div>
       {% else %}
-        <img src="{{ screenshotDataUrl }}" style="width: 100%; border-radius: {{ (canvasWidth * 0.04) | round }}px;">
+        <img src="{{ screenshotDataUrl }}" style="width: 100%; border-radius: {{ (canvasWidth * 0.035) | round }}px;">
       {% endif %}
     </div>
   </div>

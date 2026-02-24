@@ -159,7 +159,8 @@ function getTargetSizesFromConfig(config: AppframeConfig): ScreenshotSize[] {
 function getLocalesToGenerate(config: AppframeConfig, filterLocale?: string): string[] {
   if (filterLocale) return [filterLocale];
   if (!config.locales || Object.keys(config.locales).length === 0) return ['default'];
-  return Object.keys(config.locales);
+  // Always include the default (base) locale, plus all configured locales
+  return ['default', ...Object.keys(config.locales)];
 }
 
 function getLocalizedText(

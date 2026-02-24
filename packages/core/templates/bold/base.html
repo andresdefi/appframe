@@ -2,8 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8">
+  {% set devScale = deviceScale | default(92) %}
+  {% set devTop = deviceTop | default(15) %}
+  {% set dw = (canvasWidth * devScale / 100) | round %}
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+    {{ fontFaceCss | safe }}
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -20,200 +23,116 @@
       height: {{ canvasHeight }}px;
       position: relative;
       overflow: hidden;
-      background: linear-gradient(135deg, {{ colors.primary }}, {{ colors.secondary }});
+      background: linear-gradient(145deg, {{ colors.primary }}, {{ colors.secondary }});
     }
 
-    /* Decorative gradient orbs */
     .orb {
       position: absolute;
       border-radius: 50%;
       filter: blur({{ (canvasWidth * 0.15) | round }}px);
-      opacity: 0.4;
     }
 
     .orb-1 {
-      width: {{ (canvasWidth * 0.7) | round }}px;
-      height: {{ (canvasWidth * 0.7) | round }}px;
+      width: {{ (canvasWidth * 0.9) | round }}px;
+      height: {{ (canvasWidth * 0.9) | round }}px;
       background: {{ colors.secondary }};
-      top: -{{ (canvasWidth * 0.2) | round }}px;
-      right: -{{ (canvasWidth * 0.15) | round }}px;
+      opacity: 0.5;
+      top: -{{ (canvasWidth * 0.3) | round }}px;
+      right: -{{ (canvasWidth * 0.25) | round }}px;
     }
 
     .orb-2 {
-      width: {{ (canvasWidth * 0.5) | round }}px;
-      height: {{ (canvasWidth * 0.5) | round }}px;
+      width: {{ (canvasWidth * 0.7) | round }}px;
+      height: {{ (canvasWidth * 0.7) | round }}px;
       background: {{ colors.primary }};
+      opacity: 0.4;
       bottom: -{{ (canvasWidth * 0.1) | round }}px;
-      left: -{{ (canvasWidth * 0.1) | round }}px;
-    }
-
-    .content {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      padding: {{ (canvasWidth * 0.06) | round }}px;
-      gap: {{ (canvasWidth * 0.03) | round }}px;
-      position: relative;
-      z-index: 1;
-
-      {% if layout == 'center' or layout == 'floating' %}
-        flex-direction: column;
-        justify-content: center;
-        text-align: center;
-      {% elif layout == 'left' %}
-        flex-direction: row;
-        justify-content: space-between;
-      {% elif layout == 'right' %}
-        flex-direction: row-reverse;
-        justify-content: space-between;
-      {% elif layout == 'angled-left' or layout == 'angled-right' %}
-        flex-direction: column;
-        justify-content: center;
-        text-align: center;
-      {% elif layout == 'side-by-side' %}
-        flex-direction: row;
-        justify-content: center;
-      {% endif %}
+      left: -{{ (canvasWidth * 0.2) | round }}px;
     }
 
     .text-area {
+      position: absolute;
       z-index: 2;
-      {% if layout == 'left' or layout == 'right' %}
-        flex: 0 0 42%;
+      top: {{ (canvasHeight * 0.03) | round }}px;
+      left: {{ (canvasWidth * 0.06) | round }}px;
+      right: {{ (canvasWidth * 0.06) | round }}px;
+      {% if layout == 'left' %}
         text-align: left;
+      {% elif layout == 'right' %}
+        text-align: right;
+      {% else %}
+        text-align: center;
       {% endif %}
     }
 
     .headline {
-      font-size: {{ (canvasWidth * 0.075) | round }}px;
+      font-size: {{ (canvasWidth * 0.095) | round }}px;
       font-weight: {{ fontWeight | default(800) }};
       color: {{ colors.text }};
-      line-height: 1.1;
+      line-height: 1.05;
       letter-spacing: -0.03em;
-      margin-bottom: {{ (canvasWidth * 0.015) | round }}px;
       text-transform: uppercase;
     }
 
     .subtitle {
-      font-size: {{ (canvasWidth * 0.033) | round }}px;
+      font-size: {{ (canvasWidth * 0.036) | round }}px;
       color: {{ colors.subtitle or colors.text }};
-      opacity: {{ 1 if colors.subtitle else 0.75 }};
+      opacity: {{ 1 if colors.subtitle else 0.8 }};
       font-weight: 400;
-      line-height: 1.4;
-    }
-
-    .device-area {
-      position: relative;
-      z-index: 1;
-      {% if layout == 'left' or layout == 'right' %}
-        flex: 0 0 52%;
-      {% endif %}
+      line-height: 1.35;
+      margin-top: {{ (canvasWidth * 0.012) | round }}px;
     }
 
     .device-wrapper {
-      position: relative;
-      display: inline-block;
-
-      {% if layout == 'center' %}
-        max-height: {{ (canvasHeight * 0.56) | round }}px;
-        filter: drop-shadow(0 {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.08) | round }}px rgba(0,0,0,0.35));
-      {% elif layout == 'left' or layout == 'right' %}
-        max-height: {{ (canvasHeight * 0.75) | round }}px;
-        filter: drop-shadow(0 {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.08) | round }}px rgba(0,0,0,0.35));
-      {% elif layout == 'angled-left' %}
-        max-height: {{ (canvasHeight * 0.56) | round }}px;
-        transform: perspective(800px) rotateY(12deg) rotateX(3deg);
-        filter: drop-shadow({{ (canvasWidth * -0.03) | round }}px {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.06) | round }}px rgba(0,0,0,0.4));
-      {% elif layout == 'angled-right' %}
-        max-height: {{ (canvasHeight * 0.56) | round }}px;
-        transform: perspective(800px) rotateY(-12deg) rotateX(3deg);
-        filter: drop-shadow({{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.06) | round }}px rgba(0,0,0,0.4));
-      {% elif layout == 'floating' %}
-        max-height: {{ (canvasHeight * 0.56) | round }}px;
-        transform: translateY(-{{ (canvasWidth * 0.02) | round }}px);
-        filter: drop-shadow(0 {{ (canvasWidth * 0.05) | round }}px {{ (canvasWidth * 0.1) | round }}px rgba(0,0,0,0.45));
-      {% endif %}
-    }
-
-    .device-wrapper svg {
-      height: 100%;
-      max-height: inherit;
-      width: auto;
-      display: block;
-    }
-
-    .device-wrapper .screenshot-img {
       position: absolute;
-      object-fit: cover;
+      z-index: 1;
+      width: {{ dw }}px;
+      top: {{ (canvasHeight * devTop / 100) | round }}px;
+
+      {% if layout == 'left' %}
+        left: {{ (canvasWidth * 0.10) | round }}px;
+      {% elif layout == 'right' %}
+        right: {{ (canvasWidth * 0.10) | round }}px;
+      {% elif layout == 'angled-left' %}
+        left: 50%;
+        transform: translateX(-50%) perspective(800px) rotateY(10deg);
+      {% elif layout == 'angled-right' %}
+        left: 50%;
+        transform: translateX(-50%) perspective(800px) rotateY(-10deg);
+      {% else %}
+        left: 50%;
+        transform: translateX(-50%);
+      {% endif %}
+
+      filter: drop-shadow(0 {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.08) | round }}px rgba(0,0,0,0.4));
     }
+
+    .device-wrapper svg { width: 100%; height: auto; display: block; }
+    .screenshot-clip { position: absolute; overflow: hidden; }
+    .screenshot-clip img { width: 100%; height: 100%; object-fit: cover; display: block; }
   </style>
 </head>
 <body>
   <div class="canvas">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
-    <div class="content">
-      {% if layout == 'left' %}
-        <div class="text-area">
-          <div class="headline">{{ headline }}</div>
-          {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
-        </div>
-        <div class="device-area">
-          <div class="device-wrapper">
-            {% if frameSvg and frameStyle != 'none' %}
-              {{ frameSvg | safe }}
-              <img class="screenshot-img" src="{{ screenshotDataUrl }}"
-                style="left: {{ frame.screenArea.x * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
-                       top: {{ frame.screenArea.y * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
-                       width: {{ frame.screenArea.width * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
-                       height: {{ frame.screenArea.height * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
-                       border-radius: {{ frame.screenArea.borderRadius * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;">
-            {% else %}
-              <img src="{{ screenshotDataUrl }}" style="position: relative; width: {{ (canvasWidth * 0.42) | round }}px; border-radius: {{ (canvasWidth * 0.04) | round }}px;">
-            {% endif %}
-          </div>
-        </div>
-      {% elif layout == 'right' %}
-        <div class="device-area">
-          <div class="device-wrapper">
-            {% if frameSvg and frameStyle != 'none' %}
-              {{ frameSvg | safe }}
-              <img class="screenshot-img" src="{{ screenshotDataUrl }}"
-                style="left: {{ frame.screenArea.x * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
-                       top: {{ frame.screenArea.y * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
-                       width: {{ frame.screenArea.width * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
-                       height: {{ frame.screenArea.height * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;
-                       border-radius: {{ frame.screenArea.borderRadius * (canvasWidth * 0.42 / frame.frameSize.width) | round }}px;">
-            {% else %}
-              <img src="{{ screenshotDataUrl }}" style="position: relative; width: {{ (canvasWidth * 0.42) | round }}px; border-radius: {{ (canvasWidth * 0.04) | round }}px;">
-            {% endif %}
-          </div>
-        </div>
-        <div class="text-area">
-          <div class="headline">{{ headline }}</div>
-          {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+    <div class="text-area">
+      <div class="headline">{{ headline }}</div>
+      {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+    </div>
+    <div class="device-wrapper">
+      {% if frameSvg and frameStyle != 'none' %}
+        {{ frameSvg | safe }}
+        <div class="screenshot-clip"
+          style="left: {{ (frame.screenArea.x * dw / frame.frameSize.width) | round }}px;
+                 top: {{ (frame.screenArea.y * dw / frame.frameSize.width) | round }}px;
+                 width: {{ (frame.screenArea.width * dw / frame.frameSize.width) | round }}px;
+                 height: {{ (frame.screenArea.height * dw / frame.frameSize.width) | round }}px;
+                 border-radius: {{ (frame.screenArea.borderRadius * dw / frame.frameSize.width) | round }}px;">
+          <img src="{{ screenshotDataUrl }}">
         </div>
       {% else %}
-        <div class="text-area">
-          <div class="headline">{{ headline }}</div>
-          {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
-        </div>
-        <div class="device-area">
-          <div class="device-wrapper">
-            {% if frameSvg and frameStyle != 'none' %}
-              {{ frameSvg | safe }}
-              <img class="screenshot-img" src="{{ screenshotDataUrl }}"
-                style="left: {{ frame.screenArea.x * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;
-                       top: {{ frame.screenArea.y * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;
-                       width: {{ frame.screenArea.width * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;
-                       height: {{ frame.screenArea.height * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;
-                       border-radius: {{ frame.screenArea.borderRadius * (canvasWidth * 0.55 / frame.frameSize.width) | round }}px;">
-            {% else %}
-              <img src="{{ screenshotDataUrl }}" style="position: relative; width: {{ (canvasWidth * 0.55) | round }}px; border-radius: {{ (canvasWidth * 0.04) | round }}px;">
-            {% endif %}
-          </div>
-        </div>
+        <img src="{{ screenshotDataUrl }}" style="width: 100%; border-radius: {{ (canvasWidth * 0.035) | round }}px;">
       {% endif %}
     </div>
   </div>

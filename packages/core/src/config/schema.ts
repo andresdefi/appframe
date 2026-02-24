@@ -7,7 +7,7 @@ const hexColor = z
   .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Must be a valid hex color');
 
 export const platformSchema = z.enum(['ios', 'android']);
-export const templateStyleSchema = z.enum(['minimal', 'bold', 'dark', 'playful']);
+export const templateStyleSchema = z.enum(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial']);
 export const frameStyleSchema = z.enum(['flat', '3d', 'floating', 'none']);
 export const layoutVariantSchema = z.enum([
   'center',

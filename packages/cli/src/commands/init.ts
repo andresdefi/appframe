@@ -35,7 +35,7 @@ function generateConfig(opts: {
       text: '#FFFFFF',
       subtitle: '#E2E8F0',
     },
-    dark: {
+    glow: {
       primary: '#6366F1',
       secondary: '#EC4899',
       background: '#0A0A0F',
@@ -48,6 +48,27 @@ function generateConfig(opts: {
       background: '#FFF7ED',
       text: '#1C1917',
       subtitle: '#78716C',
+    },
+    clean: {
+      primary: '#000000',
+      secondary: '#666666',
+      background: '#FFFFFF',
+      text: '#000000',
+      subtitle: '#6B7280',
+    },
+    branded: {
+      primary: '#FF6B00',
+      secondary: '#FF9A45',
+      background: '#FF6B00',
+      text: '#FFFFFF',
+      subtitle: '#FFFFFFCC',
+    },
+    editorial: {
+      primary: '#8B7355',
+      secondary: '#A0926B',
+      background: '#F5F0E8',
+      text: '#2C2416',
+      subtitle: '#7A7062',
     },
   };
 
@@ -135,7 +156,7 @@ export const initCommand = new Command('init')
   .description('Create a new appframe config for your app')
   .option('-o, --output <path>', 'Output path for config file', 'appframe.yml')
   .option('-n, --name <name>', 'App name')
-  .option('-s, --style <style>', 'Template style (minimal, bold, dark, playful)')
+  .option('-s, --style <style>', 'Template style (minimal, bold, glow, playful, clean, branded, editorial)')
   .option('-f, --force', 'Overwrite existing config', false)
   .action(async (options: InitOptions) => {
     const outputPath = resolve(options.output ?? 'appframe.yml');

@@ -1,0 +1,77 @@
+# appframe config — Impostor
+app:
+  name: Impostor
+  description: A social deduction party game where players give clues about a secret word while the impostor bluffs
+  platforms:
+    - ios
+  features:
+    - Secret word guessing
+    - Social deduction
+    - Multiple categories
+    - 4-10 players
+    - Multi-language support
+
+theme:
+  style: glow
+  colors:
+    primary: "#8B5CF6"
+    secondary: "#EF4444"
+    background: "#09090B"
+    text: "#FAFAFA"
+    subtitle: "#A1A1AA"
+  font: inter
+  fontWeight: 700
+
+frames:
+  ios: iphone-17-pro-max
+  style: flat
+
+screens:
+  - screenshot: screenshots/screen-1-home.png
+    headline: Trust No One
+    subtitle: The ultimate party bluffing game
+    layout: center
+
+  - screenshot: screenshots/screen-2-setup.png
+    headline: Easy Setup
+    subtitle: Pick players, categories, and go
+    layout: angled-right
+
+  - screenshot: screenshots/screen-3-names.png
+    headline: Play With Friends
+    subtitle: Add everyone in seconds
+    layout: left
+
+  - screenshot: screenshots/screen-4-innocent.png
+    headline: Get Your Secret Word
+    subtitle: Give clues without revealing it
+    layout: angled-left
+
+  - screenshot: screenshots/screen-5-impostor.png
+    headline: Find The Impostor
+    subtitle: Or bluff your way to victory
+    layout: center
+
+locales:
+  es:
+    screens:
+      - headline: No Confíes en Nadie
+        subtitle: El juego de engaño definitivo
+      - headline: Configuración Fácil
+        subtitle: Elige jugadores, categorías y listo
+      - headline: Juega con Amigos
+        subtitle: Agrega a todos en segundos
+      - headline: Descubre Tu Palabra
+        subtitle: Da pistas sin revelarla
+      - headline: Encuentra al Impostor
+        subtitle: O engaña para ganar
+
+output:
+  platforms:
+    - ios
+  ios:
+    sizes:
+      - 6.7
+      - 6.5
+    format: png
+  directory: ./output

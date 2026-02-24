@@ -14,6 +14,7 @@
       --text-dim: #64748b;
       --accent: #6366f1;
       --accent-hover: #818cf8;
+      --green: #22c55e;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -85,6 +86,31 @@
       padding: 2px;
     }
 
+    input[type="range"] {
+      width: 100%;
+      margin-bottom: 10px;
+      accent-color: var(--accent);
+    }
+
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .range-row input[type="range"] {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    .range-value {
+      font-size: 12px;
+      color: var(--text-dim);
+      min-width: 28px;
+      text-align: right;
+    }
+
     .color-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
     .color-row label { margin: 0; flex: 1; }
 
@@ -99,6 +125,8 @@
     .btn-primary:hover { background: var(--accent-hover); }
     .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
     .btn-secondary:hover { background: var(--border); }
+    .btn-export { background: var(--green); color: white; flex: 1; }
+    .btn-export:hover { background: #16a34a; }
 
     .screen-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 
@@ -123,7 +151,11 @@
       border-radius: 8px; overflow: hidden;
     }
 
-    .preview-container img { display: block; max-height: 80vh; width: auto; }
+    .preview-container iframe {
+      width: 400px; height: 868px;
+      border: none; display: block;
+      transform-origin: top left;
+    }
 
     .loading-overlay {
       position: absolute; inset: 0;
@@ -149,6 +181,25 @@
       font-size: 11px; color: var(--text-dim);
       display: flex; justify-content: space-between;
     }
+
+    .inline-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .inline-row > div {
+      flex: 1;
+    }
+
+    .export-size-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .export-size-row select {
+      margin-bottom: 0;
+    }
   </style>
 </head>
 <body>
@@ -173,22 +224,45 @@
 
     <div class="section">
       <div class="section-title">Style</div>
-      <label for="template">Template</label>
-      <select id="template">
-        <option value="minimal">Minimal</option>
-        <option value="bold">Bold</option>
-        <option value="dark">Dark</option>
-        <option value="playful">Playful</option>
+      <div class="inline-row">
+        <div>
+          <label for="template">Template</label>
+          <select id="template">
+            <option value="minimal">Minimal</option>
+            <option value="bold">Bold</option>
+            <option value="glow">Glow</option>
+            <option value="playful">Playful</option>
+            <option value="clean">Clean</option>
+            <option value="branded">Branded</option>
+            <option value="editorial">Editorial</option>
+          </select>
+        </div>
+        <div>
+          <label for="layout">Layout</label>
+          <select id="layout">
+            <option value="center">Center</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+            <option value="angled-left">Angled Left</option>
+            <option value="angled-right">Angled Right</option>
+            <option value="floating">Floating</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Typography</div>
+      <label for="font">Font</label>
+      <select id="font">
+        <option value="inter">Inter</option>
+        <option value="space-grotesk">Space Grotesk</option>
       </select>
-      <label for="layout">Layout</label>
-      <select id="layout">
-        <option value="center">Center</option>
-        <option value="left">Left</option>
-        <option value="right">Right</option>
-        <option value="angled-left">Angled Left</option>
-        <option value="angled-right">Angled Right</option>
-        <option value="floating">Floating</option>
-      </select>
+      <label for="font-weight">Font Weight</label>
+      <div class="range-row">
+        <input type="range" id="font-weight" min="400" max="800" step="100" value="700">
+        <span class="range-value" id="font-weight-value">700</span>
+      </div>
     </div>
 
     <div class="section">
@@ -202,19 +276,64 @@
 
     <div class="section">
       <div class="section-title">Device Frame</div>
+      <label for="frame-id">Device</label>
       <select id="frame-id"><option value="">Loading...</option></select>
       <label for="frame-style">Frame Style</label>
       <select id="frame-style">
         <option value="flat">Flat</option>
         <option value="3d">3D</option>
         <option value="floating">Floating</option>
-        <option value="none">None</option>
+        <option value="none">None (frameless)</option>
       </select>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Device Layout</div>
+      <label for="device-scale">Device Size</label>
+      <div class="range-row">
+        <input type="range" id="device-scale" min="50" max="100" step="1" value="92">
+        <span class="range-value" id="device-scale-value">92%</span>
+      </div>
+      <label for="device-top">Device Position</label>
+      <div class="range-row">
+        <input type="range" id="device-top" min="5" max="40" step="1" value="15">
+        <span class="range-value" id="device-top-value">15%</span>
+      </div>
     </div>
 
     <div class="section">
       <div class="section-title">Locale</div>
       <select id="locale"><option value="default">Default</option></select>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Export</div>
+      <label for="export-size">Output Size</label>
+      <select id="export-size">
+        <option value="ios-6.7">iPhone 6.7" (1290x2796)</option>
+        <option value="ios-6.5">iPhone 6.5" (1284x2778)</option>
+        <option value="ios-5.5">iPhone 5.5" (1242x2208)</option>
+        <option value="android-phone">Android Phone (1080x1920)</option>
+      </select>
+      <div class="btn-row" style="margin-top: 4px;">
+        <button class="btn btn-export" id="btn-export">Download Screenshot</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Preview Background</div>
+      <div class="inline-row">
+        <div>
+          <label>
+            <input type="radio" name="preview-bg" value="dark" checked style="accent-color: var(--accent); margin-right: 4px;">Dark
+          </label>
+        </div>
+        <div>
+          <label>
+            <input type="radio" name="preview-bg" value="light" style="accent-color: var(--accent); margin-right: 4px;">Light
+          </label>
+        </div>
+      </div>
     </div>
 
     <div class="section">
@@ -225,9 +344,9 @@
     </div>
   </div>
 
-  <div class="preview-area">
-    <div class="preview-container">
-      <img id="preview-img" alt="Preview">
+  <div class="preview-area" id="preview-area">
+    <div class="preview-container" id="preview-container">
+      <iframe id="preview-iframe" sandbox="allow-same-origin"></iframe>
       <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
     </div>
   </div>
@@ -238,32 +357,32 @@
   </div>
 
   <script>
-    const API = '';
-    let config = null;
-    let currentScreen = 0;
-    let debounceTimer = null;
+    var API = '';
+    var config = null;
+    var currentScreen = 0;
+    var debounceTimer = null;
 
     function clearChildren(el) {
       while (el.firstChild) el.removeChild(el.firstChild);
     }
 
     function addOption(select, value, text) {
-      const opt = document.createElement('option');
+      var opt = document.createElement('option');
       opt.value = value;
       opt.textContent = text;
       select.appendChild(opt);
     }
 
     async function init() {
-      const res = await fetch(API + '/api/config');
+      var res = await fetch(API + '/api/config');
       config = await res.json();
 
       document.getElementById('app-name').textContent = config.app.name;
 
       // Screen tabs
-      const tabs = document.getElementById('screen-tabs');
+      var tabs = document.getElementById('screen-tabs');
       config.screens.forEach(function(screen, i) {
-        const tab = document.createElement('div');
+        var tab = document.createElement('div');
         tab.className = 'screen-tab' + (i === 0 ? ' active' : '');
         tab.textContent = String(i + 1);
         tab.title = screen.headline;
@@ -272,7 +391,7 @@
       });
 
       // Locales
-      const localeSelect = document.getElementById('locale');
+      var localeSelect = document.getElementById('locale');
       clearChildren(localeSelect);
       addOption(localeSelect, 'default', 'Default');
       if (config.locales) {
@@ -282,9 +401,9 @@
       }
 
       // Frames
-      const framesRes = await fetch(API + '/api/frames');
-      const frames = await framesRes.json();
-      const frameSelect = document.getElementById('frame-id');
+      var framesRes = await fetch(API + '/api/frames');
+      var frames = await framesRes.json();
+      var frameSelect = document.getElementById('frame-id');
       clearChildren(frameSelect);
       frames.forEach(function(f) {
         addOption(frameSelect, f.id, f.name + ' (' + f.year + ')');
@@ -295,11 +414,14 @@
     }
 
     function applyConfigToControls() {
-      const screen = config.screens[currentScreen];
+      var screen = config.screens[currentScreen];
       document.getElementById('headline').value = screen.headline;
       document.getElementById('subtitle').value = screen.subtitle || '';
       document.getElementById('template').value = config.theme.style;
       document.getElementById('layout').value = screen.layout;
+      document.getElementById('font').value = config.theme.font;
+      document.getElementById('font-weight').value = config.theme.fontWeight;
+      document.getElementById('font-weight-value').textContent = config.theme.fontWeight;
       document.getElementById('color-primary').value = config.theme.colors.primary;
       document.getElementById('color-secondary').value = config.theme.colors.secondary;
       document.getElementById('color-background').value = config.theme.colors.background;
@@ -330,6 +452,7 @@
       var screen = config.screens[currentScreen];
       var headline = screen.headline;
       var subtitle = screen.subtitle || '';
+      var layout = screen.layout;
 
       if (locale !== 'default' && config.locales && config.locales[locale]) {
         var ls = config.locales[locale].screens[currentScreen];
@@ -341,15 +464,12 @@
 
       document.getElementById('headline').value = headline;
       document.getElementById('subtitle').value = subtitle;
+      document.getElementById('layout').value = layout;
       renderPreview();
     }
 
-    async function renderPreview() {
-      var loading = document.getElementById('loading');
-      loading.classList.add('visible');
-      document.getElementById('status-text').textContent = 'Rendering...';
-
-      var body = {
+    function getPreviewBody() {
+      return {
         screenIndex: currentScreen,
         locale: document.getElementById('locale').value,
         style: document.getElementById('template').value,
@@ -363,14 +483,40 @@
           text: document.getElementById('color-text').value,
           subtitle: document.getElementById('color-subtitle').value,
         },
+        font: document.getElementById('font').value,
+        fontWeight: parseInt(document.getElementById('font-weight').value, 10),
         frameId: document.getElementById('frame-id').value,
         frameStyle: document.getElementById('frame-style').value,
-        width: 400,
-        height: 868,
+        deviceScale: parseInt(document.getElementById('device-scale').value, 10),
+        deviceTop: parseInt(document.getElementById('device-top').value, 10),
       };
+    }
+
+    function scalePreview() {
+      var area = document.getElementById('preview-area');
+      var container = document.getElementById('preview-container');
+      var iframe = document.getElementById('preview-iframe');
+      var areaH = area.clientHeight - 80;
+      var areaW = area.clientWidth - 80;
+      var scale = Math.min(areaH / 868, areaW / 400, 1);
+      iframe.style.transform = 'scale(' + scale + ')';
+      container.style.width = Math.round(400 * scale) + 'px';
+      container.style.height = Math.round(868 * scale) + 'px';
+    }
+
+    window.addEventListener('resize', scalePreview);
+
+    async function renderPreview() {
+      var loading = document.getElementById('loading');
+      loading.classList.add('visible');
+      document.getElementById('status-text').textContent = 'Rendering...';
+
+      var body = getPreviewBody();
+      body.width = 400;
+      body.height = 868;
 
       try {
-        var res = await fetch(API + '/api/preview', {
+        var res = await fetch(API + '/api/preview-html', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -381,13 +527,10 @@
           throw new Error(err.error || 'Preview failed');
         }
 
-        var blob = await res.blob();
-        var url = URL.createObjectURL(blob);
-        document.getElementById('preview-img').src = url;
-
-        var sizeKb = Math.round(blob.size / 1024);
-        document.getElementById('status-size').textContent = sizeKb + 'KB';
+        var html = await res.text();
+        document.getElementById('preview-iframe').srcdoc = html;
         document.getElementById('status-text').textContent = 'Ready';
+        scalePreview();
       } catch (err) {
         document.getElementById('status-text').textContent = 'Error: ' + err.message;
       } finally {
@@ -395,12 +538,77 @@
       }
     }
 
-    function debouncedRender() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(renderPreview, 500);
+    async function exportScreenshot() {
+      var exportBtn = document.getElementById('btn-export');
+      var originalText = exportBtn.textContent;
+      exportBtn.textContent = 'Exporting...';
+      exportBtn.disabled = true;
+      document.getElementById('status-text').textContent = 'Exporting full resolution...';
+
+      var body = getPreviewBody();
+      body.sizeKey = document.getElementById('export-size').value;
+
+      try {
+        var res = await fetch(API + '/api/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          var err = await res.json();
+          throw new Error(err.error || 'Export failed');
+        }
+
+        var blob = await res.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = res.headers.get('Content-Disposition')
+          ? res.headers.get('Content-Disposition').split('filename=')[1].replace(/"/g, '')
+          : 'screenshot.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        var sizeKb = Math.round(blob.size / 1024);
+        document.getElementById('status-text').textContent = 'Exported (' + sizeKb + 'KB)';
+      } catch (err) {
+        document.getElementById('status-text').textContent = 'Export error: ' + err.message;
+      } finally {
+        exportBtn.textContent = originalText;
+        exportBtn.disabled = false;
+      }
     }
 
+    function debouncedRender() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(renderPreview, 300);
+    }
+
+    // Throttle for sliders: fires immediately, then at most once per interval,
+    // always fires trailing call so the final value is rendered.
+    var throttleTimer = null;
+    var throttlePending = false;
+    function throttledRender() {
+      if (!throttleTimer) {
+        renderPreview();
+        throttleTimer = setTimeout(function() {
+          throttleTimer = null;
+          if (throttlePending) {
+            throttlePending = false;
+            throttledRender();
+          }
+        }, 60);
+      } else {
+        throttlePending = true;
+      }
+    }
+
+    // Button handlers
     document.getElementById('btn-refresh').addEventListener('click', renderPreview);
+    document.getElementById('btn-export').addEventListener('click', exportScreenshot);
 
     document.getElementById('btn-reload').addEventListener('click', async function() {
       await fetch(API + '/api/reload', { method: 'POST' });
@@ -410,19 +618,53 @@
       renderPreview();
     });
 
-    ['template', 'layout', 'frame-id', 'frame-style', 'locale'].forEach(function(id) {
+    // Select change handlers — auto-render
+    ['template', 'layout', 'frame-id', 'frame-style', 'locale', 'font'].forEach(function(id) {
       document.getElementById(id).addEventListener('change', function() {
         if (id === 'locale') selectScreen(currentScreen);
         else renderPreview();
       });
     });
 
+    // Text input handlers — debounced render
     ['headline', 'subtitle'].forEach(function(id) {
       document.getElementById(id).addEventListener('input', debouncedRender);
     });
 
+    // Color input handlers — debounced render
     ['color-primary', 'color-secondary', 'color-background', 'color-text', 'color-subtitle'].forEach(function(id) {
       document.getElementById(id).addEventListener('input', debouncedRender);
+    });
+
+    // Font weight slider
+    document.getElementById('font-weight').addEventListener('input', function() {
+      document.getElementById('font-weight-value').textContent = this.value;
+      throttledRender();
+    });
+
+    // Device layout sliders
+    document.getElementById('device-scale').addEventListener('input', function() {
+      document.getElementById('device-scale-value').textContent = this.value + '%';
+      throttledRender();
+    });
+
+    document.getElementById('device-top').addEventListener('input', function() {
+      document.getElementById('device-top-value').textContent = this.value + '%';
+      throttledRender();
+    });
+
+    // Preview background toggle
+    document.querySelectorAll('input[name="preview-bg"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        var area = document.getElementById('preview-area');
+        if (this.value === 'light') {
+          area.style.background = '#ffffff';
+          area.style.backgroundImage = 'none';
+        } else {
+          area.style.background = '';
+          area.style.backgroundImage = '';
+        }
+      });
     });
 
     init();

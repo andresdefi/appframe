@@ -12,7 +12,7 @@ export function registerGenerateTools(server: McpServer): void {
       locale: z.string().optional().describe('Generate for a specific locale only'),
       screenIndex: z.number().optional().describe('Generate a single screen by index (0-based)'),
       outputDir: z.string().optional().describe('Override output directory (absolute path)'),
-      templateOverride: z.enum(['minimal', 'bold', 'dark', 'playful']).optional().describe('Override template style for all screens'),
+      templateOverride: z.enum(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial']).optional().describe('Override template style for all screens'),
     },
     async ({ configPath, platform, locale, screenIndex, outputDir, templateOverride }) => {
       try {
@@ -52,7 +52,7 @@ export function registerGenerateTools(server: McpServer): void {
       screenIndex: z.number().describe('Screen index to preview (0-based)'),
       outputPath: z.string().describe('Absolute path where the preview PNG should be saved'),
       locale: z.string().optional().describe('Locale to use for text'),
-      templateOverride: z.enum(['minimal', 'bold', 'dark', 'playful']).optional(),
+      templateOverride: z.enum(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial']).optional(),
     },
     async ({ configPath, screenIndex, outputPath, locale, templateOverride }) => {
       try {

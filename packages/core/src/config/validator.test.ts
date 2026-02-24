@@ -112,7 +112,7 @@ describe('validateConfig', () => {
   });
 
   it('accepts all valid template styles', () => {
-    for (const style of ['minimal', 'bold', 'dark', 'playful']) {
+    for (const style of ['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial']) {
       const config = makeValidConfig({
         theme: {
           style,

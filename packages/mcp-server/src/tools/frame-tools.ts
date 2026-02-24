@@ -34,7 +34,7 @@ export function registerFrameTools(server: McpServer): void {
       const templates = [
         { id: 'minimal', name: 'Minimal', description: 'Apple-clean style: light backgrounds, thin fonts, lots of whitespace, subtle shadows' },
         { id: 'bold', name: 'Bold', description: 'Vibrant & energetic: strong gradients, large heavy typography, saturated colors, high contrast' },
-        { id: 'dark', name: 'Dark', description: 'Premium & sleek: dark backgrounds, glowing accents, subtle grid pattern, luminous effects' },
+        { id: 'glow', name: 'Glow', description: 'Premium & sleek: colored glow effects behind the device, luminous radial gradients' },
         { id: 'playful', name: 'Playful', description: 'Fun & colorful: bright colors, decorative shapes, tilted devices, rounded feel' },
       ];
 

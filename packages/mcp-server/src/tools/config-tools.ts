@@ -106,7 +106,7 @@ export function registerConfigTools(server: McpServer): void {
       appName: z.string().describe('Name of the app'),
       appDescription: z.string().describe('Short description of the app'),
       platforms: z.array(z.enum(['ios', 'android'])).describe('Target platforms'),
-      style: z.enum(['minimal', 'bold', 'dark', 'playful']).describe('Visual template style'),
+      style: z.enum(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial']).describe('Visual template style'),
       features: z.array(z.string()).describe('Key features of the app (used for copy generation)'),
       primaryColor: z.string().optional().describe('Primary brand color as hex (e.g. #2563EB)'),
     },
@@ -116,6 +116,9 @@ export function registerConfigTools(server: McpServer): void {
         bold: { primary: '#FF4D6A', secondary: '#7B2FFF', background: '#1A1A2E', text: '#FFFFFF', subtitle: '#E2E8F0' },
         dark: { primary: '#6366F1', secondary: '#EC4899', background: '#0A0A0F', text: '#F8FAFC', subtitle: '#94A3B8' },
         playful: { primary: '#F59E0B', secondary: '#10B981', background: '#FFF7ED', text: '#1C1917', subtitle: '#78716C' },
+        clean: { primary: '#000000', secondary: '#666666', background: '#FFFFFF', text: '#000000', subtitle: '#6B7280' },
+        branded: { primary: '#FF6B00', secondary: '#FF9A45', background: '#FF6B00', text: '#FFFFFF', subtitle: '#FFFFFFCC' },
+        editorial: { primary: '#8B7355', secondary: '#A0926B', background: '#F5F0E8', text: '#2C2416', subtitle: '#7A7062' },
       };
 
       const colors = { ...themePresets[style] };

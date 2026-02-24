@@ -3,6 +3,30 @@
   "version": 1,
   "frames": [
     {
+      "id": "iphone-17-pro-max",
+      "name": "iPhone 17 Pro Max",
+      "manufacturer": "apple",
+      "year": 2025,
+      "platform": "ios",
+      "framePath": "apple/iphone-17-pro-max/frame.svg",
+      "screenArea": {
+        "x": 8,
+        "y": 8,
+        "width": 430,
+        "height": 910,
+        "borderRadius": 50
+      },
+      "frameSize": {
+        "width": 446,
+        "height": 926
+      },
+      "screenResolution": {
+        "width": 1320,
+        "height": 2868
+      },
+      "tags": ["default-ios"]
+    },
+    {
       "id": "iphone-16-pro-max",
       "name": "iPhone 16 Pro Max",
       "manufacturer": "apple",
@@ -10,10 +34,10 @@
       "platform": "ios",
       "framePath": "apple/iphone-16-pro-max/frame.svg",
       "screenArea": {
-        "x": 18,
-        "y": 18,
-        "width": 402,
-        "height": 874,
+        "x": 8,
+        "y": 8,
+        "width": 422,
+        "height": 894,
         "borderRadius": 50
       },
       "frameSize": {
@@ -24,7 +48,7 @@
         "width": 1290,
         "height": 2796
       },
-      "tags": ["default-ios"]
+      "tags": []
     },
     {
       "id": "iphone-15-pro-max",
@@ -34,10 +58,10 @@
       "platform": "ios",
       "framePath": "apple/iphone-15-pro-max/frame.svg",
       "screenArea": {
-        "x": 18,
-        "y": 18,
-        "width": 402,
-        "height": 874,
+        "x": 8,
+        "y": 8,
+        "width": 422,
+        "height": 894,
         "borderRadius": 50
       },
       "frameSize": {
@@ -106,11 +130,11 @@
       "platform": "android",
       "framePath": "android/pixel-10/frame.svg",
       "screenArea": {
-        "x": 16,
-        "y": 16,
-        "width": 380,
-        "height": 844,
-        "borderRadius": 40
+        "x": 8,
+        "y": 8,
+        "width": 396,
+        "height": 860,
+        "borderRadius": 42
       },
       "frameSize": {
         "width": 412,
@@ -130,11 +154,11 @@
       "platform": "ios",
       "framePath": "generic/phone/frame.svg",
       "screenArea": {
-        "x": 16,
-        "y": 16,
-        "width": 390,
-        "height": 860,
-        "borderRadius": 44
+        "x": 8,
+        "y": 8,
+        "width": 406,
+        "height": 876,
+        "borderRadius": 46
       },
       "frameSize": {
         "width": 422,

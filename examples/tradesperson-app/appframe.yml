@@ -42,7 +42,7 @@ screens:
   - screenshot: screenshots/invoice.png
     headline: "Get paid faster"
     subtitle: "Professional invoices in seconds"
-    layout: left
+    layout: center
 
   - screenshot: screenshots/clients.png
     headline: "Know every client"

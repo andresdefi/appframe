@@ -40,7 +40,7 @@ screens:
   - screenshot: screenshots/categories.png
     headline: "A game for every mood"
     subtitle: "Icebreakers, challenges, trivia & more"
-    layout: left
+    layout: center
 
   - screenshot: screenshots/custom.png
     headline: "Create your own games"

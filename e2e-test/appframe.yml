@@ -40,7 +40,7 @@ screens:
   - screenshot: screenshots/screen-3-names.png
     headline: Play With Friends
     subtitle: Add everyone in seconds
-    layout: left
+    layout: center
 
   - screenshot: screenshots/screen-4-innocent.png
     headline: Get Your Secret Word

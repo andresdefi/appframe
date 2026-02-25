@@ -6,6 +6,9 @@
   {% set devTop = deviceTop | default(15) %}
   {% set dw = (canvasWidth * devScale / 100) | round %}
   {% set devRotation = deviceRotation | default(0) %}
+  {% set devOffsetX = (canvasWidth * (deviceOffsetX | default(0)) / 100) | round %}
+  {% set devAngle = deviceAngle | default(8) %}
+  {% set devTilt = deviceTilt | default(0) %}
   <style>
     {{ fontFaceCss | safe }}
 
@@ -15,7 +18,7 @@
       width: {{ canvasWidth }}px;
       height: {{ canvasHeight }}px;
       overflow: hidden;
-      font-family: '{{ font | capitalize }}', 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+      font-family: '{{ fontFamily }}', 'Space Grotesk', 'Inter', -apple-system, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -57,13 +60,7 @@
       top: {{ (canvasHeight * 0.03) | round }}px;
       left: {{ (canvasWidth * 0.06) | round }}px;
       right: {{ (canvasWidth * 0.06) | round }}px;
-      {% if layout == 'left' %}
-        text-align: left;
-      {% elif layout == 'right' %}
-        text-align: right;
-      {% else %}
-        text-align: center;
-      {% endif %}
+      text-align: center;
     }
 
     .headline {
@@ -90,25 +87,25 @@
       width: {{ dw }}px;
       top: {{ (canvasHeight * devTop / 100) | round }}px;
       --device-rotation: {{ devRotation }}deg;
+      --device-angle: {{ devAngle }}deg;
+      --device-tilt: {{ devTilt }}deg;
+      left: calc(50% + {{ devOffsetX }}px);
 
-      {% if layout == 'left' %}
-        left: {{ (canvasWidth * 0.10) | round }}px;
-        transform: rotate(var(--device-rotation));
-      {% elif layout == 'right' %}
-        right: {{ (canvasWidth * 0.10) | round }}px;
-        transform: rotate(var(--device-rotation));
-      {% elif layout == 'angled-left' %}
-        left: 50%;
-        transform: translateX(-50%) perspective(800px) rotateY(10deg) rotate(var(--device-rotation));
+      {% if layout == 'angled-left' %}
+        transform: translateX(-50%) perspective(800px) rotateX(var(--device-tilt)) rotateY(var(--device-angle)) rotateZ(var(--device-rotation));
       {% elif layout == 'angled-right' %}
-        left: 50%;
-        transform: translateX(-50%) perspective(800px) rotateY(-10deg) rotate(var(--device-rotation));
+        transform: translateX(-50%) perspective(800px) rotateX(var(--device-tilt)) rotateY(calc(-1 * var(--device-angle))) rotateZ(var(--device-rotation));
+      {% elif layout == 'floating' %}
+        transform: translateX(-50%) translateY(-3%) perspective(1500px) rotateX(var(--device-tilt)) rotateZ(var(--device-rotation));
       {% else %}
-        left: 50%;
-        transform: translateX(-50%) rotate(var(--device-rotation));
+        transform: translateX(-50%) perspective(1500px) rotateX(var(--device-tilt)) rotateZ(var(--device-rotation));
       {% endif %}
 
-      filter: drop-shadow(0 {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.08) | round }}px rgba(0,0,0,0.4));
+      {% if layout == 'floating' %}
+        filter: drop-shadow(0 {{ (canvasWidth * 0.05) | round }}px {{ (canvasWidth * 0.12) | round }}px rgba(0,0,0,0.45));
+      {% else %}
+        filter: drop-shadow(0 {{ (canvasWidth * 0.03) | round }}px {{ (canvasWidth * 0.08) | round }}px rgba(0,0,0,0.4));
+      {% endif %}
     }
 
     .device-wrapper svg { width: 100%; height: auto; display: block; }

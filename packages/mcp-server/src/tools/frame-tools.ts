@@ -43,7 +43,7 @@ export function registerFrameTools(server: McpServer): void {
       return {
         content: [{
           type: 'text' as const,
-          text: `Available templates:\n\n${lines.join('\n')}\n\nLayouts available for all templates: center, left, right, angled-left, angled-right, floating`,
+          text: `Available templates:\n\n${lines.join('\n')}\n\nLayouts available for all templates: center, angled-left, angled-right, floating`,
         }],
       };
     },

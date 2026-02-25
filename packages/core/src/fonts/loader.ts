@@ -8,6 +8,28 @@ function getFontsDir(): string {
   return join(__dirname, '..', '..', '..', '..', 'fonts');
 }
 
+export interface FontInfo {
+  id: string;
+  name: string;
+  weights: number[];
+  category: 'sans-serif' | 'serif' | 'display';
+}
+
+export const FONT_CATALOG: FontInfo[] = [
+  { id: 'inter', name: 'Inter', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'space-grotesk', name: 'Space Grotesk', weights: [400, 500, 700], category: 'sans-serif' },
+  { id: 'poppins', name: 'Poppins', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'montserrat', name: 'Montserrat', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'dm-sans', name: 'DM Sans', weights: [400, 500, 600, 700], category: 'sans-serif' },
+  { id: 'plus-jakarta-sans', name: 'Plus Jakarta Sans', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'raleway', name: 'Raleway', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'playfair-display', name: 'Playfair Display', weights: [400, 500, 600, 700, 800], category: 'serif' },
+];
+
+const FONT_NAME_MAP: Record<string, string> = Object.fromEntries(
+  FONT_CATALOG.map((f) => [f.id, f.name]),
+);
+
 interface FontFace {
   family: string;
   weight: number;
@@ -15,17 +37,22 @@ interface FontFace {
   format: string;
 }
 
-const WEIGHT_MAP: Record<string, number> = {
-  'regular': 400,
-  'medium': 500,
-  'semibold': 600,
-  'bold': 700,
-  'extrabold': 800,
-};
+// Order matters: longer names must come before shorter ones they contain
+const WEIGHT_MAP: [string, number][] = [
+  ['extralight', 200],
+  ['extrabold', 800],
+  ['semibold', 600],
+  ['regular', 400],
+  ['medium', 500],
+  ['light', 300],
+  ['black', 900],
+  ['thin', 100],
+  ['bold', 700],
+];
 
 function parseWeight(filename: string): number {
   const lower = filename.toLowerCase();
-  for (const [key, value] of Object.entries(WEIGHT_MAP)) {
+  for (const [key, value] of WEIGHT_MAP) {
     if (lower.includes(key)) return value;
   }
   return 400;
@@ -53,6 +80,10 @@ function formatName(ext: string): string {
 
 const fontCache = new Map<string, string>();
 
+export function getFontName(fontId: string): string {
+  return FONT_NAME_MAP[fontId] ?? fontId;
+}
+
 /**
  * Load a font family from the fonts directory and return @font-face CSS declarations
  * with embedded base64 data URIs. Results are cached.
@@ -78,6 +109,7 @@ export async function loadFontFaces(fontFamily: string, fontsDir?: string): Prom
     return ['.woff2', '.woff', '.otf', '.ttf'].includes(ext);
   });
 
+  const cssFamily = getFontName(fontFamily);
   const faces: FontFace[] = [];
 
   for (const file of fontFiles) {
@@ -86,7 +118,7 @@ export async function loadFontFaces(fontFamily: string, fontsDir?: string): Prom
     const dataUri = `data:${mimeType(ext)};base64,${buffer.toString('base64')}`;
 
     faces.push({
-      family: fontFamily === 'inter' ? 'Inter' : 'Space Grotesk',
+      family: cssFamily,
       weight: parseWeight(file),
       src: dataUri,
       format: formatName(ext),
@@ -111,7 +143,7 @@ export async function loadFontFaces(fontFamily: string, fontsDir?: string): Prom
 }
 
 /**
- * Load font-face CSS for both Inter and Space Grotesk.
+ * Load font-face CSS for both Inter and Space Grotesk (kept for backward compat).
  */
 export async function loadAllFontFaces(fontsDir?: string): Promise<string> {
   const [inter, spaceGrotesk] = await Promise.all([

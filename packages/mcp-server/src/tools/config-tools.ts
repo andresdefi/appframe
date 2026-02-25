@@ -135,7 +135,7 @@ export function registerConfigTools(server: McpServer): void {
         screens: [
           { screenshot: 'screenshots/screen-1.png', headline: 'Your main headline here', subtitle: 'A supporting line', layout: 'center' },
           { screenshot: 'screenshots/screen-2.png', headline: 'Highlight a key feature', layout: 'angled-right' },
-          { screenshot: 'screenshots/screen-3.png', headline: 'Show another great feature', layout: 'left' },
+          { screenshot: 'screenshots/screen-3.png', headline: 'Show another great feature', layout: 'center' },
         ],
         output: {
           platforms,

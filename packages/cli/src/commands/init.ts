@@ -136,7 +136,7 @@ screens:
 
   - screenshot: screenshots/screen-3.png
     headline: "Show another great feature"
-    layout: left
+    layout: center
 
 # locales:
 #   es:

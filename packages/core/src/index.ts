@@ -43,7 +43,8 @@ export type {
 export { TemplateEngine } from './templates/index.js';
 export type { TemplateContext } from './templates/index.js';
 
-export { loadFontFaces, loadAllFontFaces } from './fonts/index.js';
+export { loadFontFaces, loadAllFontFaces, getFontName, FONT_CATALOG } from './fonts/index.js';
+export type { FontInfo } from './fonts/index.js';
 
 export { Renderer } from './renderer/renderer.js';
 export { generateScreenshots } from './renderer/pipeline.js';

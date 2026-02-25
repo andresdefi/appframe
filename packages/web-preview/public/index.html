@@ -241,8 +241,6 @@
           <label for="layout">Layout</label>
           <select id="layout">
             <option value="center">Center</option>
-            <option value="left">Left</option>
-            <option value="right">Right</option>
             <option value="angled-left">Angled Left</option>
             <option value="angled-right">Angled Right</option>
             <option value="floating">Floating</option>
@@ -252,12 +250,15 @@
     </div>
 
     <div class="section">
+      <div class="section-title">Text Position</div>
+      <span style="font-size: 11px; color: #888; line-height: 1.3; display: block; margin-bottom: 6px;">Drag the headline or subtitle in the preview to reposition them.</span>
+      <button class="btn" id="btn-reset-text" style="width: 100%; padding: 5px 0; font-size: 11px;">Reset to Default</button>
+    </div>
+
+    <div class="section">
       <div class="section-title">Typography</div>
       <label for="font">Font</label>
-      <select id="font">
-        <option value="inter">Inter</option>
-        <option value="space-grotesk">Space Grotesk</option>
-      </select>
+      <select id="font"><option value="">Loading...</option></select>
       <label for="font-weight">Font Weight</label>
       <div class="range-row">
         <input type="range" id="font-weight" min="400" max="800" step="100" value="700">
@@ -299,10 +300,27 @@
         <input type="range" id="device-top" min="5" max="40" step="1" value="15">
         <span class="range-value" id="device-top-value">15%</span>
       </div>
+      <label for="device-offset-x">Horizontal Position</label>
+      <div class="range-row">
+        <input type="range" id="device-offset-x" min="-50" max="50" step="1" value="0">
+        <span class="range-value" id="device-offset-x-value">0</span>
+      </div>
       <label for="device-rotation">Device Rotation</label>
       <div class="range-row">
-        <input type="range" id="device-rotation" min="-15" max="15" step="1" value="0">
+        <input type="range" id="device-rotation" min="-45" max="45" step="1" value="0">
         <span class="range-value" id="device-rotation-value">0°</span>
+      </div>
+      <div id="angle-row" style="display: none;">
+        <label for="device-angle">Perspective Angle</label>
+        <div class="range-row">
+          <input type="range" id="device-angle" min="2" max="45" step="1" value="8">
+          <span class="range-value" id="device-angle-value">8°</span>
+        </div>
+      </div>
+      <label for="device-tilt">3D Tilt</label>
+      <div class="range-row">
+        <input type="range" id="device-tilt" min="0" max="20" step="1" value="0">
+        <span class="range-value" id="device-tilt-value">0°</span>
       </div>
     </div>
 
@@ -351,8 +369,9 @@
 
   <div class="preview-area" id="preview-area">
     <div class="preview-container" id="preview-container">
-      <iframe id="preview-iframe" sandbox="allow-same-origin"></iframe>
-      <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
+      <iframe id="preview-iframe"></iframe>
+      <div id="drag-overlay" style="position: absolute; inset: 0; z-index: 1;"></div>
+      <div class="loading-overlay" id="loading" style="z-index: 2;"><div class="spinner"></div></div>
     </div>
   </div>
 
@@ -367,6 +386,8 @@
     var currentScreen = 0;
     var debounceTimer = null;
     var framesData = [];
+    var fontsData = [];
+    var textPositions = { headline: null, subtitle: null };
 
     function clearChildren(el) {
       while (el.firstChild) el.removeChild(el.firstChild);
@@ -406,6 +427,15 @@
         });
       }
 
+      // Fonts
+      var fontsRes = await fetch(API + '/api/fonts');
+      fontsData = await fontsRes.json();
+      var fontSelect = document.getElementById('font');
+      clearChildren(fontSelect);
+      fontsData.forEach(function(f) {
+        addOption(fontSelect, f.id, f.name);
+      });
+
       // Frames
       var framesRes = await fetch(API + '/api/frames');
       framesData = await framesRes.json();
@@ -424,7 +454,10 @@
       document.getElementById('headline').value = screen.headline;
       document.getElementById('subtitle').value = screen.subtitle || '';
       document.getElementById('template').value = config.theme.style;
-      document.getElementById('layout').value = screen.layout;
+      var layout = screen.layout;
+      if (layout === 'left' || layout === 'right') layout = 'center';
+      document.getElementById('layout').value = layout;
+      if (typeof updateAngleRowVisibility === 'function') updateAngleRowVisibility();
       document.getElementById('font').value = config.theme.font;
       document.getElementById('font-weight').value = config.theme.fontWeight;
       document.getElementById('font-weight-value').textContent = config.theme.fontWeight;
@@ -471,6 +504,7 @@
       document.getElementById('headline').value = headline;
       document.getElementById('subtitle').value = subtitle;
       document.getElementById('layout').value = layout;
+      if (typeof updateAngleRowVisibility === 'function') updateAngleRowVisibility();
       renderPreview();
     }
 
@@ -496,6 +530,15 @@
         deviceScale: parseInt(document.getElementById('device-scale').value, 10),
         deviceTop: parseInt(document.getElementById('device-top').value, 10),
         deviceRotation: parseInt(document.getElementById('device-rotation').value, 10),
+        deviceOffsetX: parseInt(document.getElementById('device-offset-x').value, 10),
+        deviceAngle: parseInt(document.getElementById('device-angle').value, 10),
+        deviceTilt: parseInt(document.getElementById('device-tilt').value, 10),
+        headlineTop: textPositions.headline ? textPositions.headline.top : undefined,
+        headlineLeft: textPositions.headline ? textPositions.headline.left : undefined,
+        headlineWidth: textPositions.headline ? textPositions.headline.width : undefined,
+        subtitleTop: textPositions.subtitle ? textPositions.subtitle.top : undefined,
+        subtitleLeft: textPositions.subtitle ? textPositions.subtitle.left : undefined,
+        subtitleWidth: textPositions.subtitle ? textPositions.subtitle.width : undefined,
       };
     }
 
@@ -665,10 +708,17 @@
       var dw = Math.round(canvasWidth * deviceScale / 100);
 
       var deviceRotation = parseInt(document.getElementById('device-rotation').value, 10);
+      var deviceOffsetX = parseInt(document.getElementById('device-offset-x').value, 10);
+      var deviceAngle = parseInt(document.getElementById('device-angle').value, 10);
+      var deviceTilt = parseInt(document.getElementById('device-tilt').value, 10);
+      var offsetPx = Math.round(canvasWidth * deviceOffsetX / 100);
 
       wrapper.style.width = dw + 'px';
       wrapper.style.top = Math.round(canvasHeight * deviceTop / 100) + 'px';
+      wrapper.style.left = 'calc(50% + ' + offsetPx + 'px)';
       wrapper.style.setProperty('--device-rotation', deviceRotation + 'deg');
+      wrapper.style.setProperty('--device-angle', deviceAngle + 'deg');
+      wrapper.style.setProperty('--device-tilt', deviceTilt + 'deg');
 
       // Update screenshot clip positions based on frame data
       var frameId = document.getElementById('frame-id').value;
@@ -735,11 +785,37 @@
     });
     document.getElementById('device-top').addEventListener('change', renderPreview);
 
+    document.getElementById('device-offset-x').addEventListener('input', function() {
+      document.getElementById('device-offset-x-value').textContent = this.value;
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-offset-x').addEventListener('change', renderPreview);
+
     document.getElementById('device-rotation').addEventListener('input', function() {
       document.getElementById('device-rotation-value').textContent = this.value + '°';
       updateDeviceInIframe();
     });
     document.getElementById('device-rotation').addEventListener('change', renderPreview);
+
+    document.getElementById('device-angle').addEventListener('input', function() {
+      document.getElementById('device-angle-value').textContent = this.value + '°';
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-angle').addEventListener('change', renderPreview);
+
+    document.getElementById('device-tilt').addEventListener('input', function() {
+      document.getElementById('device-tilt-value').textContent = this.value + '°';
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-tilt').addEventListener('change', renderPreview);
+
+    // Show/hide angle slider based on layout selection
+    function updateAngleRowVisibility() {
+      var layout = document.getElementById('layout').value;
+      var angleRow = document.getElementById('angle-row');
+      angleRow.style.display = (layout === 'angled-left' || layout === 'angled-right') ? '' : 'none';
+    }
+    document.getElementById('layout').addEventListener('change', updateAngleRowVisibility);
 
     // Preview background toggle
     document.querySelectorAll('input[name="preview-bg"]').forEach(function(radio) {
@@ -753,6 +829,175 @@
           area.style.backgroundImage = '';
         }
       });
+    });
+
+    // Text drag-and-drop via overlay on top of iframe
+    function applyTextPositions() {
+      var iframe = document.getElementById('preview-iframe');
+      var iframeDoc;
+      try { iframeDoc = iframe.contentDocument; } catch(e) { return; }
+      if (!iframeDoc) return;
+
+      ['headline', 'subtitle'].forEach(function(cls) {
+        var el = iframeDoc.querySelector('.' + cls);
+        if (!el) return;
+        if (textPositions[cls]) {
+          el.style.position = 'fixed';
+          el.style.top = textPositions[cls].top + '%';
+          el.style.left = textPositions[cls].left + '%';
+          el.style.transform = 'translateX(-50%)';
+          el.style.zIndex = '10';
+          el.style.margin = '0';
+          el.style.width = textPositions[cls].width + '%';
+        }
+      });
+    }
+
+    document.getElementById('preview-iframe').addEventListener('load', applyTextPositions);
+
+    // Overlay drag logic
+    var dragOverlay = document.getElementById('drag-overlay');
+    var dragState = null;
+    var hoveredEl = null;
+
+    function getIframeDocAndScale() {
+      var iframe = document.getElementById('preview-iframe');
+      var iframeDoc;
+      try { iframeDoc = iframe.contentDocument; } catch(e) { return null; }
+      if (!iframeDoc) return null;
+      var container = document.getElementById('preview-container');
+      var containerRect = container.getBoundingClientRect();
+      var scale = containerRect.width / 400;
+      return { iframeDoc: iframeDoc, containerRect: containerRect, scale: scale };
+    }
+
+    function parentToIframe(clientX, clientY, info) {
+      return {
+        x: (clientX - info.containerRect.left) / info.scale,
+        y: (clientY - info.containerRect.top) / info.scale
+      };
+    }
+
+    function getElPos(el) {
+      var top = 0, left = 0, curr = el;
+      while (curr) { top += curr.offsetTop; left += curr.offsetLeft; curr = curr.offsetParent; }
+      return { top: top, left: left, width: el.offsetWidth, height: el.offsetHeight };
+    }
+
+    function hitTest(ix, iy, iframeDoc) {
+      var el = iframeDoc.elementFromPoint(ix, iy);
+      while (el && el !== iframeDoc.documentElement) {
+        if (el.classList && el.classList.contains('headline')) return { cls: 'headline', el: el };
+        if (el.classList && el.classList.contains('subtitle')) return { cls: 'subtitle', el: el };
+        el = el.parentElement;
+      }
+      return null;
+    }
+
+    dragOverlay.addEventListener('mousemove', function(e) {
+      if (dragState) return;
+      var info = getIframeDocAndScale();
+      if (!info) return;
+      var pos = parentToIframe(e.clientX, e.clientY, info);
+      var hit = hitTest(pos.x, pos.y, info.iframeDoc);
+
+      var newHovered = hit ? hit.el : null;
+      if (newHovered !== hoveredEl) {
+        if (hoveredEl) {
+          hoveredEl.style.outline = 'none';
+        }
+        hoveredEl = newHovered;
+        if (hoveredEl) {
+          hoveredEl.style.outline = '2px dashed rgba(99, 102, 241, 0.5)';
+          hoveredEl.style.outlineOffset = '4px';
+        }
+      }
+      dragOverlay.style.cursor = hoveredEl ? 'grab' : '';
+    });
+
+    dragOverlay.addEventListener('mouseleave', function() {
+      if (hoveredEl && !dragState) {
+        hoveredEl.style.outline = 'none';
+        hoveredEl = null;
+      }
+      if (!dragState) dragOverlay.style.cursor = '';
+    });
+
+    dragOverlay.addEventListener('mousedown', function(e) {
+      var info = getIframeDocAndScale();
+      if (!info) return;
+      var pos = parentToIframe(e.clientX, e.clientY, info);
+      var hit = hitTest(pos.x, pos.y, info.iframeDoc);
+      if (!hit) return;
+
+      e.preventDefault();
+
+      var el = hit.el;
+      var cls = hit.cls;
+      var elPos = getElPos(el);
+      var origWidth = elPos.width;
+
+      // For elements already using translateX(-50%), offsetLeft IS the visual center.
+      // For flow-layout elements (first drag), the visual center is left + width/2.
+      var alreadyPositioned = !!textPositions[cls];
+      var centerX = alreadyPositioned ? elPos.left : (elPos.left + elPos.width / 2);
+
+      // Offset from element's center-x and top-y to the click point
+      var offsetX = pos.x - centerX;
+      var offsetY = pos.y - elPos.top;
+
+      // Switch to fixed positioning at current visual location
+      if (!alreadyPositioned) {
+        el.style.position = 'fixed';
+        el.style.top = elPos.top + 'px';
+        el.style.left = centerX + 'px';
+        el.style.transform = 'translateX(-50%)';
+        el.style.zIndex = '10';
+        el.style.margin = '0';
+        el.style.width = origWidth + 'px';
+      }
+
+      el.style.outline = '2px dashed rgba(99, 102, 241, 0.7)';
+      el.style.outlineOffset = '4px';
+      dragOverlay.style.cursor = 'grabbing';
+
+      dragState = { cls: cls, el: el, offsetX: offsetX, offsetY: offsetY, info: info, origWidth: origWidth };
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!dragState) return;
+      var pos = parentToIframe(e.clientX, e.clientY, dragState.info);
+      dragState.el.style.top = (pos.y - dragState.offsetY) + 'px';
+      dragState.el.style.left = (pos.x - dragState.offsetX) + 'px';
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (!dragState) return;
+      var el = dragState.el;
+      var cls = dragState.cls;
+      el.style.outline = 'none';
+      dragOverlay.style.cursor = 'grab';
+
+      // Store as percentage of canvas (400x868 for preview)
+      // Element has translateX(-50%), so offsetLeft = CSS left = visual center
+      var finalPos = getElPos(el);
+      var topPct = (finalPos.top / 868) * 100;
+      var leftPct = (finalPos.left / 400) * 100;
+      var widthPct = (dragState.origWidth / 400) * 100;
+      textPositions[cls] = {
+        top: Math.round(topPct * 10) / 10,
+        left: Math.round(leftPct * 10) / 10,
+        width: Math.round(widthPct * 10) / 10
+      };
+
+      dragState = null;
+    });
+
+    // Reset text positions
+    document.getElementById('btn-reset-text').addEventListener('click', function() {
+      textPositions.headline = null;
+      textPositions.subtitle = null;
+      renderPreview();
     });
 
     init();

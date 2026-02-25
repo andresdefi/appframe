@@ -11,8 +11,6 @@ export const templateStyleSchema = z.enum(['minimal', 'bold', 'glow', 'playful',
 export const frameStyleSchema = z.enum(['flat', '3d', 'floating', 'none']);
 export const layoutVariantSchema = z.enum([
   'center',
-  'left',
-  'right',
   'angled-left',
   'angled-right',
   'floating',

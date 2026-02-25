@@ -10,6 +10,7 @@ import {
   getDefaultFrame,
   Renderer,
   TemplateEngine,
+  FONT_CATALOG,
 } from '@appframe/core';
 import type { AppframeConfig, TemplateStyle, LayoutVariant, FrameStyle } from '@appframe/core';
 import type { TemplateContext } from '@appframe/core';
@@ -59,10 +60,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   // API: List available fonts
   app.get('/api/fonts', (_req, res) => {
-    res.json([
-      { id: 'inter', name: 'Inter', weights: [400, 500, 600, 700, 800] },
-      { id: 'space-grotesk', name: 'Space Grotesk', weights: [400, 500, 600, 700] },
-    ]);
+    res.json(FONT_CATALOG);
   });
 
   // API: Render a single screen preview
@@ -91,6 +89,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         deviceTop,
         deviceScale,
         deviceRotation,
+        deviceOffsetX,
+        deviceAngle,
+        deviceTilt,
+        headlineTop,
+        headlineLeft,
+        headlineWidth,
+        subtitleTop,
+        subtitleLeft,
+        subtitleWidth,
       } = req.body as {
         screenIndex?: number;
         locale?: string;
@@ -108,6 +115,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         deviceTop?: number;
         deviceScale?: number;
         deviceRotation?: number;
+        deviceOffsetX?: number;
+        deviceAngle?: number;
+        deviceTilt?: number;
+        headlineTop?: number;
+        headlineLeft?: number;
+        headlineWidth?: number;
+        subtitleTop?: number;
+        subtitleLeft?: number;
+        subtitleWidth?: number;
       };
 
       const screen = config.screens[screenIndex];
@@ -147,9 +163,13 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         deviceTop,
         deviceScale,
         deviceRotation,
+        deviceOffsetX,
+        deviceAngle,
+        deviceTilt,
       };
 
-      const html = await templateEngine.render(context);
+      let html = await templateEngine.render(context);
+      html = injectTextPositionCSS(html, headlineTop, headlineLeft, headlineWidth, subtitleTop, subtitleLeft, subtitleWidth);
       res.set('Content-Type', 'text/html');
       res.send(html);
     } catch (err) {
@@ -177,6 +197,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         deviceTop,
         deviceScale,
         deviceRotation,
+        deviceOffsetX,
+        deviceAngle,
+        deviceTilt,
+        headlineTop,
+        headlineLeft,
+        headlineWidth,
+        subtitleTop,
+        subtitleLeft,
+        subtitleWidth,
       } = req.body as {
         screenIndex?: number;
         locale?: string;
@@ -194,6 +223,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         deviceTop?: number;
         deviceScale?: number;
         deviceRotation?: number;
+        deviceOffsetX?: number;
+        deviceAngle?: number;
+        deviceTilt?: number;
+        headlineTop?: number;
+        headlineLeft?: number;
+        headlineWidth?: number;
+        subtitleTop?: number;
+        subtitleLeft?: number;
+        subtitleWidth?: number;
       };
 
       const screen = config.screens[screenIndex];
@@ -236,9 +274,13 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         deviceTop,
         deviceScale,
         deviceRotation,
+        deviceOffsetX,
+        deviceAngle,
+        deviceTilt,
       };
 
-      const html = await templateEngine.render(context);
+      let html = await templateEngine.render(context);
+      html = injectTextPositionCSS(html, headlineTop, headlineLeft, headlineWidth, subtitleTop, subtitleLeft, subtitleWidth);
 
       const tmpPath = join(configDir, `.appframe-preview-${Date.now()}.png`);
       await renderer.render({
@@ -280,6 +322,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         deviceTop,
         deviceScale,
         deviceRotation,
+        deviceOffsetX,
+        deviceAngle,
+        deviceTilt,
+        headlineTop,
+        headlineLeft,
+        headlineWidth,
+        subtitleTop,
+        subtitleLeft,
+        subtitleWidth,
       } = req.body as {
         screenIndex?: number;
         locale?: string;
@@ -297,6 +348,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         deviceTop?: number;
         deviceScale?: number;
         deviceRotation?: number;
+        deviceOffsetX?: number;
+        deviceAngle?: number;
+        deviceTilt?: number;
+        headlineTop?: number;
+        headlineLeft?: number;
+        headlineWidth?: number;
+        subtitleTop?: number;
+        subtitleLeft?: number;
+        subtitleWidth?: number;
       };
 
       // Get the store size dimensions
@@ -344,9 +404,13 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         deviceTop,
         deviceScale,
         deviceRotation,
+        deviceOffsetX,
+        deviceAngle,
+        deviceTilt,
       };
 
-      const html = await templateEngine.render(context);
+      let html = await templateEngine.render(context);
+      html = injectTextPositionCSS(html, headlineTop, headlineLeft, headlineWidth, subtitleTop, subtitleLeft, subtitleWidth);
 
       const tmpPath = join(configDir, `.appframe-export-${Date.now()}.png`);
       await renderer.render({
@@ -400,6 +464,28 @@ function getLocaleText(
 ): string | undefined {
   if (locale === 'default' || !config.locales) return undefined;
   return config.locales[locale]?.screens[index]?.[field];
+}
+
+function injectTextPositionCSS(
+  html: string,
+  headlineTop?: number,
+  headlineLeft?: number,
+  headlineWidth?: number,
+  subtitleTop?: number,
+  subtitleLeft?: number,
+  subtitleWidth?: number,
+): string {
+  const rules: string[] = [];
+  if (headlineTop !== undefined && headlineLeft !== undefined) {
+    const w = headlineWidth !== undefined ? `width: ${headlineWidth}% !important;` : '';
+    rules.push(`.headline { position: fixed !important; top: ${headlineTop}% !important; left: ${headlineLeft}% !important; transform: translateX(-50%) !important; z-index: 10 !important; margin: 0 !important; ${w} }`);
+  }
+  if (subtitleTop !== undefined && subtitleLeft !== undefined) {
+    const w = subtitleWidth !== undefined ? `width: ${subtitleWidth}% !important;` : '';
+    rules.push(`.subtitle { position: fixed !important; top: ${subtitleTop}% !important; left: ${subtitleLeft}% !important; transform: translateX(-50%) !important; z-index: 10 !important; margin: 0 !important; ${w} }`);
+  }
+  if (rules.length === 0) return html;
+  return html.replace('</head>', `<style>${rules.join('\n')}</style>\n</head>`);
 }
 
 async function screenshotToDataUrl(path: string): Promise<string> {

@@ -1,0 +1,4 @@
+{# Opens .device-face wrapper — receives the drop-shadow filter #}
+{# Side edges live outside this, as siblings in .device-wrapper's preserve-3d context #}
+{# Include right after <div class="device-wrapper"> #}
+{% if frameStyle == '3d' and frameSvg and frame %}<div class="device-face">{% endif %}

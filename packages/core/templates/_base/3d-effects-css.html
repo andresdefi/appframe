@@ -1,0 +1,251 @@
+{# ===== 3D Frame Enhancement CSS ===== #}
+{# Include inside <style> block. Requires: dw, frame, canvasWidth, frameStyle, frameSvg, layout #}
+{% if frameStyle == '3d' and frameSvg and frame %}
+{% set _fbr = frame.frameBorderRadius | default(54) %}
+{% set _frameR = (_fbr * dw / frame.frameSize.width) | round %}
+{% set _scrL = (frame.screenArea.x * dw / frame.frameSize.width) | round %}
+{% set _scrT = (frame.screenArea.y * dw / frame.frameSize.width) | round %}
+{% set _scrW = (frame.screenArea.width * dw / frame.frameSize.width) | round %}
+{% set _scrH = (frame.screenArea.height * dw / frame.frameSize.width) | round %}
+{% set _scrR = (frame.screenArea.borderRadius * dw / frame.frameSize.width) | round %}
+{% set _edgeW = ((3 * dw / frame.frameSize.width) | round) + 1 %}
+{% set _depth = (dw * 0.06) | round %}
+
+/* --- 3D Frame Effects --- */
+
+/*
+ * Strategy: add preserve-3d to device-wrapper (keeps its original transform),
+ * but move the filter (shadow) to an inner .device-face wrapper.
+ * CSS filter on the same element as preserve-3d forces 3D flattening,
+ * so they MUST be on separate elements.
+ * Side edge elements are siblings of .device-face inside .device-wrapper.
+ */
+.device-wrapper {
+  transform-style: preserve-3d;
+  filter: none !important;
+}
+
+/* Shadow moves to the face wrapper instead */
+.device-face {
+  position: relative;
+  filter:
+    drop-shadow(0 {{ (canvasWidth * 0.005) | round }}px {{ (canvasWidth * 0.01) | round }}px rgba(0,0,0,0.3))
+    drop-shadow(0 {{ (canvasWidth * 0.02) | round }}px {{ (canvasWidth * 0.04) | round }}px rgba(0,0,0,0.2))
+    drop-shadow(0 {{ (canvasWidth * 0.06) | round }}px {{ (canvasWidth * 0.12) | round }}px rgba(0,0,0,0.25))
+    drop-shadow(0 {{ (canvasWidth * 0.1) | round }}px {{ (canvasWidth * 0.2) | round }}px rgba(0,0,0,0.15));
+}
+
+/* Brighten SVG bezel for metallic base */
+.device-face > svg {
+  filter: brightness(2.8);
+}
+
+/* Metallic bezel gradient overlay */
+.bezel-highlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: {{ _frameR }}px;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.bezel-highlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    168deg,
+    rgba(220,225,235,0.55) 0%,
+    rgba(180,185,195,0.22) 14%,
+    rgba(120,125,135,0.06) 32%,
+    transparent 48%,
+    rgba(120,125,135,0.04) 62%,
+    rgba(180,185,195,0.15) 82%,
+    rgba(220,225,235,0.4) 100%
+  );
+  mix-blend-mode: screen;
+}
+
+/* Left edge metallic highlight */
+.bezel-highlight::after {
+  content: '';
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  left: 0;
+  width: {{ _edgeW }}px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255,255,255,0.35) 20%,
+    rgba(255,255,255,0.12) 50%,
+    rgba(255,255,255,0.35) 80%,
+    transparent 100%
+  );
+}
+
+/* Right edge metallic highlight */
+.edge-right {
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  right: 0;
+  width: {{ _edgeW }}px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255,255,255,0.2) 20%,
+    rgba(255,255,255,0.06) 50%,
+    rgba(255,255,255,0.2) 80%,
+    transparent 100%
+  );
+}
+
+/* Top edge highlight */
+.edge-top {
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: {{ _edgeW }}px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.35) 25%,
+    rgba(255,255,255,0.45) 50%,
+    rgba(255,255,255,0.35) 75%,
+    transparent 100%
+  );
+}
+
+/* Screen glass reflection */
+.screen-glare {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  left: {{ _scrL }}px;
+  top: {{ _scrT }}px;
+  width: {{ _scrW }}px;
+  height: {{ _scrH }}px;
+  border-radius: {{ _scrR }}px;
+}
+
+.screen-glare::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -30%;
+  width: 90%;
+  height: 55%;
+  background: radial-gradient(
+    ellipse at 40% 40%,
+    rgba(255,255,255,0.09) 0%,
+    rgba(255,255,255,0.03) 45%,
+    transparent 75%
+  );
+  transform: rotate(-12deg);
+}
+
+/* ===== 3D Side Edges (visible when device is angled) ===== */
+/* These are siblings of .device-face inside .device-wrapper's preserve-3d context */
+
+.device-side {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: {{ _depth }}px;
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+
+/* Right side — visible when rotateY is positive (angled-left) */
+.device-side-right {
+  right: 0;
+  transform-origin: right center;
+  transform: rotateY(-90deg);
+  border-radius: 0 {{ (_frameR * 0.3) | round }}px {{ (_frameR * 0.3) | round }}px 0;
+  background: linear-gradient(
+    180deg,
+    #626268 0%,
+    #48484e 8%,
+    #555558 20%,
+    #404046 50%,
+    #555558 80%,
+    #48484e 92%,
+    #626268 100%
+  );
+  border-left: 1px solid rgba(255,255,255,0.18);
+}
+
+/* Left side — visible when rotateY is negative (angled-right) */
+.device-side-left {
+  left: 0;
+  transform-origin: left center;
+  transform: rotateY(90deg);
+  border-radius: {{ (_frameR * 0.3) | round }}px 0 0 {{ (_frameR * 0.3) | round }}px;
+  background: linear-gradient(
+    180deg,
+    #626268 0%,
+    #48484e 8%,
+    #555558 20%,
+    #404046 50%,
+    #555558 80%,
+    #48484e 92%,
+    #626268 100%
+  );
+  border-right: 1px solid rgba(255,255,255,0.18);
+}
+
+/* Top side — visible when rotateX is positive (tilted back) */
+.device-side-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: {{ _depth }}px;
+  transform-origin: top center;
+  transform: rotateX(90deg);
+  backface-visibility: hidden;
+  pointer-events: none;
+  border-radius: {{ (_frameR * 0.3) | round }}px {{ (_frameR * 0.3) | round }}px 0 0;
+  background: linear-gradient(
+    90deg,
+    #525258 0%,
+    #48484e 15%,
+    #555558 50%,
+    #48484e 85%,
+    #525258 100%
+  );
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+
+/* Bottom side — visible when rotateX is negative (tilted forward) */
+.device-side-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: {{ _depth }}px;
+  transform-origin: bottom center;
+  transform: rotateX(-90deg);
+  backface-visibility: hidden;
+  pointer-events: none;
+  border-radius: 0 0 {{ (_frameR * 0.3) | round }}px {{ (_frameR * 0.3) | round }}px;
+  background: linear-gradient(
+    90deg,
+    #525258 0%,
+    #48484e 15%,
+    #555558 50%,
+    #48484e 85%,
+    #525258 100%
+  );
+  border-top: 1px solid rgba(255,255,255,0.12);
+}
+
+{% endif %}

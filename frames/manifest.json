@@ -20,6 +20,7 @@
         "width": 446,
         "height": 926
       },
+      "frameBorderRadius": 54,
       "screenResolution": {
         "width": 1320,
         "height": 2868
@@ -44,6 +45,7 @@
         "width": 438,
         "height": 910
       },
+      "frameBorderRadius": 54,
       "screenResolution": {
         "width": 1290,
         "height": 2796
@@ -68,6 +70,7 @@
         "width": 438,
         "height": 910
       },
+      "frameBorderRadius": 54,
       "screenResolution": {
         "width": 1284,
         "height": 2778
@@ -92,6 +95,7 @@
         "width": 584,
         "height": 764
       },
+      "frameBorderRadius": 28,
       "screenResolution": {
         "width": 2048,
         "height": 2732
@@ -116,6 +120,7 @@
         "width": 524,
         "height": 732
       },
+      "frameBorderRadius": 26,
       "screenResolution": {
         "width": 1668,
         "height": 2388
@@ -140,6 +145,7 @@
         "width": 412,
         "height": 876
       },
+      "frameBorderRadius": 46,
       "screenResolution": {
         "width": 1080,
         "height": 2400
@@ -164,6 +170,7 @@
         "width": 422,
         "height": 892
       },
+      "frameBorderRadius": 50,
       "screenResolution": {
         "width": 1170,
         "height": 2532
@@ -188,6 +195,7 @@
         "width": 554,
         "height": 744
       },
+      "frameBorderRadius": 24,
       "screenResolution": {
         "width": 1668,
         "height": 2388

@@ -31,7 +31,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   const app = express();
   app.use(cors());
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
 
   // Serve static frontend
   const publicDir = join(__dirname, '..', 'public');
@@ -69,107 +69,126 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   const templateEngine = new TemplateEngine();
 
+  // Shared: extract preview params from request body and resolve screenshot/headline/subtitle
+  interface PreviewParams {
+    screenIndex: number;
+    locale: string;
+    style?: TemplateStyle;
+    layout?: LayoutVariant;
+    headline?: string;
+    subtitle?: string;
+    colors?: Record<string, string>;
+    font?: string;
+    fontWeight?: number;
+    frameId?: string;
+    fStyle?: FrameStyle;
+    width: number;
+    height: number;
+    deviceTop?: number;
+    deviceScale?: number;
+    deviceRotation?: number;
+    deviceOffsetX?: number;
+    deviceAngle?: number;
+    deviceTilt?: number;
+    headlineTop?: number;
+    headlineLeft?: number;
+    headlineWidth?: number;
+    subtitleTop?: number;
+    subtitleLeft?: number;
+    subtitleWidth?: number;
+    clientScreenshot?: string;
+    platform?: string;
+    sizeKey?: string;
+  }
+
+  function parseBody(body: Record<string, unknown>, defaultWidth = 400, defaultHeight = 868): PreviewParams {
+    return {
+      screenIndex: (body.screenIndex as number) ?? 0,
+      locale: (body.locale as string) ?? 'default',
+      style: body.style as TemplateStyle | undefined,
+      layout: body.layout as LayoutVariant | undefined,
+      headline: body.headline as string | undefined,
+      subtitle: body.subtitle as string | undefined,
+      colors: body.colors as Record<string, string> | undefined,
+      font: body.font as string | undefined,
+      fontWeight: body.fontWeight as number | undefined,
+      frameId: body.frameId as string | undefined,
+      fStyle: body.frameStyle as FrameStyle | undefined,
+      width: (body.width as number) ?? defaultWidth,
+      height: (body.height as number) ?? defaultHeight,
+      deviceTop: body.deviceTop as number | undefined,
+      deviceScale: body.deviceScale as number | undefined,
+      deviceRotation: body.deviceRotation as number | undefined,
+      deviceOffsetX: body.deviceOffsetX as number | undefined,
+      deviceAngle: body.deviceAngle as number | undefined,
+      deviceTilt: body.deviceTilt as number | undefined,
+      headlineTop: body.headlineTop as number | undefined,
+      headlineLeft: body.headlineLeft as number | undefined,
+      headlineWidth: body.headlineWidth as number | undefined,
+      subtitleTop: body.subtitleTop as number | undefined,
+      subtitleLeft: body.subtitleLeft as number | undefined,
+      subtitleWidth: body.subtitleWidth as number | undefined,
+      clientScreenshot: body.screenshotDataUrl as string | undefined,
+      platform: body.platform as string | undefined,
+      sizeKey: body.sizeKey as string | undefined,
+    };
+  }
+
+  async function resolveContext(p: PreviewParams): Promise<{ context: TemplateContext; html?: undefined } | { context: TemplateContext }> {
+    const screen = config.screens[p.screenIndex] ?? null;
+
+    const resolvedHeadline = p.headline ?? getLocaleText(config, p.screenIndex, p.locale, 'headline') ?? screen?.headline ?? 'New Screen';
+    const resolvedSubtitle = p.subtitle ?? getLocaleText(config, p.screenIndex, p.locale, 'subtitle') ?? screen?.subtitle;
+
+    let screenshotDataUrl: string;
+    if (p.clientScreenshot) {
+      screenshotDataUrl = p.clientScreenshot;
+    } else {
+      const screenshotPath = screen ? join(configDir, screen.screenshot) : '';
+      screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+    }
+
+    const frame = p.frameId
+      ? await getFrame(p.frameId)
+      : await getDefaultFrame((p.platform as 'ios' | 'android') ?? 'ios');
+    let frameSvg: string | null = null;
+    if (frame && (p.fStyle ?? config.frames.style) !== 'none') {
+      frameSvg = await readFile(frame.framePath, 'utf-8');
+    }
+
+    const context: TemplateContext = {
+      headline: resolvedHeadline,
+      subtitle: resolvedSubtitle,
+      screenshotDataUrl,
+      style: p.style ?? config.theme.style,
+      colors: p.colors ? { ...config.theme.colors, ...p.colors } : config.theme.colors,
+      font: p.font ?? config.theme.font,
+      fontWeight: p.fontWeight ?? config.theme.fontWeight,
+      layout: p.layout ?? screen?.layout ?? 'center',
+      frame: frame ?? null,
+      frameStyle: p.fStyle ?? config.frames.style,
+      frameSvg,
+      canvasWidth: p.width,
+      canvasHeight: p.height,
+      deviceTop: p.deviceTop,
+      deviceScale: p.deviceScale,
+      deviceRotation: p.deviceRotation,
+      deviceOffsetX: p.deviceOffsetX,
+      deviceAngle: p.deviceAngle,
+      deviceTilt: p.deviceTilt,
+    };
+
+    return { context };
+  }
+
   // API: Render HTML only (no Playwright screenshot — used by iframe preview)
   app.post('/api/preview-html', async (req, res) => {
     try {
-      const {
-        screenIndex = 0,
-        locale = 'default',
-        style,
-        layout,
-        headline,
-        subtitle,
-        colors,
-        font,
-        fontWeight,
-        frameId,
-        frameStyle: fStyle,
-        width = 400,
-        height = 868,
-        deviceTop,
-        deviceScale,
-        deviceRotation,
-        deviceOffsetX,
-        deviceAngle,
-        deviceTilt,
-        headlineTop,
-        headlineLeft,
-        headlineWidth,
-        subtitleTop,
-        subtitleLeft,
-        subtitleWidth,
-      } = req.body as {
-        screenIndex?: number;
-        locale?: string;
-        style?: TemplateStyle;
-        layout?: LayoutVariant;
-        headline?: string;
-        subtitle?: string;
-        colors?: Record<string, string>;
-        font?: string;
-        fontWeight?: number;
-        frameId?: string;
-        frameStyle?: FrameStyle;
-        width?: number;
-        height?: number;
-        deviceTop?: number;
-        deviceScale?: number;
-        deviceRotation?: number;
-        deviceOffsetX?: number;
-        deviceAngle?: number;
-        deviceTilt?: number;
-        headlineTop?: number;
-        headlineLeft?: number;
-        headlineWidth?: number;
-        subtitleTop?: number;
-        subtitleLeft?: number;
-        subtitleWidth?: number;
-      };
-
-      const screen = config.screens[screenIndex];
-      if (!screen) {
-        res.status(400).json({ error: `Screen index ${screenIndex} not found` });
-        return;
-      }
-
-      const resolvedHeadline = headline ?? getLocaleText(config, screenIndex, locale, 'headline') ?? screen.headline;
-      const resolvedSubtitle = subtitle ?? getLocaleText(config, screenIndex, locale, 'subtitle') ?? screen.subtitle;
-
-      const screenshotPath = join(configDir, screen.screenshot);
-      const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
-
-      const frame = frameId
-        ? await getFrame(frameId)
-        : await getDefaultFrame('ios');
-      let frameSvg: string | null = null;
-      if (frame && (fStyle ?? config.frames.style) !== 'none') {
-        frameSvg = await readFile(frame.framePath, 'utf-8');
-      }
-
-      const context: TemplateContext = {
-        headline: resolvedHeadline,
-        subtitle: resolvedSubtitle,
-        screenshotDataUrl,
-        style: style ?? config.theme.style,
-        colors: colors ? { ...config.theme.colors, ...colors } : config.theme.colors,
-        font: font ?? config.theme.font,
-        fontWeight: fontWeight ?? config.theme.fontWeight,
-        layout: layout ?? screen.layout,
-        frame: frame ?? null,
-        frameStyle: fStyle ?? config.frames.style,
-        frameSvg,
-        canvasWidth: width,
-        canvasHeight: height,
-        deviceTop,
-        deviceScale,
-        deviceRotation,
-        deviceOffsetX,
-        deviceAngle,
-        deviceTilt,
-      };
+      const p = parseBody(req.body as Record<string, unknown>);
+      const { context } = await resolveContext(p);
 
       let html = await templateEngine.render(context);
-      html = injectTextPositionCSS(html, headlineTop, headlineLeft, headlineWidth, subtitleTop, subtitleLeft, subtitleWidth);
+      html = injectTextPositionCSS(html, p.headlineTop, p.headlineLeft, p.headlineWidth, p.subtitleTop, p.subtitleLeft, p.subtitleWidth);
       res.set('Content-Type', 'text/html');
       res.send(html);
     } catch (err) {
@@ -180,113 +199,17 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   app.post('/api/preview', async (req, res) => {
     try {
-      const {
-        screenIndex = 0,
-        locale = 'default',
-        style,
-        layout,
-        headline,
-        subtitle,
-        colors,
-        font,
-        fontWeight,
-        frameId,
-        frameStyle: fStyle,
-        width = 400,
-        height = 868,
-        deviceTop,
-        deviceScale,
-        deviceRotation,
-        deviceOffsetX,
-        deviceAngle,
-        deviceTilt,
-        headlineTop,
-        headlineLeft,
-        headlineWidth,
-        subtitleTop,
-        subtitleLeft,
-        subtitleWidth,
-      } = req.body as {
-        screenIndex?: number;
-        locale?: string;
-        style?: TemplateStyle;
-        layout?: LayoutVariant;
-        headline?: string;
-        subtitle?: string;
-        colors?: Record<string, string>;
-        font?: string;
-        fontWeight?: number;
-        frameId?: string;
-        frameStyle?: FrameStyle;
-        width?: number;
-        height?: number;
-        deviceTop?: number;
-        deviceScale?: number;
-        deviceRotation?: number;
-        deviceOffsetX?: number;
-        deviceAngle?: number;
-        deviceTilt?: number;
-        headlineTop?: number;
-        headlineLeft?: number;
-        headlineWidth?: number;
-        subtitleTop?: number;
-        subtitleLeft?: number;
-        subtitleWidth?: number;
-      };
-
-      const screen = config.screens[screenIndex];
-      if (!screen) {
-        res.status(400).json({ error: `Screen index ${screenIndex} not found` });
-        return;
-      }
-
-      // Resolve headline/subtitle (use overrides or locale or default)
-      const resolvedHeadline = headline ?? getLocaleText(config, screenIndex, locale, 'headline') ?? screen.headline;
-      const resolvedSubtitle = subtitle ?? getLocaleText(config, screenIndex, locale, 'subtitle') ?? screen.subtitle;
-
-      // Resolve screenshot
-      const screenshotPath = join(configDir, screen.screenshot);
-      const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
-
-      // Resolve frame
-      const frame = frameId
-        ? await getFrame(frameId)
-        : await getDefaultFrame('ios');
-      let frameSvg: string | null = null;
-      if (frame && (fStyle ?? config.frames.style) !== 'none') {
-        frameSvg = await readFile(frame.framePath, 'utf-8');
-      }
-
-      const context: TemplateContext = {
-        headline: resolvedHeadline,
-        subtitle: resolvedSubtitle,
-        screenshotDataUrl,
-        style: style ?? config.theme.style,
-        colors: colors ? { ...config.theme.colors, ...colors } : config.theme.colors,
-        font: font ?? config.theme.font,
-        fontWeight: fontWeight ?? config.theme.fontWeight,
-        layout: layout ?? screen.layout,
-        frame: frame ?? null,
-        frameStyle: fStyle ?? config.frames.style,
-        frameSvg,
-        canvasWidth: width,
-        canvasHeight: height,
-        deviceTop,
-        deviceScale,
-        deviceRotation,
-        deviceOffsetX,
-        deviceAngle,
-        deviceTilt,
-      };
+      const p = parseBody(req.body as Record<string, unknown>);
+      const { context } = await resolveContext(p);
 
       let html = await templateEngine.render(context);
-      html = injectTextPositionCSS(html, headlineTop, headlineLeft, headlineWidth, subtitleTop, subtitleLeft, subtitleWidth);
+      html = injectTextPositionCSS(html, p.headlineTop, p.headlineLeft, p.headlineWidth, p.subtitleTop, p.subtitleLeft, p.subtitleWidth);
 
       const tmpPath = join(configDir, `.appframe-preview-${Date.now()}.png`);
       await renderer.render({
         html,
-        width,
-        height,
+        width: p.width,
+        height: p.height,
         outputPath: tmpPath,
       });
 
@@ -305,61 +228,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // API: Export full-resolution screenshot
   app.post('/api/export', async (req, res) => {
     try {
-      const {
-        screenIndex = 0,
-        locale = 'default',
-        style,
-        layout,
-        headline,
-        subtitle,
-        colors,
-        font,
-        fontWeight,
-        frameId,
-        frameStyle: fStyle,
-        platform = 'ios',
-        sizeKey = 'ios-6.7',
-        deviceTop,
-        deviceScale,
-        deviceRotation,
-        deviceOffsetX,
-        deviceAngle,
-        deviceTilt,
-        headlineTop,
-        headlineLeft,
-        headlineWidth,
-        subtitleTop,
-        subtitleLeft,
-        subtitleWidth,
-      } = req.body as {
-        screenIndex?: number;
-        locale?: string;
-        style?: TemplateStyle;
-        layout?: LayoutVariant;
-        headline?: string;
-        subtitle?: string;
-        colors?: Record<string, string>;
-        font?: string;
-        fontWeight?: number;
-        frameId?: string;
-        frameStyle?: FrameStyle;
-        platform?: string;
-        sizeKey?: string;
-        deviceTop?: number;
-        deviceScale?: number;
-        deviceRotation?: number;
-        deviceOffsetX?: number;
-        deviceAngle?: number;
-        deviceTilt?: number;
-        headlineTop?: number;
-        headlineLeft?: number;
-        headlineWidth?: number;
-        subtitleTop?: number;
-        subtitleLeft?: number;
-        subtitleWidth?: number;
-      };
+      const p = parseBody(req.body as Record<string, unknown>);
+      const sizeKey = p.sizeKey ?? 'ios-6.7';
 
-      // Get the store size dimensions
       const { STORE_SIZES } = await import('@appframe/core');
       const sizeSpec = STORE_SIZES[sizeKey];
       if (!sizeSpec) {
@@ -367,50 +238,14 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         return;
       }
 
-      const screen = config.screens[screenIndex];
-      if (!screen) {
-        res.status(400).json({ error: `Screen index ${screenIndex} not found` });
-        return;
-      }
+      // Override width/height with the export size
+      p.width = sizeSpec.width;
+      p.height = sizeSpec.height;
 
-      const resolvedHeadline = headline ?? getLocaleText(config, screenIndex, locale, 'headline') ?? screen.headline;
-      const resolvedSubtitle = subtitle ?? getLocaleText(config, screenIndex, locale, 'subtitle') ?? screen.subtitle;
-
-      const screenshotPath = join(configDir, screen.screenshot);
-      const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
-
-      const frame = frameId
-        ? await getFrame(frameId)
-        : await getDefaultFrame(platform as 'ios' | 'android');
-      let frameSvg: string | null = null;
-      if (frame && (fStyle ?? config.frames.style) !== 'none') {
-        frameSvg = await readFile(frame.framePath, 'utf-8');
-      }
-
-      const context: TemplateContext = {
-        headline: resolvedHeadline,
-        subtitle: resolvedSubtitle,
-        screenshotDataUrl,
-        style: style ?? config.theme.style,
-        colors: colors ? { ...config.theme.colors, ...colors } : config.theme.colors,
-        font: font ?? config.theme.font,
-        fontWeight: fontWeight ?? config.theme.fontWeight,
-        layout: layout ?? screen.layout,
-        frame: frame ?? null,
-        frameStyle: fStyle ?? config.frames.style,
-        frameSvg,
-        canvasWidth: sizeSpec.width,
-        canvasHeight: sizeSpec.height,
-        deviceTop,
-        deviceScale,
-        deviceRotation,
-        deviceOffsetX,
-        deviceAngle,
-        deviceTilt,
-      };
+      const { context } = await resolveContext(p);
 
       let html = await templateEngine.render(context);
-      html = injectTextPositionCSS(html, headlineTop, headlineLeft, headlineWidth, subtitleTop, subtitleLeft, subtitleWidth);
+      html = injectTextPositionCSS(html, p.headlineTop, p.headlineLeft, p.headlineWidth, p.subtitleTop, p.subtitleLeft, p.subtitleWidth);
 
       const tmpPath = join(configDir, `.appframe-export-${Date.now()}.png`);
       await renderer.render({
@@ -424,7 +259,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const { unlink } = await import('node:fs/promises');
       await unlink(tmpPath);
 
-      const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${screenIndex + 1}_${sizeKey}.png`;
+      const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${p.screenIndex + 1}_${sizeKey}.png`;
       res.set('Content-Type', 'image/png');
       res.set('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(imageBuffer);

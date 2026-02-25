@@ -13,7 +13,7 @@ app:
     - Offline support
 
 theme:
-  style: dark
+  style: bold
   colors:
     primary: "#F59E0B"
     secondary: "#3B82F6"
@@ -26,7 +26,7 @@ theme:
 frames:
   ios: iphone-16-pro-max
   android: pixel-10
-  style: 3d
+  style: flat
 
 screens:
   - screenshot: screenshots/dashboard.png

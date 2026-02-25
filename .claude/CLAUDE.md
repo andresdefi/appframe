@@ -36,3 +36,23 @@ Open-source tool for generating professional App Store & Play Store promotional 
 ## Testing
 - Vitest for unit and integration tests
 - Test files co-located: `*.test.ts` next to source files
+
+## TODO
+
+### 3D Frame Style (disabled, needs fix)
+The `frameStyle: '3d'` option is implemented but disabled from the UI (removed from the Frame Style dropdown in `packages/web-preview/public/index.html`). The goal is to make devices look like real 3D objects with visible side edges, metallic bezels, and depth — similar to App Store promotional screenshots from apps like Coinbase or Kraken.
+
+**What exists:**
+- `templates/_base/3d-effects-css.html` — CSS for preserve-3d, metallic bezel overlays, screen glare, and 3D side edges (rotateY/rotateX transforms)
+- `templates/_base/3d-device-body-open.html` — Opens a `.device-face` wrapper that receives the drop-shadow filter
+- `templates/_base/3d-effects-overlays.html` — Closes `.device-face`, adds side edge divs as siblings in the 3D context
+- All 7 template `base.html` files include these partials and have a `frameStyle == '3d'` shadow condition
+- `frameBorderRadius` added to `FrameDefinition` type and `frames/manifest.json`
+
+**The core problem:**
+CSS `filter` (drop-shadow) on the same element as `transform-style: preserve-3d` forces 3D flattening — they must be on separate elements. Three approaches were tried:
+1. Pure CSS overlays (no preserve-3d) — looked flat, no actual side edges
+2. Split wrapper (device-wrapper for shadow, device-body for 3D rotation) — canvas background bled through because the rotated child no longer fills the parent
+3. Inner face wrapper (device-wrapper keeps original transform + preserve-3d, device-face gets filter, side edges as siblings) — rendered correctly in HTML/CSS output but visually still appeared flat in Playwright screenshots
+
+**To re-enable:** Add `<option value="3d">3D</option>` back to the Frame Style dropdown in `packages/web-preview/public/index.html`.

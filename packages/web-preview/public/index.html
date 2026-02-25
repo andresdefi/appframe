@@ -128,27 +128,195 @@
     .btn-export { background: var(--green); color: white; flex: 1; }
     .btn-export:hover { background: #16a34a; }
 
-    .screen-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
-
-    .screen-tab {
-      padding: 6px 12px; border-radius: 6px; font-size: 12px;
-      cursor: pointer; background: var(--surface-2);
-      border: 1px solid var(--border); color: var(--text-dim); transition: all 0.15s;
+    .inline-row {
+      display: flex;
+      gap: 10px;
     }
 
-    .screen-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+    .inline-row > div {
+      flex: 1;
+    }
+
+    .export-size-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .export-size-row select {
+      margin-bottom: 0;
+    }
+
+    /* ===== Preview Gallery ===== */
 
     .preview-area {
-      flex: 1; display: flex; align-items: center; justify-content: center;
-      padding: 40px; overflow: auto; background: var(--bg);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
       background-image: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
       background-size: 24px 24px;
+      position: relative;
+    }
+
+    .preview-gallery {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+      padding: 48px 40px 48px 40px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      flex: 1;
+      scroll-behavior: smooth;
+      scroll-snap-type: x proximity;
+    }
+
+    .preview-gallery::-webkit-scrollbar {
+      height: 6px;
+    }
+    .preview-gallery::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .preview-gallery::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .preview-card {
+      flex: 0 0 auto;
+      scroll-snap-align: center;
+      cursor: pointer;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      position: relative;
+    }
+
+    .preview-card.selected {
+      transform: scale(1.03);
+    }
+
+    .preview-card:not(.selected) {
+      opacity: 0.55;
+    }
+    .preview-card:not(.selected):hover {
+      opacity: 0.8;
+    }
+
+    .preview-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .preview-card-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      background: var(--surface);
+      padding: 3px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .preview-card.selected .preview-card-label {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .preview-card-remove {
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 7px;
+      cursor: pointer;
+      line-height: 1;
+      transition: all 0.15s;
+    }
+    .preview-card-remove:hover {
+      background: #dc2626;
+      border-color: #dc2626;
+      color: white;
+    }
+
+    .preview-card-reorder {
+      font-size: 13px;
+      color: var(--text-dim);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      cursor: pointer;
+      line-height: 1;
+      transition: all 0.15s;
+    }
+    .preview-card-reorder:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .preview-card-reorder:disabled {
+      opacity: 0.25;
+      cursor: default;
+    }
+    .preview-card-reorder:disabled:hover {
+      background: var(--surface);
+      border-color: var(--border);
+      color: var(--text-dim);
+    }
+
+    .screenshot-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .screenshot-thumb {
+      width: 36px;
+      height: 64px;
+      border-radius: 4px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .screenshot-name {
+      font-size: 11px;
+      color: var(--text-dim);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .screenshot-upload-btn {
+      width: 100%;
+      padding: 7px 0;
+      font-size: 12px;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .screenshot-upload-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
     }
 
     .preview-container {
       position: relative;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-      border-radius: 8px; overflow: hidden;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .preview-card.selected .preview-container {
+      box-shadow: 0 0 0 2px var(--accent), 0 20px 60px rgba(0, 0, 0, 0.4);
     }
 
     .preview-container iframe {
@@ -174,6 +342,28 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Add screen card */
+    .add-screen-card {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+      min-height: 200px;
+      padding: 0 24px;
+    }
+    .add-screen-card:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
     .status-bar {
       position: fixed; bottom: 0; left: 320px; right: 0;
       padding: 8px 20px; background: var(--surface);
@@ -182,23 +372,21 @@
       display: flex; justify-content: space-between;
     }
 
-    .inline-row {
+    .selected-indicator {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
       display: flex;
-      gap: 10px;
+      align-items: center;
+      gap: 6px;
     }
-
-    .inline-row > div {
-      flex: 1;
-    }
-
-    .export-size-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .export-size-row select {
-      margin-bottom: 0;
+    .selected-indicator .badge {
+      background: var(--accent);
+      color: white;
+      padding: 1px 8px;
+      border-radius: 3px;
+      font-weight: 600;
+      font-size: 10px;
     }
   </style>
 </head>
@@ -210,8 +398,22 @@
     </div>
 
     <div class="section">
-      <div class="section-title">Screens</div>
-      <div class="screen-tabs" id="screen-tabs"></div>
+      <div class="section-title">Editing Screen</div>
+      <div class="selected-indicator" id="selected-indicator">
+        <span class="badge" id="selected-badge">1</span>
+        <span id="selected-headline-preview">-</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Screenshot</div>
+      <div class="screenshot-info" id="screenshot-info">
+        <img class="screenshot-thumb" id="screenshot-thumb" alt="">
+        <span class="screenshot-name" id="screenshot-name">From config</span>
+      </div>
+      <button class="screenshot-upload-btn" id="btn-upload-screenshot">Upload Screenshot</button>
+      <input type="file" id="screenshot-file-input" accept="image/png,image/jpeg,image/webp" style="display: none;">
+      <button class="btn" id="btn-clear-screenshot" style="width: 100%; padding: 4px 0; font-size: 11px; margin-top: 6px; display: none;">Revert to Config Screenshot</button>
     </div>
 
     <div class="section">
@@ -282,7 +484,6 @@
       <label for="frame-style">Frame Style</label>
       <select id="frame-style">
         <option value="flat">Flat</option>
-        <option value="3d">3D</option>
         <option value="floating">Floating</option>
         <option value="none">None (frameless)</option>
       </select>
@@ -297,12 +498,12 @@
       </div>
       <label for="device-top">Device Position</label>
       <div class="range-row">
-        <input type="range" id="device-top" min="5" max="40" step="1" value="15">
+        <input type="range" id="device-top" min="-80" max="80" step="1" value="15">
         <span class="range-value" id="device-top-value">15%</span>
       </div>
       <label for="device-offset-x">Horizontal Position</label>
       <div class="range-row">
-        <input type="range" id="device-offset-x" min="-50" max="50" step="1" value="0">
+        <input type="range" id="device-offset-x" min="-80" max="80" step="1" value="0">
         <span class="range-value" id="device-offset-x-value">0</span>
       </div>
       <label for="device-rotation">Device Rotation</label>
@@ -361,18 +562,14 @@
 
     <div class="section">
       <div class="btn-row">
-        <button class="btn btn-primary" id="btn-refresh">Refresh Preview</button>
+        <button class="btn btn-primary" id="btn-refresh">Refresh All</button>
         <button class="btn btn-secondary" id="btn-reload">Reload Config</button>
       </div>
     </div>
   </div>
 
   <div class="preview-area" id="preview-area">
-    <div class="preview-container" id="preview-container">
-      <iframe id="preview-iframe"></iframe>
-      <div id="drag-overlay" style="position: absolute; inset: 0; z-index: 1;"></div>
-      <div class="loading-overlay" id="loading" style="z-index: 2;"><div class="spinner"></div></div>
-    </div>
+    <div class="preview-gallery" id="preview-gallery"></div>
   </div>
 
   <div class="status-bar">
@@ -383,11 +580,13 @@
   <script>
     var API = '';
     var config = null;
-    var currentScreen = 0;
+    var screenStates = [];
+    var selectedScreen = 0;
     var debounceTimer = null;
     var framesData = [];
     var fontsData = [];
-    var textPositions = { headline: null, subtitle: null };
+
+    // ===== Utilities =====
 
     function clearChildren(el) {
       while (el.firstChild) el.removeChild(el.firstChild);
@@ -400,168 +599,415 @@
       select.appendChild(opt);
     }
 
-    async function init() {
-      var res = await fetch(API + '/api/config');
-      config = await res.json();
-
-      document.getElementById('app-name').textContent = config.app.name;
-
-      // Screen tabs
-      var tabs = document.getElementById('screen-tabs');
-      config.screens.forEach(function(screen, i) {
-        var tab = document.createElement('div');
-        tab.className = 'screen-tab' + (i === 0 ? ' active' : '');
-        tab.textContent = String(i + 1);
-        tab.title = screen.headline;
-        tab.addEventListener('click', function() { selectScreen(i); });
-        tabs.appendChild(tab);
-      });
-
-      // Locales
-      var localeSelect = document.getElementById('locale');
-      clearChildren(localeSelect);
-      addOption(localeSelect, 'default', 'Default');
-      if (config.locales) {
-        Object.keys(config.locales).forEach(function(locale) {
-          addOption(localeSelect, locale, locale.toUpperCase());
-        });
-      }
-
-      // Fonts
-      var fontsRes = await fetch(API + '/api/fonts');
-      fontsData = await fontsRes.json();
-      var fontSelect = document.getElementById('font');
-      clearChildren(fontSelect);
-      fontsData.forEach(function(f) {
-        addOption(fontSelect, f.id, f.name);
-      });
-
-      // Frames
-      var framesRes = await fetch(API + '/api/frames');
-      framesData = await framesRes.json();
-      var frameSelect = document.getElementById('frame-id');
-      clearChildren(frameSelect);
-      framesData.forEach(function(f) {
-        addOption(frameSelect, f.id, f.name + ' (' + f.year + ')');
-      });
-
-      applyConfigToControls();
-      renderPreview();
+    function createSpinner() {
+      var s = document.createElement('div');
+      s.className = 'spinner';
+      return s;
     }
 
-    function applyConfigToControls() {
-      var screen = config.screens[currentScreen];
-      document.getElementById('headline').value = screen.headline;
-      document.getElementById('subtitle').value = screen.subtitle || '';
-      document.getElementById('template').value = config.theme.style;
-      var layout = screen.layout;
+    // ===== Per-Screen State =====
+
+    function createScreenState(index, cfg) {
+      var screen = cfg.screens[index];
+      var layout = screen ? screen.layout : 'center';
       if (layout === 'left' || layout === 'right') layout = 'center';
-      document.getElementById('layout').value = layout;
-      if (typeof updateAngleRowVisibility === 'function') updateAngleRowVisibility();
-      document.getElementById('font').value = config.theme.font;
-      document.getElementById('font-weight').value = config.theme.fontWeight;
-      document.getElementById('font-weight-value').textContent = config.theme.fontWeight;
-      document.getElementById('color-primary').value = config.theme.colors.primary;
-      document.getElementById('color-secondary').value = config.theme.colors.secondary;
-      document.getElementById('color-background').value = config.theme.colors.background;
-      document.getElementById('color-text').value = config.theme.colors.text;
-      document.getElementById('color-subtitle').value = config.theme.colors.subtitle || '#64748B';
-      document.getElementById('frame-style').value = config.frames.style;
 
-      var frameId = config.frames.ios || config.frames.android || '';
-      if (frameId) {
-        var frameSelect = document.getElementById('frame-id');
-        for (var i = 0; i < frameSelect.options.length; i++) {
-          if (frameSelect.options[i].value === frameId) {
-            frameSelect.selectedIndex = i;
-            break;
-          }
-        }
-      }
-    }
-
-    function selectScreen(index) {
-      currentScreen = index;
-      var tabs = document.querySelectorAll('.screen-tab');
-      tabs.forEach(function(tab, i) {
-        tab.classList.toggle('active', i === index);
-      });
-
-      var locale = document.getElementById('locale').value;
-      var screen = config.screens[currentScreen];
-      var headline = screen.headline;
-      var subtitle = screen.subtitle || '';
-      var layout = screen.layout;
-
-      if (locale !== 'default' && config.locales && config.locales[locale]) {
-        var ls = config.locales[locale].screens[currentScreen];
-        if (ls) {
-          headline = ls.headline || headline;
-          subtitle = ls.subtitle || subtitle;
-        }
-      }
-
-      document.getElementById('headline').value = headline;
-      document.getElementById('subtitle').value = subtitle;
-      document.getElementById('layout').value = layout;
-      if (typeof updateAngleRowVisibility === 'function') updateAngleRowVisibility();
-      renderPreview();
-    }
-
-    function getPreviewBody() {
       return {
-        screenIndex: currentScreen,
-        locale: document.getElementById('locale').value,
-        style: document.getElementById('template').value,
-        layout: document.getElementById('layout').value,
-        headline: document.getElementById('headline').value,
-        subtitle: document.getElementById('subtitle').value || undefined,
+        screenIndex: index,
+        headline: screen ? screen.headline : 'New Screen',
+        subtitle: screen ? (screen.subtitle || '') : '',
+        style: cfg.theme.style,
+        layout: layout,
+        font: cfg.theme.font,
+        fontWeight: cfg.theme.fontWeight,
         colors: {
-          primary: document.getElementById('color-primary').value,
-          secondary: document.getElementById('color-secondary').value,
-          background: document.getElementById('color-background').value,
-          text: document.getElementById('color-text').value,
-          subtitle: document.getElementById('color-subtitle').value,
+          primary: cfg.theme.colors.primary,
+          secondary: cfg.theme.colors.secondary,
+          background: cfg.theme.colors.background,
+          text: cfg.theme.colors.text,
+          subtitle: cfg.theme.colors.subtitle || '#64748B',
         },
-        font: document.getElementById('font').value,
-        fontWeight: parseInt(document.getElementById('font-weight').value, 10),
-        frameId: document.getElementById('frame-id').value,
-        frameStyle: document.getElementById('frame-style').value,
-        deviceScale: parseInt(document.getElementById('device-scale').value, 10),
-        deviceTop: parseInt(document.getElementById('device-top').value, 10),
-        deviceRotation: parseInt(document.getElementById('device-rotation').value, 10),
-        deviceOffsetX: parseInt(document.getElementById('device-offset-x').value, 10),
-        deviceAngle: parseInt(document.getElementById('device-angle').value, 10),
-        deviceTilt: parseInt(document.getElementById('device-tilt').value, 10),
-        headlineTop: textPositions.headline ? textPositions.headline.top : undefined,
-        headlineLeft: textPositions.headline ? textPositions.headline.left : undefined,
-        headlineWidth: textPositions.headline ? textPositions.headline.width : undefined,
-        subtitleTop: textPositions.subtitle ? textPositions.subtitle.top : undefined,
-        subtitleLeft: textPositions.subtitle ? textPositions.subtitle.left : undefined,
-        subtitleWidth: textPositions.subtitle ? textPositions.subtitle.width : undefined,
+        frameId: cfg.frames.ios || cfg.frames.android || '',
+        frameStyle: cfg.frames.style === '3d' ? 'flat' : cfg.frames.style,
+        deviceScale: 92,
+        deviceTop: 15,
+        deviceRotation: 0,
+        deviceOffsetX: 0,
+        deviceAngle: 8,
+        deviceTilt: 0,
+        textPositions: { headline: null, subtitle: null },
+        screenshotDataUrl: null,
+        screenshotName: screen ? (screen.screenshot || '').split('/').pop() : null,
+        iframeEl: null,
+        containerEl: null,
+        dragOverlayEl: null,
+        loadingEl: null,
       };
     }
 
-    function scalePreview() {
-      var area = document.getElementById('preview-area');
-      var container = document.getElementById('preview-container');
-      var iframe = document.getElementById('preview-iframe');
-      var areaH = area.clientHeight - 80;
-      var areaW = area.clientWidth - 80;
-      var scale = Math.min(areaH / 868, areaW / 400, 1);
-      iframe.style.transform = 'scale(' + scale + ')';
-      container.style.width = Math.round(400 * scale) + 'px';
-      container.style.height = Math.round(868 * scale) + 'px';
+    // ===== Sync Controls <-> State =====
+
+    function saveControlsToState(index) {
+      var state = screenStates[index];
+      if (!state) return;
+      state.headline = document.getElementById('headline').value;
+      state.subtitle = document.getElementById('subtitle').value;
+      state.style = document.getElementById('template').value;
+      state.layout = document.getElementById('layout').value;
+      state.font = document.getElementById('font').value;
+      state.fontWeight = parseInt(document.getElementById('font-weight').value, 10);
+      state.colors = {
+        primary: document.getElementById('color-primary').value,
+        secondary: document.getElementById('color-secondary').value,
+        background: document.getElementById('color-background').value,
+        text: document.getElementById('color-text').value,
+        subtitle: document.getElementById('color-subtitle').value,
+      };
+      state.frameId = document.getElementById('frame-id').value;
+      state.frameStyle = document.getElementById('frame-style').value;
+      state.deviceScale = parseInt(document.getElementById('device-scale').value, 10);
+      state.deviceTop = parseInt(document.getElementById('device-top').value, 10);
+      state.deviceRotation = parseInt(document.getElementById('device-rotation').value, 10);
+      state.deviceOffsetX = parseInt(document.getElementById('device-offset-x').value, 10);
+      state.deviceAngle = parseInt(document.getElementById('device-angle').value, 10);
+      state.deviceTilt = parseInt(document.getElementById('device-tilt').value, 10);
     }
 
-    window.addEventListener('resize', scalePreview);
+    function syncControlsFromState(index) {
+      var state = screenStates[index];
+      if (!state) return;
+      document.getElementById('headline').value = state.headline;
+      document.getElementById('subtitle').value = state.subtitle;
+      document.getElementById('template').value = state.style;
+      document.getElementById('layout').value = state.layout;
+      document.getElementById('font').value = state.font;
+      document.getElementById('font-weight').value = state.fontWeight;
+      document.getElementById('font-weight-value').textContent = state.fontWeight;
+      document.getElementById('color-primary').value = state.colors.primary;
+      document.getElementById('color-secondary').value = state.colors.secondary;
+      document.getElementById('color-background').value = state.colors.background;
+      document.getElementById('color-text').value = state.colors.text;
+      document.getElementById('color-subtitle').value = state.colors.subtitle;
+      document.getElementById('frame-id').value = state.frameId;
+      document.getElementById('frame-style').value = state.frameStyle;
+      document.getElementById('device-scale').value = state.deviceScale;
+      document.getElementById('device-scale-value').textContent = state.deviceScale + '%';
+      document.getElementById('device-top').value = state.deviceTop;
+      document.getElementById('device-top-value').textContent = state.deviceTop + '%';
+      document.getElementById('device-offset-x').value = state.deviceOffsetX;
+      document.getElementById('device-offset-x-value').textContent = state.deviceOffsetX;
+      document.getElementById('device-rotation').value = state.deviceRotation;
+      document.getElementById('device-rotation-value').textContent = state.deviceRotation + '\u00B0';
+      document.getElementById('device-angle').value = state.deviceAngle;
+      document.getElementById('device-angle-value').textContent = state.deviceAngle + '\u00B0';
+      document.getElementById('device-tilt').value = state.deviceTilt;
+      document.getElementById('device-tilt-value').textContent = state.deviceTilt + '\u00B0';
+      updateAngleRowVisibility();
+      updateSelectedIndicator();
+      updateScreenshotInfo();
+    }
 
-    async function renderPreview() {
-      var loading = document.getElementById('loading');
-      loading.classList.add('visible');
-      document.getElementById('status-text').textContent = 'Rendering...';
+    function updateScreenshotInfo() {
+      var state = screenStates[selectedScreen];
+      if (!state) return;
+      var thumb = document.getElementById('screenshot-thumb');
+      var nameEl = document.getElementById('screenshot-name');
+      var clearBtn = document.getElementById('btn-clear-screenshot');
 
-      var body = getPreviewBody();
+      if (state.screenshotDataUrl) {
+        thumb.src = state.screenshotDataUrl;
+        nameEl.textContent = state.screenshotName || 'Custom upload';
+        clearBtn.style.display = '';
+      } else {
+        thumb.src = '';
+        nameEl.textContent = state.screenshotName || 'From config';
+        clearBtn.style.display = 'none';
+      }
+    }
+
+    function updateSelectedIndicator() {
+      var state = screenStates[selectedScreen];
+      if (!state) return;
+      document.getElementById('selected-badge').textContent = String(selectedScreen + 1);
+      var preview = state.headline.length > 30 ? state.headline.substring(0, 30) + '...' : state.headline;
+      document.getElementById('selected-headline-preview').textContent = preview;
+    }
+
+    // ===== Gallery DOM =====
+
+    function buildGallery() {
+      var gallery = document.getElementById('preview-gallery');
+      clearChildren(gallery);
+
+      screenStates.forEach(function(state, i) {
+        var card = document.createElement('div');
+        card.className = 'preview-card' + (i === selectedScreen ? ' selected' : '');
+        card.dataset.screenIndex = String(i);
+
+        var header = document.createElement('div');
+        header.className = 'preview-card-header';
+
+        if (screenStates.length > 1) {
+          var leftBtn = document.createElement('button');
+          leftBtn.className = 'preview-card-reorder';
+          leftBtn.textContent = '\u2039';
+          leftBtn.title = 'Move left';
+          leftBtn.disabled = (i === 0);
+          leftBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            moveScreen(i, i - 1);
+          });
+          header.appendChild(leftBtn);
+        }
+
+        var label = document.createElement('div');
+        label.className = 'preview-card-label';
+        label.textContent = 'Screen ' + (i + 1);
+        header.appendChild(label);
+
+        if (screenStates.length > 1) {
+          var rightBtn = document.createElement('button');
+          rightBtn.className = 'preview-card-reorder';
+          rightBtn.textContent = '\u203A';
+          rightBtn.title = 'Move right';
+          rightBtn.disabled = (i === screenStates.length - 1);
+          rightBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            moveScreen(i, i + 1);
+          });
+          header.appendChild(rightBtn);
+
+          var removeBtn = document.createElement('button');
+          removeBtn.className = 'preview-card-remove';
+          removeBtn.textContent = '\u00D7';
+          removeBtn.title = 'Remove screen';
+          removeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            removeScreen(i);
+          });
+          header.appendChild(removeBtn);
+        }
+
+        card.appendChild(header);
+
+        var container = document.createElement('div');
+        container.className = 'preview-container';
+
+        var iframe = document.createElement('iframe');
+        iframe.style.width = '400px';
+        iframe.style.height = '868px';
+        iframe.style.border = 'none';
+        iframe.style.display = 'block';
+        iframe.style.transformOrigin = 'top left';
+        container.appendChild(iframe);
+
+        var dragOverlay = document.createElement('div');
+        dragOverlay.style.cssText = 'position:absolute;inset:0;z-index:1;';
+        container.appendChild(dragOverlay);
+
+        var loading = document.createElement('div');
+        loading.className = 'loading-overlay';
+        loading.style.zIndex = '2';
+        loading.appendChild(createSpinner());
+        container.appendChild(loading);
+
+        card.appendChild(container);
+        gallery.appendChild(card);
+
+        state.iframeEl = iframe;
+        state.containerEl = container;
+        state.dragOverlayEl = dragOverlay;
+        state.loadingEl = loading;
+
+        card.addEventListener('click', function() {
+          selectScreen(i);
+        });
+
+        setupDragForScreen(i, dragOverlay, container);
+
+        iframe.addEventListener('load', function() {
+          applyTextPositionsForScreen(i);
+        });
+      });
+
+      var addCard = document.createElement('div');
+      addCard.className = 'add-screen-card';
+      addCard.textContent = '+ Add Screen';
+      addCard.addEventListener('click', addScreen);
+      gallery.appendChild(addCard);
+
+      scaleAllPreviews();
+    }
+
+    function scaleAllPreviews() {
+      var area = document.getElementById('preview-area');
+      var areaH = area.clientHeight - 120;
+      var baseScale = Math.min(areaH / 868, 0.55);
+      baseScale = Math.max(baseScale, 0.2);
+
+      screenStates.forEach(function(state) {
+        if (!state.iframeEl || !state.containerEl) return;
+        state.iframeEl.style.transform = 'scale(' + baseScale + ')';
+        state.containerEl.style.width = Math.round(400 * baseScale) + 'px';
+        state.containerEl.style.height = Math.round(868 * baseScale) + 'px';
+      });
+
+      var addCard = document.querySelector('.add-screen-card');
+      if (addCard) {
+        addCard.style.width = Math.round(400 * baseScale * 0.5) + 'px';
+        addCard.style.height = Math.round(868 * baseScale) + 'px';
+      }
+    }
+
+    window.addEventListener('resize', scaleAllPreviews);
+
+    // ===== Screen Selection =====
+
+    function selectScreen(index) {
+      if (index === selectedScreen) return;
+      saveControlsToState(selectedScreen);
+      selectedScreen = index;
+
+      var cards = document.querySelectorAll('.preview-card');
+      cards.forEach(function(card, i) {
+        card.classList.toggle('selected', i === index);
+      });
+
+      syncControlsFromState(index);
+
+      var selectedCard = cards[index];
+      if (selectedCard) {
+        selectedCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }
+
+    // ===== Add / Remove Screens =====
+
+    function addScreen() {
+      saveControlsToState(selectedScreen);
+      var lastState = screenStates[screenStates.length - 1];
+
+      var newState = createScreenState(0, config);
+      newState.screenIndex = screenStates.length;
+      newState.headline = 'Screen ' + (screenStates.length + 1);
+      newState.subtitle = '';
+      newState.style = lastState.style;
+      newState.layout = lastState.layout;
+      newState.font = lastState.font;
+      newState.fontWeight = lastState.fontWeight;
+      newState.colors = JSON.parse(JSON.stringify(lastState.colors));
+      newState.frameId = lastState.frameId;
+      newState.frameStyle = lastState.frameStyle;
+      newState.deviceScale = lastState.deviceScale;
+      newState.deviceTop = lastState.deviceTop;
+
+      screenStates.push(newState);
+      buildGallery();
+      selectedScreen = screenStates.length - 1;
+
+      var cards = document.querySelectorAll('.preview-card');
+      cards.forEach(function(card, i) {
+        card.classList.toggle('selected', i === selectedScreen);
+      });
+
+      syncControlsFromState(selectedScreen);
+      renderPreviewForScreen(selectedScreen);
+
+      var selectedCard = cards[selectedScreen];
+      if (selectedCard) {
+        setTimeout(function() {
+          selectedCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }, 50);
+      }
+    }
+
+    function removeScreen(index) {
+      if (screenStates.length <= 1) return;
+      screenStates.splice(index, 1);
+      screenStates.forEach(function(s, i) { s.screenIndex = i; });
+
+      if (selectedScreen >= screenStates.length) {
+        selectedScreen = screenStates.length - 1;
+      } else if (selectedScreen > index) {
+        selectedScreen--;
+      } else if (selectedScreen === index) {
+        selectedScreen = Math.min(index, screenStates.length - 1);
+      }
+
+      buildGallery();
+      var cards = document.querySelectorAll('.preview-card');
+      cards.forEach(function(card, i) {
+        card.classList.toggle('selected', i === selectedScreen);
+      });
+      syncControlsFromState(selectedScreen);
+      renderAllScreens();
+    }
+
+    function moveScreen(fromIndex, toIndex) {
+      if (toIndex < 0 || toIndex >= screenStates.length) return;
+      saveControlsToState(selectedScreen);
+
+      var item = screenStates.splice(fromIndex, 1)[0];
+      screenStates.splice(toIndex, 0, item);
+      screenStates.forEach(function(s, i) { s.screenIndex = i; });
+
+      // Track selection: if we moved the selected screen, follow it
+      if (selectedScreen === fromIndex) {
+        selectedScreen = toIndex;
+      } else if (selectedScreen === toIndex && fromIndex < toIndex) {
+        selectedScreen--;
+      } else if (selectedScreen === toIndex && fromIndex > toIndex) {
+        selectedScreen++;
+      }
+
+      buildGallery();
+      var cards = document.querySelectorAll('.preview-card');
+      cards.forEach(function(card, i) {
+        card.classList.toggle('selected', i === selectedScreen);
+      });
+      syncControlsFromState(selectedScreen);
+      renderAllScreens();
+    }
+
+    // ===== Preview Rendering =====
+
+    function getPreviewBodyForScreen(index) {
+      var state = screenStates[index];
+      return {
+        screenIndex: state.screenIndex,
+        screenshotDataUrl: state.screenshotDataUrl || undefined,
+        locale: document.getElementById('locale').value,
+        style: state.style,
+        layout: state.layout,
+        headline: state.headline,
+        subtitle: state.subtitle || undefined,
+        colors: state.colors,
+        font: state.font,
+        fontWeight: state.fontWeight,
+        frameId: state.frameId,
+        frameStyle: state.frameStyle,
+        deviceScale: state.deviceScale,
+        deviceTop: state.deviceTop,
+        deviceRotation: state.deviceRotation,
+        deviceOffsetX: state.deviceOffsetX,
+        deviceAngle: state.deviceAngle,
+        deviceTilt: state.deviceTilt,
+        headlineTop: state.textPositions.headline ? state.textPositions.headline.top : undefined,
+        headlineLeft: state.textPositions.headline ? state.textPositions.headline.left : undefined,
+        headlineWidth: state.textPositions.headline ? state.textPositions.headline.width : undefined,
+        subtitleTop: state.textPositions.subtitle ? state.textPositions.subtitle.top : undefined,
+        subtitleLeft: state.textPositions.subtitle ? state.textPositions.subtitle.left : undefined,
+        subtitleWidth: state.textPositions.subtitle ? state.textPositions.subtitle.width : undefined,
+      };
+    }
+
+    async function renderPreviewForScreen(index) {
+      var state = screenStates[index];
+      if (!state || !state.iframeEl) return;
+
+      state.loadingEl.classList.add('visible');
+
+      var body = getPreviewBodyForScreen(index);
       body.width = 400;
       body.height = 868;
 
@@ -578,24 +1024,39 @@
         }
 
         var html = await res.text();
-        document.getElementById('preview-iframe').srcdoc = html;
+        state.iframeEl.srcdoc = html;
         document.getElementById('status-text').textContent = 'Ready';
-        scalePreview();
       } catch (err) {
         document.getElementById('status-text').textContent = 'Error: ' + err.message;
       } finally {
-        loading.classList.remove('visible');
+        state.loadingEl.classList.remove('visible');
       }
     }
 
+    function renderSelectedPreview() {
+      saveControlsToState(selectedScreen);
+      updateSelectedIndicator();
+      renderPreviewForScreen(selectedScreen);
+    }
+
+    function renderAllScreens() {
+      screenStates.forEach(function(state, i) {
+        renderPreviewForScreen(i);
+      });
+    }
+
+    // ===== Export =====
+
     async function exportScreenshot() {
+      saveControlsToState(selectedScreen);
+
       var exportBtn = document.getElementById('btn-export');
       var originalText = exportBtn.textContent;
       exportBtn.textContent = 'Exporting...';
       exportBtn.disabled = true;
-      document.getElementById('status-text').textContent = 'Exporting full resolution...';
+      document.getElementById('status-text').textContent = 'Exporting screen ' + (selectedScreen + 1) + '...';
 
-      var body = getPreviewBody();
+      var body = getPreviewBodyForScreen(selectedScreen);
       body.sizeKey = document.getElementById('export-size').value;
 
       try {
@@ -632,18 +1093,18 @@
       }
     }
 
+    // ===== Debounce / Throttle =====
+
     function debouncedRender() {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(renderPreview, 300);
+      debounceTimer = setTimeout(renderSelectedPreview, 300);
     }
 
-    // Throttle for sliders: fires immediately, then at most once per interval,
-    // always fires trailing call so the final value is rendered.
     var throttleTimer = null;
     var throttlePending = false;
     function throttledRender() {
       if (!throttleTimer) {
-        renderPreview();
+        renderSelectedPreview();
         throttleTimer = setTimeout(function() {
           throttleTimer = null;
           if (throttlePending) {
@@ -656,46 +1117,15 @@
       }
     }
 
-    // Button handlers
-    document.getElementById('btn-refresh').addEventListener('click', renderPreview);
-    document.getElementById('btn-export').addEventListener('click', exportScreenshot);
+    // ===== Device Slider Instant DOM Update =====
 
-    document.getElementById('btn-reload').addEventListener('click', async function() {
-      await fetch(API + '/api/reload', { method: 'POST' });
-      var res = await fetch(API + '/api/config');
-      config = await res.json();
-      applyConfigToControls();
-      renderPreview();
-    });
-
-    // Select change handlers — auto-render
-    ['template', 'layout', 'frame-id', 'frame-style', 'locale', 'font'].forEach(function(id) {
-      document.getElementById(id).addEventListener('change', function() {
-        if (id === 'locale') selectScreen(currentScreen);
-        else renderPreview();
-      });
-    });
-
-    // Text input handlers — debounced render
-    ['headline', 'subtitle'].forEach(function(id) {
-      document.getElementById(id).addEventListener('input', debouncedRender);
-    });
-
-    // Color input handlers — debounced render
-    ['color-primary', 'color-secondary', 'color-background', 'color-text', 'color-subtitle'].forEach(function(id) {
-      document.getElementById(id).addEventListener('input', debouncedRender);
-    });
-
-    // Font weight slider
-    document.getElementById('font-weight').addEventListener('input', function() {
-      document.getElementById('font-weight-value').textContent = this.value;
-      throttledRender();
-    });
-
-    // Direct iframe DOM manipulation for device sliders — no server round-trip
     function updateDeviceInIframe() {
-      var iframe = document.getElementById('preview-iframe');
-      var doc = iframe.contentDocument || iframe.contentWindow.document;
+      var state = screenStates[selectedScreen];
+      if (!state || !state.iframeEl) return;
+
+      var iframe = state.iframeEl;
+      var doc;
+      try { doc = iframe.contentDocument || iframe.contentWindow.document; } catch(e) { return; }
       if (!doc) return;
 
       var wrapper = doc.querySelector('.device-wrapper');
@@ -720,7 +1150,6 @@
       wrapper.style.setProperty('--device-angle', deviceAngle + 'deg');
       wrapper.style.setProperty('--device-tilt', deviceTilt + 'deg');
 
-      // Update screenshot clip positions based on frame data
       var frameId = document.getElementById('frame-id').value;
       var frameStyle = document.getElementById('frame-style').value;
       var frame = framesData.find(function(f) { return f.id === frameId; });
@@ -736,88 +1165,343 @@
         clip.style.borderRadius = Math.round(sa.borderRadius * dw / fw) + 'px';
       }
 
-      // Update SVG width
       var svg = wrapper.querySelector('svg');
-      if (svg) {
-        svg.style.width = '100%';
-      }
+      if (svg) svg.style.width = '100%';
 
-      // Reposition background decorations to track device position
       var deviceTopPx = Math.round(canvasHeight * deviceTop / 100);
 
-      // Glow template: .glow-1 and .glow-2
       var glow1 = doc.querySelector('.glow-1');
       if (glow1) glow1.style.top = deviceTopPx + 'px';
       var glow2 = doc.querySelector('.glow-2');
       if (glow2) glow2.style.top = Math.round(canvasHeight * (deviceTop + 30) / 100) + 'px';
 
-      // Bold template: .orb-1 and .orb-2
       var orb1 = doc.querySelector('.orb-1');
       if (orb1) orb1.style.top = Math.round(canvasHeight * (deviceTop - 15) / 100) + 'px';
       var orb2 = doc.querySelector('.orb-2');
       if (orb2) orb2.style.top = Math.round(canvasHeight * (deviceTop + 25) / 100) + 'px';
 
-      // Clean template: .bg-glow
       var bgGlow = doc.querySelector('.bg-glow');
       if (bgGlow) bgGlow.style.top = Math.round(canvasHeight * (deviceTop + 5) / 100) + 'px';
 
-      // Playful template: reposition shapes
       var shape1 = doc.querySelector('.shape-1');
       if (shape1) shape1.style.top = Math.round(canvasHeight * (deviceTop - 20) / 100) + 'px';
       var shape3 = doc.querySelector('.shape-3');
       if (shape3) shape3.style.top = Math.round(canvasHeight * (deviceTop + 20) / 100) + 'px';
 
-      // Branded template: reposition bg-shapes
       var bgShape1 = doc.querySelector('.bg-shape-1');
       if (bgShape1) bgShape1.style.top = Math.round(canvasHeight * (deviceTop - 20) / 100) + 'px';
     }
 
-    // Device layout sliders — instant DOM update while dragging, full render on release
-    document.getElementById('device-scale').addEventListener('input', function() {
-      document.getElementById('device-scale-value').textContent = this.value + '%';
-      updateDeviceInIframe();
-    });
-    document.getElementById('device-scale').addEventListener('change', renderPreview);
+    // ===== Text Drag per Screen =====
 
-    document.getElementById('device-top').addEventListener('input', function() {
-      document.getElementById('device-top-value').textContent = this.value + '%';
-      updateDeviceInIframe();
-    });
-    document.getElementById('device-top').addEventListener('change', renderPreview);
+    function setupDragForScreen(index, overlay, container) {
+      var dragState = null;
+      var hoveredEl = null;
 
-    document.getElementById('device-offset-x').addEventListener('input', function() {
-      document.getElementById('device-offset-x-value').textContent = this.value;
-      updateDeviceInIframe();
-    });
-    document.getElementById('device-offset-x').addEventListener('change', renderPreview);
+      function getInfo() {
+        var state = screenStates[index];
+        if (!state || !state.iframeEl) return null;
+        var iframeDoc;
+        try { iframeDoc = state.iframeEl.contentDocument; } catch(e) { return null; }
+        if (!iframeDoc) return null;
+        var containerRect = container.getBoundingClientRect();
+        var scale = containerRect.width / 400;
+        return { iframeDoc: iframeDoc, containerRect: containerRect, scale: scale };
+      }
 
-    document.getElementById('device-rotation').addEventListener('input', function() {
-      document.getElementById('device-rotation-value').textContent = this.value + '°';
-      updateDeviceInIframe();
-    });
-    document.getElementById('device-rotation').addEventListener('change', renderPreview);
+      function toIframe(clientX, clientY, info) {
+        return {
+          x: (clientX - info.containerRect.left) / info.scale,
+          y: (clientY - info.containerRect.top) / info.scale
+        };
+      }
 
-    document.getElementById('device-angle').addEventListener('input', function() {
-      document.getElementById('device-angle-value').textContent = this.value + '°';
-      updateDeviceInIframe();
-    });
-    document.getElementById('device-angle').addEventListener('change', renderPreview);
+      function getElPos(el) {
+        var top = 0, left = 0, curr = el;
+        while (curr) { top += curr.offsetTop; left += curr.offsetLeft; curr = curr.offsetParent; }
+        return { top: top, left: left, width: el.offsetWidth, height: el.offsetHeight };
+      }
 
-    document.getElementById('device-tilt').addEventListener('input', function() {
-      document.getElementById('device-tilt-value').textContent = this.value + '°';
-      updateDeviceInIframe();
-    });
-    document.getElementById('device-tilt').addEventListener('change', renderPreview);
+      function hitTest(ix, iy, iframeDoc) {
+        var el = iframeDoc.elementFromPoint(ix, iy);
+        while (el && el !== iframeDoc.documentElement) {
+          if (el.classList && el.classList.contains('headline')) return { cls: 'headline', el: el };
+          if (el.classList && el.classList.contains('subtitle')) return { cls: 'subtitle', el: el };
+          el = el.parentElement;
+        }
+        return null;
+      }
 
-    // Show/hide angle slider based on layout selection
+      overlay.addEventListener('mousemove', function(e) {
+        if (dragState) return;
+        if (index !== selectedScreen) {
+          overlay.style.cursor = 'pointer';
+          return;
+        }
+        var info = getInfo();
+        if (!info) return;
+        var pos = toIframe(e.clientX, e.clientY, info);
+        var hit = hitTest(pos.x, pos.y, info.iframeDoc);
+
+        var newHovered = hit ? hit.el : null;
+        if (newHovered !== hoveredEl) {
+          if (hoveredEl) hoveredEl.style.outline = 'none';
+          hoveredEl = newHovered;
+          if (hoveredEl) {
+            hoveredEl.style.outline = '2px dashed rgba(99, 102, 241, 0.5)';
+            hoveredEl.style.outlineOffset = '4px';
+          }
+        }
+        overlay.style.cursor = hoveredEl ? 'grab' : '';
+      });
+
+      overlay.addEventListener('mouseleave', function() {
+        if (hoveredEl && !dragState) {
+          hoveredEl.style.outline = 'none';
+          hoveredEl = null;
+        }
+        if (!dragState) overlay.style.cursor = '';
+      });
+
+      overlay.addEventListener('mousedown', function(e) {
+        if (index !== selectedScreen) return;
+
+        var info = getInfo();
+        if (!info) return;
+        var pos = toIframe(e.clientX, e.clientY, info);
+        var hit = hitTest(pos.x, pos.y, info.iframeDoc);
+        if (!hit) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        var el = hit.el;
+        var cls = hit.cls;
+        var elPos = getElPos(el);
+        var origWidth = elPos.width;
+        var state = screenStates[index];
+
+        var alreadyPositioned = !!(state.textPositions[cls]);
+        var centerX = alreadyPositioned ? elPos.left : (elPos.left + elPos.width / 2);
+
+        var offsetX = pos.x - centerX;
+        var offsetY = pos.y - elPos.top;
+
+        if (!alreadyPositioned) {
+          el.style.position = 'fixed';
+          el.style.top = elPos.top + 'px';
+          el.style.left = centerX + 'px';
+          el.style.transform = 'translateX(-50%)';
+          el.style.zIndex = '10';
+          el.style.margin = '0';
+          el.style.width = origWidth + 'px';
+        }
+
+        el.style.outline = '2px dashed rgba(99, 102, 241, 0.7)';
+        el.style.outlineOffset = '4px';
+        overlay.style.cursor = 'grabbing';
+
+        dragState = { cls: cls, el: el, offsetX: offsetX, offsetY: offsetY, info: info, origWidth: origWidth, screenIndex: index };
+
+        function onMouseMove(ev) {
+          if (!dragState) return;
+          var p = toIframe(ev.clientX, ev.clientY, dragState.info);
+          dragState.el.style.top = (p.y - dragState.offsetY) + 'px';
+          dragState.el.style.left = (p.x - dragState.offsetX) + 'px';
+        }
+
+        function onMouseUp() {
+          if (!dragState) return;
+          var el2 = dragState.el;
+          var cls2 = dragState.cls;
+          el2.style.outline = 'none';
+          overlay.style.cursor = 'grab';
+
+          var finalPos = getElPos(el2);
+          var topPct = (finalPos.top / 868) * 100;
+          var leftPct = (finalPos.left / 400) * 100;
+          var widthPct = (dragState.origWidth / 400) * 100;
+          screenStates[dragState.screenIndex].textPositions[cls2] = {
+            top: Math.round(topPct * 10) / 10,
+            left: Math.round(leftPct * 10) / 10,
+            width: Math.round(widthPct * 10) / 10
+          };
+
+          dragState = null;
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        }
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+    }
+
+    function applyTextPositionsForScreen(index) {
+      var state = screenStates[index];
+      if (!state || !state.iframeEl) return;
+      var iframeDoc;
+      try { iframeDoc = state.iframeEl.contentDocument; } catch(e) { return; }
+      if (!iframeDoc) return;
+
+      ['headline', 'subtitle'].forEach(function(cls) {
+        var el = iframeDoc.querySelector('.' + cls);
+        if (!el) return;
+        if (state.textPositions[cls]) {
+          el.style.position = 'fixed';
+          el.style.top = state.textPositions[cls].top + '%';
+          el.style.left = state.textPositions[cls].left + '%';
+          el.style.transform = 'translateX(-50%)';
+          el.style.zIndex = '10';
+          el.style.margin = '0';
+          el.style.width = state.textPositions[cls].width + '%';
+        }
+      });
+    }
+
+    // ===== Show/Hide Angle Slider =====
+
     function updateAngleRowVisibility() {
       var layout = document.getElementById('layout').value;
       var angleRow = document.getElementById('angle-row');
       angleRow.style.display = (layout === 'angled-left' || layout === 'angled-right') ? '' : 'none';
     }
+
+    // ===== Event Handlers =====
+
+    document.getElementById('btn-refresh').addEventListener('click', function() {
+      saveControlsToState(selectedScreen);
+      renderAllScreens();
+    });
+    document.getElementById('btn-export').addEventListener('click', exportScreenshot);
+
+    document.getElementById('btn-reload').addEventListener('click', async function() {
+      await fetch(API + '/api/reload', { method: 'POST' });
+      var res = await fetch(API + '/api/config');
+      config = await res.json();
+      screenStates = config.screens.map(function(screen, i) {
+        return createScreenState(i, config);
+      });
+      selectedScreen = 0;
+      buildGallery();
+      syncControlsFromState(0);
+      renderAllScreens();
+    });
+
+    ['template', 'layout', 'frame-id', 'frame-style', 'font'].forEach(function(id) {
+      document.getElementById(id).addEventListener('change', function() {
+        renderSelectedPreview();
+      });
+    });
+
     document.getElementById('layout').addEventListener('change', updateAngleRowVisibility);
 
-    // Preview background toggle
+    document.getElementById('locale').addEventListener('change', function() {
+      var locale = this.value;
+      saveControlsToState(selectedScreen);
+      screenStates.forEach(function(state, i) {
+        var screen = config.screens[i];
+        if (!screen) return;
+        if (locale !== 'default' && config.locales && config.locales[locale]) {
+          var ls = config.locales[locale].screens[i];
+          if (ls) {
+            state.headline = ls.headline || screen.headline;
+            state.subtitle = ls.subtitle || screen.subtitle || '';
+          }
+        } else {
+          state.headline = screen.headline;
+          state.subtitle = screen.subtitle || '';
+        }
+      });
+      syncControlsFromState(selectedScreen);
+      renderAllScreens();
+    });
+
+    ['headline', 'subtitle'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', debouncedRender);
+    });
+
+    ['color-primary', 'color-secondary', 'color-background', 'color-text', 'color-subtitle'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', debouncedRender);
+    });
+
+    document.getElementById('font-weight').addEventListener('input', function() {
+      document.getElementById('font-weight-value').textContent = this.value;
+      throttledRender();
+    });
+
+    document.getElementById('device-scale').addEventListener('input', function() {
+      document.getElementById('device-scale-value').textContent = this.value + '%';
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-scale').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('device-top').addEventListener('input', function() {
+      document.getElementById('device-top-value').textContent = this.value + '%';
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-top').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('device-offset-x').addEventListener('input', function() {
+      document.getElementById('device-offset-x-value').textContent = this.value;
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-offset-x').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('device-rotation').addEventListener('input', function() {
+      document.getElementById('device-rotation-value').textContent = this.value + '\u00B0';
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-rotation').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('device-angle').addEventListener('input', function() {
+      document.getElementById('device-angle-value').textContent = this.value + '\u00B0';
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-angle').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('device-tilt').addEventListener('input', function() {
+      document.getElementById('device-tilt-value').textContent = this.value + '\u00B0';
+      updateDeviceInIframe();
+    });
+    document.getElementById('device-tilt').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('btn-reset-text').addEventListener('click', function() {
+      screenStates[selectedScreen].textPositions.headline = null;
+      screenStates[selectedScreen].textPositions.subtitle = null;
+      renderPreviewForScreen(selectedScreen);
+    });
+
+    // Screenshot upload
+    document.getElementById('btn-upload-screenshot').addEventListener('click', function() {
+      document.getElementById('screenshot-file-input').click();
+    });
+
+    document.getElementById('screenshot-file-input').addEventListener('change', function() {
+      var file = this.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var state = screenStates[selectedScreen];
+        state.screenshotDataUrl = e.target.result;
+        state.screenshotName = file.name;
+        updateScreenshotInfo();
+        renderPreviewForScreen(selectedScreen);
+      };
+      reader.readAsDataURL(file);
+      // Reset so the same file can be re-selected
+      this.value = '';
+    });
+
+    document.getElementById('btn-clear-screenshot').addEventListener('click', function() {
+      var state = screenStates[selectedScreen];
+      state.screenshotDataUrl = null;
+      var screen = config.screens[state.screenIndex];
+      state.screenshotName = screen ? (screen.screenshot || '').split('/').pop() : null;
+      updateScreenshotInfo();
+      renderPreviewForScreen(selectedScreen);
+    });
+
     document.querySelectorAll('input[name="preview-bg"]').forEach(function(radio) {
       radio.addEventListener('change', function() {
         var area = document.getElementById('preview-area');
@@ -831,174 +1515,48 @@
       });
     });
 
-    // Text drag-and-drop via overlay on top of iframe
-    function applyTextPositions() {
-      var iframe = document.getElementById('preview-iframe');
-      var iframeDoc;
-      try { iframeDoc = iframe.contentDocument; } catch(e) { return; }
-      if (!iframeDoc) return;
+    // ===== Initialization =====
 
-      ['headline', 'subtitle'].forEach(function(cls) {
-        var el = iframeDoc.querySelector('.' + cls);
-        if (!el) return;
-        if (textPositions[cls]) {
-          el.style.position = 'fixed';
-          el.style.top = textPositions[cls].top + '%';
-          el.style.left = textPositions[cls].left + '%';
-          el.style.transform = 'translateX(-50%)';
-          el.style.zIndex = '10';
-          el.style.margin = '0';
-          el.style.width = textPositions[cls].width + '%';
-        }
+    async function init() {
+      var res = await fetch(API + '/api/config');
+      config = await res.json();
+
+      document.getElementById('app-name').textContent = config.app.name;
+
+      var localeSelect = document.getElementById('locale');
+      clearChildren(localeSelect);
+      addOption(localeSelect, 'default', 'Default');
+      if (config.locales) {
+        Object.keys(config.locales).forEach(function(locale) {
+          addOption(localeSelect, locale, locale.toUpperCase());
+        });
+      }
+
+      var fontsRes = await fetch(API + '/api/fonts');
+      fontsData = await fontsRes.json();
+      var fontSelect = document.getElementById('font');
+      clearChildren(fontSelect);
+      fontsData.forEach(function(f) {
+        addOption(fontSelect, f.id, f.name);
       });
+
+      var framesRes = await fetch(API + '/api/frames');
+      framesData = await framesRes.json();
+      var frameSelect = document.getElementById('frame-id');
+      clearChildren(frameSelect);
+      framesData.forEach(function(f) {
+        addOption(frameSelect, f.id, f.name + ' (' + f.year + ')');
+      });
+
+      screenStates = config.screens.map(function(screen, i) {
+        return createScreenState(i, config);
+      });
+
+      selectedScreen = 0;
+      buildGallery();
+      syncControlsFromState(0);
+      renderAllScreens();
     }
-
-    document.getElementById('preview-iframe').addEventListener('load', applyTextPositions);
-
-    // Overlay drag logic
-    var dragOverlay = document.getElementById('drag-overlay');
-    var dragState = null;
-    var hoveredEl = null;
-
-    function getIframeDocAndScale() {
-      var iframe = document.getElementById('preview-iframe');
-      var iframeDoc;
-      try { iframeDoc = iframe.contentDocument; } catch(e) { return null; }
-      if (!iframeDoc) return null;
-      var container = document.getElementById('preview-container');
-      var containerRect = container.getBoundingClientRect();
-      var scale = containerRect.width / 400;
-      return { iframeDoc: iframeDoc, containerRect: containerRect, scale: scale };
-    }
-
-    function parentToIframe(clientX, clientY, info) {
-      return {
-        x: (clientX - info.containerRect.left) / info.scale,
-        y: (clientY - info.containerRect.top) / info.scale
-      };
-    }
-
-    function getElPos(el) {
-      var top = 0, left = 0, curr = el;
-      while (curr) { top += curr.offsetTop; left += curr.offsetLeft; curr = curr.offsetParent; }
-      return { top: top, left: left, width: el.offsetWidth, height: el.offsetHeight };
-    }
-
-    function hitTest(ix, iy, iframeDoc) {
-      var el = iframeDoc.elementFromPoint(ix, iy);
-      while (el && el !== iframeDoc.documentElement) {
-        if (el.classList && el.classList.contains('headline')) return { cls: 'headline', el: el };
-        if (el.classList && el.classList.contains('subtitle')) return { cls: 'subtitle', el: el };
-        el = el.parentElement;
-      }
-      return null;
-    }
-
-    dragOverlay.addEventListener('mousemove', function(e) {
-      if (dragState) return;
-      var info = getIframeDocAndScale();
-      if (!info) return;
-      var pos = parentToIframe(e.clientX, e.clientY, info);
-      var hit = hitTest(pos.x, pos.y, info.iframeDoc);
-
-      var newHovered = hit ? hit.el : null;
-      if (newHovered !== hoveredEl) {
-        if (hoveredEl) {
-          hoveredEl.style.outline = 'none';
-        }
-        hoveredEl = newHovered;
-        if (hoveredEl) {
-          hoveredEl.style.outline = '2px dashed rgba(99, 102, 241, 0.5)';
-          hoveredEl.style.outlineOffset = '4px';
-        }
-      }
-      dragOverlay.style.cursor = hoveredEl ? 'grab' : '';
-    });
-
-    dragOverlay.addEventListener('mouseleave', function() {
-      if (hoveredEl && !dragState) {
-        hoveredEl.style.outline = 'none';
-        hoveredEl = null;
-      }
-      if (!dragState) dragOverlay.style.cursor = '';
-    });
-
-    dragOverlay.addEventListener('mousedown', function(e) {
-      var info = getIframeDocAndScale();
-      if (!info) return;
-      var pos = parentToIframe(e.clientX, e.clientY, info);
-      var hit = hitTest(pos.x, pos.y, info.iframeDoc);
-      if (!hit) return;
-
-      e.preventDefault();
-
-      var el = hit.el;
-      var cls = hit.cls;
-      var elPos = getElPos(el);
-      var origWidth = elPos.width;
-
-      // For elements already using translateX(-50%), offsetLeft IS the visual center.
-      // For flow-layout elements (first drag), the visual center is left + width/2.
-      var alreadyPositioned = !!textPositions[cls];
-      var centerX = alreadyPositioned ? elPos.left : (elPos.left + elPos.width / 2);
-
-      // Offset from element's center-x and top-y to the click point
-      var offsetX = pos.x - centerX;
-      var offsetY = pos.y - elPos.top;
-
-      // Switch to fixed positioning at current visual location
-      if (!alreadyPositioned) {
-        el.style.position = 'fixed';
-        el.style.top = elPos.top + 'px';
-        el.style.left = centerX + 'px';
-        el.style.transform = 'translateX(-50%)';
-        el.style.zIndex = '10';
-        el.style.margin = '0';
-        el.style.width = origWidth + 'px';
-      }
-
-      el.style.outline = '2px dashed rgba(99, 102, 241, 0.7)';
-      el.style.outlineOffset = '4px';
-      dragOverlay.style.cursor = 'grabbing';
-
-      dragState = { cls: cls, el: el, offsetX: offsetX, offsetY: offsetY, info: info, origWidth: origWidth };
-    });
-
-    document.addEventListener('mousemove', function(e) {
-      if (!dragState) return;
-      var pos = parentToIframe(e.clientX, e.clientY, dragState.info);
-      dragState.el.style.top = (pos.y - dragState.offsetY) + 'px';
-      dragState.el.style.left = (pos.x - dragState.offsetX) + 'px';
-    });
-
-    document.addEventListener('mouseup', function() {
-      if (!dragState) return;
-      var el = dragState.el;
-      var cls = dragState.cls;
-      el.style.outline = 'none';
-      dragOverlay.style.cursor = 'grab';
-
-      // Store as percentage of canvas (400x868 for preview)
-      // Element has translateX(-50%), so offsetLeft = CSS left = visual center
-      var finalPos = getElPos(el);
-      var topPct = (finalPos.top / 868) * 100;
-      var leftPct = (finalPos.left / 400) * 100;
-      var widthPct = (dragState.origWidth / 400) * 100;
-      textPositions[cls] = {
-        top: Math.round(topPct * 10) / 10,
-        left: Math.round(leftPct * 10) / 10,
-        width: Math.round(widthPct * 10) / 10
-      };
-
-      dragState = null;
-    });
-
-    // Reset text positions
-    document.getElementById('btn-reset-text').addEventListener('click', function() {
-      textPositions.headline = null;
-      textPositions.subtitle = null;
-      renderPreview();
-    });
 
     init();
   </script>

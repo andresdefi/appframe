@@ -1,0 +1,14 @@
+{# ===== 3D Frame Overlay Elements ===== #}
+{# Include inside .device-wrapper, after frameSvg and screenshot-clip #}
+{# Closes .device-face, then adds side edges as siblings in .device-wrapper's 3D context #}
+{% if frameStyle == '3d' and frameSvg and frame %}
+      <div class="bezel-highlight"></div>
+      <div class="edge-right"></div>
+      <div class="edge-top"></div>
+      <div class="screen-glare"></div>
+</div>{# close .device-face #}
+<div class="device-side device-side-right"></div>
+<div class="device-side device-side-left"></div>
+<div class="device-side-top"></div>
+<div class="device-side-bottom"></div>
+{% endif %}

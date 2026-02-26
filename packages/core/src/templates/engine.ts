@@ -32,6 +32,14 @@ export interface TemplateContext {
   canvasWidth: number;
   canvasHeight: number;
 
+  // Font sizing (optional overrides — in pixels at 1290px reference width)
+  headlineSize?: number;
+  subtitleSize?: number;
+
+  // Text rotation (in degrees)
+  headlineRotation?: number;
+  subtitleRotation?: number;
+
   // Device positioning (optional overrides)
   deviceTop?: number;      // Device Y position as % of canvas height (default: 15)
   deviceScale?: number;    // Device width as % of canvas width (default: 92)

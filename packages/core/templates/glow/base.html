@@ -62,20 +62,22 @@
     }
 
     .headline {
-      font-size: {{ (canvasWidth * 0.085) | round }}px;
+      font-size: {{ (headlineSize * canvasWidth / 1290) | round if headlineSize else (canvasWidth * 0.085) | round }}px;
       font-weight: {{ fontWeight | default(700) }};
       color: {{ colors.text }};
       line-height: 1.1;
       letter-spacing: -0.02em;
+      {% if headlineRotation %}transform: rotate({{ headlineRotation }}deg);{% endif %}
     }
 
     .subtitle {
-      font-size: {{ (canvasWidth * 0.036) | round }}px;
+      font-size: {{ (subtitleSize * canvasWidth / 1290) | round if subtitleSize else (canvasWidth * 0.036) | round }}px;
       color: {{ colors.subtitle or colors.text }};
       opacity: {{ 1 if colors.subtitle else 0.55 }};
       font-weight: 400;
       line-height: 1.4;
       margin-top: {{ (canvasWidth * 0.012) | round }}px;
+      {% if subtitleRotation %}transform: rotate({{ subtitleRotation }}deg);{% endif %}
     }
 
     .device-wrapper {

@@ -34,9 +34,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
 
-  // Serve static frontend
+  // Serve static frontend (no-cache for development)
   const publicDir = join(__dirname, '..', 'public');
-  app.use(express.static(publicDir));
+  app.use(express.static(publicDir, { etag: false, lastModified: false }));
+  app.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
   // API: Get current config
   app.get('/api/config', (_req, res) => {
@@ -86,6 +87,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     colors?: Record<string, string>;
     font?: string;
     fontWeight?: number;
+    headlineSize?: number;
+    subtitleSize?: number;
+    headlineRotation?: number;
+    subtitleRotation?: number;
     frameId?: string;
     fStyle?: FrameStyle;
     width: number;
@@ -120,6 +125,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       colors: body.colors as Record<string, string> | undefined,
       font: body.font as string | undefined,
       fontWeight: body.fontWeight as number | undefined,
+      headlineSize: body.headlineSize as number | undefined,
+      subtitleSize: body.subtitleSize as number | undefined,
+      headlineRotation: body.headlineRotation as number | undefined,
+      subtitleRotation: body.subtitleRotation as number | undefined,
       frameId: body.frameId as string | undefined,
       fStyle: body.frameStyle as FrameStyle | undefined,
       width: (body.width as number) ?? defaultWidth,
@@ -174,6 +183,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       colors: p.colors ? { ...config.theme.colors, ...p.colors } : config.theme.colors,
       font: p.font ?? config.theme.font,
       fontWeight: p.fontWeight ?? config.theme.fontWeight,
+      headlineSize: p.headlineSize ?? config.theme.headlineSize,
+      subtitleSize: p.subtitleSize ?? config.theme.subtitleSize,
+      headlineRotation: p.headlineRotation,
+      subtitleRotation: p.subtitleRotation,
       layout: p.layout ?? screen?.layout ?? 'center',
       frame: frame ?? null,
       frameStyle: p.fStyle ?? config.frames.style,
@@ -383,12 +396,12 @@ function injectTextPositionCSS(
 ): string {
   const rules: string[] = [];
   if (headlineTop !== undefined && headlineLeft !== undefined) {
-    const w = headlineWidth !== undefined ? `width: ${headlineWidth}% !important;` : '';
-    rules.push(`.headline { position: fixed !important; top: ${headlineTop}% !important; left: ${headlineLeft}% !important; transform: translateX(-50%) !important; z-index: 10 !important; margin: 0 !important; ${w} }`);
+    const w = headlineWidth !== undefined ? `width: ${headlineWidth}%;` : '';
+    rules.push(`.headline { position: fixed; top: ${headlineTop}%; left: ${headlineLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`);
   }
   if (subtitleTop !== undefined && subtitleLeft !== undefined) {
-    const w = subtitleWidth !== undefined ? `width: ${subtitleWidth}% !important;` : '';
-    rules.push(`.subtitle { position: fixed !important; top: ${subtitleTop}% !important; left: ${subtitleLeft}% !important; transform: translateX(-50%) !important; z-index: 10 !important; margin: 0 !important; ${w} }`);
+    const w = subtitleWidth !== undefined ? `width: ${subtitleWidth}%;` : '';
+    rules.push(`.subtitle { position: fixed; top: ${subtitleTop}%; left: ${subtitleLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`);
   }
   if (rules.length === 0) return html;
   return html.replace('</head>', `<style>${rules.join('\n')}</style>\n</head>`);

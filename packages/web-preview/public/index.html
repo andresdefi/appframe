@@ -581,6 +581,26 @@
         <input type="range" id="font-weight" min="400" max="800" step="100" value="700">
         <span class="range-value" id="font-weight-value">700</span>
       </div>
+      <label for="headline-size">Headline Size</label>
+      <div class="range-row">
+        <input type="range" id="headline-size" min="0" max="200" step="1" value="0">
+        <span class="range-value" id="headline-size-value">Auto</span>
+      </div>
+      <label for="subtitle-size">Subtitle Size</label>
+      <div class="range-row">
+        <input type="range" id="subtitle-size" min="0" max="120" step="1" value="0">
+        <span class="range-value" id="subtitle-size-value">Auto</span>
+      </div>
+      <label for="headline-rotation">Headline Rotation</label>
+      <div class="range-row">
+        <input type="range" id="headline-rotation" min="-30" max="30" step="1" value="0">
+        <span class="range-value" id="headline-rotation-value">0°</span>
+      </div>
+      <label for="subtitle-rotation">Subtitle Rotation</label>
+      <div class="range-row">
+        <input type="range" id="subtitle-rotation" min="-30" max="30" step="1" value="0">
+        <span class="range-value" id="subtitle-rotation-value">0°</span>
+      </div>
     </div>
 
     <div class="section" id="section-colors">
@@ -803,6 +823,10 @@
         layout: layout,
         font: cfg.theme.font,
         fontWeight: cfg.theme.fontWeight,
+        headlineSize: cfg.theme.headlineSize || 0,
+        subtitleSize: cfg.theme.subtitleSize || 0,
+        headlineRotation: 0,
+        subtitleRotation: 0,
         colors: {
           primary: cfg.theme.colors.primary,
           secondary: cfg.theme.colors.secondary,
@@ -841,6 +865,10 @@
       state.layout = document.getElementById('layout').value;
       state.font = document.getElementById('font').value;
       state.fontWeight = parseInt(document.getElementById('font-weight').value, 10);
+      state.headlineSize = parseInt(document.getElementById('headline-size').value, 10);
+      state.subtitleSize = parseInt(document.getElementById('subtitle-size').value, 10);
+      state.headlineRotation = parseInt(document.getElementById('headline-rotation').value, 10);
+      state.subtitleRotation = parseInt(document.getElementById('subtitle-rotation').value, 10);
       state.colors = {
         primary: document.getElementById('color-primary').value,
         secondary: document.getElementById('color-secondary').value,
@@ -869,6 +897,14 @@
       document.getElementById('font').value = state.font;
       document.getElementById('font-weight').value = state.fontWeight;
       document.getElementById('font-weight-value').textContent = state.fontWeight;
+      document.getElementById('headline-size').value = state.headlineSize;
+      document.getElementById('headline-size-value').textContent = state.headlineSize ? state.headlineSize + 'px' : 'Auto';
+      document.getElementById('subtitle-size').value = state.subtitleSize;
+      document.getElementById('subtitle-size-value').textContent = state.subtitleSize ? state.subtitleSize + 'px' : 'Auto';
+      document.getElementById('headline-rotation').value = state.headlineRotation;
+      document.getElementById('headline-rotation-value').textContent = state.headlineRotation + '\u00B0';
+      document.getElementById('subtitle-rotation').value = state.subtitleRotation;
+      document.getElementById('subtitle-rotation-value').textContent = state.subtitleRotation + '\u00B0';
       document.getElementById('color-primary').value = state.colors.primary;
       document.getElementById('color-secondary').value = state.colors.secondary;
       document.getElementById('color-background').value = state.colors.background;
@@ -1174,6 +1210,10 @@
         colors: state.colors,
         font: state.font,
         fontWeight: state.fontWeight,
+        headlineSize: state.headlineSize || undefined,
+        subtitleSize: state.subtitleSize || undefined,
+        headlineRotation: state.headlineRotation || undefined,
+        subtitleRotation: state.subtitleRotation || undefined,
         frameId: state.frameId,
         frameStyle: state.frameStyle,
         deviceScale: state.deviceScale,
@@ -1209,7 +1249,6 @@
       var body = getPreviewBodyForScreen(index);
       body.width = 400;
       body.height = 868;
-
       try {
         var res = await fetch(API + '/api/preview-html', {
           method: 'POST',
@@ -1391,6 +1430,43 @@
       if (bgShape1) bgShape1.style.top = Math.round(canvasHeight * (deviceTop - 20) / 100) + 'px';
     }
 
+    function updateTextStyleInIframe() {
+      var state = screenStates[selectedScreen];
+      if (!state || !state.iframeEl) return;
+
+      var iframe = state.iframeEl;
+      var doc;
+      try { doc = iframe.contentDocument || iframe.contentWindow.document; } catch(e) { return; }
+      if (!doc) return;
+
+      var previewWidth = 400;
+      var refWidth = 1290;
+      var headlineSize = parseInt(document.getElementById('headline-size').value, 10);
+      var subtitleSize = parseInt(document.getElementById('subtitle-size').value, 10);
+      var headlineRotation = parseInt(document.getElementById('headline-rotation').value, 10);
+      var subtitleRotation = parseInt(document.getElementById('subtitle-rotation').value, 10);
+
+      function buildTransform(cls, rotation) {
+        var parts = [];
+        // Preserve translateX(-50%) if the text has been drag-positioned
+        if (state.textPositions[cls]) parts.push('translateX(-50%)');
+        if (rotation) parts.push('rotate(' + rotation + 'deg)');
+        return parts.join(' ');
+      }
+
+      var headlineEl = doc.querySelector('.headline');
+      if (headlineEl) {
+        if (headlineSize) headlineEl.style.fontSize = Math.round(headlineSize * previewWidth / refWidth) + 'px';
+        headlineEl.style.transform = buildTransform('headline', headlineRotation);
+      }
+
+      var subtitleEl = doc.querySelector('.subtitle');
+      if (subtitleEl) {
+        if (subtitleSize) subtitleEl.style.fontSize = Math.round(subtitleSize * previewWidth / refWidth) + 'px';
+        subtitleEl.style.transform = buildTransform('subtitle', subtitleRotation);
+      }
+    }
+
     // ===== Text Drag per Screen =====
 
     function setupDragForScreen(index, overlay, container) {
@@ -1487,10 +1563,13 @@
         var offsetY = pos.y - elPos.top;
 
         if (!alreadyPositioned) {
+          var rotation = cls === 'headline' ? state.headlineRotation : state.subtitleRotation;
+          var dragParts = ['translateX(-50%)'];
+          if (rotation) dragParts.push('rotate(' + rotation + 'deg)');
           el.style.position = 'fixed';
           el.style.top = elPos.top + 'px';
           el.style.left = centerX + 'px';
-          el.style.transform = 'translateX(-50%)';
+          el.style.transform = dragParts.join(' ');
           el.style.zIndex = '10';
           el.style.margin = '0';
           el.style.width = origWidth + 'px';
@@ -1547,10 +1626,13 @@
         var el = iframeDoc.querySelector('.' + cls);
         if (!el) return;
         if (state.textPositions[cls]) {
+          var rotation = cls === 'headline' ? state.headlineRotation : state.subtitleRotation;
+          var parts = ['translateX(-50%)'];
+          if (rotation) parts.push('rotate(' + rotation + 'deg)');
           el.style.position = 'fixed';
           el.style.top = state.textPositions[cls].top + '%';
           el.style.left = state.textPositions[cls].left + '%';
-          el.style.transform = 'translateX(-50%)';
+          el.style.transform = parts.join(' ');
           el.style.zIndex = '10';
           el.style.margin = '0';
           el.style.width = state.textPositions[cls].width + '%';
@@ -1822,6 +1904,32 @@
       document.getElementById('font-weight-value').textContent = this.value;
       throttledRender();
     });
+
+    document.getElementById('headline-size').addEventListener('input', function() {
+      var val = parseInt(this.value, 10);
+      document.getElementById('headline-size-value').textContent = val ? val + 'px' : 'Auto';
+      updateTextStyleInIframe();
+    });
+    document.getElementById('headline-size').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('subtitle-size').addEventListener('input', function() {
+      var val = parseInt(this.value, 10);
+      document.getElementById('subtitle-size-value').textContent = val ? val + 'px' : 'Auto';
+      updateTextStyleInIframe();
+    });
+    document.getElementById('subtitle-size').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('headline-rotation').addEventListener('input', function() {
+      document.getElementById('headline-rotation-value').textContent = this.value + '\u00B0';
+      updateTextStyleInIframe();
+    });
+    document.getElementById('headline-rotation').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('subtitle-rotation').addEventListener('input', function() {
+      document.getElementById('subtitle-rotation-value').textContent = this.value + '\u00B0';
+      updateTextStyleInIframe();
+    });
+    document.getElementById('subtitle-rotation').addEventListener('change', renderSelectedPreview);
 
     document.getElementById('device-scale').addEventListener('input', function() {
       document.getElementById('device-scale-value').textContent = this.value + '%';

@@ -11,9 +11,10 @@ import {
   Renderer,
   TemplateEngine,
   FONT_CATALOG,
+  COMPOSITION_PRESETS,
 } from '@appframe/core';
-import type { AppframeConfig, TemplateStyle, LayoutVariant, FrameStyle } from '@appframe/core';
-import type { TemplateContext } from '@appframe/core';
+import type { AppframeConfig, TemplateStyle, LayoutVariant, FrameStyle, CompositionPreset } from '@appframe/core';
+import type { TemplateContext, DeviceContext } from '@appframe/core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -55,12 +56,17 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   // API: List available templates
   app.get('/api/templates', (_req, res) => {
-    res.json(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial']);
+    res.json(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial', 'fullscreen']);
   });
 
   // API: List available fonts
   app.get('/api/fonts', (_req, res) => {
     res.json(FONT_CATALOG);
+  });
+
+  // API: List available compositions
+  app.get('/api/compositions', (_req, res) => {
+    res.json(Object.values(COMPOSITION_PRESETS));
   });
 
   // API: Render a single screen preview
@@ -99,6 +105,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     clientScreenshot?: string;
     platform?: string;
     sizeKey?: string;
+    composition?: CompositionPreset;
+    extraScreenshots?: Array<{ screenshotDataUrl?: string; frameId?: string }>;
   }
 
   function parseBody(body: Record<string, unknown>, defaultWidth = 400, defaultHeight = 868): PreviewParams {
@@ -131,6 +139,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       clientScreenshot: body.screenshotDataUrl as string | undefined,
       platform: body.platform as string | undefined,
       sizeKey: body.sizeKey as string | undefined,
+      composition: body.composition as CompositionPreset | undefined,
+      extraScreenshots: body.extraScreenshots as Array<{ screenshotDataUrl?: string; frameId?: string }> | undefined,
     };
   }
 
@@ -177,6 +187,67 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       deviceAngle: p.deviceAngle,
       deviceTilt: p.deviceTilt,
     };
+
+    // Apply composition preset
+    const compositionId = p.composition ?? 'single';
+    const preset = COMPOSITION_PRESETS[compositionId];
+
+    if (compositionId !== 'single' && preset && preset.deviceCount === 1) {
+      // Single-device composition (edge bleed presets like peek-right, tilt-left)
+      // Apply the preset's positioning to the single-device context
+      const slot = preset.slots[0]!;
+      context.deviceOffsetX = slot.offsetX;
+      context.deviceTop = slot.offsetY;
+      context.deviceScale = slot.scale;
+      context.deviceRotation = slot.rotation;
+      context.deviceAngle = slot.angle;
+      context.deviceTilt = slot.tilt;
+    } else if (compositionId !== 'single' && preset && preset.deviceCount > 1) {
+      const devices: DeviceContext[] = [];
+
+      for (let i = 0; i < preset.deviceCount; i++) {
+        const slot = preset.slots[i]!;
+        let slotScreenshotDataUrl: string;
+        let slotFrame = frame ?? null;
+        let slotFrameSvg = frameSvg;
+
+        if (i === 0) {
+          slotScreenshotDataUrl = screenshotDataUrl;
+        } else {
+          const extra = p.extraScreenshots?.[i - 1];
+          if (extra?.screenshotDataUrl) {
+            slotScreenshotDataUrl = extra.screenshotDataUrl;
+          } else {
+            slotScreenshotDataUrl = screenshotDataUrl;
+          }
+          if (extra?.frameId) {
+            const extraFrame = await getFrame(extra.frameId);
+            if (extraFrame) {
+              slotFrame = extraFrame;
+              slotFrameSvg = (p.fStyle ?? config.frames.style) !== 'none'
+                ? await readFile(extraFrame.framePath, 'utf-8')
+                : null;
+            }
+          }
+        }
+
+        devices.push({
+          screenshotDataUrl: slotScreenshotDataUrl,
+          frame: slotFrame,
+          frameSvg: slotFrameSvg,
+          offsetX: slot.offsetX,
+          offsetY: slot.offsetY,
+          scale: slot.scale,
+          rotation: slot.rotation,
+          angle: slot.angle,
+          tilt: slot.tilt,
+          zIndex: slot.zIndex,
+        });
+      }
+
+      context.composition = compositionId;
+      context.devices = devices;
+    }
 
     return { context };
   }

@@ -2,7 +2,7 @@ import nunjucks from 'nunjucks';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { TemplateStyle, LayoutVariant, ColorConfig, FrameStyle } from '../config/schema.js';
+import type { TemplateStyle, LayoutVariant, ColorConfig, FrameStyle, CompositionPreset } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
 import { loadFontFaces, getFontName } from '../fonts/loader.js';
 
@@ -40,9 +40,26 @@ export interface TemplateContext {
   deviceAngle?: number;    // Perspective angle in degrees for angled layouts (default: 8)
   deviceTilt?: number;     // 3D tilt angle in degrees via rotateX (default: 0)
 
+  // Composition
+  composition?: CompositionPreset;
+  devices?: DeviceContext[];
+
   // Injected by engine
   fontFaceCss?: string;
   fontFamily?: string;
+}
+
+export interface DeviceContext {
+  screenshotDataUrl: string;
+  frame: FrameDefinition | null;
+  frameSvg: string | null;
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+  rotation: number;
+  angle: number;
+  tilt: number;
+  zIndex: number;
 }
 
 export interface TemplateRenderOptions {

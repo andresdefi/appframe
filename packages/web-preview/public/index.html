@@ -388,6 +388,97 @@
       font-weight: 600;
       font-size: 10px;
     }
+
+    /* ===== Cross-Screen Link ===== */
+    .cross-screen-btn {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px dashed var(--accent);
+      background: rgba(99, 102, 241, 0.08);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+      font-family: inherit;
+      margin-bottom: 6px;
+    }
+    .cross-screen-btn:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-style: solid;
+    }
+    .cross-screen-linked {
+      font-size: 10px;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+
+    /* ===== Store View Toggle ===== */
+    .preview-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 10;
+    }
+
+    .store-view-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-dim);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .store-view-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .store-view-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* Store View mode styles */
+    .preview-area.store-view .preview-gallery {
+      gap: 0;
+      padding: 48px 40px;
+      align-items: flex-start;
+    }
+    .preview-area.store-view .preview-container {
+      border-radius: 0;
+      box-shadow: none;
+      overflow: visible;
+    }
+    .preview-area.store-view .preview-card.selected .preview-container {
+      box-shadow: none;
+    }
+    .preview-area.store-view .preview-card-header {
+      display: none;
+    }
+    .preview-area.store-view .add-screen-card {
+      display: none;
+    }
+    .preview-area.store-view .preview-card {
+      opacity: 1 !important;
+      transform: none !important;
+    }
   </style>
 </head>
 <body>
@@ -416,7 +507,7 @@
       <button class="btn" id="btn-clear-screenshot" style="width: 100%; padding: 4px 0; font-size: 11px; margin-top: 6px; display: none;">Revert to Config Screenshot</button>
     </div>
 
-    <div class="section">
+    <div class="section" id="section-text">
       <div class="section-title">Text</div>
       <label for="headline">Headline</label>
       <textarea id="headline" rows="2"></textarea>
@@ -437,6 +528,7 @@
             <option value="clean">Clean</option>
             <option value="branded">Branded</option>
             <option value="editorial">Editorial</option>
+            <option value="fullscreen">Fullscreen Screenshot</option>
           </select>
         </div>
         <div>
@@ -451,13 +543,36 @@
       </div>
     </div>
 
-    <div class="section">
+    <div class="section" id="section-composition">
+      <div class="section-title">Composition</div>
+      <label for="composition">Device Arrangement</label>
+      <select id="composition">
+        <option value="single">Single Device</option>
+        <optgroup label="Edge Bleed (1 device)">
+          <option value="peek-right">Peek Right</option>
+          <option value="peek-left">Peek Left</option>
+          <option value="tilt-left">Tilt Left</option>
+          <option value="tilt-right">Tilt Right</option>
+        </optgroup>
+        <optgroup label="Multi-Device">
+          <option value="duo-overlap">Duo Overlap (2)</option>
+          <option value="duo-split">Duo Split (2)</option>
+          <option value="hero-tilt">Hero + Background (2)</option>
+          <option value="fanned-cards">Fanned Cards (3)</option>
+        </optgroup>
+      </select>
+      <span style="font-size: 10px; color: #888; line-height: 1.3; display: block; margin-top: -6px; margin-bottom: 8px;">Edge bleed presets overflow screen edges — pair adjacent screens for cross-screen effects.</span>
+      <div id="cross-screen-link" style="display: none;"></div>
+      <div id="extra-devices-container" style="display: none;"></div>
+    </div>
+
+    <div class="section" id="section-text-position">
       <div class="section-title">Text Position</div>
       <span style="font-size: 11px; color: #888; line-height: 1.3; display: block; margin-bottom: 6px;">Drag the headline or subtitle in the preview to reposition them.</span>
       <button class="btn" id="btn-reset-text" style="width: 100%; padding: 5px 0; font-size: 11px;">Reset to Default</button>
     </div>
 
-    <div class="section">
+    <div class="section" id="section-typography">
       <div class="section-title">Typography</div>
       <label for="font">Font</label>
       <select id="font"><option value="">Loading...</option></select>
@@ -468,7 +583,7 @@
       </div>
     </div>
 
-    <div class="section">
+    <div class="section" id="section-colors">
       <div class="section-title">Colors</div>
       <div class="color-row"><label>Primary</label><input type="color" id="color-primary"></div>
       <div class="color-row"><label>Secondary</label><input type="color" id="color-secondary"></div>
@@ -477,7 +592,7 @@
       <div class="color-row"><label>Subtitle</label><input type="color" id="color-subtitle"></div>
     </div>
 
-    <div class="section">
+    <div class="section" id="section-device-frame">
       <div class="section-title">Device Frame</div>
       <label for="frame-id">Device</label>
       <select id="frame-id"><option value="">Loading...</option></select>
@@ -489,7 +604,7 @@
       </select>
     </div>
 
-    <div class="section">
+    <div class="section" id="device-layout-section">
       <div class="section-title">Device Layout</div>
       <label for="device-scale">Device Size</label>
       <div class="range-row">
@@ -523,6 +638,7 @@
         <input type="range" id="device-tilt" min="0" max="20" step="1" value="0">
         <span class="range-value" id="device-tilt-value">0°</span>
       </div>
+      <button class="btn btn-secondary" id="btn-reset-device" style="width: 100%; padding: 5px 0; font-size: 11px; margin-top: 4px;">Reset Device Position</button>
     </div>
 
     <div class="section">
@@ -569,6 +685,9 @@
   </div>
 
   <div class="preview-area" id="preview-area">
+    <div class="preview-toolbar">
+      <button class="store-view-btn" id="btn-store-view" title="Preview how screenshots look side-by-side in the App Store (zero gap)">Store View</button>
+    </div>
     <div class="preview-gallery" id="preview-gallery"></div>
   </div>
 
@@ -605,12 +724,76 @@
       return s;
     }
 
+    // ===== Composition Device Counts =====
+
+    var COMPOSITION_DEVICE_COUNTS = {
+      'single': 1,
+      'peek-right': 1,
+      'peek-left': 1,
+      'tilt-left': 1,
+      'tilt-right': 1,
+      'duo-overlap': 2,
+      'duo-split': 2,
+      'hero-tilt': 2,
+      'fanned-cards': 3,
+    };
+
+    // Preset slot values (must match packages/core/src/composer/presets.ts)
+    var PRESET_SLOTS = {
+      'peek-right': { offsetX: 48, offsetY: 8, scale: 95, rotation: 5, angle: -8, tilt: 0 },
+      'peek-left': { offsetX: -48, offsetY: 8, scale: 95, rotation: -5, angle: 8, tilt: 0 },
+      'tilt-right': { offsetX: 25, offsetY: 5, scale: 105, rotation: 18, angle: -15, tilt: 3 },
+      'tilt-left': { offsetX: -25, offsetY: 5, scale: 105, rotation: -18, angle: 15, tilt: 3 },
+    };
+
+    // Get the effective device values for a screen (preset values or slider values)
+    function getEffectiveDeviceValues(state) {
+      var comp = state.composition || 'single';
+      var slot = PRESET_SLOTS[comp];
+      if (slot) {
+        return {
+          offsetX: slot.offsetX,
+          offsetY: slot.offsetY,
+          scale: slot.scale,
+          rotation: slot.rotation,
+          angle: slot.angle,
+          tilt: slot.tilt,
+        };
+      }
+      // Slider values for 'single' composition
+      return {
+        offsetX: state.deviceOffsetX || 0,
+        offsetY: state.deviceTop || 15,
+        scale: state.deviceScale || 92,
+        rotation: state.deviceRotation || 0,
+        angle: state.deviceAngle || 8,
+        tilt: state.deviceTilt || 0,
+      };
+    }
+
+    // Compute continuation values for cross-screen bleed.
+    // The device center in Screen 1 is at: canvasWidth/2 + canvasWidth * offsetX / 100
+    // In Screen 2's local space (starts at canvasWidth), that becomes:
+    //   (canvasWidth/2 + canvasWidth * offsetX / 100) - canvasWidth
+    // So Screen 2 offsetX = Screen1.offsetX - 100 (for right bleed)
+    // Or Screen 2 offsetX = Screen1.offsetX + 100 (for left bleed on previous screen)
+    // Rotation, angle, tilt stay THE SAME (it's the same device, not a mirror).
+    function computeContinuation(sourceValues, direction) {
+      return {
+        offsetX: direction === 'next' ? sourceValues.offsetX - 100 : sourceValues.offsetX + 100,
+        offsetY: sourceValues.offsetY,
+        scale: sourceValues.scale,
+        rotation: sourceValues.rotation,
+        angle: sourceValues.angle,
+        tilt: sourceValues.tilt,
+      };
+    }
+
     // ===== Per-Screen State =====
 
     function createScreenState(index, cfg) {
       var screen = cfg.screens[index];
-      var layout = screen ? screen.layout : 'center';
-      if (layout === 'left' || layout === 'right') layout = 'center';
+      var layout = 'center';
 
       return {
         screenIndex: index,
@@ -635,6 +818,8 @@
         deviceOffsetX: 0,
         deviceAngle: 8,
         deviceTilt: 0,
+        composition: 'single',
+        extraScreenshots: [],
         textPositions: { headline: null, subtitle: null },
         screenshotDataUrl: null,
         screenshotName: screen ? (screen.screenshot || '').split('/').pop() : null,
@@ -665,6 +850,7 @@
       };
       state.frameId = document.getElementById('frame-id').value;
       state.frameStyle = document.getElementById('frame-style').value;
+      state.composition = document.getElementById('composition').value;
       state.deviceScale = parseInt(document.getElementById('device-scale').value, 10);
       state.deviceTop = parseInt(document.getElementById('device-top').value, 10);
       state.deviceRotation = parseInt(document.getElementById('device-rotation').value, 10);
@@ -690,6 +876,7 @@
       document.getElementById('color-subtitle').value = state.colors.subtitle;
       document.getElementById('frame-id').value = state.frameId;
       document.getElementById('frame-style').value = state.frameStyle;
+      document.getElementById('composition').value = state.composition;
       document.getElementById('device-scale').value = state.deviceScale;
       document.getElementById('device-scale-value').textContent = state.deviceScale + '%';
       document.getElementById('device-top').value = state.deviceTop;
@@ -703,8 +890,10 @@
       document.getElementById('device-tilt').value = state.deviceTilt;
       document.getElementById('device-tilt-value').textContent = state.deviceTilt + '\u00B0';
       updateAngleRowVisibility();
+      updateCompositionUI();
       updateSelectedIndicator();
       updateScreenshotInfo();
+      toggleFullscreenSections();
     }
 
     function updateScreenshotInfo() {
@@ -848,8 +1037,8 @@
       screenStates.forEach(function(state) {
         if (!state.iframeEl || !state.containerEl) return;
         state.iframeEl.style.transform = 'scale(' + baseScale + ')';
-        state.containerEl.style.width = Math.round(400 * baseScale) + 'px';
-        state.containerEl.style.height = Math.round(868 * baseScale) + 'px';
+        state.containerEl.style.width = (400 * baseScale) + 'px';
+        state.containerEl.style.height = (868 * baseScale) + 'px';
       });
 
       var addCard = document.querySelector('.add-screen-card');
@@ -898,6 +1087,7 @@
       newState.colors = JSON.parse(JSON.stringify(lastState.colors));
       newState.frameId = lastState.frameId;
       newState.frameStyle = lastState.frameStyle;
+      newState.composition = lastState.composition;
       newState.deviceScale = lastState.deviceScale;
       newState.deviceTop = lastState.deviceTop;
 
@@ -973,7 +1163,7 @@
 
     function getPreviewBodyForScreen(index) {
       var state = screenStates[index];
-      return {
+      var body = {
         screenIndex: state.screenIndex,
         screenshotDataUrl: state.screenshotDataUrl || undefined,
         locale: document.getElementById('locale').value,
@@ -998,7 +1188,16 @@
         subtitleTop: state.textPositions.subtitle ? state.textPositions.subtitle.top : undefined,
         subtitleLeft: state.textPositions.subtitle ? state.textPositions.subtitle.left : undefined,
         subtitleWidth: state.textPositions.subtitle ? state.textPositions.subtitle.width : undefined,
+        composition: state.composition || 'single',
       };
+
+      if (state.composition && state.composition !== 'single' && state.extraScreenshots.length > 0) {
+        body.extraScreenshots = state.extraScreenshots.map(function(es) {
+          return { screenshotDataUrl: es.dataUrl || undefined };
+        });
+      }
+
+      return body;
     }
 
     async function renderPreviewForScreen(index) {
@@ -1359,6 +1558,21 @@
       });
     }
 
+    // ===== Fullscreen Mode Section Toggle =====
+
+    var fullscreenHiddenSections = [
+      'section-text', 'section-composition', 'section-text-position',
+      'section-typography', 'section-colors', 'section-device-frame', 'device-layout-section'
+    ];
+
+    function toggleFullscreenSections() {
+      var isFullscreen = document.getElementById('template').value === 'fullscreen';
+      fullscreenHiddenSections.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = isFullscreen ? 'none' : '';
+      });
+    }
+
     // ===== Show/Hide Angle Slider =====
 
     function updateAngleRowVisibility() {
@@ -1366,6 +1580,178 @@
       var angleRow = document.getElementById('angle-row');
       angleRow.style.display = (layout === 'angled-left' || layout === 'angled-right') ? '' : 'none';
     }
+
+    // ===== Composition UI =====
+
+    function updateCompositionUI() {
+      var state = screenStates[selectedScreen];
+      if (!state) return;
+      var compositionValue = state.composition || 'single';
+      var container = document.getElementById('extra-devices-container');
+      var deviceLayoutSection = document.getElementById('device-layout-section');
+      var linkContainer = document.getElementById('cross-screen-link');
+
+      var presetDeviceCount = COMPOSITION_DEVICE_COUNTS[compositionValue] || 1;
+      var extraCount = presetDeviceCount - 1;
+
+      // Show/hide device layout sliders based on composition
+      if (deviceLayoutSection) {
+        deviceLayoutSection.style.display = (compositionValue === 'single') ? '' : 'none';
+      }
+
+      // Cross-screen continuation button
+      clearChildren(linkContainer);
+      saveControlsToState(selectedScreen);
+      var sourceValues = getEffectiveDeviceValues(state);
+      var hasBleed = sourceValues.offsetX !== 0;
+
+      if (hasBleed && COMPOSITION_DEVICE_COUNTS[compositionValue] === 1) {
+        var bleedDirection = sourceValues.offsetX > 0 ? 'next' : 'prev';
+        var targetIndex = bleedDirection === 'next' ? selectedScreen + 1 : selectedScreen - 1;
+        var targetScreen = screenStates[targetIndex];
+
+        if (targetScreen) {
+          linkContainer.style.display = '';
+          var contValues = computeContinuation(sourceValues, bleedDirection);
+
+          var btn = document.createElement('button');
+          btn.className = 'cross-screen-btn';
+          btn.textContent = 'Continue device to Screen ' + (targetIndex + 1);
+          btn.addEventListener('click', function() {
+            // Apply continuation values as 'single' composition with slider values
+            targetScreen.composition = 'single';
+            targetScreen.deviceOffsetX = contValues.offsetX;
+            targetScreen.deviceTop = contValues.offsetY;
+            targetScreen.deviceScale = contValues.scale;
+            targetScreen.deviceRotation = contValues.rotation;
+            targetScreen.deviceAngle = contValues.angle;
+            targetScreen.deviceTilt = contValues.tilt;
+            // Re-render the target screen
+            renderPreviewForScreen(targetIndex);
+            // If editing the target, update controls
+            if (selectedScreen === targetIndex) {
+              syncControlsFromState(targetIndex);
+            }
+            updateCompositionUI();
+          });
+          linkContainer.appendChild(btn);
+
+          // Show computed values hint
+          var hint = document.createElement('span');
+          hint.style.cssText = 'font-size: 10px; color: #888; display: block; margin-top: 4px;';
+          hint.textContent = 'Sets Screen ' + (targetIndex + 1) + ' offset to ' + contValues.offsetX + '% (same rotation/angle for seamless continuation)';
+          linkContainer.appendChild(hint);
+        } else {
+          linkContainer.style.display = '';
+          var addHint = document.createElement('span');
+          addHint.style.cssText = 'font-size: 10px; color: #888;';
+          addHint.textContent = bleedDirection === 'next'
+            ? 'Add a screen after this one for cross-screen continuation'
+            : 'Add a screen before this one for cross-screen continuation';
+          linkContainer.appendChild(addHint);
+        }
+      } else {
+        linkContainer.style.display = 'none';
+      }
+
+      if (extraCount <= 0) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = '';
+      clearChildren(container);
+
+      // Ensure extraScreenshots array has the right length
+      while (state.extraScreenshots.length < extraCount) {
+        state.extraScreenshots.push({ dataUrl: null, name: null });
+      }
+
+      for (var i = 0; i < extraCount; i++) {
+        (function(slotIndex) {
+          var row = document.createElement('div');
+          row.style.marginTop = '10px';
+
+          var label = document.createElement('label');
+          label.textContent = 'Device ' + (slotIndex + 2) + ' Screenshot';
+          label.style.fontWeight = '500';
+          row.appendChild(label);
+
+          var extra = state.extraScreenshots[slotIndex];
+
+          if (extra && extra.dataUrl) {
+            var infoRow = document.createElement('div');
+            infoRow.className = 'screenshot-info';
+
+            var thumb = document.createElement('img');
+            thumb.className = 'screenshot-thumb';
+            thumb.src = extra.dataUrl;
+            infoRow.appendChild(thumb);
+
+            var name = document.createElement('span');
+            name.className = 'screenshot-name';
+            name.textContent = extra.name || 'Uploaded';
+            infoRow.appendChild(name);
+
+            row.appendChild(infoRow);
+          }
+
+          var btn = document.createElement('button');
+          btn.className = 'screenshot-upload-btn';
+          btn.textContent = (extra && extra.dataUrl) ? 'Replace' : 'Upload Screenshot';
+          btn.addEventListener('click', function() {
+            triggerExtraScreenshotUpload(slotIndex);
+          });
+          row.appendChild(btn);
+
+          if (extra && extra.dataUrl) {
+            var clearBtn = document.createElement('button');
+            clearBtn.className = 'btn';
+            clearBtn.style.cssText = 'width: 100%; padding: 4px 0; font-size: 11px; margin-top: 4px;';
+            clearBtn.textContent = 'Clear';
+            clearBtn.addEventListener('click', function() {
+              state.extraScreenshots[slotIndex] = { dataUrl: null, name: null };
+              updateCompositionUI();
+              renderPreviewForScreen(selectedScreen);
+            });
+            row.appendChild(clearBtn);
+          }
+
+          container.appendChild(row);
+        })(i);
+      }
+    }
+
+    function triggerExtraScreenshotUpload(slotIndex) {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png,image/jpeg,image/webp';
+      input.addEventListener('change', function() {
+        var file = this.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var state = screenStates[selectedScreen];
+          while (state.extraScreenshots.length <= slotIndex) {
+            state.extraScreenshots.push({ dataUrl: null, name: null });
+          }
+          state.extraScreenshots[slotIndex] = { dataUrl: e.target.result, name: file.name };
+          updateCompositionUI();
+          renderPreviewForScreen(selectedScreen);
+        };
+        reader.readAsDataURL(file);
+      });
+      input.click();
+    }
+
+    // ===== Store View Toggle =====
+
+    document.getElementById('btn-store-view').addEventListener('click', function() {
+      var area = document.getElementById('preview-area');
+      var btn = document.getElementById('btn-store-view');
+      area.classList.toggle('store-view');
+      btn.classList.toggle('active');
+    });
 
     // ===== Event Handlers =====
 
@@ -1390,8 +1776,15 @@
 
     ['template', 'layout', 'frame-id', 'frame-style', 'font'].forEach(function(id) {
       document.getElementById(id).addEventListener('change', function() {
+        if (id === 'template') toggleFullscreenSections();
         renderSelectedPreview();
       });
+    });
+
+    document.getElementById('composition').addEventListener('change', function() {
+      saveControlsToState(selectedScreen);
+      updateCompositionUI();
+      renderSelectedPreview();
     });
 
     document.getElementById('layout').addEventListener('change', updateAngleRowVisibility);
@@ -1470,6 +1863,19 @@
       screenStates[selectedScreen].textPositions.headline = null;
       screenStates[selectedScreen].textPositions.subtitle = null;
       renderPreviewForScreen(selectedScreen);
+    });
+
+    document.getElementById('btn-reset-device').addEventListener('click', function() {
+      var state = screenStates[selectedScreen];
+      if (!state) return;
+      state.deviceScale = 92;
+      state.deviceTop = 15;
+      state.deviceOffsetX = 0;
+      state.deviceRotation = 0;
+      state.deviceAngle = 8;
+      state.deviceTilt = 0;
+      syncControlsFromState(selectedScreen);
+      renderSelectedPreview();
     });
 
     // Screenshot upload

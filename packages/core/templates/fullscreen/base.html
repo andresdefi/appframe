@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: {{ canvasWidth }}px;
+      height: {{ canvasHeight }}px;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: {{ canvasWidth }}px;
+      height: {{ canvasHeight }}px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .canvas img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <img src="{{ screenshotDataUrl }}">
+  </div>
+</body>
+</html>

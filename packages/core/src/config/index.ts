@@ -18,4 +18,5 @@ export type {
   TemplateStyle,
   FrameStyle,
   LayoutVariant,
+  CompositionPreset,
 } from './schema.js';

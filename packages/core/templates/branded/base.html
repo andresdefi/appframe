@@ -127,6 +127,9 @@
       <div class="headline">{{ headline }}</div>
       {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
     </div>
+    {% if composition and composition != 'single' and devices %}
+      {% include "_base/composition-devices.html" %}
+    {% else %}
     <div class="device-wrapper">
       {% include "_base/3d-device-body-open.html" %}
       {% if frameSvg and frameStyle != 'none' %}
@@ -144,6 +147,7 @@
       {% endif %}
       {% include "_base/3d-effects-overlays.html" %}
     </div>
+    {% endif %}
   </div>
 </body>
 </html>

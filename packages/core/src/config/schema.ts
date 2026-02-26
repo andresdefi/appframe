@@ -7,7 +7,7 @@ const hexColor = z
   .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Must be a valid hex color');
 
 export const platformSchema = z.enum(['ios', 'android']);
-export const templateStyleSchema = z.enum(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial']);
+export const templateStyleSchema = z.enum(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial', 'fullscreen']);
 export const frameStyleSchema = z.enum(['flat', '3d', 'floating', 'none']);
 export const layoutVariantSchema = z.enum([
   'center',
@@ -51,6 +51,25 @@ export const frameConfigSchema = z.object({
   style: frameStyleSchema.default('flat'),
 });
 
+// --- Composition ---
+
+export const compositionPresetSchema = z.enum([
+  'single',
+  'peek-right',
+  'peek-left',
+  'tilt-left',
+  'tilt-right',
+  'duo-overlap',
+  'duo-split',
+  'hero-tilt',
+  'fanned-cards',
+]);
+
+export const compositionDeviceSchema = z.object({
+  screenshot: z.string().min(1),
+  device: z.string().optional(),
+});
+
 // --- Screen section ---
 
 export const screenConfigSchema = z.object({
@@ -60,6 +79,8 @@ export const screenConfigSchema = z.object({
   layout: layoutVariantSchema.default('center'),
   device: z.string().optional(),
   background: z.string().optional(),
+  composition: compositionPresetSchema.default('single'),
+  extraDevices: z.array(compositionDeviceSchema).optional(),
 });
 
 // --- Locale section ---
@@ -129,6 +150,7 @@ export type AppConfig = z.infer<typeof appConfigSchema>;
 export type ColorConfig = z.infer<typeof colorConfigSchema>;
 export type ThemeConfig = z.infer<typeof themeConfigSchema>;
 export type FrameConfig = z.infer<typeof frameConfigSchema>;
+export type CompositionPreset = z.infer<typeof compositionPresetSchema>;
 export type ScreenConfig = z.infer<typeof screenConfigSchema>;
 export type LocaleScreenConfig = z.infer<typeof localeScreenConfigSchema>;
 export type LocaleConfig = z.infer<typeof localeConfigSchema>;

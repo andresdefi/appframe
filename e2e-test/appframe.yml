@@ -1,77 +1,56 @@
-# appframe config — Impostor
 app:
-  name: Impostor
-  description: A social deduction party game where players give clues about a secret word while the impostor bluffs
-  platforms:
-    - ios
+  name: "Impostor Game"
+  description: "Social deduction party game"
+  platforms: [ios, android]
   features:
-    - Secret word guessing
+    - Party game
     - Social deduction
-    - Multiple categories
-    - 4-10 players
-    - Multi-language support
 
 theme:
-  style: glow
+  style: bold
   colors:
-    primary: "#8B5CF6"
-    secondary: "#EF4444"
-    background: "#09090B"
-    text: "#FAFAFA"
-    subtitle: "#A1A1AA"
+    primary: "#EF4444"
+    secondary: "#7C3AED"
+    background: "#0F0F1A"
+    text: "#F8FAFC"
+    subtitle: "#94A3B8"
   font: inter
   fontWeight: 700
 
 frames:
-  ios: iphone-17-pro-max
+  ios: iphone-16-pro-max
+  android: pixel-10
   style: flat
 
 screens:
   - screenshot: screenshots/screen-1-home.png
-    headline: Trust No One
-    subtitle: The ultimate party bluffing game
+    headline: "Who's the Impostor?"
+    subtitle: "The ultimate party game"
     layout: center
 
   - screenshot: screenshots/screen-2-setup.png
-    headline: Easy Setup
-    subtitle: Pick players, categories, and go
-    layout: angled-right
+    headline: "Quick Setup"
+    subtitle: "Start playing in seconds"
+    layout: center
 
   - screenshot: screenshots/screen-3-names.png
-    headline: Play With Friends
-    subtitle: Add everyone in seconds
+    headline: "Add Your Friends"
+    subtitle: "Everyone joins the fun"
     layout: center
 
   - screenshot: screenshots/screen-4-innocent.png
-    headline: Get Your Secret Word
-    subtitle: Give clues without revealing it
-    layout: angled-left
-
-  - screenshot: screenshots/screen-5-impostor.png
-    headline: Find The Impostor
-    subtitle: Or bluff your way to victory
+    headline: "Play Your Role"
+    subtitle: "Blend in or get caught"
     layout: center
 
-locales:
-  es:
-    screens:
-      - headline: No Confíes en Nadie
-        subtitle: El juego de engaño definitivo
-      - headline: Configuración Fácil
-        subtitle: Elige jugadores, categorías y listo
-      - headline: Juega con Amigos
-        subtitle: Agrega a todos en segundos
-      - headline: Descubre Tu Palabra
-        subtitle: Da pistas sin revelarla
-      - headline: Encuentra al Impostor
-        subtitle: O engaña para ganar
+  - screenshot: screenshots/screen-5-impostor.png
+    headline: "Find the Impostor"
+    subtitle: "Trust no one"
+    layout: center
 
 output:
-  platforms:
-    - ios
+  platforms: [ios]
   ios:
-    sizes:
-      - 6.7
-      - 6.5
+    sizes: [6.7]
     format: png
   directory: ./output

@@ -70,6 +70,13 @@ function generateConfig(opts: {
       text: '#2C2416',
       subtitle: '#7A7062',
     },
+    fullscreen: {
+      primary: '#000000',
+      secondary: '#000000',
+      background: '#000000',
+      text: '#FFFFFF',
+      subtitle: '#CCCCCC',
+    },
   };
 
   const colors = themePresets[style];

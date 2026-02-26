@@ -23,6 +23,7 @@ export interface KoubouTextElement {
   size: number;
   color?: string;
   weight?: string;
+  font?: string;
   alignment?: string;
 }
 
@@ -32,6 +33,7 @@ export interface KoubouImageElement {
   position: [string, string];
   scale: number;
   frame?: boolean;
+  rotation?: number;
 }
 
 export type KoubouContentElement = KoubouTextElement | KoubouImageElement;

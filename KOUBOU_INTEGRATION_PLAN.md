@@ -43,15 +43,15 @@ Combine appframe's interactive Web UI and automation pipeline with Koubou's rend
 Replace Playwright with Koubou for final screenshot export. Keep HTML preview for the Web UI.
 
 ### 1.1 Install & Detect Koubou
-- [ ] Add Koubou as an optional dependency (`pip install koubou` or `brew install koubou`)
-- [ ] Add `kou` binary detection in CLI (`which kou` check)
-- [ ] Graceful fallback: if Koubou not installed, use existing Playwright export
-- [ ] Add `appframe setup` command that installs Koubou automatically
-- [ ] Document installation in README
+- [x] Add Koubou as an optional dependency (`pip install koubou` or `brew install koubou`)
+- [x] Add `kou` binary detection in CLI (`which kou` check)
+- [x] Graceful fallback: if Koubou not installed, use existing Playwright export
+- [x] Add `appframe setup` command that installs Koubou automatically
+- [x] Document installation in README
 
 ### 1.2 Config Translator: appframe.yml → Koubou YAML
-- [ ] Create `packages/core/src/koubou/translator.ts` module
-- [ ] Map appframe template styles to Koubou background configs:
+- [x] Create `packages/core/src/koubou/translator.ts` module
+- [x] Map appframe template styles to Koubou background configs:
   ```
   glow     → linear gradient, dark colors, accent glow
   bold     → solid or radial gradient, vibrant colors
@@ -62,20 +62,20 @@ Replace Playwright with Koubou for final screenshot export. Keep HTML preview fo
   editorial → solid muted/warm background
   fullscreen → no background, image fills canvas
   ```
-- [ ] Map appframe device frames to Koubou device names:
+- [x] Map appframe device frames to Koubou device names:
   ```
   iphone-16-pro-max → "iPhone 16 Pro Max Portrait"
   iphone-16-pro     → "iPhone 16 Pro Portrait"
   pixel-10          → (Android not supported by Koubou — fallback to Playwright)
   ```
-- [ ] Map appframe layout variants to Koubou image positioning:
+- [x] Map appframe layout variants to Koubou image positioning:
   ```
   center       → position: ["50%", "55%"], scale: 0.85, frame: true
   angled-left  → position + rotation (if Koubou supports rotation, else approximate)
   angled-right → position + rotation
   floating     → position: ["50%", "58%"], scale: 0.80, frame: true, drop shadow
   ```
-- [ ] Map headline/subtitle to Koubou text elements:
+- [x] Map headline/subtitle to Koubou text elements:
   ```yaml
   - type: "text"
     content: "Trust No One"
@@ -92,27 +92,37 @@ Replace Playwright with Koubou for final screenshot export. Keep HTML preview fo
     color: "#94A3B8"
     alignment: "center"
   ```
-- [ ] Map appframe colors to Koubou background gradient configs
-- [ ] Map font selection to Koubou custom font paths (resolve from FONT_CATALOG)
-- [ ] Output a valid Koubou YAML config file
+- [x] Map appframe colors to Koubou background gradient configs
+- [x] Map font selection to Koubou font names (resolved from FONT_CATALOG; requires system-installed fonts)
+- [x] Output a valid Koubou YAML config file
 
 ### 1.3 Multi-Device Composition Support
-- [ ] For single-device presets (peek-right, tilt-left, etc.): map to Koubou image positioning with offset/rotation
-- [ ] For multi-device compositions (duo-overlap, fanned-cards): generate multiple image elements in Koubou content array with different positions, scales, and z-ordering
-- [ ] Check if Koubou supports image rotation — if not, pre-rotate screenshots with sharp/Jimp before passing to Koubou
+- [x] For single-device presets (peek-right, tilt-left, etc.): map to Koubou image positioning with offset/rotation
+- [x] For multi-device compositions (duo-overlap, fanned-cards): generate multiple image elements in Koubou content array with different positions, scales, and z-ordering
+- [x] Check if Koubou supports image rotation — confirmed: `rotation` key works natively on image elements
 
 ### 1.4 Export Pipeline
-- [ ] Add `--renderer koubou` flag to `appframe generate` command
-- [ ] Generate Koubou YAML config per screen
-- [ ] Call `kou generate <config.yaml>` for each screen
-- [ ] Collect output PNGs and rename to appframe naming convention
-- [ ] Clean up temporary Koubou YAML files
-- [ ] Report progress and results
+- [x] Add `--renderer koubou` flag to `appframe generate` command
+- [x] Generate Koubou YAML config per screen
+- [x] Call `kou generate <config.yaml>` for each screen
+- [x] Collect output PNGs and rename to appframe naming convention
+- [x] Clean up temporary Koubou YAML files
+- [x] Report progress and results
 
 ### 1.5 Verification
-- [ ] Generate same screenshots with both Playwright and Koubou backends
-- [ ] Visual comparison to ensure feature parity
-- [ ] Performance comparison (speed of export)
+- [x] Generate same screenshots with both Playwright and Koubou backends
+- [x] Visual comparison to ensure feature parity
+- [x] Performance comparison (speed of export)
+
+**Verification Results:**
+| | Playwright | Koubou |
+|---|---|---|
+| Frame quality | SVG overlay (flat) | Photorealistic 3D bezel |
+| Background | CSS gradient with glow effects | Linear/radial gradient |
+| Text font | Embedded woff2 (exact match) | System font fallback (Arial if font not installed) |
+| Output size | Exact App Store dimensions | Exact App Store dimensions |
+| Speed (2 images) | ~3s | ~15s |
+| File size | ~270KB | ~530KB (more detail) |
 
 ---
 

@@ -1,5 +1,12 @@
 import { resolve } from 'node:path';
-import type { AppframeConfig, ScreenConfig, TemplateStyle, ColorConfig, LayoutVariant } from '../config/schema.js';
+import type {
+  AppframeConfig, ScreenConfig, TemplateStyle,
+  ColorConfig, LayoutVariant, CompositionPreset,
+} from '../config/schema.js';
+import { COMPOSITION_PRESETS } from '../composer/presets.js';
+import type { DeviceSlotPreset } from '../composer/presets.js';
+import { FONT_CATALOG, getFontName } from '../fonts/loader.js';
+import { KOUBOU_DIMENSIONS } from './types.js';
 import type { KoubouConfig, KoubouBackground, KoubouContentElement } from './types.js';
 
 // Map appframe iOS size keys to Koubou output_size names
@@ -46,6 +53,17 @@ function darkenHex(hex: string, amount: number): string {
   const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);
   const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amount);
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+// --- Font resolution ---
+
+function resolveKoubouFont(fontId: string): string | undefined {
+  // Koubou uses PIL's ImageFont.truetype() which resolves system font names.
+  // Return the display name (e.g. "Inter", "Poppins") — works if installed on the system.
+  const catalogEntry = FONT_CATALOG.find(f => f.id === fontId);
+  if (catalogEntry) return catalogEntry.name;
+  // If not in catalog, return the raw ID — might be a system font name
+  return getFontName(fontId);
 }
 
 // --- Background mapping ---
@@ -97,22 +115,47 @@ function translateBackground(style: TemplateStyle, colors: ColorConfig): KoubouB
   }
 }
 
-// --- Layout → positioning ---
+// --- Composition → Koubou image positioning ---
+
+function slotToKoubouImage(
+  slot: DeviceSlotPreset,
+  screenshotPath: string,
+  useFrame: boolean,
+): KoubouContentElement {
+  // Convert appframe slot positioning to Koubou image element
+  // offsetX: % of canvas width from center → Koubou position X
+  // offsetY: % from top for device top → Koubou position Y (center-based, add ~40%)
+  const posX = `${50 + slot.offsetX}%`;
+  const posY = `${slot.offsetY + 40}%`;
+  const scale = slot.scale / 100;
+
+  return {
+    type: 'image',
+    asset: screenshotPath,
+    position: [posX, posY] as [string, string],
+    scale,
+    frame: useFrame,
+    ...(slot.rotation !== 0 ? { rotation: slot.rotation } : {}),
+  };
+}
+
+// --- Layout → positioning (fallback for 'single' composition) ---
+// Y positions push device down to avoid overlapping headline/subtitle text
 
 function translateLayout(layout: LayoutVariant): { position: [string, string]; scale: number } {
   switch (layout) {
     case 'center':
-      return { position: ['50%', '55%'], scale: 0.85 };
+      return { position: ['50%', '60%'], scale: 0.80 };
     case 'angled-left':
-      return { position: ['45%', '55%'], scale: 0.85 };
+      return { position: ['45%', '60%'], scale: 0.80 };
     case 'angled-right':
-      return { position: ['55%', '55%'], scale: 0.85 };
+      return { position: ['55%', '60%'], scale: 0.80 };
     case 'floating':
-      return { position: ['50%', '58%'], scale: 0.80 };
+      return { position: ['50%', '62%'], scale: 0.75 };
     case 'side-by-side':
-      return { position: ['50%', '55%'], scale: 0.80 };
+      return { position: ['50%', '60%'], scale: 0.75 };
     default:
-      return { position: ['50%', '55%'], scale: 0.85 };
+      return { position: ['50%', '60%'], scale: 0.80 };
   }
 }
 
@@ -145,17 +188,34 @@ function sanitizeScreenName(index: number, headline: string): string {
   return `screen_${index + 1}_${slug}`;
 }
 
+// --- Font sizing ---
+// Koubou uses absolute pixel sizes on the full-resolution canvas (e.g. 1290x2796).
+// If user specifies headlineSize/subtitleSize in config, use those directly.
+// Otherwise scale proportionally to canvas width for readable output.
+
+function headlineFontSize(canvasWidth: number, userSize?: number): number {
+  if (userSize) return userSize;
+  return Math.round(canvasWidth * 0.075); // ~97px at 1290w
+}
+
+function subtitleFontSize(canvasWidth: number, userSize?: number): number {
+  if (userSize) return userSize;
+  return Math.round(canvasWidth * 0.038); // ~49px at 1290w
+}
+
 // --- Screen translation ---
 
 function translateScreen(
   screen: ScreenConfig,
   config: AppframeConfig,
   configDir: string,
+  canvasWidth: number,
 ): KoubouContentElement[] {
   const elements: KoubouContentElement[] = [];
   const style = config.theme.style;
   const colors = config.theme.colors;
   const hasSubtitle = !!screen.subtitle;
+  const fontName = resolveKoubouFont(config.theme.font);
 
   // Skip text elements for fullscreen template
   if (style !== 'fullscreen') {
@@ -164,10 +224,11 @@ function translateScreen(
       type: 'text',
       content: screen.headline,
       position: headlinePosition(hasSubtitle),
-      size: 52,
+      size: headlineFontSize(canvasWidth, config.theme.headlineSize),
       color: colors.text,
       weight: weightString(config.theme.fontWeight),
       alignment: 'center',
+      ...(fontName ? { font: fontName } : {}),
     });
 
     // Subtitle
@@ -176,18 +237,22 @@ function translateScreen(
         type: 'text',
         content: screen.subtitle,
         position: subtitlePosition(),
-        size: 22,
+        size: subtitleFontSize(canvasWidth, config.theme.subtitleSize),
         color: colors.subtitle ?? colors.text,
         weight: 'regular',
         alignment: 'center',
+        ...(fontName ? { font: fontName } : {}),
       });
     }
   }
 
-  // Screenshot image
+  // Screenshot image(s)
   const screenshotPath = resolve(configDir, screen.screenshot);
+  const useFrame = config.frames.style !== 'none';
+  const composition = screen.composition ?? 'single';
 
   if (style === 'fullscreen') {
+    // Fullscreen: image fills entire canvas, no frame
     elements.push({
       type: 'image',
       asset: screenshotPath,
@@ -195,15 +260,32 @@ function translateScreen(
       scale: 1.0,
       frame: false,
     });
+  } else if (composition !== 'single') {
+    // Non-single composition: use preset slot positioning
+    const preset = COMPOSITION_PRESETS[composition as CompositionPreset];
+    if (preset) {
+      // Primary device uses the first slot
+      const primarySlot = preset.slots[0]!;
+      elements.push(slotToKoubouImage(primarySlot, screenshotPath, useFrame));
+
+      // Extra devices use subsequent slots
+      if (screen.extraDevices && preset.slots.length > 1) {
+        for (let i = 0; i < screen.extraDevices.length && i + 1 < preset.slots.length; i++) {
+          const extraDevice = screen.extraDevices[i]!;
+          const slot = preset.slots[i + 1]!;
+          const extraPath = resolve(configDir, extraDevice.screenshot);
+          elements.push(slotToKoubouImage(slot, extraPath, useFrame));
+        }
+      }
+    } else {
+      // Unknown composition — fall back to center layout
+      const { position, scale } = translateLayout(screen.layout);
+      elements.push({ type: 'image', asset: screenshotPath, position, scale, frame: useFrame });
+    }
   } else {
+    // Single composition: use layout-based positioning
     const { position, scale } = translateLayout(screen.layout);
-    elements.push({
-      type: 'image',
-      asset: screenshotPath,
-      position,
-      scale,
-      frame: config.frames.style !== 'none',
-    });
+    elements.push({ type: 'image', asset: screenshotPath, position, scale, frame: useFrame });
   }
 
   return elements;
@@ -227,6 +309,10 @@ export function translateConfig(options: TranslateOptions): KoubouConfig {
     ? (DEVICE_MAP[frameId] ?? DEFAULT_DEVICE)
     : DEFAULT_DEVICE;
 
+  // Resolve canvas width for proportional font sizing
+  const dims = KOUBOU_DIMENSIONS[outputSize];
+  const canvasWidth = dims?.width ?? 1290;
+
   // Background
   const background = translateBackground(config.theme.style, config.theme.colors);
 
@@ -235,7 +321,7 @@ export function translateConfig(options: TranslateOptions): KoubouConfig {
 
   for (let i = 0; i < config.screens.length; i++) {
     const screen = config.screens[i]!;
-    const content = translateScreen(screen, config, configDir);
+    const content = translateScreen(screen, config, configDir, canvasWidth);
     const screenName = sanitizeScreenName(i, screen.headline);
 
     screenshots[screenName] = {
@@ -261,7 +347,6 @@ export function translateConfigWithLocale(
   _locale: string,
   localeOverrides: Array<{ headline: string; subtitle?: string }>,
 ): KoubouConfig {
-  // Create a shallow copy of config with overridden screen text
   const modifiedScreens = options.config.screens.map((screen, i) => {
     const override = localeOverrides[i];
     if (!override) return screen;

@@ -41,6 +41,8 @@ export const themeConfigSchema = z.object({
   colors: colorConfigSchema,
   font: z.string().default('inter'),
   fontWeight: z.number().int().min(100).max(900).default(600),
+  headlineSize: z.number().int().min(12).max(200).optional(),
+  subtitleSize: z.number().int().min(8).max(120).optional(),
 });
 
 // --- Frames section ---

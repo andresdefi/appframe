@@ -43,6 +43,8 @@ appframe preview
 | `appframe capture` | Auto-capture from simulator/emulator |
 | `appframe frames list` | List available device frames |
 | `appframe upload` | Upload to App Store Connect / Google Play |
+| `appframe setup` | Install optional dependencies (Koubou) |
+| `appframe koubou-config` | Preview translated Koubou YAML (debug) |
 
 ## Config File
 
@@ -230,10 +232,47 @@ frames/           SVG device frames + manifest
 examples/         Example app configs
 ```
 
+## Rendering Backends
+
+appframe supports two rendering backends:
+
+### Playwright (default)
+Built-in HTML/CSS renderer. Fast, supports all templates and glow effects. Uses SVG device frame overlays.
+
+```bash
+appframe generate --renderer playwright
+```
+
+### Koubou (optional, recommended for export)
+[Koubou](https://github.com/bitomule/Koubou) provides pixel-perfect rendering with 126+ photorealistic device frames. Install it for higher-quality final exports.
+
+```bash
+# Install Koubou
+appframe setup
+# or: pip install koubou
+
+# Generate with Koubou
+appframe generate --renderer koubou
+
+# Auto-detect (uses Koubou if available, falls back to Playwright)
+appframe generate --renderer auto
+```
+
+| | Playwright | Koubou |
+|---|---|---|
+| Speed | ~1.5s per image | ~7s per image |
+| Device frames | SVG overlays (7 frames) | Photorealistic bezels (126 frames) |
+| Text rendering | Embedded web fonts (exact) | System fonts (install for best results) |
+| Background effects | Full CSS (glow, gradients) | Linear/radial gradients |
+| Platforms | iOS + Android | iOS only (Android falls back to Playwright) |
+
+**Tip:** For best font matching with Koubou, install the fonts on your system (e.g., `brew install font-inter`).
+
 ## Requirements
 
 - Node.js >= 18
 - Playwright (auto-installed on first run for rendering)
+- Koubou (optional) — `pip install koubou` for pixel-perfect device frames
 
 ## License
 

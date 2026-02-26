@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolve } from 'node:path';
 import chalk from 'chalk';
-import { loadConfig, generateScreenshots } from '@appframe/core';
+import { loadConfig, generateScreenshots, generateWithKoubou, detectKoubou } from '@appframe/core';
 
 interface GenerateOptions {
   config: string;
@@ -10,6 +10,7 @@ interface GenerateOptions {
   screen?: string;
   output?: string;
   template?: string;
+  renderer?: string;
   dryRun?: boolean;
 }
 
@@ -21,6 +22,7 @@ export const generateCommand = new Command('generate')
   .option('-s, --screen <index>', 'Generate a single screen by index')
   .option('-o, --output <dir>', 'Override output directory')
   .option('-t, --template <name>', 'Override template for all screens')
+  .option('-r, --renderer <renderer>', 'Renderer to use (playwright, koubou, auto)', 'auto')
   .option('--dry-run', 'Show what would be generated without rendering')
   .action(async (options: GenerateOptions) => {
     const configPath = resolve(options.config);
@@ -68,12 +70,18 @@ export const generateCommand = new Command('generate')
       return;
     }
 
-    console.log(chalk.blue(`Generating screenshots for ${chalk.bold(config.app.name)}...\n`));
+    // Resolve renderer
+    const renderer = await resolveRenderer(options.renderer ?? 'auto');
+
+    console.log(chalk.blue(`Generating screenshots for ${chalk.bold(config.app.name)}...`));
+    console.log(chalk.dim(`  Renderer: ${renderer}\n`));
 
     const startTime = Date.now();
 
     try {
-      const result = await generateScreenshots({
+      const generateFn = renderer === 'koubou' ? generateWithKoubou : generateScreenshots;
+
+      const result = await generateFn({
         configPath,
         platform: options.platform,
         locale: options.locale,
@@ -101,3 +109,20 @@ export const generateCommand = new Command('generate')
       process.exit(1);
     }
   });
+
+async function resolveRenderer(requested: string): Promise<'playwright' | 'koubou'> {
+  if (requested === 'playwright') return 'playwright';
+  if (requested === 'koubou') return 'koubou';
+
+  // Auto-detect: prefer Koubou if available
+  if (requested === 'auto') {
+    const detection = await detectKoubou();
+    if (detection.available) {
+      return 'koubou';
+    }
+    return 'playwright';
+  }
+
+  console.log(chalk.yellow(`Unknown renderer "${requested}", falling back to playwright.`));
+  return 'playwright';
+}

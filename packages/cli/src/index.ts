@@ -9,6 +9,7 @@ import { framesCommand } from './commands/frames.js';
 import { captureCommand } from './commands/capture.js';
 import { previewCommand } from './commands/preview.js';
 import { uploadCommand } from './commands/upload.js';
+import { koubouConfigCommand } from './commands/koubou-config.js';
 
 const program = new Command();
 
@@ -24,5 +25,6 @@ program.addCommand(framesCommand);
 program.addCommand(captureCommand);
 program.addCommand(previewCommand);
 program.addCommand(uploadCommand);
+program.addCommand(koubouConfigCommand);
 
 program.parse();

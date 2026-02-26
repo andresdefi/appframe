@@ -1,95 +1,62 @@
-# appframe config — Party Crashers (Party Game)
+# appframe config — Impostor (Party Word Game)
 
 app:
-  name: "Party Crashers"
-  description: "The ultimate party game app with 200+ games for groups of any size"
-  platforms: [ios, android]
+  name: "Impostor"
+  description: "The ultimate party word game — find the impostor among your friends"
+  platforms: [ios]
   features:
-    - 200+ party games
-    - Works with any group size
+    - Bluffing word game
+    - Play with any group
+    - Multiple categories
     - No equipment needed
-    - Custom game creator
-    - Drinking and non-drinking modes
 
 theme:
-  style: playful
+  style: glow
   colors:
-    primary: "#FF4D6A"
-    secondary: "#7B2FFF"
-    background: "#FFF1F3"
-    text: "#1C1917"
-    subtitle: "#78716C"
-  font: space-grotesk
+    primary: "#A78BFA"
+    secondary: "#7C3AED"
+    background: "#0A0A0F"
+    text: "#F8FAFC"
+    subtitle: "#94A3B8"
+  font: inter
   fontWeight: 700
 
 frames:
   ios: iphone-16-pro-max
-  android: pixel-10
-  style: floating
+  style: flat
 
 screens:
   - screenshot: screenshots/home.png
-    headline: "The party starts here"
-    subtitle: "200+ games for any group"
+    headline: "Trust No One"
+    subtitle: "The ultimate party bluffing game"
     layout: center
 
-  - screenshot: screenshots/gameplay.png
-    headline: "Everyone plays at once"
-    layout: angled-right
-
-  - screenshot: screenshots/categories.png
-    headline: "A game for every mood"
-    subtitle: "Icebreakers, challenges, trivia & more"
+  - screenshot: screenshots/setup.png
+    headline: "Customize Every Round"
+    subtitle: "Choose categories, players & impostors"
     layout: center
 
-  - screenshot: screenshots/custom.png
-    headline: "Create your own games"
-    layout: angled-left
-
-  - screenshot: screenshots/modes.png
-    headline: "Your party, your rules"
-    subtitle: "Drinking mode, family mode & more"
+  - screenshot: screenshots/innocent.png
+    headline: "Get Your Secret Word"
     layout: center
 
-locales:
-  en:
-    screens:
-      - headline: "The party starts here"
-        subtitle: "200+ games for any group"
-      - headline: "Everyone plays at once"
-      - headline: "A game for every mood"
-        subtitle: "Icebreakers, challenges, trivia & more"
-      - headline: "Create your own games"
-      - headline: "Your party, your rules"
-        subtitle: "Drinking mode, family mode & more"
-  es:
-    screens:
-      - headline: "La fiesta empieza aqui"
-        subtitle: "Mas de 200 juegos para cualquier grupo"
-      - headline: "Todos juegan a la vez"
-      - headline: "Un juego para cada momento"
-        subtitle: "Rompehielos, desafios, trivia y mas"
-      - headline: "Crea tus propios juegos"
-      - headline: "Tu fiesta, tus reglas"
-        subtitle: "Modo bebida, modo familiar y mas"
-  pt:
-    screens:
-      - headline: "A festa comeca aqui"
-        subtitle: "Mais de 200 jogos para qualquer grupo"
-      - headline: "Todos jogam ao mesmo tempo"
-      - headline: "Um jogo para cada momento"
-        subtitle: "Quebra-gelos, desafios, trivia e mais"
-      - headline: "Crie seus proprios jogos"
-      - headline: "Sua festa, suas regras"
-        subtitle: "Modo bebida, modo familia e mais"
+  - screenshot: screenshots/impostor.png
+    headline: "Can You Blend In?"
+    subtitle: "The impostor must bluff their way through"
+    layout: center
+
+  - screenshot: screenshots/play.png
+    headline: "Give One-Word Clues"
+    layout: center
+
+  - screenshot: screenshots/results.png
+    headline: "Catch the Impostor!"
+    subtitle: "Vote, reveal & play again"
+    layout: center
 
 output:
-  platforms: [ios, android]
+  platforms: [ios]
   ios:
     sizes: [6.7, 6.5]
     format: png
-  android:
-    sizes: ["phone"]
-    format: png
-    featureGraphic: true
   directory: ./output

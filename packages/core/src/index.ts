@@ -61,4 +61,20 @@ export type {
 export { COMPOSITION_PRESETS } from './composer/presets.js';
 export type { CompositionDefinition, DeviceSlotPreset } from './composer/presets.js';
 
+// Koubou integration
+export {
+  detectKoubou,
+  translateConfig as translateKoubouConfig,
+  generateWithKoubou,
+  generateKoubouConfig,
+  mapSizeToKoubou,
+  mapDeviceToKoubou,
+  KOUBOU_DIMENSIONS,
+} from './koubou/index.js';
+export type {
+  KoubouConfig,
+  KoubouDetectionResult,
+  TranslateOptions as KoubouTranslateOptions,
+} from './koubou/index.js';
+
 export const VERSION = '0.1.0';

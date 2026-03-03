@@ -1,0 +1,16 @@
+{% if headlineGradient %}
+    .headline {
+      background: linear-gradient({{ headlineGradient.direction }}deg, {{ headlineGradient.colors | join(', ') }});
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+{% endif %}
+{% if subtitleGradient %}
+    .subtitle {
+      background: linear-gradient({{ subtitleGradient.direction }}deg, {{ subtitleGradient.colors | join(', ') }});
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+{% endif %}

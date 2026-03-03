@@ -8,33 +8,32 @@ import type { DeviceSlotPreset } from '../composer/presets.js';
 import { FONT_CATALOG, getFontName } from '../fonts/loader.js';
 import { KOUBOU_DIMENSIONS } from './types.js';
 import type { KoubouConfig, KoubouBackground, KoubouContentElement } from './types.js';
+import { getKoubouDeviceId } from './catalog.js';
 
-// Map appframe iOS size keys to Koubou output_size names
+// Map appframe size keys to Koubou output_size names
 const SIZE_MAP: Record<string, string> = {
+  // iPhone
   '6.9': 'iPhone6_9',
   '6.7': 'iPhone6_7',
   '6.5': 'iPhone6_5',
   '6.1': 'iPhone6_1',
   '5.5': 'iPhone5_5',
+  // iPad
   'ipad-12.9': 'iPadPro12_9',
   'ipad-11': 'iPadPro11',
   'ipad-13': 'iPadPro13',
-};
-
-// Map appframe device frame IDs to Koubou frame names
-const DEVICE_MAP: Record<string, string> = {
-  'iphone-16-pro-max': 'iPhone 16 Pro Max - Natural Titanium - Portrait',
-  'iphone-16-pro': 'iPhone 16 Pro - Natural Titanium - Portrait',
-  'iphone-16': 'iPhone 16 - Black - Portrait',
-  'iphone-15-pro-max': 'iPhone 15 Pro Max - Natural Titanium - Portrait',
-  'iphone-15-pro': 'iPhone 15 Pro - Natural Titanium - Portrait',
-  'iphone-15': 'iPhone 15 - Black - Portrait',
-  'iphone-14-pro-max': 'iPhone 14 Pro Max Portrait',
-  'iphone-14-pro': 'iPhone 14 Pro Portrait',
-  'iphone-13-pro-max': 'iPhone 12-13 Pro Max Portrait',
-  'iphone-12-pro-max': 'iPhone 12-13 Pro Max Portrait',
-  'iphone-11-pro-max': 'iPhone 11 Pro Max Portrait',
-  'iphone-11': 'iPhone 11 Portrait',
+  // Mac
+  '2880x1800': 'MacBookPro14',
+  '2560x1600': 'MacBookAir',
+  '1440x900': 'MacBookAir',
+  '1280x800': 'MacBookAir',
+  // Apple Watch
+  'ultra3': 'WatchUltra',
+  'ultra': 'WatchUltra',
+  's10': 'WatchS7_45',
+  's7': 'WatchS7_45',
+  's4': 'WatchS4_44',
+  's3': 'WatchS4_40',
 };
 
 const DEFAULT_DEVICE = 'iPhone 16 Pro Max - Natural Titanium - Portrait';
@@ -229,6 +228,7 @@ function translateScreen(
       weight: weightString(config.theme.fontWeight),
       alignment: 'center',
       ...(fontName ? { font: fontName } : {}),
+      ...(config.theme.headlineGradient ? { gradient: config.theme.headlineGradient } : {}),
     });
 
     // Subtitle
@@ -242,6 +242,7 @@ function translateScreen(
         weight: 'regular',
         alignment: 'center',
         ...(fontName ? { font: fontName } : {}),
+        ...(config.theme.subtitleGradient ? { gradient: config.theme.subtitleGradient } : {}),
       });
     }
   }
@@ -288,6 +289,55 @@ function translateScreen(
     elements.push({ type: 'image', asset: screenshotPath, position, scale, frame: useFrame });
   }
 
+  // Spotlight overlay
+  if (screen.spotlight) {
+    const sp = screen.spotlight;
+    elements.push({
+      type: 'spotlight',
+      position: [`${sp.x}%`, `${sp.y}%`] as [string, string],
+      size: [`${sp.w}%`, `${sp.h}%`] as [string, string],
+      shape: sp.shape,
+      dim_opacity: sp.dimOpacity,
+      ...(sp.blur > 0 ? { blur: sp.blur } : {}),
+    });
+  }
+
+  // Annotation highlights
+  if (screen.annotations) {
+    for (const ann of screen.annotations) {
+      elements.push({
+        type: 'highlight',
+        shape: ann.shape as 'circle' | 'rounded-rect' | 'rectangle',
+        position: [`${ann.x}%`, `${ann.y}%`] as [string, string],
+        size: [`${ann.w}%`, `${ann.h}%`] as [string, string],
+        color: ann.strokeColor,
+        stroke_width: ann.strokeWidth,
+        ...(ann.fillColor ? { fill_color: ann.fillColor } : {}),
+      });
+    }
+  }
+
+  // Zoom callouts
+  if (screen.zoomCallouts) {
+    for (const zc of screen.zoomCallouts) {
+      elements.push({
+        type: 'callout',
+        source: {
+          position: [`${zc.sourceX}%`, `${zc.sourceY}%`] as [string, string],
+          size: [`${zc.sourceW}%`, `${zc.sourceH}%`] as [string, string],
+        },
+        target: {
+          position: [`${zc.targetX}%`, `${zc.targetY}%`] as [string, string],
+        },
+        magnification: zc.magnification,
+        connector: zc.connectorStyle as 'line' | 'elbow' | 'none',
+        border_color: zc.borderColor,
+        border_width: zc.borderWidth,
+        shadow: zc.shadow,
+      });
+    }
+  }
+
   return elements;
 }
 
@@ -303,11 +353,14 @@ export interface TranslateOptions {
 export function translateConfig(options: TranslateOptions): KoubouConfig {
   const { config, configDir, outputSize, outputDir } = options;
 
-  // Resolve device frame
+  // Resolve device frame via catalog (supports color variants)
   const frameId = config.frames.ios ?? config.frames.android;
-  const device = frameId
-    ? (DEVICE_MAP[frameId] ?? DEFAULT_DEVICE)
-    : DEFAULT_DEVICE;
+  const koubouColor = config.frames.koubouColor;
+  let device = DEFAULT_DEVICE;
+  if (frameId) {
+    const catalogDevice = getKoubouDeviceId(frameId, koubouColor);
+    device = catalogDevice ?? DEFAULT_DEVICE;
+  }
 
   // Resolve canvas width for proportional font sizing
   const dims = KOUBOU_DIMENSIONS[outputSize];
@@ -345,7 +398,7 @@ export function translateConfig(options: TranslateOptions): KoubouConfig {
 export function translateConfigWithLocale(
   options: TranslateOptions,
   _locale: string,
-  localeOverrides: Array<{ headline: string; subtitle?: string }>,
+  localeOverrides: Array<{ headline: string; subtitle?: string; screenshot?: string }>,
 ): KoubouConfig {
   const modifiedScreens = options.config.screens.map((screen, i) => {
     const override = localeOverrides[i];
@@ -354,6 +407,7 @@ export function translateConfigWithLocale(
       ...screen,
       headline: override.headline,
       ...(override.subtitle !== undefined ? { subtitle: override.subtitle } : {}),
+      ...(override.screenshot ? { screenshot: override.screenshot } : {}),
     };
   });
 
@@ -363,10 +417,28 @@ export function translateConfigWithLocale(
   });
 }
 
+export function translateConfigWithLocalization(options: TranslateOptions): KoubouConfig {
+  const { config, configDir } = options;
+  const localization = config.localization;
+  if (!localization) {
+    throw new Error('translateConfigWithLocalization requires config.localization to be set');
+  }
+
+  const base = translateConfig(options);
+
+  base.localization = {
+    base_language: localization.baseLanguage,
+    languages: localization.languages,
+    xcstrings_path: resolve(configDir, localization.xcstringsPath),
+  };
+
+  return base;
+}
+
 export function mapSizeToKoubou(sizeKey: number | string): string | null {
   return SIZE_MAP[String(sizeKey)] ?? null;
 }
 
-export function mapDeviceToKoubou(frameId: string): string | null {
-  return DEVICE_MAP[frameId] ?? null;
+export function mapDeviceToKoubou(frameId: string, color?: string): string | null {
+  return getKoubouDeviceId(frameId, color);
 }

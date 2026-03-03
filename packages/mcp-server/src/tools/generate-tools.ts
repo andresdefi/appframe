@@ -5,10 +5,10 @@ import { generateScreenshots } from '@appframe/core';
 export function registerGenerateTools(server: McpServer): void {
   server.tool(
     'appframe_generate',
-    'Generate all store screenshots from an appframe config. Returns list of generated files with sizes.',
+    'Generate all store screenshots from an appframe config. Returns list of generated files with sizes. Platforms: ios (iPhone/iPad), android, mac (macOS apps: 2560x1600, 2880x1800, etc.), watch (Apple Watch: ultra, s7, s4, etc.). The config file determines which platforms and sizes to generate. Use the platform filter to generate for a specific platform only.',
     {
       configPath: z.string().describe('Absolute path to the appframe.yml config file'),
-      platform: z.enum(['ios', 'android', 'all']).optional().describe('Filter by platform'),
+      platform: z.enum(['ios', 'android', 'mac', 'watch', 'all']).optional().describe('Filter by platform: ios (iPhone/iPad), android, mac (macOS), watch (Apple Watch), or all'),
       locale: z.string().optional().describe('Generate for a specific locale only'),
       screenIndex: z.number().optional().describe('Generate a single screen by index (0-based)'),
       outputDir: z.string().optional().describe('Override output directory (absolute path)'),

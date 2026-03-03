@@ -27,6 +27,7 @@ export interface TemplateContext {
   frame: FrameDefinition | null;
   frameStyle: FrameStyle;
   frameSvg: string | null;
+  framePngUrl?: string; // URL to PNG frame image (for Koubou devices without SVG)
 
   // Canvas dimensions (final output size)
   canvasWidth: number;
@@ -40,6 +41,10 @@ export interface TemplateContext {
   headlineRotation?: number;
   subtitleRotation?: number;
 
+  // Text gradient (optional — overrides solid text color)
+  headlineGradient?: { colors: string[]; direction: number };
+  subtitleGradient?: { colors: string[]; direction: number };
+
   // Device positioning (optional overrides)
   deviceTop?: number;      // Device Y position as % of canvas height (default: 15)
   deviceScale?: number;    // Device width as % of canvas width (default: 92)
@@ -52,6 +57,19 @@ export interface TemplateContext {
   composition?: CompositionPreset;
   devices?: DeviceContext[];
 
+  // Auto-sizing text
+  autoSizeHeadline?: boolean;
+  autoSizeSubtitle?: boolean;
+
+  // Spotlight/dimming overlay
+  spotlight?: { x: number; y: number; w: number; h: number; shape: 'circle' | 'rectangle'; dimOpacity: number; blur: number };
+
+  // Annotation highlight shapes
+  annotations?: Array<{ id: string; shape: string; x: number; y: number; w: number; h: number; strokeColor: string; strokeWidth: number; fillColor?: string }>;
+
+  // Zoom callouts
+  zoomCallouts?: Array<{ id: string; sourceX: number; sourceY: number; sourceW: number; sourceH: number; targetX: number; targetY: number; magnification: number; connectorStyle: string; borderColor: string; borderWidth: number; shadow: boolean }>;
+
   // Injected by engine
   fontFaceCss?: string;
   fontFamily?: string;
@@ -61,6 +79,7 @@ export interface DeviceContext {
   screenshotDataUrl: string;
   frame: FrameDefinition | null;
   frameSvg: string | null;
+  framePngUrl?: string;
   offsetX: number;
   offsetY: number;
   scale: number;

@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { listFrames } from '@appframe/core';
+import { listFrames, getKoubouDeviceFamilies } from '@appframe/core';
+import type { KoubouDeviceCategory } from '@appframe/core';
 
 export const framesCommand = new Command('frames')
   .description('Manage device frames');
@@ -8,8 +9,14 @@ export const framesCommand = new Command('frames')
 framesCommand
   .command('list')
   .description('List available device frames')
-  .action(async () => {
+  .option('--koubou', 'Show full Koubou device catalog')
+  .action(async (opts: { koubou?: boolean }) => {
     try {
+      if (opts.koubou) {
+        showKoubouCatalog();
+        return;
+      }
+
       const frames = await listFrames();
 
       console.log(chalk.blue('Available device frames:\n'));
@@ -32,12 +39,56 @@ framesCommand
       }
 
       console.log(chalk.dim(`  ${frames.length} frames available.`));
+      console.log(chalk.dim(`  Use --koubou to see the full Koubou device catalog (${getKoubouDeviceFamilies().length} device families).`));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.log(chalk.red(`Failed to load frames: ${message}`));
       process.exit(1);
     }
   });
+
+function showKoubouCatalog(): void {
+  const families = getKoubouDeviceFamilies();
+
+  console.log(chalk.blue('Koubou device catalog:\n'));
+
+  const categoryLabels: Record<KoubouDeviceCategory, string> = {
+    iphone: 'iPhone',
+    ipad: 'iPad',
+    mac: 'Mac',
+    watch: 'Apple Watch',
+  };
+
+  const grouped = new Map<KoubouDeviceCategory, typeof families>();
+  for (const family of families) {
+    if (!grouped.has(family.category)) grouped.set(family.category, []);
+    grouped.get(family.category)!.push(family);
+  }
+
+  let totalDevices = 0;
+
+  for (const [category, categoryFamilies] of grouped) {
+    console.log(chalk.bold(`  ${categoryLabels[category]}`));
+    for (const family of categoryFamilies) {
+      const colorNames = family.colors.map(c => c.name).join(', ');
+      const hasLandscape = family.landscapeColors && family.landscapeColors.length > 0;
+      const orientations = hasLandscape ? 'Portrait + Landscape' : 'Portrait';
+      const deviceCount = family.colors.length * (hasLandscape ? 2 : 1);
+      totalDevices += deviceCount;
+
+      const preview = family.previewFrameId
+        ? chalk.dim(` [preview: ${family.previewFrameId}]`)
+        : chalk.dim(' [export only]');
+
+      console.log(`    ${chalk.green(family.id)} — ${family.name} (${family.year})${preview}`);
+      console.log(chalk.dim(`      Colors: ${colorNames}`));
+      console.log(chalk.dim(`      ${orientations} | ${family.screenResolution.width}x${family.screenResolution.height} | ${deviceCount} variant${deviceCount > 1 ? 's' : ''}`));
+    }
+    console.log();
+  }
+
+  console.log(chalk.dim(`  ${families.length} device families, ${totalDevices} total variants.`));
+}
 
 framesCommand
   .command('add <path>')

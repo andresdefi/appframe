@@ -6,7 +6,7 @@
 .comp-device {
   position: absolute;
 }
-.comp-device svg { width: 100%; height: auto; display: block; }
+.comp-device svg, .comp-device > img { width: 100%; height: auto; display: block; }
 .comp-device .screenshot-clip { position: absolute; overflow: hidden; }
 .comp-device .screenshot-clip img { width: 100%; height: 100%; object-fit: cover; display: block; }
 </style>
@@ -25,8 +25,21 @@
     transform: translateX(-50%) perspective(1200px) rotateX({{ dev.tilt }}deg) rotateY({{ dev.angle }}deg) rotateZ({{ dev.rotation }}deg);
     filter: drop-shadow(0 {{ shadowY }}px {{ shadowBlur }}px rgba(0,0,0,0.25));
   ">
-    {% if dev.frameSvg and frameStyle != 'none' %}
-      {{ dev.frameSvg | safe }}
+    {% if (dev.frameSvg or dev.framePngUrl) and frameStyle != 'none' %}
+      {% if dev.framePngUrl %}
+        <div class="screenshot-clip"
+          style="left: {{ (dev.frame.screenArea.x * slotDw / dev.frame.frameSize.width) | round }}px;
+                 top: {{ (dev.frame.screenArea.y * slotDw / dev.frame.frameSize.width) | round }}px;
+                 width: {{ (dev.frame.screenArea.width * slotDw / dev.frame.frameSize.width) | round }}px;
+                 height: {{ (dev.frame.screenArea.height * slotDw / dev.frame.frameSize.width) | round }}px;
+                 z-index: 1;">
+          <img src="{{ dev.screenshotDataUrl }}">
+        </div>
+        <img src="{{ dev.framePngUrl }}" style="width: 100%; height: auto; display: block; position: relative; z-index: 2;">
+      {% else %}
+        {{ dev.frameSvg | safe }}
+      {% endif %}
+      {% if not dev.framePngUrl %}
       <div class="screenshot-clip"
         style="left: {{ (dev.frame.screenArea.x * slotDw / dev.frame.frameSize.width) | round }}px;
                top: {{ (dev.frame.screenArea.y * slotDw / dev.frame.frameSize.width) | round }}px;
@@ -35,6 +48,7 @@
                border-radius: {{ (dev.frame.screenArea.borderRadius * slotDw / dev.frame.frameSize.width) | round }}px;">
         <img src="{{ dev.screenshotDataUrl }}">
       </div>
+      {% endif %}
     {% else %}
       <img src="{{ dev.screenshotDataUrl }}" style="width: 100%; border-radius: {{ (canvasWidth * 0.035) | round }}px;">
     {% endif %}

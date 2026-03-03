@@ -11,6 +11,7 @@ export type {
   ScreenConfig,
   LocaleConfig,
   LocaleScreenConfig,
+  LocalizationConfig,
   OutputConfig,
   IOSOutputConfig,
   AndroidOutputConfig,
@@ -19,4 +20,8 @@ export type {
   FrameStyle,
   LayoutVariant,
   CompositionPreset,
+  TextGradient,
+  SpotlightConfig,
+  Annotation,
+  ZoomCallout,
 } from './schema.js';

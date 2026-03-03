@@ -14,6 +14,7 @@ export type {
   ScreenConfig,
   LocaleConfig,
   LocaleScreenConfig,
+  LocalizationConfig,
   OutputConfig,
   IOSOutputConfig,
   AndroidOutputConfig,
@@ -22,6 +23,10 @@ export type {
   FrameStyle,
   LayoutVariant,
   CompositionPreset,
+  TextGradient,
+  SpotlightConfig,
+  Annotation,
+  ZoomCallout,
   ValidationResult,
   ValidationError,
   FormattedError,
@@ -43,6 +48,7 @@ export type {
 
 export { TemplateEngine } from './templates/index.js';
 export type { TemplateContext, DeviceContext } from './templates/index.js';
+export { injectSpotlightHTML, injectAnnotationsHTML, injectZoomCalloutsHTML } from './templates/index.js';
 
 export { loadFontFaces, loadAllFontFaces, getFontName, FONT_CATALOG } from './fonts/index.js';
 export type { FontInfo } from './fonts/index.js';
@@ -65,16 +71,33 @@ export type { CompositionDefinition, DeviceSlotPreset } from './composer/presets
 export {
   detectKoubou,
   translateConfig as translateKoubouConfig,
+  translateConfigWithLocalization,
   generateWithKoubou,
   generateKoubouConfig,
+  renderSingleScreenWithKoubou,
+  resolveLocalizedAsset,
   mapSizeToKoubou,
   mapDeviceToKoubou,
   KOUBOU_DIMENSIONS,
+  getKoubouDeviceFamilies,
+  getKoubouDeviceFamily,
+  getKoubouDeviceId,
+  getKoubouFamilyByFrameId,
+  getKoubouColorNames,
+  findMatchingDeviceFamily,
+  getDevicePlatformCategory,
+  getKoubouFramesDir,
+  getKoubouFramePath,
 } from './koubou/index.js';
 export type {
   KoubouConfig,
+  KoubouLocalizationConfig,
   KoubouDetectionResult,
+  KoubouSingleScreenOptions,
   TranslateOptions as KoubouTranslateOptions,
+  KoubouDeviceFamily,
+  KoubouDeviceCategory,
+  KoubouColorVariant,
 } from './koubou/index.js';
 
 export const VERSION = '0.1.0';

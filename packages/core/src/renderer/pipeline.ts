@@ -9,6 +9,8 @@ import { getTargetSizes } from './sizes.js';
 import type { GenerateOptions, GenerateResult, RenderResult, ScreenshotSize } from './types.js';
 import type { AppframeConfig, ScreenConfig, TemplateStyle } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
+import { injectSpotlightHTML, injectAnnotationsHTML, injectZoomCalloutsHTML } from '../templates/injectors.js';
+import { resolveLocalizedAsset } from '../koubou/assets.js';
 
 async function screenshotToDataUrl(screenshotPath: string): Promise<string> {
   try {
@@ -41,6 +43,35 @@ async function loadFrameSvgContent(frame: FrameDefinition): Promise<string> {
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+}
+
+function getLocalizedScreenshot(
+  config: AppframeConfig,
+  screenIndex: number,
+  locale: string,
+  configDir: string,
+  defaultScreenshot: string,
+): string {
+  // Check for explicit per-locale screenshot override
+  if (locale !== 'default' && config.locales) {
+    const localeConfig = config.locales[locale];
+    const localeScreen = localeConfig?.screens[screenIndex];
+    if (localeScreen?.screenshot) {
+      return join(configDir, localeScreen.screenshot);
+    }
+  }
+
+  // For xcstrings localization mode, try convention-based resolution
+  if (config.localization && locale !== 'default') {
+    return resolveLocalizedAsset(
+      defaultScreenshot,
+      locale,
+      config.localization.baseLanguage,
+      configDir,
+    );
+  }
+
+  return join(configDir, defaultScreenshot);
 }
 
 export async function generateScreenshots(options: GenerateOptions): Promise<GenerateResult> {
@@ -84,8 +115,8 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
           const headline = getLocalizedText(config, index, locale, 'headline') ?? screen.headline;
           const subtitle = getLocalizedText(config, index, locale, 'subtitle') ?? screen.subtitle;
 
-          // Resolve screenshot path
-          const screenshotPath = join(configDir, screen.screenshot);
+          // Resolve screenshot path (with per-locale override support)
+          const screenshotPath = getLocalizedScreenshot(config, index, locale, configDir, screen.screenshot);
           const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
 
           // Resolve frame
@@ -111,10 +142,25 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
             frameSvg,
             canvasWidth: size.width,
             canvasHeight: size.height,
+            headlineGradient: config.theme.headlineGradient,
+            subtitleGradient: config.theme.subtitleGradient,
+            autoSizeHeadline: screen.autoSizeHeadline,
+            autoSizeSubtitle: screen.autoSizeSubtitle,
           };
 
           // Render template to HTML
-          const html = await templateEngine.render(context);
+          let html = await templateEngine.render(context);
+
+          // Inject overlay features
+          if (screen.spotlight) {
+            html = injectSpotlightHTML(html, screen.spotlight);
+          }
+          if (screen.annotations && screen.annotations.length > 0) {
+            html = injectAnnotationsHTML(html, screen.annotations, size.width);
+          }
+          if (screen.zoomCallouts && screen.zoomCallouts.length > 0) {
+            html = injectZoomCalloutsHTML(html, screen.zoomCallouts, screenshotDataUrl, size.width);
+          }
 
           // Generate output path
           const outputDir = options.outputDir ?? join(configDir, config.output.directory);
@@ -153,11 +199,17 @@ function getTargetSizesFromConfig(config: AppframeConfig): ScreenshotSize[] {
     config.output.ios?.sizes,
     config.output.android?.sizes,
     config.output.android?.featureGraphic,
+    config.output.mac?.sizes,
+    config.output.watch?.sizes,
   );
 }
 
 function getLocalesToGenerate(config: AppframeConfig, filterLocale?: string): string[] {
   if (filterLocale) return [filterLocale];
+  // xcstrings localization mode: generate for all configured languages
+  if (config.localization) {
+    return config.localization.languages;
+  }
   if (!config.locales || Object.keys(config.locales).length === 0) return ['default'];
   // Always include the default (base) locale, plus all configured locales
   return ['default', ...Object.keys(config.locales)];
@@ -180,7 +232,7 @@ function getLocalizedText(
 async function resolveFrame(
   config: AppframeConfig,
   screen: ScreenConfig,
-  platform: 'ios' | 'android',
+  platform: string,
 ): Promise<FrameDefinition | undefined> {
   // Screen-level override
   if (screen.device) {
@@ -188,11 +240,17 @@ async function resolveFrame(
   }
 
   // Config-level frame for this platform
-  const configFrame = platform === 'ios' ? config.frames.ios : config.frames.android;
-  if (configFrame) {
-    return getFrame(configFrame);
+  if (platform === 'ios' || platform === 'mac' || platform === 'watch') {
+    const configFrame = config.frames.ios;
+    if (configFrame) return getFrame(configFrame);
+  } else if (platform === 'android') {
+    const configFrame = config.frames.android;
+    if (configFrame) return getFrame(configFrame);
   }
 
-  // Default frame for platform
-  return getDefaultFrame(platform);
+  // Default frame for iOS/Android (Mac and Watch use Koubou PNG frames, not SVG)
+  if (platform === 'ios' || platform === 'android') {
+    return getDefaultFrame(platform);
+  }
+  return undefined;
 }

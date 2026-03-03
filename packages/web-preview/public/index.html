@@ -488,6 +488,17 @@
       <div class="app-name" id="app-name">Loading...</div>
     </div>
 
+    <div class="section" id="section-platform">
+      <div class="section-title">Platform</div>
+      <select id="platform-select">
+        <option value="iphone" selected>iPhone</option>
+        <option value="ipad">iPad</option>
+        <option value="mac">Mac</option>
+        <option value="watch">Apple Watch</option>
+        <option value="android">Android</option>
+      </select>
+    </div>
+
     <div class="section">
       <div class="section-title">Editing Screen</div>
       <div class="selected-indicator" id="selected-indicator">
@@ -591,6 +602,12 @@
         <input type="range" id="subtitle-size" min="0" max="120" step="1" value="0">
         <span class="range-value" id="subtitle-size-value">Auto</span>
       </div>
+      <div style="margin-bottom: 10px;">
+        <label><input type="checkbox" id="auto-size-headline" style="accent-color: var(--accent); margin-right: 4px;">Auto-size Headline</label>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <label><input type="checkbox" id="auto-size-subtitle" style="accent-color: var(--accent); margin-right: 4px;">Auto-size Subtitle</label>
+      </div>
       <label for="headline-rotation">Headline Rotation</label>
       <div class="range-row">
         <input type="range" id="headline-rotation" min="-30" max="30" step="1" value="0">
@@ -612,10 +629,104 @@
       <div class="color-row"><label>Subtitle</label><input type="color" id="color-subtitle"></div>
     </div>
 
+    <div class="section" id="section-gradient">
+      <div class="section-title">Text Gradient</div>
+
+      <label><input type="checkbox" id="headline-gradient-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Headline Gradient</label>
+      <div id="headline-gradient-controls" style="display: none; margin-top: 6px;">
+        <div class="color-row"><label>Start</label><input type="color" id="headline-gradient-start" value="#6366f1"></div>
+        <div class="color-row"><label>End</label><input type="color" id="headline-gradient-end" value="#ec4899"></div>
+        <label for="headline-gradient-direction">Direction</label>
+        <div class="range-row">
+          <input type="range" id="headline-gradient-direction" min="0" max="360" step="1" value="90">
+          <span class="range-value" id="headline-gradient-direction-value">90°</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 10px;">
+        <label><input type="checkbox" id="subtitle-gradient-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Subtitle Gradient</label>
+      </div>
+      <div id="subtitle-gradient-controls" style="display: none; margin-top: 6px;">
+        <div class="color-row"><label>Start</label><input type="color" id="subtitle-gradient-start" value="#6366f1"></div>
+        <div class="color-row"><label>End</label><input type="color" id="subtitle-gradient-end" value="#ec4899"></div>
+        <label for="subtitle-gradient-direction">Direction</label>
+        <div class="range-row">
+          <input type="range" id="subtitle-gradient-direction" min="0" max="360" step="1" value="90">
+          <span class="range-value" id="subtitle-gradient-direction-value">90°</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="section-spotlight">
+      <div class="section-title">Spotlight / Dimming</div>
+      <label><input type="checkbox" id="spotlight-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Spotlight</label>
+      <div id="spotlight-controls" style="display: none; margin-top: 8px;">
+        <label for="spotlight-shape">Shape</label>
+        <select id="spotlight-shape">
+          <option value="rectangle">Rectangle</option>
+          <option value="circle">Circle</option>
+        </select>
+        <label for="spotlight-x">Position X</label>
+        <div class="range-row">
+          <input type="range" id="spotlight-x" min="0" max="100" step="1" value="50">
+          <span class="range-value" id="spotlight-x-value">50%</span>
+        </div>
+        <label for="spotlight-y">Position Y</label>
+        <div class="range-row">
+          <input type="range" id="spotlight-y" min="0" max="100" step="1" value="50">
+          <span class="range-value" id="spotlight-y-value">50%</span>
+        </div>
+        <label for="spotlight-w">Width</label>
+        <div class="range-row">
+          <input type="range" id="spotlight-w" min="5" max="100" step="1" value="30">
+          <span class="range-value" id="spotlight-w-value">30%</span>
+        </div>
+        <label for="spotlight-h">Height</label>
+        <div class="range-row">
+          <input type="range" id="spotlight-h" min="5" max="100" step="1" value="30">
+          <span class="range-value" id="spotlight-h-value">30%</span>
+        </div>
+        <label for="spotlight-opacity">Dim Opacity</label>
+        <div class="range-row">
+          <input type="range" id="spotlight-opacity" min="0" max="100" step="1" value="60">
+          <span class="range-value" id="spotlight-opacity-value">60%</span>
+        </div>
+        <label for="spotlight-blur">Background Blur</label>
+        <div class="range-row">
+          <input type="range" id="spotlight-blur" min="0" max="30" step="1" value="0">
+          <span class="range-value" id="spotlight-blur-value">0px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="section-annotations">
+      <div class="section-title">Annotations</div>
+      <button class="btn btn-secondary" id="btn-add-annotation" style="width: 100%; font-size: 12px; padding: 6px 0;">+ Add Annotation</button>
+      <div id="annotations-list" style="margin-top: 8px;"></div>
+    </div>
+
+    <div class="section" id="section-zoom">
+      <div class="section-title">Zoom Callouts</div>
+      <button class="btn btn-secondary" id="btn-add-zoom" style="width: 100%; font-size: 12px; padding: 6px 0;">+ Add Zoom Callout</button>
+      <div id="zoom-list" style="margin-top: 8px;"></div>
+    </div>
+
     <div class="section" id="section-device-frame">
       <div class="section-title">Device Frame</div>
       <label for="frame-id">Device</label>
       <select id="frame-id"><option value="">Loading...</option></select>
+      <div id="koubou-color-row" style="display:none; margin-top: 6px;">
+        <label for="koubou-color">Color Variant</label>
+        <select id="koubou-color"><option value="">Default</option></select>
+      </div>
+      <div id="koubou-export-badge" style="display:none; margin-top: 4px;">
+        <span style="font-size: 10px; color: var(--accent); background: rgba(99,102,241,0.12); padding: 1px 6px; border-radius: 3px;">Koubou export only</span>
+      </div>
+      <div id="frame-preview-panel" style="display:none; margin-top: 8px; text-align: center;">
+        <div style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px;">
+          <img id="frame-preview-img" style="max-height: 100px; object-fit: contain;">
+        </div>
+      </div>
       <label for="frame-style">Frame Style</label>
       <select id="frame-style">
         <option value="flat">Flat</option>
@@ -669,12 +780,14 @@
     <div class="section">
       <div class="section-title">Export</div>
       <label for="export-size">Output Size</label>
-      <select id="export-size">
-        <option value="ios-6.7">iPhone 6.7" (1290x2796)</option>
-        <option value="ios-6.5">iPhone 6.5" (1284x2778)</option>
-        <option value="ios-5.5">iPhone 5.5" (1242x2208)</option>
-        <option value="android-phone">Android Phone (1080x1920)</option>
-      </select>
+      <select id="export-size"><option value="">Loading...</option></select>
+      <div id="renderer-row" style="display: none;">
+        <label for="export-renderer">Renderer</label>
+        <select id="export-renderer">
+          <option value="playwright">Playwright (fast)</option>
+          <option value="koubou">Koubou (pixel-perfect)</option>
+        </select>
+      </div>
       <div class="btn-row" style="margin-top: 4px;">
         <button class="btn btn-export" id="btn-export">Download Screenshot</button>
       </div>
@@ -724,6 +837,11 @@
     var debounceTimer = null;
     var framesData = [];
     var fontsData = [];
+    var koubouData = { families: [], grouped: {} };
+    var koubouAvailable = false;
+    var koubouVersion = null;
+    var previewW = 400;
+    var previewH = 868;
 
     // ===== Utilities =====
 
@@ -736,6 +854,106 @@
       opt.value = value;
       opt.textContent = text;
       select.appendChild(opt);
+    }
+
+    function addOptgroup(select, label) {
+      var grp = document.createElement('optgroup');
+      grp.label = label;
+      select.appendChild(grp);
+      return grp;
+    }
+
+    function updateKoubouColorDropdown(frameId) {
+      var colorSelect = document.getElementById('koubou-color');
+      var colorRow = document.getElementById('koubou-color-row');
+      var exportBadge = document.getElementById('koubou-export-badge');
+      clearChildren(colorSelect);
+
+      var family = koubouData.families.find(function(f) { return f.id === frameId; });
+      if (family && family.colors.length > 1) {
+        family.colors.forEach(function(c) {
+          addOption(colorSelect, c.name, c.name);
+        });
+        colorRow.style.display = '';
+      } else {
+        addOption(colorSelect, '', 'Default');
+        colorRow.style.display = 'none';
+      }
+
+      // Show "export only" badge if this is a Koubou-only device with no SVG preview AND no PNG frame data
+      var isKoubouOnly = family && !family.previewFrameId && !family.screenOffset;
+      exportBadge.style.display = isKoubouOnly ? '' : 'none';
+    }
+
+    function updateFramePreviewThumbnail(frameId) {
+      var panel = document.getElementById('frame-preview-panel');
+      var img = document.getElementById('frame-preview-img');
+      var family = koubouData.families.find(function(f) { return f.id === frameId; });
+      if (family && family.screenOffset) {
+        img.onerror = function() { panel.style.display = 'none'; };
+        img.onload = function() { panel.style.display = ''; };
+        img.src = API + '/api/koubou-frame/' + family.id;
+        panel.style.display = ''; // optimistic, hidden on error
+      } else {
+        panel.style.display = 'none';
+        img.src = '';
+      }
+    }
+
+    function findBestDeviceMatch(width, height) {
+      var tolerancePct = 10;
+      var tolerance = tolerancePct / 100;
+      var allFamilies = koubouData.families || [];
+      var bestMatch = null;
+      var bestYear = -1;
+      var exactMatch = null;
+
+      for (var i = 0; i < allFamilies.length; i++) {
+        var f = allFamilies[i];
+        var res = f.screenResolution;
+        // Check portrait
+        var wR = Math.abs(width - res.width) / res.width;
+        var hR = Math.abs(height - res.height) / res.height;
+        var isMatch = (wR <= tolerance && hR <= tolerance);
+        // Check landscape
+        if (!isMatch) {
+          var wRL = Math.abs(width - res.height) / res.height;
+          var hRL = Math.abs(height - res.width) / res.width;
+          isMatch = (wRL <= tolerance && hRL <= tolerance);
+        }
+        if (isMatch) {
+          if (res.width === width && res.height === height) {
+            exactMatch = f;
+          }
+          if (f.year > bestYear) {
+            bestYear = f.year;
+            bestMatch = f;
+          }
+        }
+      }
+
+      // Also check SVG frames
+      for (var j = 0; j < framesData.length; j++) {
+        var fr = framesData[j];
+        if (fr.screenResolution) {
+          var sRes = fr.screenResolution;
+          var swR = Math.abs(width - sRes.width) / sRes.width;
+          var shR = Math.abs(height - sRes.height) / sRes.height;
+          if (swR <= tolerance && shR <= tolerance) {
+            if (sRes.width === width && sRes.height === height && !exactMatch) {
+              return { id: fr.id, name: fr.name, source: 'svg' };
+            }
+            if (!bestMatch || fr.year > bestYear) {
+              bestMatch = null; // SVG frame is better
+              return { id: fr.id, name: fr.name, source: 'svg' };
+            }
+          }
+        }
+      }
+
+      if (exactMatch) return { id: exactMatch.id, name: exactMatch.name, source: 'koubou' };
+      if (bestMatch) return { id: bestMatch.id, name: bestMatch.name, source: 'koubou' };
+      return null;
     }
 
     function createSpinner() {
@@ -835,6 +1053,7 @@
           subtitle: cfg.theme.colors.subtitle || '#64748B',
         },
         frameId: cfg.frames.ios || cfg.frames.android || '',
+        koubouColor: cfg.frames.koubouColor || '',
         frameStyle: cfg.frames.style === '3d' ? 'flat' : cfg.frames.style,
         deviceScale: 92,
         deviceTop: 15,
@@ -842,6 +1061,13 @@
         deviceOffsetX: 0,
         deviceAngle: 8,
         deviceTilt: 0,
+        headlineGradient: null,
+        subtitleGradient: null,
+        autoSizeHeadline: false,
+        autoSizeSubtitle: false,
+        spotlight: null,
+        annotations: [],
+        zoomCallouts: [],
         composition: 'single',
         extraScreenshots: [],
         textPositions: { headline: null, subtitle: null },
@@ -876,7 +1102,45 @@
         text: document.getElementById('color-text').value,
         subtitle: document.getElementById('color-subtitle').value,
       };
+      if (document.getElementById('headline-gradient-enable').checked) {
+        state.headlineGradient = {
+          colors: [
+            document.getElementById('headline-gradient-start').value,
+            document.getElementById('headline-gradient-end').value,
+          ],
+          direction: parseInt(document.getElementById('headline-gradient-direction').value, 10),
+        };
+      } else {
+        state.headlineGradient = null;
+      }
+      if (document.getElementById('subtitle-gradient-enable').checked) {
+        state.subtitleGradient = {
+          colors: [
+            document.getElementById('subtitle-gradient-start').value,
+            document.getElementById('subtitle-gradient-end').value,
+          ],
+          direction: parseInt(document.getElementById('subtitle-gradient-direction').value, 10),
+        };
+      } else {
+        state.subtitleGradient = null;
+      }
+      state.autoSizeHeadline = document.getElementById('auto-size-headline').checked;
+      state.autoSizeSubtitle = document.getElementById('auto-size-subtitle').checked;
+      if (document.getElementById('spotlight-enable').checked) {
+        state.spotlight = {
+          x: parseInt(document.getElementById('spotlight-x').value, 10),
+          y: parseInt(document.getElementById('spotlight-y').value, 10),
+          w: parseInt(document.getElementById('spotlight-w').value, 10),
+          h: parseInt(document.getElementById('spotlight-h').value, 10),
+          shape: document.getElementById('spotlight-shape').value,
+          dimOpacity: parseInt(document.getElementById('spotlight-opacity').value, 10) / 100,
+          blur: parseInt(document.getElementById('spotlight-blur').value, 10),
+        };
+      } else {
+        state.spotlight = null;
+      }
       state.frameId = document.getElementById('frame-id').value;
+      state.koubouColor = document.getElementById('koubou-color').value;
       state.frameStyle = document.getElementById('frame-style').value;
       state.composition = document.getElementById('composition').value;
       state.deviceScale = parseInt(document.getElementById('device-scale').value, 10);
@@ -910,7 +1174,56 @@
       document.getElementById('color-background').value = state.colors.background;
       document.getElementById('color-text').value = state.colors.text;
       document.getElementById('color-subtitle').value = state.colors.subtitle;
+      // Gradient controls
+      var hgEnable = document.getElementById('headline-gradient-enable');
+      hgEnable.checked = !!state.headlineGradient;
+      document.getElementById('headline-gradient-controls').style.display = state.headlineGradient ? '' : 'none';
+      if (state.headlineGradient) {
+        document.getElementById('headline-gradient-start').value = state.headlineGradient.colors[0];
+        document.getElementById('headline-gradient-end').value = state.headlineGradient.colors[1];
+        document.getElementById('headline-gradient-direction').value = state.headlineGradient.direction;
+        document.getElementById('headline-gradient-direction-value').textContent = state.headlineGradient.direction + '\u00B0';
+      }
+      var sgEnable = document.getElementById('subtitle-gradient-enable');
+      sgEnable.checked = !!state.subtitleGradient;
+      document.getElementById('subtitle-gradient-controls').style.display = state.subtitleGradient ? '' : 'none';
+      if (state.subtitleGradient) {
+        document.getElementById('subtitle-gradient-start').value = state.subtitleGradient.colors[0];
+        document.getElementById('subtitle-gradient-end').value = state.subtitleGradient.colors[1];
+        document.getElementById('subtitle-gradient-direction').value = state.subtitleGradient.direction;
+        document.getElementById('subtitle-gradient-direction-value').textContent = state.subtitleGradient.direction + '\u00B0';
+      }
+      // Auto-size controls
+      document.getElementById('auto-size-headline').checked = state.autoSizeHeadline;
+      document.getElementById('auto-size-subtitle').checked = state.autoSizeSubtitle;
+      document.getElementById('headline-size').disabled = state.autoSizeHeadline;
+      document.getElementById('subtitle-size').disabled = state.autoSizeSubtitle;
+      // Spotlight controls
+      var spEnable = document.getElementById('spotlight-enable');
+      spEnable.checked = !!state.spotlight;
+      document.getElementById('spotlight-controls').style.display = state.spotlight ? '' : 'none';
+      if (state.spotlight) {
+        document.getElementById('spotlight-shape').value = state.spotlight.shape;
+        document.getElementById('spotlight-x').value = state.spotlight.x;
+        document.getElementById('spotlight-x-value').textContent = state.spotlight.x + '%';
+        document.getElementById('spotlight-y').value = state.spotlight.y;
+        document.getElementById('spotlight-y-value').textContent = state.spotlight.y + '%';
+        document.getElementById('spotlight-w').value = state.spotlight.w;
+        document.getElementById('spotlight-w-value').textContent = state.spotlight.w + '%';
+        document.getElementById('spotlight-h').value = state.spotlight.h;
+        document.getElementById('spotlight-h-value').textContent = state.spotlight.h + '%';
+        document.getElementById('spotlight-opacity').value = Math.round(state.spotlight.dimOpacity * 100);
+        document.getElementById('spotlight-opacity-value').textContent = Math.round(state.spotlight.dimOpacity * 100) + '%';
+        document.getElementById('spotlight-blur').value = state.spotlight.blur;
+        document.getElementById('spotlight-blur-value').textContent = state.spotlight.blur + 'px';
+      }
+      // Annotations list
+      renderAnnotationsList();
+      // Zoom callouts list
+      renderZoomCalloutsList();
       document.getElementById('frame-id').value = state.frameId;
+      updateKoubouColorDropdown(state.frameId);
+      document.getElementById('koubou-color').value = state.koubouColor;
       document.getElementById('frame-style').value = state.frameStyle;
       document.getElementById('composition').value = state.composition;
       document.getElementById('device-scale').value = state.deviceScale;
@@ -1019,8 +1332,8 @@
         container.className = 'preview-container';
 
         var iframe = document.createElement('iframe');
-        iframe.style.width = '400px';
-        iframe.style.height = '868px';
+        iframe.style.width = previewW + 'px';
+        iframe.style.height = previewH + 'px';
         iframe.style.border = 'none';
         iframe.style.display = 'block';
         iframe.style.transformOrigin = 'top left';
@@ -1067,20 +1380,22 @@
     function scaleAllPreviews() {
       var area = document.getElementById('preview-area');
       var areaH = area.clientHeight - 120;
-      var baseScale = Math.min(areaH / 868, 0.55);
+      var baseScale = Math.min(areaH / previewH, 0.55);
       baseScale = Math.max(baseScale, 0.2);
 
       screenStates.forEach(function(state) {
         if (!state.iframeEl || !state.containerEl) return;
+        state.iframeEl.style.width = previewW + 'px';
+        state.iframeEl.style.height = previewH + 'px';
         state.iframeEl.style.transform = 'scale(' + baseScale + ')';
-        state.containerEl.style.width = (400 * baseScale) + 'px';
-        state.containerEl.style.height = (868 * baseScale) + 'px';
+        state.containerEl.style.width = (previewW * baseScale) + 'px';
+        state.containerEl.style.height = (previewH * baseScale) + 'px';
       });
 
       var addCard = document.querySelector('.add-screen-card');
       if (addCard) {
-        addCard.style.width = Math.round(400 * baseScale * 0.5) + 'px';
-        addCard.style.height = Math.round(868 * baseScale) + 'px';
+        addCard.style.width = Math.round(previewW * baseScale * 0.5) + 'px';
+        addCard.style.height = Math.round(previewH * baseScale) + 'px';
       }
     }
 
@@ -1122,6 +1437,7 @@
       newState.fontWeight = lastState.fontWeight;
       newState.colors = JSON.parse(JSON.stringify(lastState.colors));
       newState.frameId = lastState.frameId;
+      newState.koubouColor = lastState.koubouColor;
       newState.frameStyle = lastState.frameStyle;
       newState.composition = lastState.composition;
       newState.deviceScale = lastState.deviceScale;
@@ -1197,6 +1513,14 @@
 
     // ===== Preview Rendering =====
 
+    function resolvePreviewFrameId(frameId) {
+      // If the selected device is a Koubou-only family, use its previewFrameId for SVG preview
+      var family = koubouData.families.find(function(f) { return f.id === frameId; });
+      if (family && family.previewFrameId) return family.previewFrameId;
+      if (family && family.screenOffset) return frameId; // Server handles PNG frame
+      return frameId;
+    }
+
     function getPreviewBodyForScreen(index) {
       var state = screenStates[index];
       var body = {
@@ -1214,7 +1538,7 @@
         subtitleSize: state.subtitleSize || undefined,
         headlineRotation: state.headlineRotation || undefined,
         subtitleRotation: state.subtitleRotation || undefined,
-        frameId: state.frameId,
+        frameId: resolvePreviewFrameId(state.frameId),
         frameStyle: state.frameStyle,
         deviceScale: state.deviceScale,
         deviceTop: state.deviceTop,
@@ -1229,6 +1553,13 @@
         subtitleLeft: state.textPositions.subtitle ? state.textPositions.subtitle.left : undefined,
         subtitleWidth: state.textPositions.subtitle ? state.textPositions.subtitle.width : undefined,
         composition: state.composition || 'single',
+        headlineGradient: state.headlineGradient || undefined,
+        subtitleGradient: state.subtitleGradient || undefined,
+        autoSizeHeadline: state.autoSizeHeadline || undefined,
+        autoSizeSubtitle: state.autoSizeSubtitle || undefined,
+        spotlight: state.spotlight || undefined,
+        annotations: state.annotations.length > 0 ? state.annotations : undefined,
+        zoomCallouts: state.zoomCallouts.length > 0 ? state.zoomCallouts : undefined,
       };
 
       if (state.composition && state.composition !== 'single' && state.extraScreenshots.length > 0) {
@@ -1247,8 +1578,8 @@
       state.loadingEl.classList.add('visible');
 
       var body = getPreviewBodyForScreen(index);
-      body.width = 400;
-      body.height = 868;
+      body.width = previewW;
+      body.height = previewH;
       try {
         var res = await fetch(API + '/api/preview-html', {
           method: 'POST',
@@ -1290,12 +1621,21 @@
 
       var exportBtn = document.getElementById('btn-export');
       var originalText = exportBtn.textContent;
-      exportBtn.textContent = 'Exporting...';
+      var renderer = document.getElementById('export-renderer').value;
+      var isKoubou = renderer === 'koubou';
+
+      exportBtn.textContent = isKoubou ? 'Rendering with Koubou...' : 'Exporting...';
       exportBtn.disabled = true;
-      document.getElementById('status-text').textContent = 'Exporting screen ' + (selectedScreen + 1) + '...';
+      document.getElementById('status-text').textContent = isKoubou
+        ? 'Rendering screen ' + (selectedScreen + 1) + ' with Koubou...'
+        : 'Exporting screen ' + (selectedScreen + 1) + '...';
 
       var body = getPreviewBodyForScreen(selectedScreen);
       body.sizeKey = document.getElementById('export-size').value;
+      body.renderer = renderer;
+      if (isKoubou) {
+        body.koubouColor = screenStates[selectedScreen].koubouColor || undefined;
+      }
 
       try {
         var res = await fetch(API + '/api/export', {
@@ -1322,7 +1662,8 @@
         URL.revokeObjectURL(url);
 
         var sizeKb = Math.round(blob.size / 1024);
-        document.getElementById('status-text').textContent = 'Exported (' + sizeKb + 'KB)';
+        var suffix = isKoubou ? ' (Koubou)' : '';
+        document.getElementById('status-text').textContent = 'Exported (' + sizeKb + 'KB)' + suffix;
       } catch (err) {
         document.getElementById('status-text').textContent = 'Export error: ' + err.message;
       } finally {
@@ -1371,8 +1712,8 @@
 
       var deviceScale = parseInt(document.getElementById('device-scale').value, 10);
       var deviceTop = parseInt(document.getElementById('device-top').value, 10);
-      var canvasWidth = 400;
-      var canvasHeight = 868;
+      var canvasWidth = previewW;
+      var canvasHeight = previewH;
       var dw = Math.round(canvasWidth * deviceScale / 100);
 
       var deviceRotation = parseInt(document.getElementById('device-rotation').value, 10);
@@ -1644,7 +1985,9 @@
 
     var fullscreenHiddenSections = [
       'section-text', 'section-composition', 'section-text-position',
-      'section-typography', 'section-colors', 'section-device-frame', 'device-layout-section'
+      'section-typography', 'section-colors', 'section-gradient',
+      'section-spotlight', 'section-annotations', 'section-zoom',
+      'section-device-frame', 'device-layout-section'
     ];
 
     function toggleFullscreenSections() {
@@ -1843,6 +2186,20 @@
     });
     document.getElementById('btn-export').addEventListener('click', exportScreenshot);
 
+    // Disable Koubou option when Android size is selected
+    document.getElementById('export-size').addEventListener('change', function() {
+      var sizeKey = this.value;
+      var rendererSelect = document.getElementById('export-renderer');
+      var koubouOption = rendererSelect.querySelector('option[value="koubou"]');
+      if (koubouOption) {
+        var isAndroid = sizeKey.startsWith('android');
+        koubouOption.disabled = isAndroid;
+        if (isAndroid && rendererSelect.value === 'koubou') {
+          rendererSelect.value = 'playwright';
+        }
+      }
+    });
+
     document.getElementById('btn-reload').addEventListener('click', async function() {
       await fetch(API + '/api/reload', { method: 'POST' });
       var res = await fetch(API + '/api/config');
@@ -1859,8 +2216,23 @@
     ['template', 'layout', 'frame-id', 'frame-style', 'font'].forEach(function(id) {
       document.getElementById(id).addEventListener('change', function() {
         if (id === 'template') toggleFullscreenSections();
+        if (id === 'frame-id') {
+          var newFrameId = document.getElementById('frame-id').value;
+          updateKoubouColorDropdown(newFrameId);
+          updateFramePreviewThumbnail(newFrameId);
+          // If the selected device has a previewFrameId, use that for the actual preview
+          var family = koubouData.families.find(function(f) { return f.id === newFrameId; });
+          if (family && family.previewFrameId) {
+            // Swap the actual frameId sent to the server for preview purposes
+            screenStates[selectedScreen]._koubouFamilyId = newFrameId;
+          }
+        }
         renderSelectedPreview();
       });
+    });
+
+    document.getElementById('koubou-color').addEventListener('change', function() {
+      renderSelectedPreview();
     });
 
     document.getElementById('composition').addEventListener('change', function() {
@@ -1899,6 +2271,32 @@
     ['color-primary', 'color-secondary', 'color-background', 'color-text', 'color-subtitle'].forEach(function(id) {
       document.getElementById(id).addEventListener('input', debouncedRender);
     });
+
+    // Gradient controls
+    document.getElementById('headline-gradient-enable').addEventListener('change', function() {
+      document.getElementById('headline-gradient-controls').style.display = this.checked ? '' : 'none';
+      renderSelectedPreview();
+    });
+    document.getElementById('subtitle-gradient-enable').addEventListener('change', function() {
+      document.getElementById('subtitle-gradient-controls').style.display = this.checked ? '' : 'none';
+      renderSelectedPreview();
+    });
+    ['headline-gradient-start', 'headline-gradient-end'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', debouncedRender);
+    });
+    ['subtitle-gradient-start', 'subtitle-gradient-end'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', debouncedRender);
+    });
+    document.getElementById('headline-gradient-direction').addEventListener('input', function() {
+      document.getElementById('headline-gradient-direction-value').textContent = this.value + '\u00B0';
+      throttledRender();
+    });
+    document.getElementById('headline-gradient-direction').addEventListener('change', renderSelectedPreview);
+    document.getElementById('subtitle-gradient-direction').addEventListener('input', function() {
+      document.getElementById('subtitle-gradient-direction-value').textContent = this.value + '\u00B0';
+      throttledRender();
+    });
+    document.getElementById('subtitle-gradient-direction').addEventListener('change', renderSelectedPreview);
 
     document.getElementById('font-weight').addEventListener('input', function() {
       document.getElementById('font-weight-value').textContent = this.value;
@@ -2000,6 +2398,28 @@
         state.screenshotDataUrl = e.target.result;
         state.screenshotName = file.name;
         updateScreenshotInfo();
+
+        // Auto-select matching device frame based on screenshot dimensions
+        var img = new Image();
+        img.onload = function() {
+          var match = findBestDeviceMatch(img.naturalWidth, img.naturalHeight);
+          if (match) {
+            var frameSelect = document.getElementById('frame-id');
+            // Check the match ID exists in the dropdown
+            for (var i = 0; i < frameSelect.options.length; i++) {
+              if (frameSelect.options[i].value === match.id) {
+                frameSelect.value = match.id;
+                updateKoubouColorDropdown(match.id);
+                updateFramePreviewThumbnail(match.id);
+                saveControlsToState(selectedScreen);
+                renderPreviewForScreen(selectedScreen);
+                break;
+              }
+            }
+          }
+        };
+        img.src = e.target.result;
+
         renderPreviewForScreen(selectedScreen);
       };
       reader.readAsDataURL(file);
@@ -2056,11 +2476,141 @@
 
       var framesRes = await fetch(API + '/api/frames');
       framesData = await framesRes.json();
-      var frameSelect = document.getElementById('frame-id');
-      clearChildren(frameSelect);
-      framesData.forEach(function(f) {
-        addOption(frameSelect, f.id, f.name + ' (' + f.year + ')');
+
+      // Fetch Koubou device catalog
+      try {
+        var koubouRes = await fetch(API + '/api/koubou-devices');
+        koubouData = await koubouRes.json();
+      } catch (e) { /* Koubou catalog not available */ }
+
+      // Fetch Koubou availability status
+      try {
+        var koubouStatusRes = await fetch(API + '/api/koubou-status');
+        var koubouStatus = await koubouStatusRes.json();
+        koubouAvailable = koubouStatus.available;
+        koubouVersion = koubouStatus.version;
+        if (koubouAvailable) {
+          document.getElementById('renderer-row').style.display = '';
+        }
+      } catch (e) { /* Koubou status not available */ }
+
+      // Fetch sizes grouped by platform
+      var sizesData = {};
+      try {
+        var sizesRes = await fetch(API + '/api/sizes');
+        sizesData = await sizesRes.json();
+      } catch (e) { /* sizes not available */ }
+
+      // Platform picker: filter devices and export sizes
+      var platformSelect = document.getElementById('platform-select');
+      function getPlatformCategories(platform) {
+        if (platform === 'iphone') return ['iphone'];
+        if (platform === 'ipad') return ['ipad'];
+        if (platform === 'mac') return ['mac'];
+        if (platform === 'watch') return ['watch'];
+        if (platform === 'android') return ['android'];
+        return ['iphone'];
+      }
+
+      function updateExportSizes(platform) {
+        var sizeSelect = document.getElementById('export-size');
+        clearChildren(sizeSelect);
+        var categories = getPlatformCategories(platform);
+        // For phone platform, show both iPhone iOS and Android
+        if (platform === 'iphone') categories = ['iphone'];
+        if (platform === 'android') categories = ['android'];
+        categories.forEach(function(cat) {
+          var sizes = sizesData[cat];
+          if (!sizes) return;
+          sizes.forEach(function(s) {
+            var opt = document.createElement('option');
+            opt.value = s.key;
+            opt.textContent = s.name + ' (' + s.width + 'x' + s.height + ')';
+            sizeSelect.appendChild(opt);
+          });
+        });
+        // Update Koubou option availability
+        if (sizeSelect.options.length > 0) {
+          var sizeKey = sizeSelect.value;
+          var rendererSelect = document.getElementById('export-renderer');
+          var koubouOption = rendererSelect ? rendererSelect.options[1] : null;
+          if (koubouOption) {
+            var isAndroid = sizeKey.startsWith('android');
+            koubouOption.disabled = isAndroid;
+            if (isAndroid && rendererSelect.value === 'koubou') rendererSelect.value = 'playwright';
+          }
+        }
+      }
+
+      function updateDeviceDropdown(platform) {
+        var frameSelect = document.getElementById('frame-id');
+        clearChildren(frameSelect);
+        var categories = getPlatformCategories(platform);
+
+        // Add SVG frames matching this platform
+        // Filter by name pattern since platform field only has 'ios' and 'android'
+        function svgMatchesPlatform(f) {
+          if (platform === 'iphone') return f.platform === 'ios' && !f.id.includes('ipad') && !f.id.includes('tablet');
+          if (platform === 'ipad') return f.platform === 'ios' && (f.id.includes('ipad') || f.id.includes('tablet'));
+          if (platform === 'android') return f.platform === 'android';
+          return false; // mac and watch have no SVG frames
+        }
+        var matchingFrames = framesData.filter(svgMatchesPlatform);
+        if (matchingFrames.length > 0) {
+          var svgGroup = addOptgroup(frameSelect, 'Built-in Frames');
+          matchingFrames.forEach(function(f) {
+            var opt = document.createElement('option');
+            opt.value = f.id;
+            opt.textContent = f.name + ' (' + f.year + ')';
+            svgGroup.appendChild(opt);
+          });
+        }
+
+        // Add Koubou families matching this platform category
+        if (koubouData.grouped) {
+          var categoryLabels = { iphone: 'Koubou: iPhone', ipad: 'Koubou: iPad', mac: 'Koubou: Mac', watch: 'Koubou: Apple Watch' };
+          var svgIds = framesData.map(function(f) { return f.id; });
+          categories.forEach(function(cat) {
+            var families = koubouData.grouped[cat];
+            if (!families || families.length === 0) return;
+            var koubouOnly = families.filter(function(f) { return svgIds.indexOf(f.id) === -1; });
+            if (koubouOnly.length === 0) return;
+            var grp = addOptgroup(frameSelect, categoryLabels[cat] || cat);
+            koubouOnly.forEach(function(f) {
+              var opt = document.createElement('option');
+              opt.value = f.id;
+              opt.textContent = f.name + ' (' + f.year + ')';
+              grp.appendChild(opt);
+            });
+          });
+        }
+
+        // Trigger frame change
+        if (frameSelect.options.length > 0) {
+          frameSelect.dispatchEvent(new Event('change'));
+        }
+      }
+
+      function updatePreviewDimensions(_platform) {
+        // Use a fixed preview canvas for all platforms to avoid gallery layout issues.
+        // The actual export uses the correct platform-specific dimensions from STORE_SIZES.
+        // TODO: Implement per-platform preview canvas with proper gallery scaling
+        previewW = 400;
+        previewH = 868;
+      }
+
+      platformSelect.addEventListener('change', function() {
+        var platform = this.value;
+        updateDeviceDropdown(platform);
+        updateExportSizes(platform);
+        updatePreviewDimensions(platform);
+        // Re-render all screens with new dimensions
+        buildGallery();
       });
+
+      // Initialize with current platform
+      updateDeviceDropdown(platformSelect.value);
+      updateExportSizes(platformSelect.value);
 
       screenStates = config.screens.map(function(screen, i) {
         return createScreenState(i, config);
@@ -2071,6 +2621,356 @@
       syncControlsFromState(0);
       renderAllScreens();
     }
+
+    // ===== Auto-Size Text =====
+
+    document.getElementById('auto-size-headline').addEventListener('change', function() {
+      document.getElementById('headline-size').disabled = this.checked;
+      renderSelectedPreview();
+    });
+    document.getElementById('auto-size-subtitle').addEventListener('change', function() {
+      document.getElementById('subtitle-size').disabled = this.checked;
+      renderSelectedPreview();
+    });
+
+    // ===== Spotlight Controls =====
+
+    document.getElementById('spotlight-enable').addEventListener('change', function() {
+      document.getElementById('spotlight-controls').style.display = this.checked ? '' : 'none';
+      renderSelectedPreview();
+    });
+    document.getElementById('spotlight-shape').addEventListener('change', renderSelectedPreview);
+    ['spotlight-x', 'spotlight-y', 'spotlight-w', 'spotlight-h', 'spotlight-opacity', 'spotlight-blur'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', function() {
+        var suffix = id === 'spotlight-blur' ? 'px' : '%';
+        document.getElementById(id + '-value').textContent = this.value + suffix;
+        throttledRender();
+      });
+      document.getElementById(id).addEventListener('change', renderSelectedPreview);
+    });
+
+    // ===== Annotations =====
+
+    function renderAnnotationsList() {
+      var state = screenStates[selectedScreen];
+      if (!state) return;
+      var container = document.getElementById('annotations-list');
+      clearChildren(container);
+
+      state.annotations.forEach(function(ann, idx) {
+        var row = document.createElement('div');
+        row.style.cssText = 'border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 6px;';
+
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;';
+        var title = document.createElement('span');
+        title.style.cssText = 'font-size: 11px; font-weight: 600; color: var(--text-dim);';
+        title.textContent = 'Annotation ' + (idx + 1);
+        header.appendChild(title);
+        var delBtn = document.createElement('button');
+        delBtn.className = 'preview-card-remove';
+        delBtn.textContent = '\u00D7';
+        delBtn.addEventListener('click', function() {
+          state.annotations.splice(idx, 1);
+          renderAnnotationsList();
+          renderSelectedPreview();
+        });
+        header.appendChild(delBtn);
+        row.appendChild(header);
+
+        // Shape
+        var shapeLabel = document.createElement('label');
+        shapeLabel.textContent = 'Shape';
+        row.appendChild(shapeLabel);
+        var shapeSelect = document.createElement('select');
+        shapeSelect.style.cssText = 'width: 100%; padding: 6px 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; margin-bottom: 8px;';
+        ['rounded-rect', 'rectangle', 'circle'].forEach(function(v) {
+          var opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v;
+          shapeSelect.appendChild(opt);
+        });
+        shapeSelect.value = ann.shape;
+        shapeSelect.addEventListener('change', function() {
+          ann.shape = this.value;
+          renderSelectedPreview();
+        });
+        row.appendChild(shapeSelect);
+
+        // Color
+        var colorRow = document.createElement('div');
+        colorRow.className = 'color-row';
+        var colorLabel = document.createElement('label');
+        colorLabel.textContent = 'Color';
+        colorRow.appendChild(colorLabel);
+        var colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.value = ann.strokeColor;
+        colorInput.addEventListener('input', function() {
+          ann.strokeColor = this.value;
+          debouncedRender();
+        });
+        colorRow.appendChild(colorInput);
+        row.appendChild(colorRow);
+
+        // Sliders: x, y, w, h, strokeWidth
+        [
+          { key: 'x', label: 'X', min: 0, max: 100, suffix: '%' },
+          { key: 'y', label: 'Y', min: 0, max: 100, suffix: '%' },
+          { key: 'w', label: 'Width', min: 1, max: 100, suffix: '%' },
+          { key: 'h', label: 'Height', min: 1, max: 100, suffix: '%' },
+          { key: 'strokeWidth', label: 'Stroke', min: 1, max: 20, suffix: 'px' },
+        ].forEach(function(cfg) {
+          var lbl = document.createElement('label');
+          lbl.textContent = cfg.label;
+          lbl.style.cssText = 'font-size: 11px;';
+          row.appendChild(lbl);
+          var rr = document.createElement('div');
+          rr.className = 'range-row';
+          var inp = document.createElement('input');
+          inp.type = 'range';
+          inp.min = cfg.min;
+          inp.max = cfg.max;
+          inp.step = '1';
+          inp.value = ann[cfg.key];
+          var val = document.createElement('span');
+          val.className = 'range-value';
+          val.textContent = ann[cfg.key] + cfg.suffix;
+          inp.addEventListener('input', function() {
+            ann[cfg.key] = parseInt(this.value, 10);
+            val.textContent = this.value + cfg.suffix;
+            throttledRender();
+          });
+          inp.addEventListener('change', function() { renderSelectedPreview(); });
+          rr.appendChild(inp);
+          rr.appendChild(val);
+          row.appendChild(rr);
+        });
+
+        container.appendChild(row);
+      });
+    }
+
+    document.getElementById('btn-add-annotation').addEventListener('click', function() {
+      saveControlsToState(selectedScreen);
+      var state = screenStates[selectedScreen];
+      state.annotations.push({
+        id: Date.now().toString(36),
+        shape: 'rounded-rect',
+        x: 40,
+        y: 40,
+        w: 20,
+        h: 20,
+        strokeColor: '#FF3B30',
+        strokeWidth: 4,
+      });
+      renderAnnotationsList();
+      renderSelectedPreview();
+    });
+
+    // ===== Zoom Callouts =====
+
+    function renderZoomCalloutsList() {
+      var state = screenStates[selectedScreen];
+      if (!state) return;
+      var container = document.getElementById('zoom-list');
+      clearChildren(container);
+
+      state.zoomCallouts.forEach(function(zc, idx) {
+        var row = document.createElement('div');
+        row.style.cssText = 'border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 6px;';
+
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;';
+        var title = document.createElement('span');
+        title.style.cssText = 'font-size: 11px; font-weight: 600; color: var(--text-dim);';
+        title.textContent = 'Zoom ' + (idx + 1);
+        header.appendChild(title);
+        var delBtn = document.createElement('button');
+        delBtn.className = 'preview-card-remove';
+        delBtn.textContent = '\u00D7';
+        delBtn.addEventListener('click', function() {
+          state.zoomCallouts.splice(idx, 1);
+          renderZoomCalloutsList();
+          renderSelectedPreview();
+        });
+        header.appendChild(delBtn);
+        row.appendChild(header);
+
+        // Source sliders
+        var srcTitle = document.createElement('span');
+        srcTitle.style.cssText = 'font-size: 10px; color: var(--text-dim); display: block; margin-bottom: 4px;';
+        srcTitle.textContent = 'Source Region';
+        row.appendChild(srcTitle);
+
+        [
+          { key: 'sourceX', label: 'X', min: 0, max: 100 },
+          { key: 'sourceY', label: 'Y', min: 0, max: 100 },
+          { key: 'sourceW', label: 'W', min: 5, max: 80 },
+          { key: 'sourceH', label: 'H', min: 5, max: 80 },
+        ].forEach(function(cfg) {
+          var lbl = document.createElement('label');
+          lbl.textContent = cfg.label;
+          lbl.style.cssText = 'font-size: 11px;';
+          row.appendChild(lbl);
+          var rr = document.createElement('div');
+          rr.className = 'range-row';
+          var inp = document.createElement('input');
+          inp.type = 'range';
+          inp.min = cfg.min;
+          inp.max = cfg.max;
+          inp.step = '1';
+          inp.value = zc[cfg.key];
+          var val = document.createElement('span');
+          val.className = 'range-value';
+          val.textContent = zc[cfg.key] + '%';
+          inp.addEventListener('input', function() {
+            zc[cfg.key] = parseInt(this.value, 10);
+            val.textContent = this.value + '%';
+            throttledRender();
+          });
+          inp.addEventListener('change', function() { renderSelectedPreview(); });
+          rr.appendChild(inp);
+          rr.appendChild(val);
+          row.appendChild(rr);
+        });
+
+        // Target position
+        var tgtTitle = document.createElement('span');
+        tgtTitle.style.cssText = 'font-size: 10px; color: var(--text-dim); display: block; margin-top: 4px; margin-bottom: 4px;';
+        tgtTitle.textContent = 'Target Position';
+        row.appendChild(tgtTitle);
+
+        [
+          { key: 'targetX', label: 'X', min: 0, max: 100 },
+          { key: 'targetY', label: 'Y', min: 0, max: 100 },
+        ].forEach(function(cfg) {
+          var lbl = document.createElement('label');
+          lbl.textContent = cfg.label;
+          lbl.style.cssText = 'font-size: 11px;';
+          row.appendChild(lbl);
+          var rr = document.createElement('div');
+          rr.className = 'range-row';
+          var inp = document.createElement('input');
+          inp.type = 'range';
+          inp.min = cfg.min;
+          inp.max = cfg.max;
+          inp.step = '1';
+          inp.value = zc[cfg.key];
+          var val = document.createElement('span');
+          val.className = 'range-value';
+          val.textContent = zc[cfg.key] + '%';
+          inp.addEventListener('input', function() {
+            zc[cfg.key] = parseInt(this.value, 10);
+            val.textContent = this.value + '%';
+            throttledRender();
+          });
+          inp.addEventListener('change', function() { renderSelectedPreview(); });
+          rr.appendChild(inp);
+          rr.appendChild(val);
+          row.appendChild(rr);
+        });
+
+        // Magnification
+        var magLabel = document.createElement('label');
+        magLabel.textContent = 'Magnification';
+        magLabel.style.cssText = 'font-size: 11px;';
+        row.appendChild(magLabel);
+        var magRow = document.createElement('div');
+        magRow.className = 'range-row';
+        var magInp = document.createElement('input');
+        magInp.type = 'range';
+        magInp.min = '1.5';
+        magInp.max = '5';
+        magInp.step = '0.5';
+        magInp.value = zc.magnification;
+        var magVal = document.createElement('span');
+        magVal.className = 'range-value';
+        magVal.textContent = zc.magnification + 'x';
+        magInp.addEventListener('input', function() {
+          zc.magnification = parseFloat(this.value);
+          magVal.textContent = this.value + 'x';
+          throttledRender();
+        });
+        magInp.addEventListener('change', function() { renderSelectedPreview(); });
+        magRow.appendChild(magInp);
+        magRow.appendChild(magVal);
+        row.appendChild(magRow);
+
+        // Connector style
+        var connLabel = document.createElement('label');
+        connLabel.textContent = 'Connector';
+        row.appendChild(connLabel);
+        var connSelect = document.createElement('select');
+        connSelect.style.cssText = 'width: 100%; padding: 6px 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; margin-bottom: 8px;';
+        ['line', 'elbow', 'none'].forEach(function(v) {
+          var opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v;
+          connSelect.appendChild(opt);
+        });
+        connSelect.value = zc.connectorStyle;
+        connSelect.addEventListener('change', function() {
+          zc.connectorStyle = this.value;
+          renderSelectedPreview();
+        });
+        row.appendChild(connSelect);
+
+        // Border color
+        var bcRow = document.createElement('div');
+        bcRow.className = 'color-row';
+        var bcLabel = document.createElement('label');
+        bcLabel.textContent = 'Border';
+        bcRow.appendChild(bcLabel);
+        var bcInput = document.createElement('input');
+        bcInput.type = 'color';
+        bcInput.value = zc.borderColor;
+        bcInput.addEventListener('input', function() {
+          zc.borderColor = this.value;
+          debouncedRender();
+        });
+        bcRow.appendChild(bcInput);
+        row.appendChild(bcRow);
+
+        // Shadow toggle
+        var shadowLabel = document.createElement('label');
+        shadowLabel.style.cssText = 'margin-bottom: 0;';
+        var shadowCb = document.createElement('input');
+        shadowCb.type = 'checkbox';
+        shadowCb.checked = zc.shadow;
+        shadowCb.style.cssText = 'accent-color: var(--accent); margin-right: 4px;';
+        shadowCb.addEventListener('change', function() {
+          zc.shadow = this.checked;
+          renderSelectedPreview();
+        });
+        shadowLabel.appendChild(shadowCb);
+        shadowLabel.appendChild(document.createTextNode('Shadow'));
+        row.appendChild(shadowLabel);
+
+        container.appendChild(row);
+      });
+    }
+
+    document.getElementById('btn-add-zoom').addEventListener('click', function() {
+      saveControlsToState(selectedScreen);
+      var state = screenStates[selectedScreen];
+      state.zoomCallouts.push({
+        id: Date.now().toString(36),
+        sourceX: 30,
+        sourceY: 30,
+        sourceW: 20,
+        sourceH: 20,
+        targetX: 70,
+        targetY: 20,
+        magnification: 2,
+        connectorStyle: 'line',
+        borderColor: '#FFFFFF',
+        borderWidth: 3,
+        shadow: true,
+      });
+      renderZoomCalloutsList();
+      renderSelectedPreview();
+    });
 
     init();
   </script>

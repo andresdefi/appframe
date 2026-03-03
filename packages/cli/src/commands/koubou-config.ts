@@ -6,12 +6,14 @@ import { generateKoubouConfig, detectKoubou, mapSizeToKoubou } from '@appframe/c
 interface KoubouConfigOptions {
   config: string;
   size?: string;
+  screen?: string;
 }
 
 export const koubouConfigCommand = new Command('koubou-config')
   .description('Output the translated Koubou YAML config (for debugging)')
   .option('-c, --config <path>', 'Path to config file', 'appframe.yml')
   .option('-s, --size <size>', 'Output size (e.g., 6.7, 6.5, iPhone6_7)')
+  .option('-n, --screen <index>', 'Only output config for a single screen (0-based index)')
   .action(async (options: KoubouConfigOptions) => {
     const configPath = resolve(options.config);
 
@@ -31,8 +33,15 @@ export const koubouConfigCommand = new Command('koubou-config')
       outputSize = mapSizeToKoubou(parseFloat(outputSize)) ?? undefined;
     }
 
+    // Resolve screen index
+    const screenIndex = options.screen !== undefined ? parseInt(options.screen, 10) : undefined;
+    if (screenIndex !== undefined && (isNaN(screenIndex) || screenIndex < 0)) {
+      console.error(chalk.red('--screen must be a non-negative integer'));
+      process.exit(1);
+    }
+
     try {
-      const yaml = await generateKoubouConfig(configPath, outputSize ?? undefined);
+      const yaml = await generateKoubouConfig(configPath, outputSize ?? undefined, screenIndex);
       // Output YAML to stdout (messages go to stderr so piping works)
       console.log(yaml);
     } catch (err) {

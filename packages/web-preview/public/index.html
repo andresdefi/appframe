@@ -320,7 +320,6 @@
     }
 
     .preview-container iframe {
-      width: 400px; height: 868px;
       border: none; display: block;
       transform-origin: top left;
     }
@@ -840,6 +839,20 @@
     var koubouData = { families: [], grouped: {} };
     var koubouAvailable = false;
     var koubouVersion = null;
+    var PLATFORM_PREVIEW_SIZES = {
+      iphone:  { w: 400, h: 868 },
+      ipad:    { w: 500, h: 716 },
+      mac:     { w: 640, h: 400 },
+      watch:   { w: 205, h: 251 },
+      android: { w: 400, h: 711 },
+    };
+    var PLATFORM_DEVICE_DEFAULTS = {
+      iphone:  { deviceScale: 92, deviceTop: 15, deviceAngle: 8 },
+      ipad:    { deviceScale: 92, deviceTop: 15, deviceAngle: 8 },
+      mac:     { deviceScale: 85, deviceTop: 20, deviceAngle: 0 },
+      watch:   { deviceScale: 80, deviceTop: 22, deviceAngle: 0 },
+      android: { deviceScale: 92, deviceTop: 15, deviceAngle: 8 },
+    };
     var previewW = 400;
     var previewH = 868;
 
@@ -883,6 +896,16 @@
       // Show "export only" badge if this is a Koubou-only device with no SVG preview AND no PNG frame data
       var isKoubouOnly = family && !family.previewFrameId && !family.screenOffset;
       exportBadge.style.display = isKoubouOnly ? '' : 'none';
+
+      // Hide Frame Style when a Koubou PNG device is selected (style options don't apply)
+      var frameStyleLabel = document.querySelector('label[for="frame-style"]');
+      var frameStyleSelect = document.getElementById('frame-style');
+      var isKoubouPng = family && family.screenOffset;
+      if (frameStyleLabel) frameStyleLabel.style.display = isKoubouPng ? 'none' : '';
+      if (frameStyleSelect) {
+        frameStyleSelect.style.display = isKoubouPng ? 'none' : '';
+        if (isKoubouPng) frameStyleSelect.value = 'flat';
+      }
     }
 
     function updateFramePreviewThumbnail(frameId) {
@@ -1032,6 +1055,8 @@
     function createScreenState(index, cfg) {
       var screen = cfg.screens[index];
       var layout = 'center';
+      var platform = document.getElementById('platform-select').value;
+      var pd = PLATFORM_DEVICE_DEFAULTS[platform] || PLATFORM_DEVICE_DEFAULTS.iphone;
 
       return {
         screenIndex: index,
@@ -1055,11 +1080,11 @@
         frameId: cfg.frames.ios || cfg.frames.android || '',
         koubouColor: cfg.frames.koubouColor || '',
         frameStyle: cfg.frames.style === '3d' ? 'flat' : cfg.frames.style,
-        deviceScale: 92,
-        deviceTop: 15,
+        deviceScale: pd.deviceScale,
+        deviceTop: pd.deviceTop,
         deviceRotation: 0,
         deviceOffsetX: 0,
-        deviceAngle: 8,
+        deviceAngle: pd.deviceAngle,
         deviceTilt: 0,
         headlineGradient: null,
         subtitleGradient: null,
@@ -1380,8 +1405,15 @@
     function scaleAllPreviews() {
       var area = document.getElementById('preview-area');
       var areaH = area.clientHeight - 120;
-      var baseScale = Math.min(areaH / previewH, 0.55);
-      baseScale = Math.max(baseScale, 0.2);
+
+      // Fit card into available area, constrained by both height and width
+      var maxCardH = Math.min(areaH * 0.85, 500);
+      var maxCardW = 400;
+      var scaleForH = maxCardH / previewH;
+      var scaleForW = maxCardW / previewW;
+      var baseScale = Math.min(scaleForH, scaleForW);
+      baseScale = Math.min(baseScale, 1.3); // cap upscale for small canvases (watch)
+      baseScale = Math.max(baseScale, 0.15);
 
       screenStates.forEach(function(state) {
         if (!state.iframeEl || !state.containerEl) return;
@@ -1780,7 +1812,7 @@
       try { doc = iframe.contentDocument || iframe.contentWindow.document; } catch(e) { return; }
       if (!doc) return;
 
-      var previewWidth = 400;
+      var previewWidth = previewW;
       var refWidth = 1290;
       var headlineSize = parseInt(document.getElementById('headline-size').value, 10);
       var subtitleSize = parseInt(document.getElementById('subtitle-size').value, 10);
@@ -2374,11 +2406,13 @@
     document.getElementById('btn-reset-device').addEventListener('click', function() {
       var state = screenStates[selectedScreen];
       if (!state) return;
-      state.deviceScale = 92;
-      state.deviceTop = 15;
+      var platform = document.getElementById('platform-select').value;
+      var pd = PLATFORM_DEVICE_DEFAULTS[platform] || PLATFORM_DEVICE_DEFAULTS.iphone;
+      state.deviceScale = pd.deviceScale;
+      state.deviceTop = pd.deviceTop;
       state.deviceOffsetX = 0;
       state.deviceRotation = 0;
-      state.deviceAngle = 8;
+      state.deviceAngle = pd.deviceAngle;
       state.deviceTilt = 0;
       syncControlsFromState(selectedScreen);
       renderSelectedPreview();
@@ -2591,21 +2625,31 @@
         }
       }
 
-      function updatePreviewDimensions(_platform) {
-        // Use a fixed preview canvas for all platforms to avoid gallery layout issues.
-        // The actual export uses the correct platform-specific dimensions from STORE_SIZES.
-        // TODO: Implement per-platform preview canvas with proper gallery scaling
-        previewW = 400;
-        previewH = 868;
+      function updatePreviewDimensions(platform) {
+        var sizes = PLATFORM_PREVIEW_SIZES[platform] || PLATFORM_PREVIEW_SIZES.iphone;
+        previewW = sizes.w;
+        previewH = sizes.h;
       }
 
       platformSelect.addEventListener('change', function() {
         var platform = this.value;
+        // Set canvas dimensions first so buildGallery creates correctly sized iframes
+        updatePreviewDimensions(platform);
+        // Apply platform-appropriate device defaults to all screens
+        var pd = PLATFORM_DEVICE_DEFAULTS[platform] || PLATFORM_DEVICE_DEFAULTS.iphone;
+        screenStates.forEach(function(state) {
+          state.deviceScale = pd.deviceScale;
+          state.deviceTop = pd.deviceTop;
+          state.deviceAngle = pd.deviceAngle;
+          state.deviceRotation = 0;
+          state.deviceOffsetX = 0;
+          state.deviceTilt = 0;
+        });
         updateDeviceDropdown(platform);
         updateExportSizes(platform);
-        updatePreviewDimensions(platform);
-        // Re-render all screens with new dimensions
+        syncControlsFromState(selectedScreen);
         buildGallery();
+        renderAllScreens();
       });
 
       // Initialize with current platform

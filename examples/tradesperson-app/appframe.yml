@@ -24,7 +24,7 @@ theme:
   fontWeight: 600
 
 frames:
-  ios: iphone-16-pro-max
+  ios: generic-phone
   android: pixel-10
   style: flat
 

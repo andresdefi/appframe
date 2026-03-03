@@ -128,7 +128,7 @@ export function registerConfigTools(server: McpServer): void {
         app: { name: appName, description: appDescription, platforms, features },
         theme: { style, colors, font: 'inter', fontWeight: 600 },
         frames: {
-          ios: platforms.includes('ios') ? 'iphone-16-pro-max' : undefined,
+          ios: platforms.includes('ios') ? 'generic-phone' : undefined,
           android: platforms.includes('android') ? 'pixel-10' : undefined,
           style: 'flat',
         },

@@ -12,5 +12,5 @@
   <rect x="0" y="180" width="3" height="44" rx="1.5" fill="#1A1A1A"/>
   <rect x="0" y="240" width="3" height="44" rx="1.5" fill="#1A1A1A"/>
   <!-- Dynamic Island -->
-  <rect x="168" y="16" width="102" height="32" rx="16" fill="#111111"/>
+  <rect x="157" y="19" width="124" height="37" rx="19" fill="#111111"/>
 </svg>

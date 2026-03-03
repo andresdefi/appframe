@@ -24,7 +24,7 @@ vi.mock('@appframe/core', () => ({
       defaultColor: 'Natural Titanium',
       screenResolution: { width: 1320, height: 2868 },
       appStoreSize: 'iPhone6_9',
-      previewFrameId: 'iphone-16-pro-max',
+      previewFrameId: 'generic-phone',
     },
   ]),
 }));

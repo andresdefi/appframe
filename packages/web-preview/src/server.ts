@@ -279,13 +279,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     let frameSvg: string | null = null;
     let framePngUrl: string | undefined;
 
-    if (frame && (p.fStyle ?? config.frames.style) !== 'none') {
-      frameSvg = await readFile(frame.framePath, 'utf-8');
-    } else if (!frame && p.frameId) {
-      // Check if this is a Koubou device family with PNG frame data
+    // Prefer Koubou PNG frame when available (higher quality than SVG)
+    if (p.frameId) {
       const koubouFamily = getKoubouDeviceFamily(p.frameId);
       if (koubouFamily?.screenOffset && koubouFamily.framePngSize) {
-        const koubouId = getKoubouDeviceId(koubouFamily.id);
+        const koubouColor = p.koubouColor ?? config.frames.koubouColor;
+        const koubouId = getKoubouDeviceId(koubouFamily.id, koubouColor || undefined);
         const pngExists = koubouId ? await getKoubouFramePath(koubouId) : null;
         if (pngExists) {
           const pngBuffer = await readFile(pngExists);
@@ -316,6 +315,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           } satisfies FrameDefinition;
         }
       }
+    }
+    // Fall back to SVG frame from manifest
+    if (!framePngUrl && frame && (p.fStyle ?? config.frames.style) !== 'none') {
+      frameSvg = await readFile(frame.framePath, 'utf-8');
     }
 
     const context: TemplateContext = {

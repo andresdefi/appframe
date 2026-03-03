@@ -3,81 +3,6 @@
   "version": 1,
   "frames": [
     {
-      "id": "iphone-17-pro-max",
-      "name": "iPhone 17 Pro Max",
-      "manufacturer": "apple",
-      "year": 2025,
-      "platform": "ios",
-      "framePath": "apple/iphone-17-pro-max/frame.svg",
-      "screenArea": {
-        "x": 8,
-        "y": 8,
-        "width": 430,
-        "height": 910,
-        "borderRadius": 50
-      },
-      "frameSize": {
-        "width": 446,
-        "height": 926
-      },
-      "frameBorderRadius": 54,
-      "screenResolution": {
-        "width": 1320,
-        "height": 2868
-      },
-      "tags": ["default-ios"]
-    },
-    {
-      "id": "iphone-16-pro-max",
-      "name": "iPhone 16 Pro Max",
-      "manufacturer": "apple",
-      "year": 2024,
-      "platform": "ios",
-      "framePath": "apple/iphone-16-pro-max/frame.svg",
-      "screenArea": {
-        "x": 8,
-        "y": 8,
-        "width": 422,
-        "height": 894,
-        "borderRadius": 50
-      },
-      "frameSize": {
-        "width": 438,
-        "height": 910
-      },
-      "frameBorderRadius": 54,
-      "screenResolution": {
-        "width": 1290,
-        "height": 2796
-      },
-      "tags": []
-    },
-    {
-      "id": "iphone-15-pro-max",
-      "name": "iPhone 15 Pro Max",
-      "manufacturer": "apple",
-      "year": 2023,
-      "platform": "ios",
-      "framePath": "apple/iphone-15-pro-max/frame.svg",
-      "screenArea": {
-        "x": 8,
-        "y": 8,
-        "width": 422,
-        "height": 894,
-        "borderRadius": 50
-      },
-      "frameSize": {
-        "width": 438,
-        "height": 910
-      },
-      "frameBorderRadius": 54,
-      "screenResolution": {
-        "width": 1284,
-        "height": 2778
-      },
-      "tags": []
-    },
-    {
       "id": "ipad-pro-13",
       "name": "iPad Pro 13\"",
       "manufacturer": "apple",
@@ -175,7 +100,7 @@
         "width": 1170,
         "height": 2532
       },
-      "tags": ["fallback-phone"]
+      "tags": ["default-ios"]
     },
     {
       "id": "generic-tablet",

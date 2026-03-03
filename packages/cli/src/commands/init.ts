@@ -127,7 +127,7 @@ theme:
   fontWeight: 600
 
 frames:
-  ${platforms.includes('ios') ? 'ios: iphone-16-pro-max' : '# ios: iphone-16-pro-max'}
+  ${platforms.includes('ios') ? 'ios: generic-phone' : '# ios: generic-phone'}
   ${platforms.includes('android') ? 'android: pixel-10' : '# android: pixel-10'}
   style: flat
 

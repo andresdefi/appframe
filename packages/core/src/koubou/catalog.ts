@@ -47,7 +47,10 @@ const IPHONE_16_PRO_MAX: KoubouDeviceFamily = {
   defaultColor: 'Natural Titanium',
   screenResolution: { width: 1320, height: 2868 },
   appStoreSize: 'iPhone6_9',
-  previewFrameId: 'iphone-16-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 75, y: 66 },
+  framePngSize: { width: 1470, height: 3000 },
+  screenBorderRadius: 23,
 };
 
 const IPHONE_16_PRO: KoubouDeviceFamily = {
@@ -70,7 +73,10 @@ const IPHONE_16_PRO: KoubouDeviceFamily = {
   defaultColor: 'Natural Titanium',
   screenResolution: { width: 1320, height: 2868 },
   appStoreSize: 'iPhone6_9',
-  previewFrameId: 'iphone-16-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 72, y: 69 },
+  framePngSize: { width: 1350, height: 2760 },
+  screenBorderRadius: 23,
 };
 
 const IPHONE_16: KoubouDeviceFamily = {
@@ -95,7 +101,10 @@ const IPHONE_16: KoubouDeviceFamily = {
   defaultColor: 'Black',
   screenResolution: { width: 1179, height: 2556 },
   appStoreSize: 'iPhone6_1',
-  previewFrameId: 'iphone-16-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 90, y: 90 },
+  framePngSize: { width: 1359, height: 2736 },
+  screenBorderRadius: 6,
 };
 
 const IPHONE_15_PRO_MAX: KoubouDeviceFamily = {
@@ -118,7 +127,10 @@ const IPHONE_15_PRO_MAX: KoubouDeviceFamily = {
   defaultColor: 'Natural Titanium',
   screenResolution: { width: 1320, height: 2868 },
   appStoreSize: 'iPhone6_9',
-  previewFrameId: 'iphone-15-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 120, y: 120 },
+  framePngSize: { width: 1530, height: 3036 },
+  screenBorderRadius: 12,
 };
 
 const IPHONE_15_PRO: KoubouDeviceFamily = {
@@ -141,7 +153,10 @@ const IPHONE_15_PRO: KoubouDeviceFamily = {
   defaultColor: 'Natural Titanium',
   screenResolution: { width: 1290, height: 2796 },
   appStoreSize: 'iPhone6_7',
-  previewFrameId: 'iphone-15-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 120, y: 120 },
+  framePngSize: { width: 1419, height: 2796 },
+  screenBorderRadius: 12,
 };
 
 const IPHONE_15: KoubouDeviceFamily = {
@@ -166,7 +181,10 @@ const IPHONE_15: KoubouDeviceFamily = {
   defaultColor: 'Black',
   screenResolution: { width: 1179, height: 2556 },
   appStoreSize: 'iPhone6_1',
-  previewFrameId: 'iphone-15-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 120, y: 120 },
+  framePngSize: { width: 1419, height: 2796 },
+  screenBorderRadius: 6,
 };
 
 const IPHONE_14_PRO_MAX: KoubouDeviceFamily = {
@@ -183,7 +201,10 @@ const IPHONE_14_PRO_MAX: KoubouDeviceFamily = {
   defaultColor: 'Default',
   screenResolution: { width: 1320, height: 2868 },
   appStoreSize: 'iPhone6_9',
-  previewFrameId: 'iphone-16-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 80, y: 70 },
+  framePngSize: { width: 1450, height: 2936 },
+  screenBorderRadius: 7,
 };
 
 const IPHONE_14_PRO: KoubouDeviceFamily = {
@@ -200,7 +221,10 @@ const IPHONE_14_PRO: KoubouDeviceFamily = {
   defaultColor: 'Default',
   screenResolution: { width: 1290, height: 2796 },
   appStoreSize: 'iPhone6_7',
-  previewFrameId: 'iphone-16-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 80, y: 80 },
+  framePngSize: { width: 1339, height: 2716 },
+  screenBorderRadius: 7,
 };
 
 const IPHONE_12_13_PRO_MAX: KoubouDeviceFamily = {
@@ -217,7 +241,10 @@ const IPHONE_12_13_PRO_MAX: KoubouDeviceFamily = {
   defaultColor: 'Default',
   screenResolution: { width: 1284, height: 2778 },
   appStoreSize: 'iPhone6_5',
-  previewFrameId: 'iphone-15-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 108, y: 212 },
+  framePngSize: { width: 1500, height: 3000 },
+  screenBorderRadius: 0,
 };
 
 const IPHONE_12_13_PRO: KoubouDeviceFamily = {
@@ -234,7 +261,10 @@ const IPHONE_12_13_PRO: KoubouDeviceFamily = {
   defaultColor: 'Default',
   screenResolution: { width: 1170, height: 2532 },
   appStoreSize: 'iPhone6_1',
-  previewFrameId: 'iphone-15-pro-max',
+  previewFrameId: '',
+  screenOffset: { x: 115, y: 185 },
+  framePngSize: { width: 1400, height: 2700 },
+  screenBorderRadius: 0,
 };
 
 const IPHONE_12_13_MINI: KoubouDeviceFamily = {
@@ -251,7 +281,10 @@ const IPHONE_12_13_MINI: KoubouDeviceFamily = {
   defaultColor: 'Default',
   screenResolution: { width: 1080, height: 2340 },
   appStoreSize: 'iPhone5_5',
-  previewFrameId: 'generic-phone',
+  previewFrameId: '',
+  screenOffset: { x: 80, y: 188 },
+  framePngSize: { width: 1240, height: 2500 },
+  screenBorderRadius: 0,
 };
 
 const IPHONE_11_PRO_MAX: KoubouDeviceFamily = {
@@ -268,7 +301,10 @@ const IPHONE_11_PRO_MAX: KoubouDeviceFamily = {
   defaultColor: 'Default',
   screenResolution: { width: 1242, height: 2688 },
   appStoreSize: 'iPhone6_5',
-  previewFrameId: 'generic-phone',
+  previewFrameId: '',
+  screenOffset: { x: 179, y: 246 },
+  framePngSize: { width: 1600, height: 3000 },
+  screenBorderRadius: 0,
 };
 
 const IPHONE_11_PRO: KoubouDeviceFamily = {
@@ -282,7 +318,10 @@ const IPHONE_11_PRO: KoubouDeviceFamily = {
   defaultColor: 'Default',
   screenResolution: { width: 1125, height: 2436 },
   appStoreSize: 'iPhone6_1',
-  previewFrameId: 'generic-phone',
+  previewFrameId: '',
+  screenOffset: { x: 238, y: 272 },
+  framePngSize: { width: 1600, height: 2800 },
+  screenBorderRadius: 0,
 };
 
 const IPHONE_11: KoubouDeviceFamily = {
@@ -299,7 +338,10 @@ const IPHONE_11: KoubouDeviceFamily = {
   defaultColor: 'Default',
   screenResolution: { width: 828, height: 1792 },
   appStoreSize: 'iPhone6_1',
-  previewFrameId: 'generic-phone',
+  previewFrameId: '',
+  screenOffset: { x: 86, y: 171 },
+  framePngSize: { width: 1000, height: 2000 },
+  screenBorderRadius: 0,
 };
 
 const IPHONE_SE_8: KoubouDeviceFamily = {
@@ -313,7 +355,10 @@ const IPHONE_SE_8: KoubouDeviceFamily = {
   defaultColor: 'Default',
   screenResolution: { width: 750, height: 1334 },
   appStoreSize: 'iPhone5_5',
-  previewFrameId: 'generic-phone',
+  previewFrameId: '',
+  screenOffset: { x: 127, y: 335 },
+  framePngSize: { width: 1000, height: 2000 },
+  screenBorderRadius: 0,
 };
 
 // --- iPad families ---

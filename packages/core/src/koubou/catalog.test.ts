@@ -82,9 +82,9 @@ describe('getKoubouDeviceId', () => {
 
 describe('getKoubouFamilyByFrameId', () => {
   it('returns most recent family for a known frame id', () => {
-    const family = getKoubouFamilyByFrameId('iphone-16-pro-max');
+    const family = getKoubouFamilyByFrameId('ipad-pro-13');
     expect(family).not.toBeNull();
-    expect(family!.id).toBe('iphone-16-pro-max');
+    expect(family!.category).toBe('ipad');
   });
 
   it('returns null for unknown frame id', () => {

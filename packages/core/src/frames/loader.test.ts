@@ -22,9 +22,9 @@ describe('frame loader', () => {
   });
 
   it('gets a specific frame by ID', async () => {
-    const frame = await getFrame('iphone-16-pro-max', manifestPath);
+    const frame = await getFrame('generic-phone', manifestPath);
     expect(frame).toBeDefined();
-    expect(frame!.name).toContain('iPhone');
+    expect(frame!.name).toContain('Generic');
     expect(frame!.platform).toBe('ios');
     expect(frame!.screenArea).toBeDefined();
     expect(frame!.screenArea.width).toBeGreaterThan(0);

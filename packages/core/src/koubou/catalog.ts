@@ -20,7 +20,7 @@ export interface KoubouDeviceFamily {
   screenResolution: { width: number; height: number };
   appStoreSize: string; // recommended Koubou output_size key
   previewFrameId: string; // appframe SVG frame for preview approximation ('' if none)
-  screenOffset?: { x: number; y: number }; // pixel offset to screen area in Koubou's frame PNG
+  screenRect?: { x: number; y: number; width: number; height: number }; // measured screen area in Koubou's frame PNG
   framePngSize?: { width: number; height: number }; // Koubou frame PNG pixel dimensions
   screenBorderRadius?: number; // corner radius (px) for the screen area inside the frame PNG
 }
@@ -48,9 +48,9 @@ const IPHONE_16_PRO_MAX: KoubouDeviceFamily = {
   screenResolution: { width: 1320, height: 2868 },
   appStoreSize: 'iPhone6_9',
   previewFrameId: '',
-  screenOffset: { x: 75, y: 66 },
+  screenRect: { x: 75, y: 66, width: 1320, height: 2868 },
   framePngSize: { width: 1470, height: 3000 },
-  screenBorderRadius: 23,
+  screenBorderRadius: 224,
 };
 
 const IPHONE_16_PRO: KoubouDeviceFamily = {
@@ -74,9 +74,9 @@ const IPHONE_16_PRO: KoubouDeviceFamily = {
   screenResolution: { width: 1320, height: 2868 },
   appStoreSize: 'iPhone6_9',
   previewFrameId: '',
-  screenOffset: { x: 72, y: 69 },
+  screenRect: { x: 72, y: 69, width: 1206, height: 2622 },
   framePngSize: { width: 1350, height: 2760 },
-  screenBorderRadius: 23,
+  screenBorderRadius: 240,
 };
 
 const IPHONE_16: KoubouDeviceFamily = {
@@ -102,9 +102,9 @@ const IPHONE_16: KoubouDeviceFamily = {
   screenResolution: { width: 1179, height: 2556 },
   appStoreSize: 'iPhone6_1',
   previewFrameId: '',
-  screenOffset: { x: 90, y: 90 },
+  screenRect: { x: 90, y: 90, width: 1179, height: 2556 },
   framePngSize: { width: 1359, height: 2736 },
-  screenBorderRadius: 6,
+  screenBorderRadius: 204,
 };
 
 const IPHONE_15_PRO_MAX: KoubouDeviceFamily = {
@@ -128,9 +128,9 @@ const IPHONE_15_PRO_MAX: KoubouDeviceFamily = {
   screenResolution: { width: 1320, height: 2868 },
   appStoreSize: 'iPhone6_9',
   previewFrameId: '',
-  screenOffset: { x: 120, y: 120 },
+  screenRect: { x: 120, y: 120, width: 1290, height: 2796 },
   framePngSize: { width: 1530, height: 3036 },
-  screenBorderRadius: 12,
+  screenBorderRadius: 213,
 };
 
 const IPHONE_15_PRO: KoubouDeviceFamily = {
@@ -154,9 +154,9 @@ const IPHONE_15_PRO: KoubouDeviceFamily = {
   screenResolution: { width: 1290, height: 2796 },
   appStoreSize: 'iPhone6_7',
   previewFrameId: '',
-  screenOffset: { x: 120, y: 120 },
+  screenRect: { x: 120, y: 120, width: 1179, height: 2556 },
   framePngSize: { width: 1419, height: 2796 },
-  screenBorderRadius: 12,
+  screenBorderRadius: 204,
 };
 
 const IPHONE_15: KoubouDeviceFamily = {
@@ -182,9 +182,9 @@ const IPHONE_15: KoubouDeviceFamily = {
   screenResolution: { width: 1179, height: 2556 },
   appStoreSize: 'iPhone6_1',
   previewFrameId: '',
-  screenOffset: { x: 120, y: 120 },
+  screenRect: { x: 120, y: 120, width: 1179, height: 2556 },
   framePngSize: { width: 1419, height: 2796 },
-  screenBorderRadius: 6,
+  screenBorderRadius: 204,
 };
 
 const IPHONE_14_PRO_MAX: KoubouDeviceFamily = {
@@ -202,9 +202,9 @@ const IPHONE_14_PRO_MAX: KoubouDeviceFamily = {
   screenResolution: { width: 1320, height: 2868 },
   appStoreSize: 'iPhone6_9',
   previewFrameId: '',
-  screenOffset: { x: 80, y: 70 },
+  screenRect: { x: 80, y: 70, width: 1290, height: 2796 },
   framePngSize: { width: 1450, height: 2936 },
-  screenBorderRadius: 7,
+  screenBorderRadius: 213,
 };
 
 const IPHONE_14_PRO: KoubouDeviceFamily = {
@@ -222,9 +222,9 @@ const IPHONE_14_PRO: KoubouDeviceFamily = {
   screenResolution: { width: 1290, height: 2796 },
   appStoreSize: 'iPhone6_7',
   previewFrameId: '',
-  screenOffset: { x: 80, y: 80 },
+  screenRect: { x: 80, y: 80, width: 1179, height: 2556 },
   framePngSize: { width: 1339, height: 2716 },
-  screenBorderRadius: 7,
+  screenBorderRadius: 204,
 };
 
 const IPHONE_12_13_PRO_MAX: KoubouDeviceFamily = {
@@ -242,9 +242,9 @@ const IPHONE_12_13_PRO_MAX: KoubouDeviceFamily = {
   screenResolution: { width: 1284, height: 2778 },
   appStoreSize: 'iPhone6_5',
   previewFrameId: '',
-  screenOffset: { x: 108, y: 212 },
+  screenRect: { x: 108, y: 199, width: 1284, height: 2690 },
   framePngSize: { width: 1500, height: 3000 },
-  screenBorderRadius: 0,
+  screenBorderRadius: 105,
 };
 
 const IPHONE_12_13_PRO: KoubouDeviceFamily = {
@@ -262,9 +262,9 @@ const IPHONE_12_13_PRO: KoubouDeviceFamily = {
   screenResolution: { width: 1170, height: 2532 },
   appStoreSize: 'iPhone6_1',
   previewFrameId: '',
-  screenOffset: { x: 115, y: 185 },
+  screenRect: { x: 115, y: 182, width: 1170, height: 2434 },
   framePngSize: { width: 1400, height: 2700 },
-  screenBorderRadius: 0,
+  screenBorderRadius: 77,
 };
 
 const IPHONE_12_13_MINI: KoubouDeviceFamily = {
@@ -282,9 +282,9 @@ const IPHONE_12_13_MINI: KoubouDeviceFamily = {
   screenResolution: { width: 1080, height: 2340 },
   appStoreSize: 'iPhone5_5',
   previewFrameId: '',
-  screenOffset: { x: 80, y: 188 },
+  screenRect: { x: 80, y: 188, width: 1080, height: 2232 },
   framePngSize: { width: 1240, height: 2500 },
-  screenBorderRadius: 0,
+  screenBorderRadius: 52,
 };
 
 const IPHONE_11_PRO_MAX: KoubouDeviceFamily = {
@@ -302,9 +302,9 @@ const IPHONE_11_PRO_MAX: KoubouDeviceFamily = {
   screenResolution: { width: 1242, height: 2688 },
   appStoreSize: 'iPhone6_5',
   previewFrameId: '',
-  screenOffset: { x: 179, y: 246 },
+  screenRect: { x: 180, y: 246, width: 1240, height: 2596 },
   framePngSize: { width: 1600, height: 3000 },
-  screenBorderRadius: 0,
+  screenBorderRadius: 31,
 };
 
 const IPHONE_11_PRO: KoubouDeviceFamily = {
@@ -319,9 +319,9 @@ const IPHONE_11_PRO: KoubouDeviceFamily = {
   screenResolution: { width: 1125, height: 2436 },
   appStoreSize: 'iPhone6_1',
   previewFrameId: '',
-  screenOffset: { x: 238, y: 272 },
+  screenRect: { x: 238, y: 272, width: 1124, height: 2344 },
   framePngSize: { width: 1600, height: 2800 },
-  screenBorderRadius: 0,
+  screenBorderRadius: 41,
 };
 
 const IPHONE_11: KoubouDeviceFamily = {
@@ -339,9 +339,9 @@ const IPHONE_11: KoubouDeviceFamily = {
   screenResolution: { width: 828, height: 1792 },
   appStoreSize: 'iPhone6_1',
   previewFrameId: '',
-  screenOffset: { x: 86, y: 171 },
+  screenRect: { x: 86, y: 171, width: 827, height: 1724 },
   framePngSize: { width: 1000, height: 2000 },
-  screenBorderRadius: 0,
+  screenBorderRadius: 28,
 };
 
 const IPHONE_SE_8: KoubouDeviceFamily = {
@@ -356,9 +356,8 @@ const IPHONE_SE_8: KoubouDeviceFamily = {
   screenResolution: { width: 750, height: 1334 },
   appStoreSize: 'iPhone5_5',
   previewFrameId: '',
-  screenOffset: { x: 127, y: 335 },
+  screenRect: { x: 127, y: 335, width: 747, height: 1330 },
   framePngSize: { width: 1000, height: 2000 },
-  screenBorderRadius: 0,
 };
 
 // --- iPad families ---
@@ -380,6 +379,9 @@ const IPAD_PRO_13_M4: KoubouDeviceFamily = {
   screenResolution: { width: 2064, height: 2752 },
   appStoreSize: 'iPadPro13',
   previewFrameId: 'ipad-pro-13',
+  screenRect: { x: 118, y: 124, width: 2064, height: 2752 },
+  framePngSize: { width: 2300, height: 3000 },
+  screenBorderRadius: 64,
 };
 
 const IPAD_PRO_11_M4: KoubouDeviceFamily = {
@@ -399,6 +401,9 @@ const IPAD_PRO_11_M4: KoubouDeviceFamily = {
   screenResolution: { width: 1668, height: 2388 },
   appStoreSize: 'iPadPro11',
   previewFrameId: 'ipad-pro-11',
+  screenRect: { x: 106, y: 110, width: 1668, height: 2420 },
+  framePngSize: { width: 1880, height: 2640 },
+  screenBorderRadius: 66,
 };
 
 const IPAD_PRO_2018_2021_12_9: KoubouDeviceFamily = {
@@ -416,6 +421,9 @@ const IPAD_PRO_2018_2021_12_9: KoubouDeviceFamily = {
   screenResolution: { width: 2048, height: 2732 },
   appStoreSize: 'iPadPro12_9',
   previewFrameId: 'ipad-pro-13',
+  screenRect: { x: 120, y: 120, width: 2048, height: 2732 },
+  framePngSize: { width: 2288, height: 2973 },
+  screenBorderRadius: 38,
 };
 
 const IPAD_PRO_2018_2021_11: KoubouDeviceFamily = {
@@ -433,6 +441,9 @@ const IPAD_PRO_2018_2021_11: KoubouDeviceFamily = {
   screenResolution: { width: 1668, height: 2388 },
   appStoreSize: 'iPadPro11',
   previewFrameId: 'ipad-pro-11',
+  screenRect: { x: 120, y: 120, width: 1668, height: 2388 },
+  framePngSize: { width: 1909, height: 2630 },
+  screenBorderRadius: 38,
 };
 
 const IPAD_AIR_13_M2: KoubouDeviceFamily = {
@@ -456,6 +467,9 @@ const IPAD_AIR_13_M2: KoubouDeviceFamily = {
   screenResolution: { width: 2048, height: 2732 },
   appStoreSize: 'iPadPro12_9',
   previewFrameId: 'ipad-pro-13',
+  screenRect: { x: 126, y: 124, width: 2048, height: 2732 },
+  framePngSize: { width: 2300, height: 2980 },
+  screenBorderRadius: 36,
 };
 
 const IPAD_AIR_11_M2: KoubouDeviceFamily = {
@@ -479,6 +493,9 @@ const IPAD_AIR_11_M2: KoubouDeviceFamily = {
   screenResolution: { width: 1668, height: 2388 },
   appStoreSize: 'iPadPro11',
   previewFrameId: 'ipad-pro-11',
+  screenRect: { x: 130, y: 130, width: 1640, height: 2360 },
+  framePngSize: { width: 1900, height: 2620 },
+  screenBorderRadius: 40,
 };
 
 const IPAD_AIR_2020: KoubouDeviceFamily = {
@@ -496,6 +513,9 @@ const IPAD_AIR_2020: KoubouDeviceFamily = {
   screenResolution: { width: 1640, height: 2360 },
   appStoreSize: 'iPadPro11',
   previewFrameId: 'ipad-pro-11',
+  screenRect: { x: 141, y: 140, width: 1640, height: 2360 },
+  framePngSize: { width: 1921, height: 2640 },
+  screenBorderRadius: 37,
 };
 
 const IPAD_2021: KoubouDeviceFamily = {
@@ -513,6 +533,8 @@ const IPAD_2021: KoubouDeviceFamily = {
   screenResolution: { width: 1620, height: 2160 },
   appStoreSize: 'iPadPro11',
   previewFrameId: 'generic-tablet',
+  screenRect: { x: 110, y: 250, width: 1620, height: 2160 },
+  framePngSize: { width: 1840, height: 2660 },
 };
 
 const IPAD_SILVER: KoubouDeviceFamily = {
@@ -530,6 +552,8 @@ const IPAD_SILVER: KoubouDeviceFamily = {
   screenResolution: { width: 1620, height: 2160 },
   appStoreSize: 'iPadPro11',
   previewFrameId: 'generic-tablet',
+  screenRect: { x: 110, y: 250, width: 1620, height: 2160 },
+  framePngSize: { width: 1840, height: 2660 },
 };
 
 const IPAD_MINI_STARLIGHT: KoubouDeviceFamily = {
@@ -547,6 +571,9 @@ const IPAD_MINI_STARLIGHT: KoubouDeviceFamily = {
   screenResolution: { width: 1488, height: 2266 },
   appStoreSize: 'iPadPro11',
   previewFrameId: 'generic-tablet',
+  screenRect: { x: 146, y: 142, width: 1488, height: 2266 },
+  framePngSize: { width: 1780, height: 2550 },
+  screenBorderRadius: 47,
 };
 
 const IPAD_MINI_2021: KoubouDeviceFamily = {
@@ -564,6 +591,9 @@ const IPAD_MINI_2021: KoubouDeviceFamily = {
   screenResolution: { width: 1488, height: 2266 },
   appStoreSize: 'iPadPro11',
   previewFrameId: 'generic-tablet',
+  screenRect: { x: 146, y: 142, width: 1488, height: 2266 },
+  framePngSize: { width: 1780, height: 2550 },
+  screenBorderRadius: 47,
 };
 
 // --- Mac families ---
@@ -580,7 +610,7 @@ const MACBOOK_AIR_2020: KoubouDeviceFamily = {
   screenResolution: { width: 2560, height: 1600 },
   appStoreSize: 'MacBookAir',
   previewFrameId: '',
-  screenOffset: { x: 620, y: 652 },
+  screenRect: { x: 620, y: 652, width: 2560, height: 1600 },
   framePngSize: { width: 3800, height: 3000 },
 };
 
@@ -596,7 +626,7 @@ const MACBOOK_AIR_2022: KoubouDeviceFamily = {
   screenResolution: { width: 2560, height: 1664 },
   appStoreSize: 'MacBookAir',
   previewFrameId: '',
-  screenOffset: { x: 330, y: 218 },
+  screenRect: { x: 330, y: 274, width: 2560, height: 1608 },
   framePngSize: { width: 3220, height: 2100 },
 };
 
@@ -612,7 +642,7 @@ const MACBOOK_PRO_2021_14: KoubouDeviceFamily = {
   screenResolution: { width: 3024, height: 1964 },
   appStoreSize: 'MacBookPro14',
   previewFrameId: '',
-  screenOffset: { x: 460, y: 300 },
+  screenRect: { x: 461, y: 365, width: 3022, height: 1898 },
   framePngSize: { width: 3944, height: 2564 },
 };
 
@@ -628,7 +658,7 @@ const MACBOOK_PRO_2021_16: KoubouDeviceFamily = {
   screenResolution: { width: 3456, height: 2234 },
   appStoreSize: 'MacBookPro16',
   previewFrameId: '',
-  screenOffset: { x: 442, y: 313 },
+  screenRect: { x: 443, y: 378, width: 3454, height: 2168 },
   framePngSize: { width: 4340, height: 2860 },
 };
 
@@ -644,7 +674,7 @@ const IMAC_2021: KoubouDeviceFamily = {
   screenResolution: { width: 4480, height: 2520 },
   appStoreSize: 'iMac24',
   previewFrameId: '',
-  screenOffset: { x: 141, y: 161 },
+  screenRect: { x: 141, y: 161, width: 4480, height: 2520 },
   framePngSize: { width: 4760, height: 4040 },
 };
 
@@ -660,7 +690,7 @@ const IMAC_24_SILVER: KoubouDeviceFamily = {
   screenResolution: { width: 4480, height: 2520 },
   appStoreSize: 'iMac24',
   previewFrameId: '',
-  screenOffset: { x: 141, y: 161 },
+  screenRect: { x: 140, y: 160, width: 4480, height: 2520 },
   framePngSize: { width: 4760, height: 4040 },
 };
 
@@ -678,7 +708,7 @@ const WATCH_ULTRA: KoubouDeviceFamily = {
   screenResolution: { width: 410, height: 502 },
   appStoreSize: 'WatchUltra',
   previewFrameId: '',
-  screenOffset: { x: 95, y: 219 },
+  screenRect: { x: 95, y: 219, width: 410, height: 502 },
   framePngSize: { width: 600, height: 940 },
   screenBorderRadius: 146,
 };
@@ -696,7 +726,7 @@ const WATCH_SERIES_7_45: KoubouDeviceFamily = {
   screenResolution: { width: 396, height: 484 },
   appStoreSize: 'WatchS7_45',
   previewFrameId: '',
-  screenOffset: { x: 72, y: 188 },
+  screenRect: { x: 73, y: 197, width: 394, height: 474 },
   framePngSize: { width: 540, height: 860 },
   screenBorderRadius: 136,
 };
@@ -713,7 +743,7 @@ const WATCH_SERIES_4_44: KoubouDeviceFamily = {
   screenResolution: { width: 368, height: 448 },
   appStoreSize: 'WatchS4_44',
   previewFrameId: '',
-  screenOffset: { x: 66, y: 222 },
+  screenRect: { x: 66, y: 222, width: 368, height: 447 },
   framePngSize: { width: 512, height: 890 },
   screenBorderRadius: 85,
 };
@@ -730,7 +760,7 @@ const WATCH_SERIES_4_40: KoubouDeviceFamily = {
   screenResolution: { width: 324, height: 394 },
   appStoreSize: 'WatchS4_40',
   previewFrameId: '',
-  screenOffset: { x: 114, y: 308 },
+  screenRect: { x: 114, y: 308, width: 324, height: 394 },
   framePngSize: { width: 570, height: 1000 },
   screenBorderRadius: 63,
 };

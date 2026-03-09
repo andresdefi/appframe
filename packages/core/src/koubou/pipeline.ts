@@ -9,7 +9,7 @@ import { detectKoubou } from './detector.js';
 import { translateConfig, translateConfigWithLocale, translateConfigWithLocalization, mapSizeToKoubou } from './translator.js';
 import { KOUBOU_DIMENSIONS } from './types.js';
 import type { KoubouConfig } from './types.js';
-import type { AppframeConfig, TemplateStyle, LayoutVariant, TextGradient, SpotlightConfig, Annotation, ZoomCallout } from '../config/schema.js';
+import type { AppframeConfig, TemplateStyle, LayoutVariant, TextGradient, SpotlightConfig, Annotation } from '../config/schema.js';
 import type { GenerateOptions, GenerateResult, RenderResult } from '../renderer/types.js';
 
 const execFileAsync = promisify(execFile);
@@ -362,7 +362,6 @@ export interface KoubouSingleScreenOptions {
   subtitleGradient?: TextGradient;
   spotlight?: SpotlightConfig;
   annotations?: Annotation[];
-  zoomCallouts?: ZoomCallout[];
 }
 
 export async function renderSingleScreenWithKoubou(
@@ -417,7 +416,6 @@ export async function renderSingleScreenWithKoubou(
         autoSizeHeadline: false,
         autoSizeSubtitle: false,
         annotations: options.annotations ?? [],
-        zoomCallouts: options.zoomCallouts ?? [],
         spotlight: options.spotlight,
       }],
       output: {

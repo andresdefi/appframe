@@ -9,7 +9,7 @@ import { getTargetSizes } from './sizes.js';
 import type { GenerateOptions, GenerateResult, RenderResult, ScreenshotSize } from './types.js';
 import type { AppframeConfig, ScreenConfig, TemplateStyle } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
-import { injectSpotlightHTML, injectAnnotationsHTML, injectZoomCalloutsHTML } from '../templates/injectors.js';
+import { injectSpotlightHTML, injectAnnotationsHTML } from '../templates/injectors.js';
 import { resolveLocalizedAsset } from '../koubou/assets.js';
 
 async function screenshotToDataUrl(screenshotPath: string): Promise<string> {
@@ -146,6 +146,13 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
             subtitleGradient: config.theme.subtitleGradient,
             autoSizeHeadline: screen.autoSizeHeadline,
             autoSizeSubtitle: screen.autoSizeSubtitle,
+            headlineLineHeight: config.theme.headlineLineHeight,
+            headlineLetterSpacing: config.theme.headlineLetterSpacing,
+            headlineTextTransform: config.theme.headlineTextTransform,
+            headlineFontStyle: config.theme.headlineFontStyle,
+            subtitleOpacity: config.theme.subtitleOpacity,
+            subtitleLetterSpacing: config.theme.subtitleLetterSpacing,
+            subtitleTextTransform: config.theme.subtitleTextTransform,
           };
 
           // Render template to HTML
@@ -157,9 +164,6 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
           }
           if (screen.annotations && screen.annotations.length > 0) {
             html = injectAnnotationsHTML(html, screen.annotations, size.width);
-          }
-          if (screen.zoomCallouts && screen.zoomCallouts.length > 0) {
-            html = injectZoomCalloutsHTML(html, screen.zoomCallouts, screenshotDataUrl, size.width);
           }
 
           // Generate output path

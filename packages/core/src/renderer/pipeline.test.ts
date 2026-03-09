@@ -69,8 +69,8 @@ describe('generateScreenshots', () => {
   it('respects screen filter', async () => {
     const config = createMinimalConfig({
       screens: [
-        { screenshot: 's1.png', headline: 'S1', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [], zoomCallouts: [] },
-        { screenshot: 's2.png', headline: 'S2', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [], zoomCallouts: [] },
+        { screenshot: 's1.png', headline: 'S1', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] },
+        { screenshot: 's2.png', headline: 'S2', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] },
       ],
     });
     mockLoadConfig.mockResolvedValue(config);
@@ -150,11 +150,6 @@ describe('generateScreenshots', () => {
         autoSizeHeadline: false, autoSizeSubtitle: false,
         spotlight: { x: 50, y: 50, w: 30, h: 30, shape: 'rectangle' as const, dimOpacity: 0.6, blur: 0 },
         annotations: [{ id: 'a1', shape: 'circle' as const, x: 10, y: 10, w: 20, h: 20, strokeColor: '#F00', strokeWidth: 3 }],
-        zoomCallouts: [{
-          id: 'z1', sourceX: 20, sourceY: 30, sourceW: 20, sourceH: 20,
-          targetX: 60, targetY: 10, magnification: 2, connectorStyle: 'line' as const,
-          borderColor: '#FFF', borderWidth: 3, shadow: true,
-        }],
       }],
     });
     mockLoadConfig.mockResolvedValue(config);

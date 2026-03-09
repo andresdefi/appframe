@@ -23,21 +23,6 @@ export interface AnnotationParams {
   fillColor?: string;
 }
 
-export interface ZoomCalloutParams {
-  id: string;
-  sourceX: number;
-  sourceY: number;
-  sourceW: number;
-  sourceH: number;
-  targetX: number;
-  targetY: number;
-  magnification: number;
-  connectorStyle: string;
-  borderColor: string;
-  borderWidth: number;
-  shadow: boolean;
-}
-
 export function injectSpotlightHTML(html: string, spotlight: SpotlightParams): string {
   const { x, y, w, h, shape, dimOpacity, blur } = spotlight;
 
@@ -101,88 +86,6 @@ export function injectAnnotationsHTML(html: string, annotations: AnnotationParam
   }).join('\n');
 
   const overlay = `<div class="annotation-overlay">${shapes}</div>`;
-
-  html = html.replace('</head>', `${style}\n</head>`);
-  html = html.replace('</body>', `${overlay}\n</body>`);
-  return html;
-}
-
-export function injectZoomCalloutsHTML(
-  html: string,
-  callouts: ZoomCalloutParams[],
-  screenshotDataUrl: string,
-  canvasWidth: number,
-): string {
-  if (callouts.length === 0) return html;
-
-  const scale = canvasWidth / 1290;
-
-  const style = `<style>
-.zoom-overlay { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
-.zoom-source { position: absolute; box-sizing: border-box; border: 2px dashed rgba(255,255,255,0.6); }
-.zoom-target { position: absolute; overflow: hidden; border-radius: ${Math.round(8 * scale)}px; }
-.zoom-target-inner { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; }
-.zoom-connector { position: absolute; inset: 0; }
-.zoom-connector line { stroke-width: ${Math.max(1, Math.round(1.5 * scale))}; }
-</style>`;
-
-  const elements = callouts.map((c) => {
-    const bw = Math.round(c.borderWidth * scale);
-    const shadowCss = c.shadow ? `box-shadow: 0 ${Math.round(4 * scale)}px ${Math.round(16 * scale)}px rgba(0,0,0,0.4);` : '';
-
-    // Source region indicator
-    const source = `<div class="zoom-source" style="
-      left: ${c.sourceX}%; top: ${c.sourceY}%;
-      width: ${c.sourceW}%; height: ${c.sourceH}%;
-    "></div>`;
-
-    // Magnified view: use background-position/size to show source region magnified
-    const mag = c.magnification;
-    // Background size = 100% * mag (to magnify)
-    const bgSizeW = mag * 100;
-    const bgSizeH = mag * 100;
-    // Background position: offset to center the source region
-    // sourceX% of canvas maps to sourceX% of the target inner's bg-position, but magnified
-    const bgPosX = -(c.sourceX * mag - 50);
-    const bgPosY = -(c.sourceY * mag - 50);
-
-    // Target size = source size * magnification (clamped to reasonable max)
-    const targetW = c.sourceW * mag;
-    const targetH = c.sourceH * mag;
-
-    const target = `<div class="zoom-target" style="
-      left: ${c.targetX}%; top: ${c.targetY}%;
-      width: ${targetW}%; height: ${targetH}%;
-      border: ${bw}px solid ${c.borderColor};
-      ${shadowCss}
-    "><div class="zoom-target-inner" style="
-      background-image: url('${screenshotDataUrl}');
-      background-size: ${bgSizeW}% ${bgSizeH}%;
-      background-position: ${bgPosX}% ${bgPosY}%;
-    "></div></div>`;
-
-    // Connector line (SVG)
-    const srcCX = c.sourceX + c.sourceW / 2;
-    const srcCY = c.sourceY + c.sourceH / 2;
-    const tgtCX = c.targetX + targetW / 2;
-    const tgtCY = c.targetY + targetH / 2;
-
-    let connector = '';
-    if (c.connectorStyle === 'line') {
-      connector = `<svg class="zoom-connector" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-        <line x1="${srcCX}" y1="${srcCY}" x2="${tgtCX}" y2="${tgtCY}" stroke="${c.borderColor}" stroke-opacity="0.6"/>
-      </svg>`;
-    } else if (c.connectorStyle === 'elbow') {
-      const midX = tgtCX;
-      connector = `<svg class="zoom-connector" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-        <polyline points="${srcCX},${srcCY} ${midX},${srcCY} ${midX},${tgtCY}" fill="none" stroke="${c.borderColor}" stroke-opacity="0.6" stroke-width="${Math.max(1, Math.round(1.5 * scale))}"/>
-      </svg>`;
-    }
-
-    return source + target + connector;
-  }).join('\n');
-
-  const overlay = `<div class="zoom-overlay">${elements}</div>`;
 
   html = html.replace('</head>', `${style}\n</head>`);
   html = html.replace('</body>', `${overlay}\n</body>`);

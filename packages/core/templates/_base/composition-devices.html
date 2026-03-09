@@ -32,6 +32,7 @@
                  top: {{ (dev.frame.screenArea.y * slotDw / dev.frame.frameSize.width) | round }}px;
                  width: {{ (dev.frame.screenArea.width * slotDw / dev.frame.frameSize.width) | round }}px;
                  height: {{ (dev.frame.screenArea.height * slotDw / dev.frame.frameSize.width) | round }}px;
+                 border-radius: {{ (dev.frame.screenArea.borderRadius * slotDw / dev.frame.frameSize.width) | round }}px;
                  z-index: 1;">
           <img src="{{ dev.screenshotDataUrl }}">
         </div>

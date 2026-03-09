@@ -1,0 +1,52 @@
+{# Badge/icon overlays — images, shapes, or built-in icons positioned on canvas #}
+{% for overlay in overlays %}
+{% set ovX = (canvasWidth * overlay.x / 100) | round %}
+{% set ovY = (canvasHeight * overlay.y / 100) | round %}
+{% set ovSize = (canvasWidth * overlay.size / 100) | round %}
+<div style="
+  position: absolute;
+  z-index: 10;
+  left: {{ ovX }}px;
+  top: {{ ovY }}px;
+  width: {{ ovSize }}px;
+  height: {{ ovSize }}px;
+  transform: rotate({{ overlay.rotation }}deg);
+  opacity: {{ overlay.opacity }};
+">
+  {% if overlay.type == 'shape' %}
+    {% if overlay.shapeType == 'circle' %}
+    <div style="
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: {{ overlay.shapeColor | default('#6366f1') }};
+      opacity: {{ overlay.shapeOpacity | default(0.5) }};
+      {% if overlay.shapeBlur %}filter: blur({{ overlay.shapeBlur }}px);{% endif %}
+    "></div>
+    {% elif overlay.shapeType == 'rectangle' %}
+    <div style="
+      width: 100%; height: 100%;
+      border-radius: 8px;
+      background: {{ overlay.shapeColor | default('#6366f1') }};
+      opacity: {{ overlay.shapeOpacity | default(0.5) }};
+      {% if overlay.shapeBlur %}filter: blur({{ overlay.shapeBlur }}px);{% endif %}
+    "></div>
+    {% elif overlay.shapeType == 'line' %}
+    <div style="
+      width: 100%; height: 4px;
+      margin-top: {{ (ovSize / 2 - 2) | round }}px;
+      background: {{ overlay.shapeColor | default('#6366f1') }};
+      opacity: {{ overlay.shapeOpacity | default(0.5) }};
+      border-radius: 2px;
+    "></div>
+    {% endif %}
+  {% elif overlay.type == 'star-rating' %}
+    <svg viewBox="0 0 120 24" fill="{{ overlay.shapeColor | default('#f59e0b') }}" style="width: 100%; height: auto;">
+      {% for i in range(5) %}
+      <polygon points="{{ i * 24 + 12 }},2 {{ i * 24 + 15 }},9 {{ i * 24 + 22 }},9 {{ i * 24 + 16 }},14 {{ i * 24 + 18 }},22 {{ i * 24 + 12 }},17 {{ i * 24 + 6 }},22 {{ i * 24 + 8 }},14 {{ i * 24 + 2 }},9 {{ i * 24 + 9 }},9"/>
+      {% endfor %}
+    </svg>
+  {% elif overlay.imageDataUrl %}
+    <img src="{{ overlay.imageDataUrl }}" style="width: 100%; height: 100%; object-fit: contain;">
+  {% endif %}
+</div>
+{% endfor %}

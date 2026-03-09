@@ -19,7 +19,6 @@ import {
   getKoubouFramePath,
   injectSpotlightHTML,
   injectAnnotationsHTML,
-  injectZoomCalloutsHTML,
   detectKoubou,
   renderSingleScreenWithKoubou,
 } from '@appframe/core';
@@ -44,9 +43,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
 
-  // Serve static frontend (no-cache for development)
+  // Serve React build (client-dist/) if available, fall back to legacy (public/)
+  const clientDistDir = join(__dirname, '..', 'client-dist');
   const publicDir = join(__dirname, '..', 'public');
-  app.use(express.static(publicDir, { etag: false, lastModified: false }));
+  app.use(express.static(clientDistDir, { etag: false, lastModified: false }));
+  // Legacy UI accessible at /legacy/ during migration
+  app.use('/legacy', express.static(publicDir, { etag: false, lastModified: false }));
   app.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
   // API: Get current config
@@ -206,9 +208,29 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     autoSizeSubtitle?: boolean;
     spotlight?: { x: number; y: number; w: number; h: number; shape: 'circle' | 'rectangle'; dimOpacity: number; blur: number };
     annotations?: Array<{ id: string; shape: string; x: number; y: number; w: number; h: number; strokeColor: string; strokeWidth: number; fillColor?: string }>;
-    zoomCallouts?: Array<{ id: string; sourceX: number; sourceY: number; sourceW: number; sourceH: number; targetX: number; targetY: number; magnification: number; connectorStyle: string; borderColor: string; borderWidth: number; shadow: boolean }>;
+    headlineLineHeight?: number;
+    headlineLetterSpacing?: string;
+    headlineTextTransform?: string;
+    headlineFontStyle?: string;
+    subtitleOpacity?: number;
+    subtitleLetterSpacing?: string;
+    subtitleTextTransform?: string;
     renderer?: 'playwright' | 'koubou';
     koubouColor?: string;
+    // Background overrides
+    backgroundType?: 'preset' | 'solid' | 'gradient' | 'image';
+    backgroundColor?: string;
+    backgroundGradient?: { type: 'linear' | 'radial'; colors: string[]; direction: number; radialPosition?: 'center' | 'top' | 'bottom' | 'left' | 'right' };
+    backgroundImageDataUrl?: string;
+    backgroundOverlay?: { color: string; opacity: number };
+    // Device enhancements
+    deviceShadow?: { opacity: number; blur: number; color: string; offsetY: number };
+    borderSimulation?: { enabled: boolean; thickness: number; color: string; radius: number };
+    cornerRadius?: number;
+    // Effects
+    loupe?: { sourceX: number; sourceY: number; displayX: number; displayY: number; size: number; zoom: number; borderWidth: number; borderColor: string };
+    callouts?: Array<{ id: string; sourceX: number; sourceY: number; sourceW: number; sourceH: number; displayX: number; displayY: number; displayScale: number; rotation: number; borderRadius: number; shadow: boolean; borderWidth: number; borderColor?: string }>;
+    overlays?: Array<{ id: string; type: 'icon' | 'badge' | 'star-rating' | 'custom' | 'shape'; imageDataUrl?: string; x: number; y: number; size: number; rotation: number; opacity: number; shapeType?: 'circle' | 'rectangle' | 'line'; shapeColor?: string; shapeOpacity?: number; shapeBlur?: number }>;
   }
 
   function parseBody(body: Record<string, unknown>, defaultWidth = 400, defaultHeight = 868): PreviewParams {
@@ -253,9 +275,29 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       autoSizeSubtitle: body.autoSizeSubtitle as boolean | undefined,
       spotlight: body.spotlight as PreviewParams['spotlight'] | undefined,
       annotations: body.annotations as PreviewParams['annotations'] | undefined,
-      zoomCallouts: body.zoomCallouts as PreviewParams['zoomCallouts'] | undefined,
+      headlineLineHeight: body.headlineLineHeight as number | undefined,
+      headlineLetterSpacing: body.headlineLetterSpacing as string | undefined,
+      headlineTextTransform: body.headlineTextTransform as string | undefined,
+      headlineFontStyle: body.headlineFontStyle as string | undefined,
+      subtitleOpacity: body.subtitleOpacity as number | undefined,
+      subtitleLetterSpacing: body.subtitleLetterSpacing as string | undefined,
+      subtitleTextTransform: body.subtitleTextTransform as string | undefined,
       renderer: body.renderer as 'playwright' | 'koubou' | undefined,
       koubouColor: body.koubouColor as string | undefined,
+      // Background overrides
+      backgroundType: body.backgroundType as PreviewParams['backgroundType'],
+      backgroundColor: body.backgroundColor as string | undefined,
+      backgroundGradient: body.backgroundGradient as PreviewParams['backgroundGradient'],
+      backgroundImageDataUrl: body.backgroundImageDataUrl as string | undefined,
+      backgroundOverlay: body.backgroundOverlay as PreviewParams['backgroundOverlay'],
+      // Device enhancements
+      deviceShadow: body.deviceShadow as PreviewParams['deviceShadow'],
+      borderSimulation: body.borderSimulation as PreviewParams['borderSimulation'],
+      cornerRadius: body.cornerRadius as number | undefined,
+      // Effects
+      loupe: body.loupe as PreviewParams['loupe'],
+      callouts: body.callouts as PreviewParams['callouts'],
+      overlays: body.overlays as PreviewParams['overlays'],
     };
   }
 
@@ -282,16 +324,13 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     // Prefer Koubou PNG frame when available (higher quality than SVG)
     if (p.frameId) {
       const koubouFamily = getKoubouDeviceFamily(p.frameId);
-      if (koubouFamily?.screenOffset && koubouFamily.framePngSize) {
+      if (koubouFamily?.screenRect && koubouFamily.framePngSize) {
         const koubouColor = p.koubouColor ?? config.frames.koubouColor;
         const koubouId = getKoubouDeviceId(koubouFamily.id, koubouColor || undefined);
         const pngExists = koubouId ? await getKoubouFramePath(koubouId) : null;
         if (pngExists) {
           const pngBuffer = await readFile(pngExists);
           framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-          const screenWidth = koubouFamily.framePngSize.width - 2 * koubouFamily.screenOffset.x;
-          const aspectRatio = koubouFamily.screenResolution.height / koubouFamily.screenResolution.width;
-          const screenHeight = Math.round(screenWidth * aspectRatio);
           frame = {
             id: koubouFamily.id,
             name: koubouFamily.name,
@@ -300,10 +339,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
             platform: 'ios' as const,
             framePath: '',
             screenArea: {
-              x: koubouFamily.screenOffset.x,
-              y: koubouFamily.screenOffset.y,
-              width: screenWidth,
-              height: screenHeight,
+              x: koubouFamily.screenRect.x,
+              y: koubouFamily.screenRect.y,
+              width: koubouFamily.screenRect.width,
+              height: koubouFamily.screenRect.height,
               borderRadius: koubouFamily.screenBorderRadius ?? 0,
             },
             frameSize: {
@@ -352,7 +391,29 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       autoSizeSubtitle: p.autoSizeSubtitle,
       spotlight: p.spotlight,
       annotations: p.annotations,
-      zoomCallouts: p.zoomCallouts,
+      headlineLineHeight: p.headlineLineHeight ?? config.theme.headlineLineHeight,
+      headlineLetterSpacing: p.headlineLetterSpacing ?? config.theme.headlineLetterSpacing,
+      headlineTextTransform: p.headlineTextTransform ?? config.theme.headlineTextTransform,
+      headlineFontStyle: p.headlineFontStyle ?? config.theme.headlineFontStyle,
+      subtitleOpacity: p.subtitleOpacity ?? config.theme.subtitleOpacity,
+      subtitleLetterSpacing: p.subtitleLetterSpacing ?? config.theme.subtitleLetterSpacing,
+      subtitleTextTransform: p.subtitleTextTransform ?? config.theme.subtitleTextTransform,
+      // Background overrides
+      backgroundType: p.backgroundType ?? config.theme.backgroundType,
+      backgroundColor: p.backgroundColor ?? config.theme.backgroundColor,
+      backgroundGradient: p.backgroundGradient
+        ? { ...p.backgroundGradient, radialPosition: p.backgroundGradient.radialPosition ?? 'center' }
+        : config.theme.backgroundGradient,
+      backgroundImageDataUrl: p.backgroundImageDataUrl,
+      backgroundOverlay: p.backgroundOverlay ?? config.theme.backgroundOverlay,
+      // Device enhancements
+      deviceShadow: p.deviceShadow,
+      borderSimulation: p.borderSimulation,
+      cornerRadius: p.cornerRadius,
+      // Effects
+      loupe: p.loupe,
+      callouts: p.callouts,
+      overlays: p.overlays,
     };
 
     // Apply composition preset
@@ -396,14 +457,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
               slotFramePngUrl = undefined;
             } else {
               const extraKoubou = getKoubouDeviceFamily(extra.frameId);
-              if (extraKoubou?.screenOffset && extraKoubou.framePngSize) {
+              if (extraKoubou?.screenRect && extraKoubou.framePngSize) {
                 const extraKoubouId = getKoubouDeviceId(extraKoubou.id);
                 const extraPngExists = extraKoubouId ? await getKoubouFramePath(extraKoubouId) : null;
                 if (extraPngExists) {
                   const extraPngBuffer = await readFile(extraPngExists);
                   slotFramePngUrl = `data:image/png;base64,${extraPngBuffer.toString('base64')}`;
-                  const sw = extraKoubou.framePngSize.width - 2 * extraKoubou.screenOffset.x;
-                  const ar = extraKoubou.screenResolution.height / extraKoubou.screenResolution.width;
                   slotFrame = {
                     id: extraKoubou.id,
                     name: extraKoubou.name,
@@ -411,7 +470,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
                     year: extraKoubou.year,
                     platform: 'ios' as const,
                     framePath: '',
-                    screenArea: { x: extraKoubou.screenOffset.x, y: extraKoubou.screenOffset.y, width: sw, height: Math.round(sw * ar), borderRadius: extraKoubou.screenBorderRadius ?? 0 },
+                    screenArea: { x: extraKoubou.screenRect.x, y: extraKoubou.screenRect.y, width: extraKoubou.screenRect.width, height: extraKoubou.screenRect.height, borderRadius: extraKoubou.screenBorderRadius ?? 0 },
                     frameSize: { width: extraKoubou.framePngSize.width, height: extraKoubou.framePngSize.height },
                     screenResolution: extraKoubou.screenResolution,
                     tags: [extraKoubou.category],
@@ -455,7 +514,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       html = injectTextPositionCSS(html, p.headlineTop, p.headlineLeft, p.headlineWidth, p.subtitleTop, p.subtitleLeft, p.subtitleWidth);
       if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
       if (p.annotations && p.annotations.length > 0) html = injectAnnotationsHTML(html, p.annotations, p.width);
-      if (p.zoomCallouts && p.zoomCallouts.length > 0) html = injectZoomCalloutsHTML(html, p.zoomCallouts, context.screenshotDataUrl, p.width);
       res.set('Content-Type', 'text/html');
       res.send(html);
     } catch (err) {
@@ -473,7 +531,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       html = injectTextPositionCSS(html, p.headlineTop, p.headlineLeft, p.headlineWidth, p.subtitleTop, p.subtitleLeft, p.subtitleWidth);
       if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
       if (p.annotations && p.annotations.length > 0) html = injectAnnotationsHTML(html, p.annotations, p.width);
-      if (p.zoomCallouts && p.zoomCallouts.length > 0) html = injectZoomCalloutsHTML(html, p.zoomCallouts, context.screenshotDataUrl, p.width);
 
       const tmpPath = join(configDir, `.appframe-preview-${Date.now()}.png`);
       await renderer.render({
@@ -576,7 +633,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           subtitleGradient: p.subtitleGradient ?? config.theme.subtitleGradient,
           spotlight: p.spotlight,
           annotations: p.annotations as KoubouSingleScreenOptions['annotations'],
-          zoomCallouts: p.zoomCallouts as KoubouSingleScreenOptions['zoomCallouts'],
         });
 
         const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${p.screenIndex + 1}_${sizeKey}_koubou.png`;
@@ -594,7 +650,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         html = injectTextPositionCSS(html, p.headlineTop, p.headlineLeft, p.headlineWidth, p.subtitleTop, p.subtitleLeft, p.subtitleWidth);
         if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
         if (p.annotations && p.annotations.length > 0) html = injectAnnotationsHTML(html, p.annotations, p.width);
-        if (p.zoomCallouts && p.zoomCallouts.length > 0) html = injectZoomCalloutsHTML(html, p.zoomCallouts, context.screenshotDataUrl, p.width);
 
         const tmpPath = join(configDir, `.appframe-export-${Date.now()}.png`);
         await renderer.render({
@@ -629,6 +684,16 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });
     }
+  });
+
+  // SPA fallback: serve React index.html for non-API routes
+  app.use((_req, res) => {
+    res.sendFile(join(clientDistDir, 'index.html'), (err) => {
+      if (err) {
+        // client-dist not built — fall back to legacy
+        res.sendFile(join(publicDir, 'index.html'));
+      }
+    });
   });
 
   app.listen(port, () => {

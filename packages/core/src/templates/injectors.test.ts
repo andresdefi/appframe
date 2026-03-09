@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { injectSpotlightHTML, injectAnnotationsHTML, injectZoomCalloutsHTML } from './injectors.js';
+import { injectSpotlightHTML, injectAnnotationsHTML } from './injectors.js';
 
 const BASE_HTML = '<html><head></head><body><div>content</div></body></html>';
 
@@ -72,61 +72,5 @@ describe('injectAnnotationsHTML', () => {
       { id: 'a3', shape: 'rectangle', x: 10, y: 20, w: 30, h: 30, strokeColor: '#FF0000', strokeWidth: 2, fillColor: '#00FF00' },
     ], 1290);
     expect(result).toContain('#00FF00');
-  });
-});
-
-describe('injectZoomCalloutsHTML', () => {
-  const screenshotUrl = 'data:image/png;base64,abc';
-
-  it('returns unchanged HTML for empty array', () => {
-    const result = injectZoomCalloutsHTML(BASE_HTML, [], screenshotUrl, 1290);
-    expect(result).toBe(BASE_HTML);
-  });
-
-  it('creates source and target divs', () => {
-    const result = injectZoomCalloutsHTML(BASE_HTML, [{
-      id: 'z1',
-      sourceX: 20, sourceY: 30, sourceW: 20, sourceH: 20,
-      targetX: 60, targetY: 10,
-      magnification: 2, connectorStyle: 'line',
-      borderColor: '#FFF', borderWidth: 3, shadow: true,
-    }], screenshotUrl, 1290);
-    expect(result).toContain('zoom-source');
-    expect(result).toContain('zoom-target');
-    expect(result).toContain('zoom-target-inner');
-  });
-
-  it('creates connector line for line style', () => {
-    const result = injectZoomCalloutsHTML(BASE_HTML, [{
-      id: 'z2',
-      sourceX: 20, sourceY: 30, sourceW: 20, sourceH: 20,
-      targetX: 60, targetY: 10,
-      magnification: 2, connectorStyle: 'line',
-      borderColor: '#FFF', borderWidth: 3, shadow: false,
-    }], screenshotUrl, 1290);
-    expect(result).toContain('<line');
-  });
-
-  it('creates polyline for elbow style', () => {
-    const result = injectZoomCalloutsHTML(BASE_HTML, [{
-      id: 'z3',
-      sourceX: 20, sourceY: 30, sourceW: 20, sourceH: 20,
-      targetX: 60, targetY: 10,
-      magnification: 2, connectorStyle: 'elbow',
-      borderColor: '#FFF', borderWidth: 3, shadow: false,
-    }], screenshotUrl, 1290);
-    expect(result).toContain('<polyline');
-  });
-
-  it('creates no connector for none style', () => {
-    const result = injectZoomCalloutsHTML(BASE_HTML, [{
-      id: 'z4',
-      sourceX: 20, sourceY: 30, sourceW: 20, sourceH: 20,
-      targetX: 60, targetY: 10,
-      magnification: 2, connectorStyle: 'none',
-      borderColor: '#FFF', borderWidth: 3, shadow: false,
-    }], screenshotUrl, 1290);
-    expect(result).not.toContain('<line');
-    expect(result).not.toContain('<polyline');
   });
 });

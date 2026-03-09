@@ -371,6 +371,92 @@
       display: flex; justify-content: space-between;
     }
 
+    /* ===== Tab Navigation ===== */
+
+    .sidebar-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+    .sidebar-tab {
+      flex: 1;
+      padding: 10px 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-dim);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      text-align: center;
+    }
+
+    .sidebar-tab:hover {
+      color: var(--text);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .sidebar-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* ===== Background Swatches ===== */
+
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      padding: 0;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.15);
+    }
+
+    .color-swatch.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+    }
+
+    .gradient-swatch {
+      width: 40px;
+      height: 28px;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      padding: 0;
+    }
+
+    .gradient-swatch:hover {
+      transform: scale(1.08);
+    }
+
+    .gradient-swatch.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
     .selected-indicator {
       font-size: 11px;
       color: var(--text-dim);
@@ -487,49 +573,35 @@
       <div class="app-name" id="app-name">Loading...</div>
     </div>
 
-    <div class="section" id="section-platform">
-      <div class="section-title">Platform</div>
-      <select id="platform-select">
-        <option value="iphone" selected>iPhone</option>
-        <option value="ipad">iPad</option>
-        <option value="mac">Mac</option>
-        <option value="watch">Apple Watch</option>
-        <option value="android">Android</option>
-      </select>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Editing Screen</div>
+    <div class="section" style="padding: 10px 20px;">
       <div class="selected-indicator" id="selected-indicator">
         <span class="badge" id="selected-badge">1</span>
         <span id="selected-headline-preview">-</span>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Screenshot</div>
-      <div class="screenshot-info" id="screenshot-info">
-        <img class="screenshot-thumb" id="screenshot-thumb" alt="">
-        <span class="screenshot-name" id="screenshot-name">From config</span>
-      </div>
-      <button class="screenshot-upload-btn" id="btn-upload-screenshot">Upload Screenshot</button>
-      <input type="file" id="screenshot-file-input" accept="image/png,image/jpeg,image/webp" style="display: none;">
-      <button class="btn" id="btn-clear-screenshot" style="width: 100%; padding: 4px 0; font-size: 11px; margin-top: 6px; display: none;">Revert to Config Screenshot</button>
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab active" data-tab="design">Design</button>
+      <button class="sidebar-tab" data-tab="device">Device</button>
+      <button class="sidebar-tab" data-tab="text">Text</button>
+      <button class="sidebar-tab" data-tab="effects">Effects</button>
+      <button class="sidebar-tab" data-tab="export">Export</button>
     </div>
 
-    <div class="section" id="section-text">
-      <div class="section-title">Text</div>
-      <label for="headline">Headline</label>
-      <textarea id="headline" rows="2"></textarea>
-      <label for="subtitle">Subtitle</label>
-      <input type="text" id="subtitle" placeholder="Optional subtitle">
-    </div>
+    <!-- ===== DESIGN TAB ===== -->
+    <div class="tab-content active" data-tab="design">
+      <div class="section" id="section-bg-type">
+        <div class="section-title">Background</div>
+        <div class="inline-row" style="margin-bottom: 10px;">
+          <div><label><input type="radio" name="bg-type" value="solid" style="accent-color: var(--accent); margin-right: 4px;">Solid</label></div>
+          <div><label><input type="radio" name="bg-type" value="gradient" style="accent-color: var(--accent); margin-right: 4px;">Gradient</label></div>
+          <div><label><input type="radio" name="bg-type" value="image" style="accent-color: var(--accent); margin-right: 4px;">Image</label></div>
+          <div><label><input type="radio" name="bg-type" value="preset" checked style="accent-color: var(--accent); margin-right: 4px;">Preset</label></div>
+        </div>
 
-    <div class="section">
-      <div class="section-title">Style</div>
-      <div class="inline-row">
-        <div>
-          <label for="template">Template</label>
+        <!-- Preset controls -->
+        <div id="bg-preset-controls">
+          <label for="template">Style Preset</label>
           <select id="template">
             <option value="minimal">Minimal</option>
             <option value="bold">Bold</option>
@@ -541,277 +613,523 @@
             <option value="fullscreen">Fullscreen Screenshot</option>
           </select>
         </div>
-        <div>
-          <label for="layout">Layout</label>
-          <select id="layout">
-            <option value="center">Center</option>
-            <option value="angled-left">Angled Left</option>
-            <option value="angled-right">Angled Right</option>
-            <option value="floating">Floating</option>
+
+        <!-- Solid color controls -->
+        <div id="bg-solid-controls" style="display: none;">
+          <div class="color-row"><label>Color</label><input type="color" id="bg-solid-color" value="#1a1a2e"></div>
+          <div id="bg-solid-presets" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;"></div>
+        </div>
+
+        <!-- Gradient controls -->
+        <div id="bg-gradient-controls" style="display: none;">
+          <div id="bg-gradient-presets" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;"></div>
+          <div class="inline-row" style="margin-bottom: 6px;">
+            <div><label><input type="radio" name="bg-gradient-type" value="linear" checked style="accent-color: var(--accent); margin-right: 4px;">Linear</label></div>
+            <div><label><input type="radio" name="bg-gradient-type" value="radial" style="accent-color: var(--accent); margin-right: 4px;">Radial</label></div>
+          </div>
+          <label for="bg-gradient-direction">Direction</label>
+          <div class="range-row">
+            <input type="range" id="bg-gradient-direction" min="0" max="360" step="1" value="135">
+            <span class="range-value" id="bg-gradient-direction-value">135°</span>
+          </div>
+          <div id="bg-gradient-radial-pos" style="display: none;">
+            <label for="bg-gradient-radial-position">Center</label>
+            <select id="bg-gradient-radial-position">
+              <option value="center">Center</option>
+              <option value="top">Top</option>
+              <option value="bottom">Bottom</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div id="bg-gradient-stops">
+            <div class="color-row"><label>Stop 1</label><input type="color" class="bg-gradient-stop" value="#6366f1"></div>
+            <div class="color-row"><label>Stop 2</label><input type="color" class="bg-gradient-stop" value="#ec4899"></div>
+          </div>
+          <button class="btn btn-secondary" id="btn-add-gradient-stop" style="width: 100%; font-size: 11px; padding: 4px 0; margin-top: 4px;">+ Add Color Stop</button>
+        </div>
+
+        <!-- Image controls -->
+        <div id="bg-image-controls" style="display: none;">
+          <button class="screenshot-upload-btn" id="btn-upload-bg-image">Upload Background Image</button>
+          <input type="file" id="bg-image-file-input" accept="image/png,image/jpeg,image/webp" style="display: none;">
+          <div id="bg-image-preview" style="display: none; margin-top: 6px;">
+            <img id="bg-image-thumb" style="width: 100%; max-height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border);">
+            <button class="btn" id="btn-clear-bg-image" style="width: 100%; padding: 4px 0; font-size: 11px; margin-top: 4px;">Remove</button>
+          </div>
+          <div id="bg-overlay-controls" style="margin-top: 8px;">
+            <label><input type="checkbox" id="bg-overlay-enable" style="accent-color: var(--accent); margin-right: 4px;">Dim Overlay</label>
+            <div id="bg-overlay-settings" style="display: none; margin-top: 6px;">
+              <div class="color-row"><label>Color</label><input type="color" id="bg-overlay-color" value="#000000"></div>
+              <label for="bg-overlay-opacity">Opacity</label>
+              <div class="range-row">
+                <input type="range" id="bg-overlay-opacity" min="0" max="100" step="1" value="30">
+                <span class="range-value" id="bg-overlay-opacity-value">30%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="section-colors">
+        <div class="section-title">Colors</div>
+        <div class="color-row"><label>Primary</label><input type="color" id="color-primary"></div>
+        <div class="color-row"><label>Secondary</label><input type="color" id="color-secondary"></div>
+        <div class="color-row"><label>Background</label><input type="color" id="color-background"></div>
+        <div class="color-row"><label>Text</label><input type="color" id="color-text"></div>
+        <div class="color-row"><label>Subtitle</label><input type="color" id="color-subtitle"></div>
+      </div>
+    </div>
+
+    <!-- ===== DEVICE TAB ===== -->
+    <div class="tab-content" data-tab="device">
+      <div class="section">
+        <div class="section-title">Screenshot</div>
+        <div class="screenshot-info" id="screenshot-info">
+          <img class="screenshot-thumb" id="screenshot-thumb" alt="">
+          <span class="screenshot-name" id="screenshot-name">From config</span>
+        </div>
+        <button class="screenshot-upload-btn" id="btn-upload-screenshot">Upload Screenshot</button>
+        <input type="file" id="screenshot-file-input" accept="image/png,image/jpeg,image/webp" style="display: none;">
+        <div style="display: flex; gap: 4px; margin-top: 6px;">
+          <button class="btn" id="btn-crop-screenshot" style="flex: 1; padding: 4px 0; font-size: 11px; display: none;">Crop</button>
+          <button class="btn" id="btn-clear-screenshot" style="flex: 1; padding: 4px 0; font-size: 11px; display: none;">Revert</button>
+        </div>
+      </div>
+
+      <div class="section" id="section-device-frame">
+        <div class="section-title">Device Frame</div>
+        <label for="frame-id">Device</label>
+        <select id="frame-id"><option value="">Loading...</option></select>
+        <div style="margin-top: 4px;">
+          <label style="font-size: 10px; cursor: pointer;"><input type="checkbox" id="show-all-frames" style="accent-color: var(--accent); margin-right: 4px;">Show all frames</label>
+        </div>
+        <div id="koubou-color-row" style="display:none; margin-top: 6px;">
+          <label>Color Variant</label>
+          <select id="koubou-color" style="display:none;"><option value="">Default</option></select>
+          <div id="koubou-color-swatches" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;"></div>
+        </div>
+        <div id="koubou-export-badge" style="display:none; margin-top: 4px;">
+          <span style="font-size: 10px; color: var(--accent); background: rgba(99,102,241,0.12); padding: 1px 6px; border-radius: 3px;">Koubou export only</span>
+        </div>
+        <div id="frame-preview-panel" style="display:none; margin-top: 8px; text-align: center;">
+          <div style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px;">
+            <img id="frame-preview-img" style="max-height: 100px; object-fit: contain;">
+          </div>
+        </div>
+        <label for="frame-style">Frame Style</label>
+        <select id="frame-style">
+          <option value="flat">Flat</option>
+          <option value="floating">Floating</option>
+          <option value="none">None (frameless)</option>
+        </select>
+        <div id="border-sim-section" style="display: none; margin-top: 8px;">
+          <label><input type="checkbox" id="border-sim-enable" style="accent-color: var(--accent); margin-right: 4px;">Border Simulation</label>
+          <div id="border-sim-controls" style="display: none; margin-top: 8px;">
+            <label for="border-sim-thickness">Thickness</label>
+            <div class="range-row">
+              <input type="range" id="border-sim-thickness" min="1" max="20" step="1" value="4">
+              <span class="range-value" id="border-sim-thickness-value">4px</span>
+            </div>
+            <div class="color-row"><label>Color</label><input type="color" id="border-sim-color" value="#1a1a1a"></div>
+            <label for="border-sim-radius">Radius</label>
+            <div class="range-row">
+              <input type="range" id="border-sim-radius" min="0" max="60" step="1" value="40">
+              <span class="range-value" id="border-sim-radius-value">40px</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="device-layout-section">
+        <div class="section-title">Device Layout</div>
+        <label for="layout">Layout</label>
+        <select id="layout">
+          <option value="center">Center</option>
+          <option value="angled-left">Angled Left</option>
+          <option value="angled-right">Angled Right</option>
+          <option value="floating">Floating</option>
+        </select>
+        <label for="device-scale">Device Size</label>
+        <div class="range-row">
+          <input type="range" id="device-scale" min="50" max="100" step="1" value="92">
+          <span class="range-value" id="device-scale-value">92%</span>
+        </div>
+        <label for="device-top">Device Position</label>
+        <div class="range-row">
+          <input type="range" id="device-top" min="-80" max="80" step="1" value="15">
+          <span class="range-value" id="device-top-value">15%</span>
+        </div>
+        <label for="device-offset-x">Horizontal Position</label>
+        <div class="range-row">
+          <input type="range" id="device-offset-x" min="-80" max="80" step="1" value="0">
+          <span class="range-value" id="device-offset-x-value">0</span>
+        </div>
+        <label for="device-rotation">Device Rotation</label>
+        <div class="range-row">
+          <input type="range" id="device-rotation" min="-180" max="180" step="1" value="0">
+          <span class="range-value" id="device-rotation-value">0°</span>
+        </div>
+        <div id="angle-row" style="display: none;">
+          <label for="device-angle">Perspective Angle</label>
+          <div class="range-row">
+            <input type="range" id="device-angle" min="2" max="45" step="1" value="8">
+            <span class="range-value" id="device-angle-value">8°</span>
+          </div>
+        </div>
+        <label for="device-tilt">3D Tilt</label>
+        <div class="range-row">
+          <input type="range" id="device-tilt" min="0" max="20" step="1" value="0">
+          <span class="range-value" id="device-tilt-value">0°</span>
+        </div>
+        <label for="corner-radius">Corner Radius</label>
+        <div class="range-row">
+          <input type="range" id="corner-radius" min="0" max="50" step="1" value="0">
+          <span class="range-value" id="corner-radius-value">Default</span>
+        </div>
+        <button class="btn btn-secondary" id="btn-reset-device" style="width: 100%; padding: 5px 0; font-size: 11px; margin-top: 4px;">Reset Device Position</button>
+      </div>
+
+      <div class="section" id="section-device-shadow">
+        <div class="section-title">Device Shadow</div>
+        <label><input type="checkbox" id="device-shadow-enable" style="accent-color: var(--accent); margin-right: 4px;">Custom Shadow</label>
+        <div id="device-shadow-controls" style="display: none; margin-top: 8px;">
+          <label for="device-shadow-opacity">Opacity</label>
+          <div class="range-row">
+            <input type="range" id="device-shadow-opacity" min="0" max="100" step="1" value="25">
+            <span class="range-value" id="device-shadow-opacity-value">25%</span>
+          </div>
+          <label for="device-shadow-blur">Blur</label>
+          <div class="range-row">
+            <input type="range" id="device-shadow-blur" min="0" max="50" step="1" value="20">
+            <span class="range-value" id="device-shadow-blur-value">20px</span>
+          </div>
+          <div class="color-row"><label>Color</label><input type="color" id="device-shadow-color" value="#000000"></div>
+          <label for="device-shadow-offset-y">Y Offset</label>
+          <div class="range-row">
+            <input type="range" id="device-shadow-offset-y" min="0" max="30" step="1" value="10">
+            <span class="range-value" id="device-shadow-offset-y-value">10px</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="section-composition">
+        <div class="section-title">Composition</div>
+        <label for="composition">Device Arrangement</label>
+        <select id="composition">
+          <option value="single">Single Device</option>
+          <optgroup label="Edge Bleed (1 device)">
+            <option value="peek-right">Peek Right</option>
+            <option value="peek-left">Peek Left</option>
+            <option value="tilt-left">Tilt Left</option>
+            <option value="tilt-right">Tilt Right</option>
+          </optgroup>
+          <optgroup label="Multi-Device">
+            <option value="duo-overlap">Duo Overlap (2)</option>
+            <option value="duo-split">Duo Split (2)</option>
+            <option value="hero-tilt">Hero + Background (2)</option>
+            <option value="fanned-cards">Fanned Cards (3)</option>
+          </optgroup>
+        </select>
+        <span style="font-size: 10px; color: #888; line-height: 1.3; display: block; margin-top: -6px; margin-bottom: 8px;">Edge bleed presets overflow screen edges — pair adjacent screens for cross-screen effects.</span>
+        <div id="cross-screen-link" style="display: none;"></div>
+        <div id="extra-devices-container" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- ===== TEXT TAB ===== -->
+    <div class="tab-content" data-tab="text">
+      <div class="section" id="section-text">
+        <div class="section-title">Text</div>
+        <label for="headline">Headline</label>
+        <textarea id="headline" rows="2"></textarea>
+        <label for="subtitle">Subtitle</label>
+        <input type="text" id="subtitle" placeholder="Optional subtitle">
+      </div>
+
+      <div class="section" id="section-typography">
+        <div class="section-title">Typography</div>
+        <label for="font">Font</label>
+        <select id="font"><option value="">Loading...</option></select>
+        <label for="font-weight">Font Weight</label>
+        <div class="range-row">
+          <input type="range" id="font-weight" min="400" max="800" step="100" value="700">
+          <span class="range-value" id="font-weight-value">700</span>
+        </div>
+        <label for="headline-size">Headline Size</label>
+        <div class="range-row">
+          <input type="range" id="headline-size" min="0" max="200" step="1" value="0">
+          <span class="range-value" id="headline-size-value">Auto</span>
+        </div>
+        <label for="subtitle-size">Subtitle Size</label>
+        <div class="range-row">
+          <input type="range" id="subtitle-size" min="0" max="120" step="1" value="0">
+          <span class="range-value" id="subtitle-size-value">Auto</span>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label><input type="checkbox" id="auto-size-headline" style="accent-color: var(--accent); margin-right: 4px;">Auto-size Headline</label>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label><input type="checkbox" id="auto-size-subtitle" style="accent-color: var(--accent); margin-right: 4px;">Auto-size Subtitle</label>
+        </div>
+        <label for="headline-rotation">Headline Rotation</label>
+        <div class="range-row">
+          <input type="range" id="headline-rotation" min="-30" max="30" step="1" value="0">
+          <span class="range-value" id="headline-rotation-value">0°</span>
+        </div>
+        <label for="subtitle-rotation">Subtitle Rotation</label>
+        <div class="range-row">
+          <input type="range" id="subtitle-rotation" min="-30" max="30" step="1" value="0">
+          <span class="range-value" id="subtitle-rotation-value">0°</span>
+        </div>
+        <label for="headline-line-height">Headline Line Height</label>
+        <div class="range-row">
+          <input type="range" id="headline-line-height" min="80" max="180" step="1" value="0">
+          <span class="range-value" id="headline-line-height-value">Auto</span>
+        </div>
+        <label for="headline-letter-spacing">Headline Letter Spacing</label>
+        <div class="range-row">
+          <input type="range" id="headline-letter-spacing" min="-5" max="10" step="1" value="0">
+          <span class="range-value" id="headline-letter-spacing-value">Auto</span>
+        </div>
+        <div class="inline-row" style="margin-bottom: 8px;">
+          <div>
+            <label for="headline-text-transform">Headline Case</label>
+            <select id="headline-text-transform">
+              <option value="">Auto</option>
+              <option value="none">None</option>
+              <option value="uppercase">Uppercase</option>
+              <option value="lowercase">Lowercase</option>
+              <option value="capitalize">Capitalize</option>
+            </select>
+          </div>
+          <div>
+            <label for="headline-font-style">Headline Style</label>
+            <select id="headline-font-style">
+              <option value="">Auto</option>
+              <option value="normal">Normal</option>
+              <option value="italic">Italic</option>
+            </select>
+          </div>
+        </div>
+        <label for="subtitle-opacity">Subtitle Opacity</label>
+        <div class="range-row">
+          <input type="range" id="subtitle-opacity" min="0" max="100" step="1" value="0">
+          <span class="range-value" id="subtitle-opacity-value">Auto</span>
+        </div>
+        <label for="subtitle-letter-spacing">Subtitle Letter Spacing</label>
+        <div class="range-row">
+          <input type="range" id="subtitle-letter-spacing" min="-5" max="10" step="1" value="0">
+          <span class="range-value" id="subtitle-letter-spacing-value">Auto</span>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label for="subtitle-text-transform">Subtitle Case</label>
+          <select id="subtitle-text-transform">
+            <option value="">Auto</option>
+            <option value="none">None</option>
+            <option value="uppercase">Uppercase</option>
+            <option value="lowercase">Lowercase</option>
+            <option value="capitalize">Capitalize</option>
           </select>
         </div>
       </div>
-    </div>
 
-    <div class="section" id="section-composition">
-      <div class="section-title">Composition</div>
-      <label for="composition">Device Arrangement</label>
-      <select id="composition">
-        <option value="single">Single Device</option>
-        <optgroup label="Edge Bleed (1 device)">
-          <option value="peek-right">Peek Right</option>
-          <option value="peek-left">Peek Left</option>
-          <option value="tilt-left">Tilt Left</option>
-          <option value="tilt-right">Tilt Right</option>
-        </optgroup>
-        <optgroup label="Multi-Device">
-          <option value="duo-overlap">Duo Overlap (2)</option>
-          <option value="duo-split">Duo Split (2)</option>
-          <option value="hero-tilt">Hero + Background (2)</option>
-          <option value="fanned-cards">Fanned Cards (3)</option>
-        </optgroup>
-      </select>
-      <span style="font-size: 10px; color: #888; line-height: 1.3; display: block; margin-top: -6px; margin-bottom: 8px;">Edge bleed presets overflow screen edges — pair adjacent screens for cross-screen effects.</span>
-      <div id="cross-screen-link" style="display: none;"></div>
-      <div id="extra-devices-container" style="display: none;"></div>
-    </div>
+      <div class="section" id="section-text-position">
+        <div class="section-title">Text Position</div>
+        <span style="font-size: 11px; color: #888; line-height: 1.3; display: block; margin-bottom: 6px;">Drag the headline or subtitle in the preview to reposition them.</span>
+        <button class="btn" id="btn-reset-text" style="width: 100%; padding: 5px 0; font-size: 11px;">Reset to Default</button>
+      </div>
 
-    <div class="section" id="section-text-position">
-      <div class="section-title">Text Position</div>
-      <span style="font-size: 11px; color: #888; line-height: 1.3; display: block; margin-bottom: 6px;">Drag the headline or subtitle in the preview to reposition them.</span>
-      <button class="btn" id="btn-reset-text" style="width: 100%; padding: 5px 0; font-size: 11px;">Reset to Default</button>
-    </div>
+      <div class="section" id="section-gradient">
+        <div class="section-title">Text Gradient</div>
 
-    <div class="section" id="section-typography">
-      <div class="section-title">Typography</div>
-      <label for="font">Font</label>
-      <select id="font"><option value="">Loading...</option></select>
-      <label for="font-weight">Font Weight</label>
-      <div class="range-row">
-        <input type="range" id="font-weight" min="400" max="800" step="100" value="700">
-        <span class="range-value" id="font-weight-value">700</span>
-      </div>
-      <label for="headline-size">Headline Size</label>
-      <div class="range-row">
-        <input type="range" id="headline-size" min="0" max="200" step="1" value="0">
-        <span class="range-value" id="headline-size-value">Auto</span>
-      </div>
-      <label for="subtitle-size">Subtitle Size</label>
-      <div class="range-row">
-        <input type="range" id="subtitle-size" min="0" max="120" step="1" value="0">
-        <span class="range-value" id="subtitle-size-value">Auto</span>
-      </div>
-      <div style="margin-bottom: 10px;">
-        <label><input type="checkbox" id="auto-size-headline" style="accent-color: var(--accent); margin-right: 4px;">Auto-size Headline</label>
-      </div>
-      <div style="margin-bottom: 10px;">
-        <label><input type="checkbox" id="auto-size-subtitle" style="accent-color: var(--accent); margin-right: 4px;">Auto-size Subtitle</label>
-      </div>
-      <label for="headline-rotation">Headline Rotation</label>
-      <div class="range-row">
-        <input type="range" id="headline-rotation" min="-30" max="30" step="1" value="0">
-        <span class="range-value" id="headline-rotation-value">0°</span>
-      </div>
-      <label for="subtitle-rotation">Subtitle Rotation</label>
-      <div class="range-row">
-        <input type="range" id="subtitle-rotation" min="-30" max="30" step="1" value="0">
-        <span class="range-value" id="subtitle-rotation-value">0°</span>
-      </div>
-    </div>
-
-    <div class="section" id="section-colors">
-      <div class="section-title">Colors</div>
-      <div class="color-row"><label>Primary</label><input type="color" id="color-primary"></div>
-      <div class="color-row"><label>Secondary</label><input type="color" id="color-secondary"></div>
-      <div class="color-row"><label>Background</label><input type="color" id="color-background"></div>
-      <div class="color-row"><label>Text</label><input type="color" id="color-text"></div>
-      <div class="color-row"><label>Subtitle</label><input type="color" id="color-subtitle"></div>
-    </div>
-
-    <div class="section" id="section-gradient">
-      <div class="section-title">Text Gradient</div>
-
-      <label><input type="checkbox" id="headline-gradient-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Headline Gradient</label>
-      <div id="headline-gradient-controls" style="display: none; margin-top: 6px;">
-        <div class="color-row"><label>Start</label><input type="color" id="headline-gradient-start" value="#6366f1"></div>
-        <div class="color-row"><label>End</label><input type="color" id="headline-gradient-end" value="#ec4899"></div>
-        <label for="headline-gradient-direction">Direction</label>
-        <div class="range-row">
-          <input type="range" id="headline-gradient-direction" min="0" max="360" step="1" value="90">
-          <span class="range-value" id="headline-gradient-direction-value">90°</span>
+        <label><input type="checkbox" id="headline-gradient-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Headline Gradient</label>
+        <div id="headline-gradient-controls" style="display: none; margin-top: 6px;">
+          <div class="color-row"><label>Start</label><input type="color" id="headline-gradient-start" value="#6366f1"></div>
+          <div class="color-row"><label>End</label><input type="color" id="headline-gradient-end" value="#ec4899"></div>
+          <label for="headline-gradient-direction">Direction</label>
+          <div class="range-row">
+            <input type="range" id="headline-gradient-direction" min="0" max="360" step="1" value="90">
+            <span class="range-value" id="headline-gradient-direction-value">90°</span>
+          </div>
         </div>
-      </div>
 
-      <div style="margin-top: 10px;">
-        <label><input type="checkbox" id="subtitle-gradient-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Subtitle Gradient</label>
-      </div>
-      <div id="subtitle-gradient-controls" style="display: none; margin-top: 6px;">
-        <div class="color-row"><label>Start</label><input type="color" id="subtitle-gradient-start" value="#6366f1"></div>
-        <div class="color-row"><label>End</label><input type="color" id="subtitle-gradient-end" value="#ec4899"></div>
-        <label for="subtitle-gradient-direction">Direction</label>
-        <div class="range-row">
-          <input type="range" id="subtitle-gradient-direction" min="0" max="360" step="1" value="90">
-          <span class="range-value" id="subtitle-gradient-direction-value">90°</span>
+        <div style="margin-top: 10px;">
+          <label><input type="checkbox" id="subtitle-gradient-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Subtitle Gradient</label>
+        </div>
+        <div id="subtitle-gradient-controls" style="display: none; margin-top: 6px;">
+          <div class="color-row"><label>Start</label><input type="color" id="subtitle-gradient-start" value="#6366f1"></div>
+          <div class="color-row"><label>End</label><input type="color" id="subtitle-gradient-end" value="#ec4899"></div>
+          <label for="subtitle-gradient-direction">Direction</label>
+          <div class="range-row">
+            <input type="range" id="subtitle-gradient-direction" min="0" max="360" step="1" value="90">
+            <span class="range-value" id="subtitle-gradient-direction-value">90°</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="section" id="section-spotlight">
-      <div class="section-title">Spotlight / Dimming</div>
-      <label><input type="checkbox" id="spotlight-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Spotlight</label>
-      <div id="spotlight-controls" style="display: none; margin-top: 8px;">
-        <label for="spotlight-shape">Shape</label>
-        <select id="spotlight-shape">
-          <option value="rectangle">Rectangle</option>
-          <option value="circle">Circle</option>
-        </select>
-        <label for="spotlight-x">Position X</label>
-        <div class="range-row">
-          <input type="range" id="spotlight-x" min="0" max="100" step="1" value="50">
-          <span class="range-value" id="spotlight-x-value">50%</span>
+    <!-- ===== EFFECTS TAB ===== -->
+    <div class="tab-content" data-tab="effects">
+      <div class="section" id="section-spotlight">
+        <div class="section-title">Spotlight / Dimming</div>
+        <label><input type="checkbox" id="spotlight-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Spotlight</label>
+        <div id="spotlight-controls" style="display: none; margin-top: 8px;">
+          <label for="spotlight-shape">Shape</label>
+          <select id="spotlight-shape">
+            <option value="rectangle">Rectangle</option>
+            <option value="circle">Circle</option>
+          </select>
+          <label for="spotlight-x">Position X</label>
+          <div class="range-row">
+            <input type="range" id="spotlight-x" min="0" max="100" step="1" value="50">
+            <span class="range-value" id="spotlight-x-value">50%</span>
+          </div>
+          <label for="spotlight-y">Position Y</label>
+          <div class="range-row">
+            <input type="range" id="spotlight-y" min="0" max="100" step="1" value="50">
+            <span class="range-value" id="spotlight-y-value">50%</span>
+          </div>
+          <label for="spotlight-w">Width</label>
+          <div class="range-row">
+            <input type="range" id="spotlight-w" min="5" max="100" step="1" value="30">
+            <span class="range-value" id="spotlight-w-value">30%</span>
+          </div>
+          <label for="spotlight-h">Height</label>
+          <div class="range-row">
+            <input type="range" id="spotlight-h" min="5" max="100" step="1" value="30">
+            <span class="range-value" id="spotlight-h-value">30%</span>
+          </div>
+          <label for="spotlight-opacity">Dim Opacity</label>
+          <div class="range-row">
+            <input type="range" id="spotlight-opacity" min="0" max="100" step="1" value="60">
+            <span class="range-value" id="spotlight-opacity-value">60%</span>
+          </div>
+          <label for="spotlight-blur">Background Blur</label>
+          <div class="range-row">
+            <input type="range" id="spotlight-blur" min="0" max="30" step="1" value="0">
+            <span class="range-value" id="spotlight-blur-value">0px</span>
+          </div>
         </div>
-        <label for="spotlight-y">Position Y</label>
-        <div class="range-row">
-          <input type="range" id="spotlight-y" min="0" max="100" step="1" value="50">
-          <span class="range-value" id="spotlight-y-value">50%</span>
+      </div>
+
+      <div class="section" id="section-annotations">
+        <div class="section-title">Annotations</div>
+        <button class="btn btn-secondary" id="btn-add-annotation" style="width: 100%; font-size: 12px; padding: 6px 0;">+ Add Annotation</button>
+        <div id="annotations-list" style="margin-top: 8px;"></div>
+      </div>
+
+      <div class="section" id="section-loupe">
+        <div class="section-title">Loupe / Magnification</div>
+        <label><input type="checkbox" id="loupe-enable" style="accent-color: var(--accent); margin-right: 4px;">Enable Loupe</label>
+        <div id="loupe-controls" style="display: none; margin-top: 8px;">
+          <label for="loupe-source-x">Source X</label>
+          <div class="range-row">
+            <input type="range" id="loupe-source-x" min="0" max="100" step="1" value="50">
+            <span class="range-value" id="loupe-source-x-value">50%</span>
+          </div>
+          <label for="loupe-source-y">Source Y</label>
+          <div class="range-row">
+            <input type="range" id="loupe-source-y" min="0" max="100" step="1" value="50">
+            <span class="range-value" id="loupe-source-y-value">50%</span>
+          </div>
+          <label for="loupe-display-x">Display X</label>
+          <div class="range-row">
+            <input type="range" id="loupe-display-x" min="0" max="100" step="1" value="70">
+            <span class="range-value" id="loupe-display-x-value">70%</span>
+          </div>
+          <label for="loupe-display-y">Display Y</label>
+          <div class="range-row">
+            <input type="range" id="loupe-display-y" min="0" max="100" step="1" value="20">
+            <span class="range-value" id="loupe-display-y-value">20%</span>
+          </div>
+          <label for="loupe-size">Size</label>
+          <div class="range-row">
+            <input type="range" id="loupe-size" min="5" max="50" step="1" value="20">
+            <span class="range-value" id="loupe-size-value">20%</span>
+          </div>
+          <label for="loupe-zoom">Zoom</label>
+          <div class="range-row">
+            <input type="range" id="loupe-zoom" min="150" max="500" step="10" value="250">
+            <span class="range-value" id="loupe-zoom-value">2.5x</span>
+          </div>
+          <label for="loupe-border-width">Border Width</label>
+          <div class="range-row">
+            <input type="range" id="loupe-border-width" min="0" max="10" step="1" value="3">
+            <span class="range-value" id="loupe-border-width-value">3px</span>
+          </div>
+          <div class="color-row"><label>Border Color</label><input type="color" id="loupe-border-color" value="#ffffff"></div>
         </div>
-        <label for="spotlight-w">Width</label>
-        <div class="range-row">
-          <input type="range" id="spotlight-w" min="5" max="100" step="1" value="30">
-          <span class="range-value" id="spotlight-w-value">30%</span>
-        </div>
-        <label for="spotlight-h">Height</label>
-        <div class="range-row">
-          <input type="range" id="spotlight-h" min="5" max="100" step="1" value="30">
-          <span class="range-value" id="spotlight-h-value">30%</span>
-        </div>
-        <label for="spotlight-opacity">Dim Opacity</label>
-        <div class="range-row">
-          <input type="range" id="spotlight-opacity" min="0" max="100" step="1" value="60">
-          <span class="range-value" id="spotlight-opacity-value">60%</span>
-        </div>
-        <label for="spotlight-blur">Background Blur</label>
-        <div class="range-row">
-          <input type="range" id="spotlight-blur" min="0" max="30" step="1" value="0">
-          <span class="range-value" id="spotlight-blur-value">0px</span>
-        </div>
+      </div>
+
+      <div class="section" id="section-callouts">
+        <div class="section-title">Callouts</div>
+        <button class="btn btn-secondary" id="btn-add-callout" style="width: 100%; font-size: 12px; padding: 6px 0;">+ Add Callout</button>
+        <div id="callouts-list" style="margin-top: 8px;"></div>
+      </div>
+
+      <div class="section" id="section-overlays">
+        <div class="section-title">Overlays</div>
+        <button class="btn btn-secondary" id="btn-add-overlay" style="width: 100%; font-size: 12px; padding: 6px 0;">+ Add Overlay</button>
+        <div id="overlays-list" style="margin-top: 8px;"></div>
       </div>
     </div>
 
-    <div class="section" id="section-annotations">
-      <div class="section-title">Annotations</div>
-      <button class="btn btn-secondary" id="btn-add-annotation" style="width: 100%; font-size: 12px; padding: 6px 0;">+ Add Annotation</button>
-      <div id="annotations-list" style="margin-top: 8px;"></div>
-    </div>
-
-    <div class="section" id="section-zoom">
-      <div class="section-title">Zoom Callouts</div>
-      <button class="btn btn-secondary" id="btn-add-zoom" style="width: 100%; font-size: 12px; padding: 6px 0;">+ Add Zoom Callout</button>
-      <div id="zoom-list" style="margin-top: 8px;"></div>
-    </div>
-
-    <div class="section" id="section-device-frame">
-      <div class="section-title">Device Frame</div>
-      <label for="frame-id">Device</label>
-      <select id="frame-id"><option value="">Loading...</option></select>
-      <div id="koubou-color-row" style="display:none; margin-top: 6px;">
-        <label for="koubou-color">Color Variant</label>
-        <select id="koubou-color"><option value="">Default</option></select>
-      </div>
-      <div id="koubou-export-badge" style="display:none; margin-top: 4px;">
-        <span style="font-size: 10px; color: var(--accent); background: rgba(99,102,241,0.12); padding: 1px 6px; border-radius: 3px;">Koubou export only</span>
-      </div>
-      <div id="frame-preview-panel" style="display:none; margin-top: 8px; text-align: center;">
-        <div style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px;">
-          <img id="frame-preview-img" style="max-height: 100px; object-fit: contain;">
-        </div>
-      </div>
-      <label for="frame-style">Frame Style</label>
-      <select id="frame-style">
-        <option value="flat">Flat</option>
-        <option value="floating">Floating</option>
-        <option value="none">None (frameless)</option>
-      </select>
-    </div>
-
-    <div class="section" id="device-layout-section">
-      <div class="section-title">Device Layout</div>
-      <label for="device-scale">Device Size</label>
-      <div class="range-row">
-        <input type="range" id="device-scale" min="50" max="100" step="1" value="92">
-        <span class="range-value" id="device-scale-value">92%</span>
-      </div>
-      <label for="device-top">Device Position</label>
-      <div class="range-row">
-        <input type="range" id="device-top" min="-80" max="80" step="1" value="15">
-        <span class="range-value" id="device-top-value">15%</span>
-      </div>
-      <label for="device-offset-x">Horizontal Position</label>
-      <div class="range-row">
-        <input type="range" id="device-offset-x" min="-80" max="80" step="1" value="0">
-        <span class="range-value" id="device-offset-x-value">0</span>
-      </div>
-      <label for="device-rotation">Device Rotation</label>
-      <div class="range-row">
-        <input type="range" id="device-rotation" min="-45" max="45" step="1" value="0">
-        <span class="range-value" id="device-rotation-value">0°</span>
-      </div>
-      <div id="angle-row" style="display: none;">
-        <label for="device-angle">Perspective Angle</label>
-        <div class="range-row">
-          <input type="range" id="device-angle" min="2" max="45" step="1" value="8">
-          <span class="range-value" id="device-angle-value">8°</span>
-        </div>
-      </div>
-      <label for="device-tilt">3D Tilt</label>
-      <div class="range-row">
-        <input type="range" id="device-tilt" min="0" max="20" step="1" value="0">
-        <span class="range-value" id="device-tilt-value">0°</span>
-      </div>
-      <button class="btn btn-secondary" id="btn-reset-device" style="width: 100%; padding: 5px 0; font-size: 11px; margin-top: 4px;">Reset Device Position</button>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Locale</div>
-      <select id="locale"><option value="default">Default</option></select>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Export</div>
-      <label for="export-size">Output Size</label>
-      <select id="export-size"><option value="">Loading...</option></select>
-      <div id="renderer-row" style="display: none;">
-        <label for="export-renderer">Renderer</label>
-        <select id="export-renderer">
-          <option value="playwright">Playwright (fast)</option>
-          <option value="koubou">Koubou (pixel-perfect)</option>
+    <!-- ===== EXPORT TAB ===== -->
+    <div class="tab-content" data-tab="export">
+      <div class="section" id="section-platform">
+        <div class="section-title">Platform</div>
+        <select id="platform-select">
+          <option value="iphone" selected>iPhone</option>
+          <option value="ipad">iPad</option>
+          <option value="mac">Mac</option>
+          <option value="watch">Apple Watch</option>
+          <option value="android">Android</option>
         </select>
       </div>
-      <div class="btn-row" style="margin-top: 4px;">
-        <button class="btn btn-export" id="btn-export">Download Screenshot</button>
-      </div>
-    </div>
 
-    <div class="section">
-      <div class="section-title">Preview Background</div>
-      <div class="inline-row">
-        <div>
-          <label>
-            <input type="radio" name="preview-bg" value="dark" checked style="accent-color: var(--accent); margin-right: 4px;">Dark
-          </label>
+      <div class="section">
+        <div class="section-title">Export</div>
+        <label for="export-size">Output Size</label>
+        <select id="export-size"><option value="">Loading...</option></select>
+        <div id="renderer-row" style="display: none;">
+          <label for="export-renderer">Renderer</label>
+          <select id="export-renderer">
+            <option value="playwright">Playwright (fast)</option>
+            <option value="koubou">Koubou (pixel-perfect)</option>
+          </select>
         </div>
-        <div>
-          <label>
-            <input type="radio" name="preview-bg" value="light" style="accent-color: var(--accent); margin-right: 4px;">Light
-          </label>
+        <div class="btn-row" style="margin-top: 4px;">
+          <button class="btn btn-export" id="btn-export">Download Screenshot</button>
         </div>
       </div>
-    </div>
 
-    <div class="section">
-      <div class="btn-row">
-        <button class="btn btn-primary" id="btn-refresh">Refresh All</button>
-        <button class="btn btn-secondary" id="btn-reload">Reload Config</button>
+      <div class="section">
+        <div class="section-title">Locale</div>
+        <select id="locale"><option value="default">Default</option></select>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Preview Background</div>
+        <div class="inline-row">
+          <div>
+            <label>
+              <input type="radio" name="preview-bg" value="dark" checked style="accent-color: var(--accent); margin-right: 4px;">Dark
+            </label>
+          </div>
+          <div>
+            <label>
+              <input type="radio" name="preview-bg" value="light" style="accent-color: var(--accent); margin-right: 4px;">Light
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-refresh">Refresh All</button>
+          <button class="btn btn-secondary" id="btn-reload">Reload Config</button>
+        </div>
       </div>
     </div>
   </div>
@@ -856,6 +1174,26 @@
     var previewW = 400;
     var previewH = 868;
 
+    // ===== Tab Navigation =====
+
+    var activeTab = 'design';
+
+    document.querySelectorAll('.sidebar-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var tabName = this.dataset.tab;
+        // Clicking active tab does nothing (could collapse, but keep simple)
+        if (tabName === activeTab) return;
+        activeTab = tabName;
+
+        document.querySelectorAll('.sidebar-tab').forEach(function(t) {
+          t.classList.toggle('active', t.dataset.tab === tabName);
+        });
+        document.querySelectorAll('.tab-content').forEach(function(panel) {
+          panel.classList.toggle('active', panel.dataset.tab === tabName);
+        });
+      });
+    });
+
     // ===== Utilities =====
 
     function clearChildren(el) {
@@ -891,6 +1229,11 @@
       } else {
         addOption(colorSelect, '', 'Default');
         colorRow.style.display = 'none';
+      }
+
+      // Build visual color swatches
+      if (typeof buildKoubouColorSwatches === 'function') {
+        buildKoubouColorSwatches(family);
       }
 
       // Show "export only" badge if this is a Koubou-only device with no SVG preview AND no PNG frame data
@@ -1090,14 +1433,35 @@
         subtitleGradient: null,
         autoSizeHeadline: false,
         autoSizeSubtitle: false,
+        headlineLineHeight: 0,
+        headlineLetterSpacing: 0,
+        headlineTextTransform: '',
+        headlineFontStyle: '',
+        subtitleOpacity: 0,
+        subtitleLetterSpacing: 0,
+        subtitleTextTransform: '',
         spotlight: null,
         annotations: [],
-        zoomCallouts: [],
         composition: 'single',
         extraScreenshots: [],
         textPositions: { headline: null, subtitle: null },
         screenshotDataUrl: null,
         screenshotName: screen ? (screen.screenshot || '').split('/').pop() : null,
+        // Background overrides
+        backgroundType: 'preset',
+        backgroundColor: '#1a1a2e',
+        backgroundGradient: { type: 'linear', colors: ['#6366f1', '#ec4899'], direction: 135, radialPosition: 'center' },
+        backgroundImageDataUrl: null,
+        backgroundOverlay: null,
+        // Device enhancements
+        deviceShadow: null,
+        borderSimulation: null,
+        cornerRadius: 0,
+        // Effects
+        loupe: null,
+        callouts: [],
+        overlays: [],
+        // DOM refs
         iframeEl: null,
         containerEl: null,
         dragOverlayEl: null,
@@ -1151,6 +1515,13 @@
       }
       state.autoSizeHeadline = document.getElementById('auto-size-headline').checked;
       state.autoSizeSubtitle = document.getElementById('auto-size-subtitle').checked;
+      state.headlineLineHeight = parseInt(document.getElementById('headline-line-height').value, 10);
+      state.headlineLetterSpacing = parseInt(document.getElementById('headline-letter-spacing').value, 10);
+      state.headlineTextTransform = document.getElementById('headline-text-transform').value;
+      state.headlineFontStyle = document.getElementById('headline-font-style').value;
+      state.subtitleOpacity = parseInt(document.getElementById('subtitle-opacity').value, 10);
+      state.subtitleLetterSpacing = parseInt(document.getElementById('subtitle-letter-spacing').value, 10);
+      state.subtitleTextTransform = document.getElementById('subtitle-text-transform').value;
       if (document.getElementById('spotlight-enable').checked) {
         state.spotlight = {
           x: parseInt(document.getElementById('spotlight-x').value, 10),
@@ -1164,6 +1535,43 @@
       } else {
         state.spotlight = null;
       }
+      // Background type
+      var bgTypeRadios = document.querySelectorAll('input[name="bg-type"]');
+      bgTypeRadios.forEach(function(r) { if (r.checked) state.backgroundType = r.value; });
+      state.backgroundColor = document.getElementById('bg-solid-color').value;
+      // Gradient
+      var gradTypeRadios = document.querySelectorAll('input[name="bg-gradient-type"]');
+      var gradType = 'linear';
+      gradTypeRadios.forEach(function(r) { if (r.checked) gradType = r.value; });
+      var gradStops = document.querySelectorAll('.bg-gradient-stop');
+      var gradColors = [];
+      gradStops.forEach(function(s) { gradColors.push(s.value); });
+      state.backgroundGradient = {
+        type: gradType,
+        colors: gradColors.length >= 2 ? gradColors : ['#6366f1', '#ec4899'],
+        direction: parseInt(document.getElementById('bg-gradient-direction').value, 10),
+        radialPosition: document.getElementById('bg-gradient-radial-position').value,
+      };
+      // Background overlay
+      if (document.getElementById('bg-overlay-enable').checked) {
+        state.backgroundOverlay = {
+          color: document.getElementById('bg-overlay-color').value,
+          opacity: parseInt(document.getElementById('bg-overlay-opacity').value, 10) / 100,
+        };
+      } else {
+        state.backgroundOverlay = null;
+      }
+      // Device shadow
+      if (document.getElementById('device-shadow-enable').checked) {
+        state.deviceShadow = {
+          opacity: parseInt(document.getElementById('device-shadow-opacity').value, 10) / 100,
+          blur: parseInt(document.getElementById('device-shadow-blur').value, 10),
+          color: document.getElementById('device-shadow-color').value,
+          offsetY: parseInt(document.getElementById('device-shadow-offset-y').value, 10),
+        };
+      } else {
+        state.deviceShadow = null;
+      }
       state.frameId = document.getElementById('frame-id').value;
       state.koubouColor = document.getElementById('koubou-color').value;
       state.frameStyle = document.getElementById('frame-style').value;
@@ -1174,6 +1582,35 @@
       state.deviceOffsetX = parseInt(document.getElementById('device-offset-x').value, 10);
       state.deviceAngle = parseInt(document.getElementById('device-angle').value, 10);
       state.deviceTilt = parseInt(document.getElementById('device-tilt').value, 10);
+      // Border simulation
+      if (document.getElementById('border-sim-enable').checked) {
+        state.borderSimulation = {
+          enabled: true,
+          thickness: parseInt(document.getElementById('border-sim-thickness').value, 10),
+          color: document.getElementById('border-sim-color').value,
+          radius: parseInt(document.getElementById('border-sim-radius').value, 10),
+        };
+      } else {
+        state.borderSimulation = null;
+      }
+      // Corner radius
+      state.cornerRadius = parseInt(document.getElementById('corner-radius').value, 10);
+      // Loupe
+      if (document.getElementById('loupe-enable').checked) {
+        state.loupe = {
+          sourceX: parseInt(document.getElementById('loupe-source-x').value, 10),
+          sourceY: parseInt(document.getElementById('loupe-source-y').value, 10),
+          displayX: parseInt(document.getElementById('loupe-display-x').value, 10),
+          displayY: parseInt(document.getElementById('loupe-display-y').value, 10),
+          size: parseInt(document.getElementById('loupe-size').value, 10),
+          zoom: parseInt(document.getElementById('loupe-zoom').value, 10) / 100,
+          borderWidth: parseInt(document.getElementById('loupe-border-width').value, 10),
+          borderColor: document.getElementById('loupe-border-color').value,
+        };
+      } else {
+        state.loupe = null;
+      }
+      // Callouts and overlays are modified directly on state objects
     }
 
     function syncControlsFromState(index) {
@@ -1218,6 +1655,18 @@
         document.getElementById('subtitle-gradient-direction').value = state.subtitleGradient.direction;
         document.getElementById('subtitle-gradient-direction-value').textContent = state.subtitleGradient.direction + '\u00B0';
       }
+      // Typography overrides
+      document.getElementById('headline-line-height').value = state.headlineLineHeight;
+      document.getElementById('headline-line-height-value').textContent = state.headlineLineHeight ? (state.headlineLineHeight / 100).toFixed(2) : 'Auto';
+      document.getElementById('headline-letter-spacing').value = state.headlineLetterSpacing;
+      document.getElementById('headline-letter-spacing-value').textContent = state.headlineLetterSpacing ? state.headlineLetterSpacing / 100 + 'em' : 'Auto';
+      document.getElementById('headline-text-transform').value = state.headlineTextTransform;
+      document.getElementById('headline-font-style').value = state.headlineFontStyle;
+      document.getElementById('subtitle-opacity').value = state.subtitleOpacity;
+      document.getElementById('subtitle-opacity-value').textContent = state.subtitleOpacity ? state.subtitleOpacity + '%' : 'Auto';
+      document.getElementById('subtitle-letter-spacing').value = state.subtitleLetterSpacing;
+      document.getElementById('subtitle-letter-spacing-value').textContent = state.subtitleLetterSpacing ? state.subtitleLetterSpacing / 100 + 'em' : 'Auto';
+      document.getElementById('subtitle-text-transform').value = state.subtitleTextTransform;
       // Auto-size controls
       document.getElementById('auto-size-headline').checked = state.autoSizeHeadline;
       document.getElementById('auto-size-subtitle').checked = state.autoSizeSubtitle;
@@ -1242,10 +1691,71 @@
         document.getElementById('spotlight-blur').value = state.spotlight.blur;
         document.getElementById('spotlight-blur-value').textContent = state.spotlight.blur + 'px';
       }
+      // Background type
+      document.querySelectorAll('input[name="bg-type"]').forEach(function(r) {
+        r.checked = (r.value === state.backgroundType);
+      });
+      updateBgTypeVisibility(state.backgroundType);
+      document.getElementById('bg-solid-color').value = state.backgroundColor || '#1a1a2e';
+      // Gradient
+      if (state.backgroundGradient) {
+        document.querySelectorAll('input[name="bg-gradient-type"]').forEach(function(r) {
+          r.checked = (r.value === state.backgroundGradient.type);
+        });
+        document.getElementById('bg-gradient-direction').value = state.backgroundGradient.direction;
+        document.getElementById('bg-gradient-direction-value').textContent = state.backgroundGradient.direction + '\u00B0';
+        document.getElementById('bg-gradient-radial-position').value = state.backgroundGradient.radialPosition || 'center';
+        document.getElementById('bg-gradient-radial-pos').style.display = state.backgroundGradient.type === 'radial' ? '' : 'none';
+        // Rebuild gradient stops
+        var stopsContainer = document.getElementById('bg-gradient-stops');
+        clearChildren(stopsContainer);
+        (state.backgroundGradient.colors || ['#6366f1', '#ec4899']).forEach(function(c, i) {
+          var row = document.createElement('div');
+          row.className = 'color-row';
+          var lbl = document.createElement('label');
+          lbl.textContent = 'Stop ' + (i + 1);
+          row.appendChild(lbl);
+          var inp = document.createElement('input');
+          inp.type = 'color';
+          inp.className = 'bg-gradient-stop';
+          inp.value = c;
+          inp.addEventListener('input', function() { updateBackgroundInIframe(); });
+          inp.addEventListener('change', renderSelectedPreview);
+          row.appendChild(inp);
+          stopsContainer.appendChild(row);
+        });
+      }
+      // Background overlay
+      var bgOverlayEnable = document.getElementById('bg-overlay-enable');
+      bgOverlayEnable.checked = !!state.backgroundOverlay;
+      document.getElementById('bg-overlay-settings').style.display = state.backgroundOverlay ? '' : 'none';
+      if (state.backgroundOverlay) {
+        document.getElementById('bg-overlay-color').value = state.backgroundOverlay.color;
+        document.getElementById('bg-overlay-opacity').value = Math.round(state.backgroundOverlay.opacity * 100);
+        document.getElementById('bg-overlay-opacity-value').textContent = Math.round(state.backgroundOverlay.opacity * 100) + '%';
+      }
+      // Background image
+      if (state.backgroundImageDataUrl) {
+        document.getElementById('bg-image-thumb').src = state.backgroundImageDataUrl;
+        document.getElementById('bg-image-preview').style.display = '';
+      } else {
+        document.getElementById('bg-image-preview').style.display = 'none';
+      }
+      // Device shadow
+      var dShadowEnable = document.getElementById('device-shadow-enable');
+      dShadowEnable.checked = !!state.deviceShadow;
+      document.getElementById('device-shadow-controls').style.display = state.deviceShadow ? '' : 'none';
+      if (state.deviceShadow) {
+        document.getElementById('device-shadow-opacity').value = Math.round(state.deviceShadow.opacity * 100);
+        document.getElementById('device-shadow-opacity-value').textContent = Math.round(state.deviceShadow.opacity * 100) + '%';
+        document.getElementById('device-shadow-blur').value = state.deviceShadow.blur;
+        document.getElementById('device-shadow-blur-value').textContent = state.deviceShadow.blur + 'px';
+        document.getElementById('device-shadow-color').value = state.deviceShadow.color;
+        document.getElementById('device-shadow-offset-y').value = state.deviceShadow.offsetY;
+        document.getElementById('device-shadow-offset-y-value').textContent = state.deviceShadow.offsetY + 'px';
+      }
       // Annotations list
       renderAnnotationsList();
-      // Zoom callouts list
-      renderZoomCalloutsList();
       document.getElementById('frame-id').value = state.frameId;
       updateKoubouColorDropdown(state.frameId);
       document.getElementById('koubou-color').value = state.koubouColor;
@@ -1263,6 +1773,46 @@
       document.getElementById('device-angle-value').textContent = state.deviceAngle + '\u00B0';
       document.getElementById('device-tilt').value = state.deviceTilt;
       document.getElementById('device-tilt-value').textContent = state.deviceTilt + '\u00B0';
+      // Border simulation
+      var bsEnable = document.getElementById('border-sim-enable');
+      var isFrameless = state.frameStyle === 'none';
+      document.getElementById('border-sim-section').style.display = isFrameless ? '' : 'none';
+      bsEnable.checked = !!(state.borderSimulation && state.borderSimulation.enabled);
+      document.getElementById('border-sim-controls').style.display = bsEnable.checked ? '' : 'none';
+      if (state.borderSimulation) {
+        document.getElementById('border-sim-thickness').value = state.borderSimulation.thickness;
+        document.getElementById('border-sim-thickness-value').textContent = state.borderSimulation.thickness + 'px';
+        document.getElementById('border-sim-color').value = state.borderSimulation.color;
+        document.getElementById('border-sim-radius').value = state.borderSimulation.radius;
+        document.getElementById('border-sim-radius-value').textContent = state.borderSimulation.radius + 'px';
+      }
+      // Corner radius
+      document.getElementById('corner-radius').value = state.cornerRadius || 0;
+      document.getElementById('corner-radius-value').textContent = state.cornerRadius ? state.cornerRadius + '%' : 'Default';
+      // Loupe
+      var loupeEnable = document.getElementById('loupe-enable');
+      loupeEnable.checked = !!state.loupe;
+      document.getElementById('loupe-controls').style.display = state.loupe ? '' : 'none';
+      if (state.loupe) {
+        document.getElementById('loupe-source-x').value = state.loupe.sourceX;
+        document.getElementById('loupe-source-x-value').textContent = state.loupe.sourceX + '%';
+        document.getElementById('loupe-source-y').value = state.loupe.sourceY;
+        document.getElementById('loupe-source-y-value').textContent = state.loupe.sourceY + '%';
+        document.getElementById('loupe-display-x').value = state.loupe.displayX;
+        document.getElementById('loupe-display-x-value').textContent = state.loupe.displayX + '%';
+        document.getElementById('loupe-display-y').value = state.loupe.displayY;
+        document.getElementById('loupe-display-y-value').textContent = state.loupe.displayY + '%';
+        document.getElementById('loupe-size').value = state.loupe.size;
+        document.getElementById('loupe-size-value').textContent = state.loupe.size + '%';
+        document.getElementById('loupe-zoom').value = Math.round(state.loupe.zoom * 100);
+        document.getElementById('loupe-zoom-value').textContent = state.loupe.zoom.toFixed(1) + 'x';
+        document.getElementById('loupe-border-width').value = state.loupe.borderWidth;
+        document.getElementById('loupe-border-width-value').textContent = state.loupe.borderWidth + 'px';
+        document.getElementById('loupe-border-color').value = state.loupe.borderColor;
+      }
+      // Callouts and overlays
+      if (typeof renderCalloutsList === 'function') renderCalloutsList();
+      if (typeof renderOverlaysList === 'function') renderOverlaysList();
       updateAngleRowVisibility();
       updateCompositionUI();
       updateSelectedIndicator();
@@ -1276,15 +1826,18 @@
       var thumb = document.getElementById('screenshot-thumb');
       var nameEl = document.getElementById('screenshot-name');
       var clearBtn = document.getElementById('btn-clear-screenshot');
+      var cropBtn = document.getElementById('btn-crop-screenshot');
 
       if (state.screenshotDataUrl) {
         thumb.src = state.screenshotDataUrl;
         nameEl.textContent = state.screenshotName || 'Custom upload';
         clearBtn.style.display = '';
+        cropBtn.style.display = '';
       } else {
         thumb.src = '';
         nameEl.textContent = state.screenshotName || 'From config';
         clearBtn.style.display = 'none';
+        cropBtn.style.display = 'none';
       }
     }
 
@@ -1591,7 +2144,27 @@
         autoSizeSubtitle: state.autoSizeSubtitle || undefined,
         spotlight: state.spotlight || undefined,
         annotations: state.annotations.length > 0 ? state.annotations : undefined,
-        zoomCallouts: state.zoomCallouts.length > 0 ? state.zoomCallouts : undefined,
+        // Background overrides
+        backgroundType: state.backgroundType !== 'preset' ? state.backgroundType : undefined,
+        backgroundColor: state.backgroundType === 'solid' ? state.backgroundColor : undefined,
+        backgroundGradient: state.backgroundType === 'gradient' ? state.backgroundGradient : undefined,
+        backgroundImageDataUrl: state.backgroundType === 'image' ? state.backgroundImageDataUrl : undefined,
+        backgroundOverlay: state.backgroundType === 'image' && state.backgroundOverlay ? state.backgroundOverlay : undefined,
+        // Device enhancements
+        deviceShadow: state.deviceShadow || undefined,
+        borderSimulation: state.borderSimulation || undefined,
+        cornerRadius: state.cornerRadius || undefined,
+        // Effects
+        loupe: state.loupe || undefined,
+        callouts: state.callouts && state.callouts.length > 0 ? state.callouts : undefined,
+        overlays: state.overlays && state.overlays.length > 0 ? state.overlays : undefined,
+        headlineLineHeight: state.headlineLineHeight ? state.headlineLineHeight / 100 : undefined,
+        headlineLetterSpacing: state.headlineLetterSpacing ? (state.headlineLetterSpacing / 100) + 'em' : undefined,
+        headlineTextTransform: state.headlineTextTransform || undefined,
+        headlineFontStyle: state.headlineFontStyle || undefined,
+        subtitleOpacity: state.subtitleOpacity ? state.subtitleOpacity / 100 : undefined,
+        subtitleLetterSpacing: state.subtitleLetterSpacing ? (state.subtitleLetterSpacing / 100) + 'em' : undefined,
+        subtitleTextTransform: state.subtitleTextTransform || undefined,
       };
 
       if (state.composition && state.composition !== 'single' && state.extraScreenshots.length > 0) {
@@ -1603,9 +2176,17 @@
       return body;
     }
 
+    var renderAbortControllers = {};
     async function renderPreviewForScreen(index) {
       var state = screenStates[index];
       if (!state || !state.iframeEl) return;
+
+      // Cancel any in-flight render for this screen
+      if (renderAbortControllers[index]) {
+        renderAbortControllers[index].abort();
+      }
+      var controller = new AbortController();
+      renderAbortControllers[index] = controller;
 
       state.loadingEl.classList.add('visible');
 
@@ -1617,6 +2198,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -1628,8 +2210,12 @@
         state.iframeEl.srcdoc = html;
         document.getElementById('status-text').textContent = 'Ready';
       } catch (err) {
+        if (err.name === 'AbortError') return; // Superseded by newer request
         document.getElementById('status-text').textContent = 'Error: ' + err.message;
       } finally {
+        if (renderAbortControllers[index] === controller) {
+          delete renderAbortControllers[index];
+        }
         state.loadingEl.classList.remove('visible');
       }
     }
@@ -1708,23 +2294,22 @@
 
     function debouncedRender() {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(renderSelectedPreview, 300);
+      debounceTimer = setTimeout(renderSelectedPreview, 400);
     }
 
     var throttleTimer = null;
     var throttlePending = false;
     function throttledRender() {
+      // Only do full server re-renders at ~200ms intervals to avoid stutter
+      throttlePending = true;
       if (!throttleTimer) {
-        renderSelectedPreview();
         throttleTimer = setTimeout(function() {
           throttleTimer = null;
           if (throttlePending) {
             throttlePending = false;
-            throttledRender();
+            renderSelectedPreview();
           }
-        }, 60);
-      } else {
-        throttlePending = true;
+        }, 200);
       }
     }
 
@@ -1803,6 +2388,32 @@
       if (bgShape1) bgShape1.style.top = Math.round(canvasHeight * (deviceTop - 20) / 100) + 'px';
     }
 
+    function updateBackgroundInIframe() {
+      var state = screenStates[selectedScreen];
+      if (!state || !state.iframeEl) return;
+      var doc;
+      try { doc = state.iframeEl.contentDocument || state.iframeEl.contentWindow.document; } catch(e) { return; }
+      if (!doc) return;
+      var canvas = doc.querySelector('.canvas');
+      if (!canvas) return;
+
+      saveControlsToState(selectedScreen);
+      var bgType = state.backgroundType || 'preset';
+
+      if (bgType === 'solid') {
+        canvas.style.background = state.backgroundColor || '#1a1a2e';
+      } else if (bgType === 'gradient' && state.backgroundGradient) {
+        var g = state.backgroundGradient;
+        var colorList = g.colors.join(', ');
+        if (g.type === 'radial') {
+          canvas.style.background = 'radial-gradient(circle at ' + (g.radialPosition || 'center') + ', ' + colorList + ')';
+        } else {
+          canvas.style.background = 'linear-gradient(' + g.direction + 'deg, ' + colorList + ')';
+        }
+      }
+      // For preset and image, changes need a full re-render (preset backgroundCss is server-computed)
+    }
+
     function updateTextStyleInIframe() {
       var state = screenStates[selectedScreen];
       if (!state || !state.iframeEl) return;
@@ -1873,8 +2484,9 @@
       function hitTest(ix, iy, iframeDoc) {
         var el = iframeDoc.elementFromPoint(ix, iy);
         while (el && el !== iframeDoc.documentElement) {
-          if (el.classList && el.classList.contains('headline')) return { cls: 'headline', el: el };
-          if (el.classList && el.classList.contains('subtitle')) return { cls: 'subtitle', el: el };
+          if (el.classList && el.classList.contains('headline')) return { cls: 'headline', el: el, kind: 'text' };
+          if (el.classList && el.classList.contains('subtitle')) return { cls: 'subtitle', el: el, kind: 'text' };
+          if (el.classList && el.classList.contains('device-wrapper')) return { cls: 'device-wrapper', el: el, kind: 'device' };
           el = el.parentElement;
         }
         return null;
@@ -1900,7 +2512,7 @@
             hoveredEl.style.outlineOffset = '4px';
           }
         }
-        overlay.style.cursor = hoveredEl ? 'grab' : '';
+        overlay.style.cursor = hit ? (hit.kind === 'device' ? 'move' : 'grab') : '';
       });
 
       overlay.addEventListener('mouseleave', function() {
@@ -1925,9 +2537,61 @@
 
         var el = hit.el;
         var cls = hit.cls;
+        var state = screenStates[index];
+
+        // Device drag
+        if (hit.kind === 'device') {
+          overlay.style.cursor = 'move';
+          el.style.outline = '2px dashed rgba(99, 102, 241, 0.7)';
+          el.style.outlineOffset = '4px';
+          var startX = e.clientX, startY = e.clientY;
+          var startDeviceTop = state.deviceTop;
+          var startDeviceOffsetX = state.deviceOffsetX;
+          // Canvas dimensions in iframe coords
+          var canvasH = 868;
+          var canvasW = 400;
+
+          dragState = { kind: 'device', el: el, info: info, screenIndex: index };
+
+          function onDeviceMove(ev) {
+            if (!dragState || dragState.kind !== 'device') return;
+            var dx = (ev.clientX - startX) / info.scale;
+            var dy = (ev.clientY - startY) / info.scale;
+            var newOffsetX = startDeviceOffsetX + Math.round((dx / canvasW) * 100);
+            var newTop = startDeviceTop + Math.round((dy / canvasH) * 100);
+            newOffsetX = Math.max(-80, Math.min(80, newOffsetX));
+            newTop = Math.max(-80, Math.min(80, newTop));
+            state.deviceOffsetX = newOffsetX;
+            state.deviceTop = newTop;
+            document.getElementById('device-offset-x').value = newOffsetX;
+            document.getElementById('device-offset-x-value').textContent = newOffsetX;
+            document.getElementById('device-top').value = newTop;
+            document.getElementById('device-top-value').textContent = newTop + '%';
+            // Instant patch position in iframe
+            if (typeof updateDeviceInIframe === 'function') {
+              updateDeviceInIframe(index);
+            }
+          }
+
+          function onDeviceUp() {
+            if (!dragState) return;
+            dragState.el.style.outline = 'none';
+            overlay.style.cursor = 'move';
+            dragState = null;
+            document.removeEventListener('mousemove', onDeviceMove);
+            document.removeEventListener('mouseup', onDeviceUp);
+            saveControlsToState(index);
+            renderPreviewForScreen(index);
+          }
+
+          document.addEventListener('mousemove', onDeviceMove);
+          document.addEventListener('mouseup', onDeviceUp);
+          return;
+        }
+
+        // Text drag
         var elPos = getElPos(el);
         var origWidth = elPos.width;
-        var state = screenStates[index];
 
         var alreadyPositioned = !!(state.textPositions[cls]);
         var centerX = alreadyPositioned ? elPos.left : (elPos.left + elPos.width / 2);
@@ -1952,7 +2616,7 @@
         el.style.outlineOffset = '4px';
         overlay.style.cursor = 'grabbing';
 
-        dragState = { cls: cls, el: el, offsetX: offsetX, offsetY: offsetY, info: info, origWidth: origWidth, screenIndex: index };
+        dragState = { kind: 'text', cls: cls, el: el, offsetX: offsetX, offsetY: offsetY, info: info, origWidth: origWidth, screenIndex: index };
 
         function onMouseMove(ev) {
           if (!dragState) return;
@@ -2018,7 +2682,7 @@
     var fullscreenHiddenSections = [
       'section-text', 'section-composition', 'section-text-position',
       'section-typography', 'section-colors', 'section-gradient',
-      'section-spotlight', 'section-annotations', 'section-zoom',
+      'section-spotlight', 'section-annotations',
       'section-device-frame', 'device-layout-section'
     ];
 
@@ -2301,7 +2965,24 @@
     });
 
     ['color-primary', 'color-secondary', 'color-background', 'color-text', 'color-subtitle'].forEach(function(id) {
-      document.getElementById(id).addEventListener('input', debouncedRender);
+      document.getElementById(id).addEventListener('input', function() {
+        // Instant patch text/subtitle color in iframe
+        var state = screenStates[selectedScreen];
+        if (state && state.iframeEl) {
+          var doc;
+          try { doc = state.iframeEl.contentDocument; } catch(e) { doc = null; }
+          if (doc) {
+            if (id === 'color-text') {
+              var h = doc.querySelector('.headline');
+              if (h) h.style.color = this.value;
+            } else if (id === 'color-subtitle') {
+              var s = doc.querySelector('.subtitle');
+              if (s) s.style.color = this.value;
+            }
+          }
+        }
+        debouncedRender();
+      });
     });
 
     // Gradient controls
@@ -2360,6 +3041,35 @@
       updateTextStyleInIframe();
     });
     document.getElementById('subtitle-rotation').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('headline-line-height').addEventListener('input', function() {
+      document.getElementById('headline-line-height-value').textContent = this.value == 0 ? 'Auto' : (parseInt(this.value, 10) / 100).toFixed(2);
+      throttledRender();
+    });
+    document.getElementById('headline-line-height').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('headline-letter-spacing').addEventListener('input', function() {
+      document.getElementById('headline-letter-spacing-value').textContent = this.value == 0 ? 'Auto' : (parseInt(this.value, 10) / 100) + 'em';
+      throttledRender();
+    });
+    document.getElementById('headline-letter-spacing').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('headline-text-transform').addEventListener('change', renderSelectedPreview);
+    document.getElementById('headline-font-style').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('subtitle-opacity').addEventListener('input', function() {
+      document.getElementById('subtitle-opacity-value').textContent = this.value == 0 ? 'Auto' : this.value + '%';
+      throttledRender();
+    });
+    document.getElementById('subtitle-opacity').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('subtitle-letter-spacing').addEventListener('input', function() {
+      document.getElementById('subtitle-letter-spacing-value').textContent = this.value == 0 ? 'Auto' : (parseInt(this.value, 10) / 100) + 'em';
+      throttledRender();
+    });
+    document.getElementById('subtitle-letter-spacing').addEventListener('change', renderSelectedPreview);
+
+    document.getElementById('subtitle-text-transform').addEventListener('change', renderSelectedPreview);
 
     document.getElementById('device-scale').addEventListener('input', function() {
       document.getElementById('device-scale-value').textContent = this.value + '%';
@@ -2436,6 +3146,9 @@
         // Auto-select matching device frame based on screenshot dimensions
         var img = new Image();
         img.onload = function() {
+          // Store dims for frame filtering
+          lastScreenshotDims = { width: img.naturalWidth, height: img.naturalHeight };
+          applyFrameFilter();
           var match = findBestDeviceMatch(img.naturalWidth, img.naturalHeight);
           if (match) {
             var frameSelect = document.getElementById('frame-id');
@@ -2663,6 +3376,8 @@
       selectedScreen = 0;
       buildGallery();
       syncControlsFromState(0);
+      buildSolidPresets();
+      buildGradientPresets();
       renderAllScreens();
     }
 
@@ -2812,209 +3527,769 @@
       renderSelectedPreview();
     });
 
-    // ===== Zoom Callouts =====
+    // ===== Background Type Controls =====
 
-    function renderZoomCalloutsList() {
+    function updateBgTypeVisibility(bgType) {
+      document.getElementById('bg-preset-controls').style.display = bgType === 'preset' ? '' : 'none';
+      document.getElementById('bg-solid-controls').style.display = bgType === 'solid' ? '' : 'none';
+      document.getElementById('bg-gradient-controls').style.display = bgType === 'gradient' ? '' : 'none';
+      document.getElementById('bg-image-controls').style.display = bgType === 'image' ? '' : 'none';
+      // Colors section is only relevant when using Preset mode (presets use theme colors)
+      var colorsSection = document.getElementById('section-colors');
+      if (colorsSection) colorsSection.style.display = bgType === 'preset' ? '' : 'none';
+    }
+
+    document.querySelectorAll('input[name="bg-type"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        updateBgTypeVisibility(this.value);
+        renderSelectedPreview();
+      });
+    });
+
+    document.getElementById('bg-solid-color').addEventListener('input', function() {
+      updateBackgroundInIframe();
+    });
+    document.getElementById('bg-solid-color').addEventListener('change', renderSelectedPreview);
+
+    // Gradient type toggle
+    document.querySelectorAll('input[name="bg-gradient-type"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        document.getElementById('bg-gradient-radial-pos').style.display = this.value === 'radial' ? '' : 'none';
+        updateBackgroundInIframe();
+        renderSelectedPreview();
+      });
+    });
+
+    document.getElementById('bg-gradient-direction').addEventListener('input', function() {
+      document.getElementById('bg-gradient-direction-value').textContent = this.value + '\u00B0';
+      updateBackgroundInIframe();
+    });
+    document.getElementById('bg-gradient-direction').addEventListener('change', renderSelectedPreview);
+    document.getElementById('bg-gradient-radial-position').addEventListener('change', function() {
+      updateBackgroundInIframe();
+      renderSelectedPreview();
+    });
+
+    document.getElementById('btn-add-gradient-stop').addEventListener('click', function() {
+      var stops = document.querySelectorAll('.bg-gradient-stop');
+      if (stops.length >= 5) return;
+      var stopsContainer = document.getElementById('bg-gradient-stops');
+      var row = document.createElement('div');
+      row.className = 'color-row';
+      var lbl = document.createElement('label');
+      lbl.textContent = 'Stop ' + (stops.length + 1);
+      row.appendChild(lbl);
+      var inp = document.createElement('input');
+      inp.type = 'color';
+      inp.className = 'bg-gradient-stop';
+      inp.value = '#ffffff';
+      inp.addEventListener('input', function() { updateBackgroundInIframe(); });
+      inp.addEventListener('change', renderSelectedPreview);
+      row.appendChild(inp);
+      stopsContainer.appendChild(row);
+      renderSelectedPreview();
+    });
+
+    // Background image upload
+    document.getElementById('btn-upload-bg-image').addEventListener('click', function() {
+      document.getElementById('bg-image-file-input').click();
+    });
+    document.getElementById('bg-image-file-input').addEventListener('change', function() {
+      var file = this.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var state = screenStates[selectedScreen];
+        state.backgroundImageDataUrl = e.target.result;
+        document.getElementById('bg-image-thumb').src = e.target.result;
+        document.getElementById('bg-image-preview').style.display = '';
+        renderPreviewForScreen(selectedScreen);
+      };
+      reader.readAsDataURL(file);
+      this.value = '';
+    });
+    document.getElementById('btn-clear-bg-image').addEventListener('click', function() {
+      var state = screenStates[selectedScreen];
+      state.backgroundImageDataUrl = null;
+      document.getElementById('bg-image-preview').style.display = 'none';
+      renderPreviewForScreen(selectedScreen);
+    });
+
+    // Background overlay
+    document.getElementById('bg-overlay-enable').addEventListener('change', function() {
+      document.getElementById('bg-overlay-settings').style.display = this.checked ? '' : 'none';
+      renderSelectedPreview();
+    });
+    document.getElementById('bg-overlay-color').addEventListener('input', debouncedRender);
+    document.getElementById('bg-overlay-opacity').addEventListener('input', function() {
+      document.getElementById('bg-overlay-opacity-value').textContent = this.value + '%';
+      throttledRender();
+    });
+    document.getElementById('bg-overlay-opacity').addEventListener('change', renderSelectedPreview);
+
+    // ===== Device Shadow Controls =====
+
+    document.getElementById('device-shadow-enable').addEventListener('change', function() {
+      document.getElementById('device-shadow-controls').style.display = this.checked ? '' : 'none';
+      renderSelectedPreview();
+    });
+    document.getElementById('device-shadow-color').addEventListener('input', debouncedRender);
+    ['device-shadow-opacity', 'device-shadow-blur', 'device-shadow-offset-y'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', function() {
+        var suffix = id === 'device-shadow-opacity' ? '%' : 'px';
+        document.getElementById(id + '-value').textContent = this.value + suffix;
+        throttledRender();
+      });
+      document.getElementById(id).addEventListener('change', renderSelectedPreview);
+    });
+
+    // ===== Border Simulation Controls =====
+
+    document.getElementById('frame-style').addEventListener('change', function() {
+      var isNone = this.value === 'none';
+      document.getElementById('border-sim-section').style.display = isNone ? '' : 'none';
+      renderSelectedPreview();
+    });
+
+    document.getElementById('border-sim-enable').addEventListener('change', function() {
+      document.getElementById('border-sim-controls').style.display = this.checked ? '' : 'none';
+      renderSelectedPreview();
+    });
+
+    document.getElementById('border-sim-color').addEventListener('input', debouncedRender);
+    ['border-sim-thickness', 'border-sim-radius'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', function() {
+        document.getElementById(id + '-value').textContent = this.value + 'px';
+        throttledRender();
+      });
+      document.getElementById(id).addEventListener('change', renderSelectedPreview);
+    });
+
+    // ===== Corner Radius Control =====
+
+    document.getElementById('corner-radius').addEventListener('input', function() {
+      var val = parseInt(this.value, 10);
+      document.getElementById('corner-radius-value').textContent = val === 0 ? 'Default' : val + '%';
+      throttledRender();
+    });
+    document.getElementById('corner-radius').addEventListener('change', renderSelectedPreview);
+
+    // ===== Frame Filtering =====
+
+    var showAllFrames = false;
+    var lastScreenshotDims = null; // { width, height }
+
+    document.getElementById('show-all-frames').addEventListener('change', function() {
+      showAllFrames = this.checked;
+      applyFrameFilter();
+    });
+
+    function applyFrameFilter() {
+      var frameSelect = document.getElementById('frame-id');
+      if (showAllFrames || !lastScreenshotDims) {
+        // Show all options
+        for (var i = 0; i < frameSelect.options.length; i++) {
+          frameSelect.options[i].style.display = '';
+        }
+        // Show all optgroups
+        frameSelect.querySelectorAll('optgroup').forEach(function(g) { g.style.display = ''; });
+        return;
+      }
+      var ar = lastScreenshotDims.width / lastScreenshotDims.height;
+      var tolerance = 0.15;
+
+      for (var i = 0; i < frameSelect.options.length; i++) {
+        var opt = frameSelect.options[i];
+        if (!opt.value) { opt.style.display = ''; continue; }
+        var match = false;
+        // Check Koubou families
+        var family = (koubouData.families || []).find(function(f) { return f.id === opt.value; });
+        if (family) {
+          var fAR = family.screenResolution.width / family.screenResolution.height;
+          match = Math.abs(ar - fAR) / fAR < tolerance || Math.abs(ar - 1/fAR) / (1/fAR) < tolerance;
+        }
+        // Check SVG frames
+        var svgFrame = framesData.find(function(f) { return f.id === opt.value; });
+        if (svgFrame && svgFrame.screenResolution) {
+          var sAR = svgFrame.screenResolution.width / svgFrame.screenResolution.height;
+          match = match || Math.abs(ar - sAR) / sAR < tolerance || Math.abs(ar - 1/sAR) / (1/sAR) < tolerance;
+        }
+        opt.style.display = match ? '' : 'none';
+      }
+      // Hide empty optgroups
+      frameSelect.querySelectorAll('optgroup').forEach(function(g) {
+        var visibleOpts = g.querySelectorAll('option:not([style*="display: none"])');
+        g.style.display = visibleOpts.length > 0 ? '' : 'none';
+      });
+    }
+
+    // ===== Koubou Color Swatches =====
+
+    var KOUBOU_COLOR_HEX = {
+      'Natural Titanium': '#9a8e7e', 'Black Titanium': '#3c3c3c', 'White Titanium': '#e8e5e0',
+      'Desert Titanium': '#c4a882', 'Blue Titanium': '#394e5f',
+      'Black': '#1c1c1e', 'White': '#f5f5f7', 'Pink': '#f9cdd3', 'Teal': '#5eb5b5',
+      'Ultramarine': '#4a50c7', 'Blue': '#5b8fb9', 'Green': '#3f6e4e', 'Yellow': '#f2d44e',
+      'Red': '#c43d40', 'Purple': '#7c5dab',
+      'Midnight': '#2c2c3a', 'Starlight': '#f0e8d8', 'Product Red': '#c43d40',
+      'Space Black': '#2a2a2c', 'Space Gray': '#636366', 'Silver': '#d6d6d6', 'Gold': '#e3caa5',
+      'Deep Purple': '#5e4580', 'Graphite': '#4f4f4f', 'Pacific Blue': '#1e5c82',
+      'Sierra Blue': '#9fb8cf', 'Alpine Green': '#3c5e48', 'Rose Gold': '#e6c0aa',
+    };
+
+    function buildKoubouColorSwatches(family) {
+      var container = document.getElementById('koubou-color-swatches');
+      while (container.firstChild) container.removeChild(container.firstChild);
+      if (!family || family.colors.length <= 1) return;
+      var currentColor = document.getElementById('koubou-color').value;
+      family.colors.forEach(function(c) {
+        var swatch = document.createElement('button');
+        swatch.className = 'color-swatch' + (c.name === currentColor ? ' active' : '');
+        var hex = KOUBOU_COLOR_HEX[c.name] || '#888888';
+        swatch.style.background = hex;
+        swatch.title = c.name;
+        swatch.addEventListener('click', function() {
+          document.getElementById('koubou-color').value = c.name;
+          container.querySelectorAll('.color-swatch').forEach(function(s) { s.classList.remove('active'); });
+          swatch.classList.add('active');
+          saveControlsToState(selectedScreen);
+          renderSelectedPreview();
+        });
+        container.appendChild(swatch);
+      });
+    }
+
+    // ===== Build Background Preset Swatches =====
+
+    var SOLID_PRESETS = [
+      '#000000', '#1a1a2e', '#16213e', '#0f3460', '#533483',
+      '#e94560', '#f5f5f5', '#fafafa', '#2d3436', '#636e72',
+      '#00b894', '#00cec9', '#6c5ce7', '#fdcb6e', '#e17055',
+      '#dfe6e9', '#b2bec3', '#2c3e50', '#8e44ad', '#2980b9',
+    ];
+
+    var GRADIENT_PRESETS = [
+      { name: 'Sunset', colors: ['#ff6b35', '#f7c948', '#ff3864'], direction: 135 },
+      { name: 'Ocean', colors: ['#0052d4', '#4364f7', '#6fb1fc'], direction: 135 },
+      { name: 'Aurora', colors: ['#00c9ff', '#92fe9d'], direction: 135 },
+      { name: 'Midnight', colors: ['#0f0c29', '#302b63', '#24243e'], direction: 135 },
+      { name: 'Coral', colors: ['#ff9a9e', '#fecfef'], direction: 135 },
+      { name: 'Lavender', colors: ['#a18cd1', '#fbc2eb'], direction: 135 },
+      { name: 'Emerald', colors: ['#11998e', '#38ef7d'], direction: 135 },
+      { name: 'Fire', colors: ['#f83600', '#f9d423'], direction: 135 },
+      { name: 'Berry', colors: ['#8e2de2', '#4a00e0'], direction: 135 },
+      { name: 'Peach', colors: ['#ffecd2', '#fcb69f'], direction: 135 },
+      { name: 'Sky', colors: ['#2980b9', '#6dd5fa', '#ffffff'], direction: 180 },
+      { name: 'Dusk', colors: ['#2c3e50', '#fd746c'], direction: 135 },
+      { name: 'Mint', colors: ['#00b09b', '#96c93d'], direction: 135 },
+      { name: 'Rose', colors: ['#ee9ca7', '#ffdde1'], direction: 135 },
+      { name: 'Indigo', colors: ['#667eea', '#764ba2'], direction: 135 },
+      { name: 'Candy', colors: ['#fc5c7d', '#6a82fb'], direction: 135 },
+      { name: 'Forest', colors: ['#134e5e', '#71b280'], direction: 135 },
+      { name: 'Neon', colors: ['#00f260', '#0575e6'], direction: 135 },
+      { name: 'Warm', colors: ['#f093fb', '#f5576c'], direction: 135 },
+    ];
+
+    function buildSolidPresets() {
+      var container = document.getElementById('bg-solid-presets');
+      clearChildren(container);
+      SOLID_PRESETS.forEach(function(color) {
+        var btn = document.createElement('button');
+        btn.className = 'color-swatch';
+        btn.style.background = color;
+        btn.title = color;
+        btn.addEventListener('click', function() {
+          document.getElementById('bg-solid-color').value = color;
+          screenStates[selectedScreen].backgroundColor = color;
+          renderSelectedPreview();
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function buildGradientPresets() {
+      var container = document.getElementById('bg-gradient-presets');
+      clearChildren(container);
+      GRADIENT_PRESETS.forEach(function(preset) {
+        var btn = document.createElement('button');
+        btn.className = 'gradient-swatch';
+        btn.style.background = 'linear-gradient(' + preset.direction + 'deg, ' + preset.colors.join(', ') + ')';
+        btn.title = preset.name;
+        btn.addEventListener('click', function() {
+          var state = screenStates[selectedScreen];
+          state.backgroundGradient = {
+            type: 'linear',
+            colors: preset.colors.slice(),
+            direction: preset.direction,
+            radialPosition: 'center',
+          };
+          syncControlsFromState(selectedScreen);
+          renderSelectedPreview();
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    // ===== Loupe Controls =====
+
+    document.getElementById('loupe-enable').addEventListener('change', function() {
+      document.getElementById('loupe-controls').style.display = this.checked ? '' : 'none';
+      renderSelectedPreview();
+    });
+
+    document.getElementById('loupe-border-color').addEventListener('input', debouncedRender);
+
+    ['loupe-source-x', 'loupe-source-y', 'loupe-display-x', 'loupe-display-y', 'loupe-size', 'loupe-border-width'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', function() {
+        var suffix = id.indexOf('border') >= 0 ? 'px' : '%';
+        document.getElementById(id + '-value').textContent = this.value + suffix;
+        throttledRender();
+      });
+      document.getElementById(id).addEventListener('change', renderSelectedPreview);
+    });
+
+    document.getElementById('loupe-zoom').addEventListener('input', function() {
+      document.getElementById('loupe-zoom-value').textContent = (parseInt(this.value, 10) / 100).toFixed(1) + 'x';
+      throttledRender();
+    });
+    document.getElementById('loupe-zoom').addEventListener('change', renderSelectedPreview);
+
+    // ===== Callout Controls =====
+
+    var calloutCounter = 0;
+
+    document.getElementById('btn-add-callout').addEventListener('click', function() {
       var state = screenStates[selectedScreen];
       if (!state) return;
-      var container = document.getElementById('zoom-list');
-      clearChildren(container);
+      calloutCounter++;
+      state.callouts.push({
+        id: 'callout-' + calloutCounter,
+        sourceX: 30, sourceY: 40, sourceW: 40, sourceH: 20,
+        displayX: 60, displayY: 10,
+        displayScale: 1, rotation: 0, borderRadius: 8,
+        shadow: true, borderWidth: 0, borderColor: '#ffffff',
+      });
+      renderCalloutsList();
+      renderSelectedPreview();
+    });
 
-      state.zoomCallouts.forEach(function(zc, idx) {
-        var row = document.createElement('div');
-        row.style.cssText = 'border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 6px;';
+    function renderCalloutsList() {
+      var state = screenStates[selectedScreen];
+      var container = document.getElementById('callouts-list');
+      while (container.firstChild) container.removeChild(container.firstChild);
+      if (!state || !state.callouts) return;
+      state.callouts.forEach(function(co, idx) {
+        var panel = document.createElement('div');
+        panel.style.cssText = 'border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 6px; font-size: 11px;';
 
         var header = document.createElement('div');
         header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;';
         var title = document.createElement('span');
-        title.style.cssText = 'font-size: 11px; font-weight: 600; color: var(--text-dim);';
-        title.textContent = 'Zoom ' + (idx + 1);
+        title.style.fontWeight = '600';
+        title.textContent = 'Callout ' + (idx + 1);
+        var removeBtn = document.createElement('button');
+        removeBtn.className = 'btn btn-secondary';
+        removeBtn.style.cssText = 'font-size: 10px; padding: 2px 8px;';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function() {
+          state.callouts.splice(idx, 1);
+          renderCalloutsList();
+          renderSelectedPreview();
+        });
         header.appendChild(title);
-        var delBtn = document.createElement('button');
-        delBtn.className = 'preview-card-remove';
-        delBtn.textContent = '\u00D7';
-        delBtn.addEventListener('click', function() {
-          state.zoomCallouts.splice(idx, 1);
-          renderZoomCalloutsList();
-          renderSelectedPreview();
-        });
-        header.appendChild(delBtn);
-        row.appendChild(header);
+        header.appendChild(removeBtn);
+        panel.appendChild(header);
 
-        // Source sliders
-        var srcTitle = document.createElement('span');
-        srcTitle.style.cssText = 'font-size: 10px; color: var(--text-dim); display: block; margin-bottom: 4px;';
-        srcTitle.textContent = 'Source Region';
-        row.appendChild(srcTitle);
-
-        [
-          { key: 'sourceX', label: 'X', min: 0, max: 100 },
-          { key: 'sourceY', label: 'Y', min: 0, max: 100 },
-          { key: 'sourceW', label: 'W', min: 5, max: 80 },
-          { key: 'sourceH', label: 'H', min: 5, max: 80 },
-        ].forEach(function(cfg) {
+        // Sliders for the callout
+        var fields = [
+          { label: 'Source X', key: 'sourceX', min: 0, max: 100, suffix: '%' },
+          { label: 'Source Y', key: 'sourceY', min: 0, max: 100, suffix: '%' },
+          { label: 'Source W', key: 'sourceW', min: 1, max: 100, suffix: '%' },
+          { label: 'Source H', key: 'sourceH', min: 1, max: 100, suffix: '%' },
+          { label: 'Display X', key: 'displayX', min: 0, max: 100, suffix: '%' },
+          { label: 'Display Y', key: 'displayY', min: 0, max: 100, suffix: '%' },
+          { label: 'Scale', key: 'displayScale', min: 50, max: 300, suffix: 'x', divisor: 100, step: 10 },
+          { label: 'Rotation', key: 'rotation', min: -45, max: 45, suffix: '\u00B0' },
+          { label: 'Radius', key: 'borderRadius', min: 0, max: 30, suffix: 'px' },
+        ];
+        fields.forEach(function(f) {
           var lbl = document.createElement('label');
-          lbl.textContent = cfg.label;
-          lbl.style.cssText = 'font-size: 11px;';
-          row.appendChild(lbl);
-          var rr = document.createElement('div');
-          rr.className = 'range-row';
-          var inp = document.createElement('input');
-          inp.type = 'range';
-          inp.min = cfg.min;
-          inp.max = cfg.max;
-          inp.step = '1';
-          inp.value = zc[cfg.key];
-          var val = document.createElement('span');
-          val.className = 'range-value';
-          val.textContent = zc[cfg.key] + '%';
-          inp.addEventListener('input', function() {
-            zc[cfg.key] = parseInt(this.value, 10);
-            val.textContent = this.value + '%';
+          lbl.textContent = f.label;
+          lbl.style.fontSize = '10px';
+          panel.appendChild(lbl);
+          var row = document.createElement('div');
+          row.className = 'range-row';
+          var input = document.createElement('input');
+          input.type = 'range';
+          input.min = f.min; input.max = f.max; input.step = f.step || 1;
+          input.value = f.divisor ? co[f.key] * f.divisor : co[f.key];
+          var valSpan = document.createElement('span');
+          valSpan.className = 'range-value';
+          valSpan.textContent = (f.divisor ? (co[f.key]).toFixed(1) : co[f.key]) + f.suffix;
+          input.addEventListener('input', function() {
+            co[f.key] = f.divisor ? parseInt(this.value, 10) / f.divisor : parseInt(this.value, 10);
+            valSpan.textContent = (f.divisor ? co[f.key].toFixed(1) : co[f.key]) + f.suffix;
             throttledRender();
           });
-          inp.addEventListener('change', function() { renderSelectedPreview(); });
-          rr.appendChild(inp);
-          rr.appendChild(val);
-          row.appendChild(rr);
+          input.addEventListener('change', renderSelectedPreview);
+          row.appendChild(input);
+          row.appendChild(valSpan);
+          panel.appendChild(row);
         });
 
-        // Target position
-        var tgtTitle = document.createElement('span');
-        tgtTitle.style.cssText = 'font-size: 10px; color: var(--text-dim); display: block; margin-top: 4px; margin-bottom: 4px;';
-        tgtTitle.textContent = 'Target Position';
-        row.appendChild(tgtTitle);
-
-        [
-          { key: 'targetX', label: 'X', min: 0, max: 100 },
-          { key: 'targetY', label: 'Y', min: 0, max: 100 },
-        ].forEach(function(cfg) {
-          var lbl = document.createElement('label');
-          lbl.textContent = cfg.label;
-          lbl.style.cssText = 'font-size: 11px;';
-          row.appendChild(lbl);
-          var rr = document.createElement('div');
-          rr.className = 'range-row';
-          var inp = document.createElement('input');
-          inp.type = 'range';
-          inp.min = cfg.min;
-          inp.max = cfg.max;
-          inp.step = '1';
-          inp.value = zc[cfg.key];
-          var val = document.createElement('span');
-          val.className = 'range-value';
-          val.textContent = zc[cfg.key] + '%';
-          inp.addEventListener('input', function() {
-            zc[cfg.key] = parseInt(this.value, 10);
-            val.textContent = this.value + '%';
-            throttledRender();
-          });
-          inp.addEventListener('change', function() { renderSelectedPreview(); });
-          rr.appendChild(inp);
-          rr.appendChild(val);
-          row.appendChild(rr);
-        });
-
-        // Magnification
-        var magLabel = document.createElement('label');
-        magLabel.textContent = 'Magnification';
-        magLabel.style.cssText = 'font-size: 11px;';
-        row.appendChild(magLabel);
-        var magRow = document.createElement('div');
-        magRow.className = 'range-row';
-        var magInp = document.createElement('input');
-        magInp.type = 'range';
-        magInp.min = '1.5';
-        magInp.max = '5';
-        magInp.step = '0.5';
-        magInp.value = zc.magnification;
-        var magVal = document.createElement('span');
-        magVal.className = 'range-value';
-        magVal.textContent = zc.magnification + 'x';
-        magInp.addEventListener('input', function() {
-          zc.magnification = parseFloat(this.value);
-          magVal.textContent = this.value + 'x';
-          throttledRender();
-        });
-        magInp.addEventListener('change', function() { renderSelectedPreview(); });
-        magRow.appendChild(magInp);
-        magRow.appendChild(magVal);
-        row.appendChild(magRow);
-
-        // Connector style
-        var connLabel = document.createElement('label');
-        connLabel.textContent = 'Connector';
-        row.appendChild(connLabel);
-        var connSelect = document.createElement('select');
-        connSelect.style.cssText = 'width: 100%; padding: 6px 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; margin-bottom: 8px;';
-        ['line', 'elbow', 'none'].forEach(function(v) {
-          var opt = document.createElement('option');
-          opt.value = v;
-          opt.textContent = v;
-          connSelect.appendChild(opt);
-        });
-        connSelect.value = zc.connectorStyle;
-        connSelect.addEventListener('change', function() {
-          zc.connectorStyle = this.value;
-          renderSelectedPreview();
-        });
-        row.appendChild(connSelect);
-
-        // Border color
-        var bcRow = document.createElement('div');
-        bcRow.className = 'color-row';
-        var bcLabel = document.createElement('label');
-        bcLabel.textContent = 'Border';
-        bcRow.appendChild(bcLabel);
-        var bcInput = document.createElement('input');
-        bcInput.type = 'color';
-        bcInput.value = zc.borderColor;
-        bcInput.addEventListener('input', function() {
-          zc.borderColor = this.value;
-          debouncedRender();
-        });
-        bcRow.appendChild(bcInput);
-        row.appendChild(bcRow);
-
-        // Shadow toggle
-        var shadowLabel = document.createElement('label');
-        shadowLabel.style.cssText = 'margin-bottom: 0;';
-        var shadowCb = document.createElement('input');
-        shadowCb.type = 'checkbox';
-        shadowCb.checked = zc.shadow;
-        shadowCb.style.cssText = 'accent-color: var(--accent); margin-right: 4px;';
-        shadowCb.addEventListener('change', function() {
-          zc.shadow = this.checked;
-          renderSelectedPreview();
-        });
-        shadowLabel.appendChild(shadowCb);
-        shadowLabel.appendChild(document.createTextNode('Shadow'));
-        row.appendChild(shadowLabel);
-
-        container.appendChild(row);
+        container.appendChild(panel);
       });
     }
 
-    document.getElementById('btn-add-zoom').addEventListener('click', function() {
-      saveControlsToState(selectedScreen);
+    // ===== Overlay Controls =====
+
+    var overlayCounter = 0;
+
+    document.getElementById('btn-add-overlay').addEventListener('click', function() {
       var state = screenStates[selectedScreen];
-      state.zoomCallouts.push({
-        id: Date.now().toString(36),
-        sourceX: 30,
-        sourceY: 30,
-        sourceW: 20,
-        sourceH: 20,
-        targetX: 70,
-        targetY: 20,
-        magnification: 2,
-        connectorStyle: 'line',
-        borderColor: '#FFFFFF',
-        borderWidth: 3,
-        shadow: true,
+      if (!state) return;
+      overlayCounter++;
+      state.overlays.push({
+        id: 'overlay-' + overlayCounter,
+        type: 'shape',
+        x: 10, y: 10, size: 10,
+        rotation: 0, opacity: 1,
+        shapeType: 'circle', shapeColor: '#6366f1', shapeOpacity: 0.5, shapeBlur: 10,
       });
-      renderZoomCalloutsList();
+      renderOverlaysList();
       renderSelectedPreview();
     });
+
+    function renderOverlaysList() {
+      var state = screenStates[selectedScreen];
+      var container = document.getElementById('overlays-list');
+      while (container.firstChild) container.removeChild(container.firstChild);
+      if (!state || !state.overlays) return;
+      state.overlays.forEach(function(ov, idx) {
+        var panel = document.createElement('div');
+        panel.style.cssText = 'border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 6px; font-size: 11px;';
+
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;';
+        var title = document.createElement('span');
+        title.style.fontWeight = '600';
+        title.textContent = 'Overlay ' + (idx + 1);
+        var removeBtn = document.createElement('button');
+        removeBtn.className = 'btn btn-secondary';
+        removeBtn.style.cssText = 'font-size: 10px; padding: 2px 8px;';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function() {
+          state.overlays.splice(idx, 1);
+          renderOverlaysList();
+          renderSelectedPreview();
+        });
+        header.appendChild(title);
+        header.appendChild(removeBtn);
+        panel.appendChild(header);
+
+        // Type selector
+        var typeLbl = document.createElement('label');
+        typeLbl.textContent = 'Type';
+        typeLbl.style.fontSize = '10px';
+        panel.appendChild(typeLbl);
+        var typeSelect = document.createElement('select');
+        typeSelect.style.cssText = 'width: 100%; margin-bottom: 6px; font-size: 11px;';
+        ['shape', 'star-rating', 'icon', 'badge', 'custom'].forEach(function(t) {
+          var opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+          if (ov.type === t) opt.selected = true;
+          typeSelect.appendChild(opt);
+        });
+        typeSelect.addEventListener('change', function() {
+          ov.type = this.value;
+          renderOverlaysList();
+          renderSelectedPreview();
+        });
+        panel.appendChild(typeSelect);
+
+        // Shape controls
+        if (ov.type === 'shape') {
+          var shapeLbl = document.createElement('label');
+          shapeLbl.textContent = 'Shape';
+          shapeLbl.style.fontSize = '10px';
+          panel.appendChild(shapeLbl);
+          var shapeSelect = document.createElement('select');
+          shapeSelect.style.cssText = 'width: 100%; margin-bottom: 6px; font-size: 11px;';
+          ['circle', 'rectangle', 'line'].forEach(function(s) {
+            var opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+            if (ov.shapeType === s) opt.selected = true;
+            shapeSelect.appendChild(opt);
+          });
+          shapeSelect.addEventListener('change', function() {
+            ov.shapeType = this.value;
+            renderSelectedPreview();
+          });
+          panel.appendChild(shapeSelect);
+
+          var colorRow = document.createElement('div');
+          colorRow.className = 'color-row';
+          var colorLbl = document.createElement('label');
+          colorLbl.textContent = 'Color';
+          var colorInp = document.createElement('input');
+          colorInp.type = 'color';
+          colorInp.value = ov.shapeColor || '#6366f1';
+          colorInp.addEventListener('input', function() {
+            ov.shapeColor = this.value;
+            debouncedRender();
+          });
+          colorRow.appendChild(colorLbl);
+          colorRow.appendChild(colorInp);
+          panel.appendChild(colorRow);
+        }
+
+        // Image upload for custom/icon/badge
+        if (ov.type === 'custom' || ov.type === 'icon' || ov.type === 'badge') {
+          var uploadBtn = document.createElement('button');
+          uploadBtn.className = 'btn btn-secondary';
+          uploadBtn.style.cssText = 'width: 100%; font-size: 10px; padding: 4px 0; margin-bottom: 6px;';
+          uploadBtn.textContent = ov.imageDataUrl ? 'Change Image' : 'Upload Image';
+          var fileInput = document.createElement('input');
+          fileInput.type = 'file';
+          fileInput.accept = 'image/png,image/jpeg,image/webp,image/svg+xml';
+          fileInput.style.display = 'none';
+          uploadBtn.addEventListener('click', function() { fileInput.click(); });
+          fileInput.addEventListener('change', function() {
+            if (!this.files[0]) return;
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+              ov.imageDataUrl = ev.target.result;
+              renderOverlaysList();
+              renderSelectedPreview();
+            };
+            reader.readAsDataURL(this.files[0]);
+          });
+          panel.appendChild(uploadBtn);
+          panel.appendChild(fileInput);
+        }
+
+        // Position and size sliders
+        var posFields = [
+          { label: 'X', key: 'x', min: 0, max: 100, suffix: '%' },
+          { label: 'Y', key: 'y', min: 0, max: 100, suffix: '%' },
+          { label: 'Size', key: 'size', min: 2, max: 30, suffix: '%' },
+          { label: 'Rotation', key: 'rotation', min: -180, max: 180, suffix: '\u00B0' },
+          { label: 'Opacity', key: 'opacity', min: 0, max: 100, suffix: '%', divisor: 100 },
+        ];
+        posFields.forEach(function(f) {
+          var lbl = document.createElement('label');
+          lbl.textContent = f.label;
+          lbl.style.fontSize = '10px';
+          panel.appendChild(lbl);
+          var row = document.createElement('div');
+          row.className = 'range-row';
+          var input = document.createElement('input');
+          input.type = 'range';
+          input.min = f.min; input.max = f.max; input.step = 1;
+          input.value = f.divisor ? Math.round(ov[f.key] * f.divisor) : ov[f.key];
+          var valSpan = document.createElement('span');
+          valSpan.className = 'range-value';
+          valSpan.textContent = (f.divisor ? Math.round(ov[f.key] * f.divisor) : ov[f.key]) + f.suffix;
+          input.addEventListener('input', function() {
+            ov[f.key] = f.divisor ? parseInt(this.value, 10) / f.divisor : parseInt(this.value, 10);
+            valSpan.textContent = (f.divisor ? Math.round(ov[f.key] * f.divisor) : ov[f.key]) + f.suffix;
+            throttledRender();
+          });
+          input.addEventListener('change', renderSelectedPreview);
+          row.appendChild(input);
+          row.appendChild(valSpan);
+          panel.appendChild(row);
+        });
+
+        container.appendChild(panel);
+      });
+    }
+
+    // ===== Image Crop Modal =====
+
+    document.getElementById('btn-crop-screenshot').addEventListener('click', function() {
+      var state = screenStates[selectedScreen];
+      if (!state || !state.screenshotDataUrl) return;
+      openCropModal(state.screenshotDataUrl, function(croppedDataUrl) {
+        state.screenshotDataUrl = croppedDataUrl;
+        updateScreenshotInfo();
+        renderPreviewForScreen(selectedScreen);
+      });
+    });
+
+    function openCropModal(imageDataUrl, onApply) {
+      var modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.8);display:flex;flex-direction:column;align-items:center;justify-content:center;';
+
+      var img = new Image();
+      img.onload = function() {
+        var iw = img.naturalWidth, ih = img.naturalHeight;
+        // Scale to fit viewport
+        var maxW = window.innerWidth * 0.8, maxH = window.innerHeight * 0.7;
+        var displayScale = Math.min(maxW / iw, maxH / ih, 1);
+        var cw = Math.round(iw * displayScale), ch = Math.round(ih * displayScale);
+
+        var canvas = document.createElement('canvas');
+        canvas.width = cw;
+        canvas.height = ch;
+        canvas.style.cssText = 'cursor:crosshair;border:1px solid rgba(255,255,255,0.3);';
+        var ctx = canvas.getContext('2d');
+
+        // Crop rectangle state (in display coords)
+        var crop = { x: Math.round(cw * 0.1), y: Math.round(ch * 0.1), w: Math.round(cw * 0.8), h: Math.round(ch * 0.8) };
+        var dragging = null; // null, 'move', 'nw', 'ne', 'sw', 'se'
+
+        function draw() {
+          ctx.clearRect(0, 0, cw, ch);
+          ctx.drawImage(img, 0, 0, cw, ch);
+          // Dim outside crop
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillRect(0, 0, cw, crop.y); // top
+          ctx.fillRect(0, crop.y + crop.h, cw, ch - crop.y - crop.h); // bottom
+          ctx.fillRect(0, crop.y, crop.x, crop.h); // left
+          ctx.fillRect(crop.x + crop.w, crop.y, cw - crop.x - crop.w, crop.h); // right
+          // Crop border
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(crop.x, crop.y, crop.w, crop.h);
+          // Corner handles
+          var hs = 8;
+          ctx.fillStyle = '#fff';
+          [[crop.x, crop.y], [crop.x + crop.w, crop.y], [crop.x, crop.y + crop.h], [crop.x + crop.w, crop.y + crop.h]].forEach(function(p) {
+            ctx.fillRect(p[0] - hs/2, p[1] - hs/2, hs, hs);
+          });
+          // Rule-of-thirds grid lines
+          ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+          ctx.lineWidth = 1;
+          for (var i = 1; i <= 2; i++) {
+            ctx.beginPath();
+            ctx.moveTo(crop.x + crop.w * i / 3, crop.y);
+            ctx.lineTo(crop.x + crop.w * i / 3, crop.y + crop.h);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(crop.x, crop.y + crop.h * i / 3);
+            ctx.lineTo(crop.x + crop.w, crop.y + crop.h * i / 3);
+            ctx.stroke();
+          }
+        }
+
+        function getHandle(mx, my) {
+          var hs = 12;
+          var corners = [
+            { name: 'nw', x: crop.x, y: crop.y },
+            { name: 'ne', x: crop.x + crop.w, y: crop.y },
+            { name: 'sw', x: crop.x, y: crop.y + crop.h },
+            { name: 'se', x: crop.x + crop.w, y: crop.y + crop.h },
+          ];
+          for (var i = 0; i < corners.length; i++) {
+            if (Math.abs(mx - corners[i].x) < hs && Math.abs(my - corners[i].y) < hs) return corners[i].name;
+          }
+          if (mx > crop.x && mx < crop.x + crop.w && my > crop.y && my < crop.y + crop.h) return 'move';
+          return 'new';
+        }
+
+        var startX, startY, startCrop;
+
+        canvas.addEventListener('mousedown', function(e) {
+          var rect = canvas.getBoundingClientRect();
+          var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+          var handle = getHandle(mx, my);
+          startX = mx; startY = my;
+          startCrop = { x: crop.x, y: crop.y, w: crop.w, h: crop.h };
+          if (handle === 'new') {
+            crop.x = mx; crop.y = my; crop.w = 0; crop.h = 0;
+            dragging = 'se';
+          } else {
+            dragging = handle;
+          }
+        });
+
+        canvas.addEventListener('mousemove', function(e) {
+          if (!dragging) {
+            var rect = canvas.getBoundingClientRect();
+            var h = getHandle(e.clientX - rect.left, e.clientY - rect.top);
+            var cursors = { nw: 'nw-resize', ne: 'ne-resize', sw: 'sw-resize', se: 'se-resize', move: 'move', 'new': 'crosshair' };
+            canvas.style.cursor = cursors[h] || 'crosshair';
+            return;
+          }
+          var rect = canvas.getBoundingClientRect();
+          var mx = Math.max(0, Math.min(cw, e.clientX - rect.left));
+          var my = Math.max(0, Math.min(ch, e.clientY - rect.top));
+          var dx = mx - startX, dy = my - startY;
+
+          if (dragging === 'move') {
+            crop.x = Math.max(0, Math.min(cw - startCrop.w, startCrop.x + dx));
+            crop.y = Math.max(0, Math.min(ch - startCrop.h, startCrop.y + dy));
+          } else if (dragging === 'se') {
+            crop.w = Math.max(10, mx - crop.x);
+            crop.h = Math.max(10, my - crop.y);
+          } else if (dragging === 'nw') {
+            crop.x = Math.min(startCrop.x + startCrop.w - 10, startCrop.x + dx);
+            crop.y = Math.min(startCrop.y + startCrop.h - 10, startCrop.y + dy);
+            crop.w = startCrop.w - (crop.x - startCrop.x);
+            crop.h = startCrop.h - (crop.y - startCrop.y);
+          } else if (dragging === 'ne') {
+            crop.y = Math.min(startCrop.y + startCrop.h - 10, startCrop.y + dy);
+            crop.w = Math.max(10, startCrop.w + dx);
+            crop.h = startCrop.h - (crop.y - startCrop.y);
+          } else if (dragging === 'sw') {
+            crop.x = Math.min(startCrop.x + startCrop.w - 10, startCrop.x + dx);
+            crop.w = startCrop.w - (crop.x - startCrop.x);
+            crop.h = Math.max(10, startCrop.h + dy);
+          }
+          draw();
+        });
+
+        document.addEventListener('mouseup', function cropUp() {
+          dragging = null;
+          document.removeEventListener('mouseup', cropUp);
+        });
+
+        draw();
+
+        // Buttons
+        var btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:8px;margin-top:12px;';
+        var btnApply = document.createElement('button');
+        btnApply.className = 'btn btn-primary';
+        btnApply.textContent = 'Apply Crop';
+        btnApply.style.cssText = 'padding: 8px 24px;';
+        btnApply.addEventListener('click', function() {
+          // Extract crop region at full resolution
+          var sx = Math.round(crop.x / displayScale), sy = Math.round(crop.y / displayScale);
+          var sw = Math.round(crop.w / displayScale), sh = Math.round(crop.h / displayScale);
+          sw = Math.min(sw, iw - sx); sh = Math.min(sh, ih - sy);
+          var outCanvas = document.createElement('canvas');
+          outCanvas.width = sw; outCanvas.height = sh;
+          var outCtx = outCanvas.getContext('2d');
+          outCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+          var result = outCanvas.toDataURL('image/png');
+          document.body.removeChild(modal);
+          onApply(result);
+        });
+        var btnCancel = document.createElement('button');
+        btnCancel.className = 'btn btn-secondary';
+        btnCancel.textContent = 'Cancel';
+        btnCancel.style.cssText = 'padding: 8px 24px;';
+        btnCancel.addEventListener('click', function() {
+          document.body.removeChild(modal);
+        });
+        btnRow.appendChild(btnApply);
+        btnRow.appendChild(btnCancel);
+
+        var title = document.createElement('div');
+        title.textContent = 'Crop Screenshot';
+        title.style.cssText = 'color:white;font-size:16px;font-weight:600;margin-bottom:12px;';
+
+        modal.appendChild(title);
+        modal.appendChild(canvas);
+        modal.appendChild(btnRow);
+      };
+      img.src = imageDataUrl;
+      document.body.appendChild(modal);
+    }
 
     init();
   </script>

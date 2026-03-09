@@ -56,18 +56,7 @@ export interface KoubouHighlightElement {
   fill_color?: string;
 }
 
-export interface KoubouCalloutElement {
-  type: 'callout';
-  source: { position: [string, string]; size: [string, string] };
-  target: { position: [string, string] };
-  magnification: number;
-  connector?: 'line' | 'elbow' | 'none';
-  border_color?: string;
-  border_width?: number;
-  shadow?: boolean;
-}
-
-export type KoubouContentElement = KoubouTextElement | KoubouImageElement | KoubouSpotlightElement | KoubouHighlightElement | KoubouCalloutElement;
+export type KoubouContentElement = KoubouTextElement | KoubouImageElement | KoubouSpotlightElement | KoubouHighlightElement;
 
 export interface KoubouScreenshot {
   content: KoubouContentElement[];

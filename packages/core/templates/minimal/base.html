@@ -120,6 +120,7 @@
                    top: {{ (frame.screenArea.y * dw / frame.frameSize.width) | round }}px;
                    width: {{ (frame.screenArea.width * dw / frame.frameSize.width) | round }}px;
                    height: {{ (frame.screenArea.height * dw / frame.frameSize.width) | round }}px;
+                   border-radius: {{ (frame.screenArea.borderRadius * dw / frame.frameSize.width) | round }}px;
                    z-index: 1;">
             <img src="{{ screenshotDataUrl }}">
           </div>

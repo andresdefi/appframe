@@ -26,11 +26,21 @@ export type {
   TextGradient,
   SpotlightConfig,
   Annotation,
-  ZoomCallout,
+  BackgroundType,
+  BackgroundGradient,
+  BackgroundOverlay,
+  DeviceShadow,
+  BorderSimulation,
+  Loupe,
+  Callout,
+  Overlay,
   ValidationResult,
   ValidationError,
   FormattedError,
 } from './config/index.js';
+
+export { GRADIENT_PRESETS, SOLID_PRESETS } from './config/index.js';
+export type { GradientPreset } from './config/index.js';
 
 export {
   loadFrameManifest,
@@ -48,7 +58,7 @@ export type {
 
 export { TemplateEngine } from './templates/index.js';
 export type { TemplateContext, DeviceContext } from './templates/index.js';
-export { injectSpotlightHTML, injectAnnotationsHTML, injectZoomCalloutsHTML } from './templates/index.js';
+export { injectSpotlightHTML, injectAnnotationsHTML } from './templates/index.js';
 
 export { loadFontFaces, loadAllFontFaces, getFontName, FONT_CATALOG } from './fonts/index.js';
 export type { FontInfo } from './fonts/index.js';

@@ -58,8 +58,8 @@ describe('generateKoubouConfig', () => {
   it('filters by screenIndex', async () => {
     const config = createMinimalConfig({
       screens: [
-        { screenshot: 's1.png', headline: 'S1', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [], zoomCallouts: [] },
-        { screenshot: 's2.png', headline: 'S2', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [], zoomCallouts: [] },
+        { screenshot: 's1.png', headline: 'S1', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] },
+        { screenshot: 's2.png', headline: 'S2', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] },
       ],
     });
     mockLoadConfig.mockResolvedValue(config);
@@ -178,8 +178,8 @@ describe('generateWithKoubou', () => {
     mockDetectKoubou.mockResolvedValue({ available: true, binaryPath: '/usr/bin/kou', version: '1.0.0' } as KoubouDetectionResult);
     mockLoadConfig.mockResolvedValue(createMinimalConfig({
       screens: [
-        { screenshot: 's1.png', headline: 'S1', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [], zoomCallouts: [] },
-        { screenshot: 's2.png', headline: 'S2', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [], zoomCallouts: [] },
+        { screenshot: 's1.png', headline: 'S1', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] },
+        { screenshot: 's2.png', headline: 'S2', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] },
       ],
     }));
     mockExecFile.mockResolvedValue({ stdout: '', stderr: '' } as never);

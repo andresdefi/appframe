@@ -317,27 +317,6 @@ function translateScreen(
     }
   }
 
-  // Zoom callouts
-  if (screen.zoomCallouts) {
-    for (const zc of screen.zoomCallouts) {
-      elements.push({
-        type: 'callout',
-        source: {
-          position: [`${zc.sourceX}%`, `${zc.sourceY}%`] as [string, string],
-          size: [`${zc.sourceW}%`, `${zc.sourceH}%`] as [string, string],
-        },
-        target: {
-          position: [`${zc.targetX}%`, `${zc.targetY}%`] as [string, string],
-        },
-        magnification: zc.magnification,
-        connector: zc.connectorStyle as 'line' | 'elbow' | 'none',
-        border_color: zc.borderColor,
-        border_width: zc.borderWidth,
-        shadow: zc.shadow,
-      });
-    }
-  }
-
   return elements;
 }
 

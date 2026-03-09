@@ -1,0 +1,33 @@
+{# Floating callouts — extracted regions from the screenshot displayed on canvas #}
+{% for callout in callouts %}
+{% set srcX = callout.sourceX / 100 %}
+{% set srcY = callout.sourceY / 100 %}
+{% set srcW = callout.sourceW / 100 %}
+{% set srcH = callout.sourceH / 100 %}
+{% set dispX = (canvasWidth * callout.displayX / 100) | round %}
+{% set dispY = (canvasHeight * callout.displayY / 100) | round %}
+{% set dispW = (canvasWidth * srcW * callout.displayScale) | round %}
+{% set dispH = (canvasHeight * srcH * callout.displayScale) | round %}
+<div style="
+  position: absolute;
+  z-index: 10;
+  left: {{ dispX }}px;
+  top: {{ dispY }}px;
+  width: {{ dispW }}px;
+  height: {{ dispH }}px;
+  border-radius: {{ callout.borderRadius }}px;
+  overflow: hidden;
+  transform: rotate({{ callout.rotation }}deg);
+  {% if callout.shadow %}box-shadow: 0 8px 30px rgba(0,0,0,0.25);{% endif %}
+  {% if callout.borderWidth > 0 %}border: {{ callout.borderWidth }}px solid {{ callout.borderColor | default('#ffffff') }};{% endif %}
+">
+  <img src="{{ screenshotDataUrl }}" style="
+    position: absolute;
+    width: {{ (canvasWidth / srcW) | round }}px;
+    height: {{ (canvasHeight / srcH) | round }}px;
+    left: -{{ (srcX * canvasWidth / srcW) | round }}px;
+    top: -{{ (srcY * canvasHeight / srcH) | round }}px;
+    object-fit: cover;
+  ">
+</div>
+{% endfor %}

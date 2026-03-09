@@ -5,7 +5,7 @@ vi.mock('@appframe/core', () => ({
     app: { name: 'Test App', description: 'D', platforms: ['ios'], features: [] },
     theme: { style: 'minimal', colors: { primary: '#2563EB', secondary: '#7C3AED', background: '#F8FAFC', text: '#0F172A' }, font: 'inter', fontWeight: 600 },
     frames: { style: 'flat' },
-    screens: [{ screenshot: 'screen-1.png', headline: 'Welcome', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [], zoomCallouts: [] }],
+    screens: [{ screenshot: 'screen-1.png', headline: 'Welcome', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] }],
     output: { platforms: ['ios'], directory: './output' },
   }),
   generateScreenshots: vi.fn().mockResolvedValue({ screenshots: [], totalTime: 100 }),

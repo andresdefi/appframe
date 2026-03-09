@@ -2,9 +2,11 @@ import nunjucks from 'nunjucks';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { TemplateStyle, LayoutVariant, ColorConfig, FrameStyle, CompositionPreset } from '../config/schema.js';
+import type { TemplateStyle, LayoutVariant, ColorConfig, FrameStyle, CompositionPreset, BackgroundType, BackgroundGradient, DeviceShadow, BorderSimulation, Loupe, Callout, Overlay } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
 import { loadFontFaces, getFontName } from '../fonts/loader.js';
+import { STYLE_PRESETS } from '../config/presets.js';
+import type { StylePreset } from '../config/presets.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -67,8 +69,31 @@ export interface TemplateContext {
   // Annotation highlight shapes
   annotations?: Array<{ id: string; shape: string; x: number; y: number; w: number; h: number; strokeColor: string; strokeWidth: number; fillColor?: string }>;
 
-  // Zoom callouts
-  zoomCallouts?: Array<{ id: string; sourceX: number; sourceY: number; sourceW: number; sourceH: number; targetX: number; targetY: number; magnification: number; connectorStyle: string; borderColor: string; borderWidth: number; shadow: boolean }>;
+  // Typography overrides (from theme config — override preset defaults)
+  headlineLineHeight?: number;
+  headlineLetterSpacing?: string;
+  headlineTextTransform?: string;
+  headlineFontStyle?: string;
+  subtitleOpacity?: number;
+  subtitleLetterSpacing?: string;
+  subtitleTextTransform?: string;
+
+  // Background overrides
+  backgroundType?: BackgroundType;
+  backgroundColor?: string;
+  backgroundGradient?: BackgroundGradient;
+  backgroundImageDataUrl?: string;
+  backgroundOverlay?: { color: string; opacity: number };
+
+  // Device enhancements
+  deviceShadow?: DeviceShadow;
+  borderSimulation?: BorderSimulation;
+  cornerRadius?: number;
+
+  // Effects
+  loupe?: Loupe;
+  callouts?: Callout[];
+  overlays?: Overlay[];
 
   // Injected by engine
   fontFaceCss?: string;
@@ -94,6 +119,58 @@ export interface TemplateRenderOptions {
   fontsDir?: string;
 }
 
+function buildShadowCss(preset: StylePreset, context: TemplateContext): string {
+  const cw = context.canvasWidth;
+  const layout = context.layout;
+  const frameStyle = context.frameStyle;
+  const colors = context.colors;
+
+  if (preset.isFullscreen) return '';
+
+  // 3D frame style always uses the same 4-layer cascade
+  if (frameStyle === '3d') {
+    const layers = [
+      [0.005, 0.01, 0.3],
+      [0.02, 0.04, 0.2],
+      [0.06, 0.12, 0.25],
+      [0.1, 0.2, 0.15],
+    ];
+    // Glow preset adds a color glow layer on top
+    const glowLayer = preset.shadow.intensity === 'glow' && preset.shadow.glowScale
+      ? `drop-shadow(0 0 ${Math.round(cw * preset.shadow.glowScale * 0.75)}px ${colors.primary}44) `
+      : '';
+    const shadowLayers = layers
+      .map(([y, b, a]) => `drop-shadow(0 ${Math.round(cw * y!)}px ${Math.round(cw * b!)}px rgba(0,0,0,${a}))`)
+      .join('\n          ');
+    return `filter: ${glowLayer}${shadowLayers};`;
+  }
+
+  let shadowDefs: Array<[number, number, number]>;
+  if (layout === 'floating') {
+    shadowDefs = preset.shadow.floating;
+  } else if (layout === 'angled-left' || layout === 'angled-right') {
+    shadowDefs = preset.shadow.angled;
+  } else {
+    shadowDefs = preset.shadow.standard;
+  }
+
+  if (shadowDefs.length === 0) return '';
+
+  const shadowLayers = shadowDefs
+    .map(([y, b, a]) => `drop-shadow(0 ${Math.round(cw * y!)}px ${Math.round(cw * b!)}px rgba(0,0,0,${a}))`)
+    .join(' ');
+
+  // Glow preset adds a color glow layer
+  if (preset.shadow.intensity === 'glow') {
+    const isFloating = layout === 'floating';
+    const glowScale = isFloating ? (preset.shadow.floatingGlowScale ?? 0.1) : (preset.shadow.glowScale ?? 0.08);
+    const glowAlpha = isFloating ? (preset.shadow.floatingGlowAlpha ?? '88') : (preset.shadow.glowAlpha ?? '66');
+    return `filter: drop-shadow(0 0 ${Math.round(cw * glowScale)}px ${colors.primary}${glowAlpha}) ${shadowLayers};`;
+  }
+
+  return `filter: ${shadowLayers};`;
+}
+
 export class TemplateEngine {
   private env: nunjucks.Environment;
   private templateDir: string;
@@ -117,17 +194,83 @@ export class TemplateEngine {
       this.fontFaceCache.set(fontKey, await loadFontFaces(fontKey, this.fontsDir));
     }
 
-    const templatePath = this.resolveTemplatePath(context.style, context.layout);
+    const preset = STYLE_PRESETS[context.style];
+    const presetContext = resolvePresetContext(preset, context);
+
+    const templatePath = this.resolveTemplatePath();
     const templateContent = await readFile(templatePath, 'utf-8');
     return this.env.renderString(templateContent, {
       ...context,
+      ...presetContext,
       fontFaceCss: this.fontFaceCache.get(fontKey),
       fontFamily: getFontName(fontKey),
     });
   }
 
-  private resolveTemplatePath(style: TemplateStyle, _layout: LayoutVariant): string {
-    // base.html handles all layout variants via conditionals
-    return join(this.templateDir, style, 'base.html');
+  private resolveTemplatePath(): string {
+    return join(this.templateDir, 'universal', 'base.html');
   }
+}
+
+function buildGradientCss(gradient: BackgroundGradient): string {
+  const colorList = gradient.colors.join(', ');
+  if (gradient.type === 'radial') {
+    return `radial-gradient(circle at ${gradient.radialPosition}, ${colorList})`;
+  }
+  return `linear-gradient(${gradient.direction}deg, ${colorList})`;
+}
+
+function buildDeviceShadowCss(shadow: DeviceShadow): string {
+  const alphaHex = Math.round(shadow.opacity * 255).toString(16).padStart(2, '0');
+  return `filter: drop-shadow(0 ${shadow.offsetY}px ${shadow.blur}px ${shadow.color}${alphaHex});`;
+}
+
+function resolvePresetContext(preset: StylePreset, context: TemplateContext) {
+  // Priority chain: user-specified values > preset defaults
+  const typo = preset.typography;
+
+  // Resolve background CSS based on backgroundType
+  const bgType = context.backgroundType ?? 'preset';
+  let resolvedBackgroundCss = preset.backgroundCss(context.colors);
+  let resolvedBgEffect = preset.bgEffect;
+
+  if (bgType === 'solid' && context.backgroundColor) {
+    resolvedBackgroundCss = context.backgroundColor;
+    resolvedBgEffect = 'none' as typeof resolvedBgEffect;
+  } else if (bgType === 'gradient' && context.backgroundGradient) {
+    resolvedBackgroundCss = buildGradientCss(context.backgroundGradient);
+    resolvedBgEffect = 'none' as typeof resolvedBgEffect;
+  } else if (bgType === 'image' && context.backgroundImageDataUrl) {
+    resolvedBackgroundCss = `url('${context.backgroundImageDataUrl}') center/cover no-repeat`;
+    resolvedBgEffect = 'none' as typeof resolvedBgEffect;
+  }
+
+  // Resolve shadow CSS — custom deviceShadow overrides preset
+  const shadowCss = context.deviceShadow
+    ? buildDeviceShadowCss(context.deviceShadow)
+    : buildShadowCss(preset, context);
+
+  return {
+    isFullscreen: preset.isFullscreen,
+    presetBackgroundCss: resolvedBackgroundCss,
+    presetBgEffect: resolvedBgEffect,
+    presetFontFallback: typo.fontFallback,
+    presetFontWeight: typo.fontWeight,
+    presetHeadlineFontSizeScale: typo.headlineFontSizeScale,
+    presetSubtitleFontSizeScale: typo.subtitleFontSizeScale,
+    presetHeadlineLineHeight: context.headlineLineHeight ?? typo.headlineLineHeight,
+    presetHeadlineLetterSpacing: context.headlineLetterSpacing ?? typo.headlineLetterSpacing,
+    presetHeadlineTextTransform: context.headlineTextTransform ?? typo.headlineTextTransform,
+    presetHeadlineFontStyle: context.headlineFontStyle ?? typo.headlineFontStyle,
+    presetSubtitleOpacity: context.subtitleOpacity ?? typo.subtitleOpacity,
+    presetSubtitleLineHeight: typo.subtitleLineHeight,
+    presetSubtitleLetterSpacing: context.subtitleLetterSpacing ?? typo.subtitleLetterSpacing,
+    presetSubtitleTextTransform: context.subtitleTextTransform ?? typo.subtitleTextTransform,
+    presetTextAreaTop: preset.textAreaTop,
+    presetTextAreaPadding: preset.textAreaPadding,
+    presetPerspectiveAngled: preset.perspective.angled,
+    presetPerspectiveFloating: preset.perspective.floating,
+    presetPerspectiveStandard: preset.perspective.standard,
+    presetShadowCss: shadowCss,
+  };
 }

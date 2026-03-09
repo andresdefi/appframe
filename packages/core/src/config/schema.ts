@@ -42,6 +42,94 @@ export const textGradientSchema = z.object({
 });
 export type TextGradient = z.infer<typeof textGradientSchema>;
 
+// --- Background ---
+
+export const backgroundGradientSchema = z.object({
+  type: z.enum(['linear', 'radial']).default('linear'),
+  colors: z.array(hexColor).min(2).max(5),
+  direction: z.number().min(0).max(360).default(135),
+  radialPosition: z.enum(['center', 'top', 'bottom', 'left', 'right']).default('center'),
+});
+export type BackgroundGradient = z.infer<typeof backgroundGradientSchema>;
+
+export const backgroundOverlaySchema = z.object({
+  color: hexColor,
+  opacity: z.number().min(0).max(1).default(0.3),
+});
+
+export const backgroundTypeSchema = z.enum(['preset', 'solid', 'gradient', 'image']);
+
+// --- Device Shadow ---
+
+export const deviceShadowSchema = z.object({
+  opacity: z.number().min(0).max(1).default(0.25),
+  blur: z.number().min(0).max(50).default(20),
+  color: hexColor.default('#000000'),
+  offsetY: z.number().min(0).max(30).default(10),
+});
+export type DeviceShadow = z.infer<typeof deviceShadowSchema>;
+
+// --- Border Simulation ---
+
+export const borderSimulationSchema = z.object({
+  enabled: z.boolean().default(false),
+  thickness: z.number().min(1).max(20).default(4),
+  color: hexColor.default('#1a1a1a'),
+  radius: z.number().min(0).max(60).default(40),
+});
+export type BorderSimulation = z.infer<typeof borderSimulationSchema>;
+
+// --- Loupe ---
+
+export const loupeSchema = z.object({
+  sourceX: z.number().min(0).max(100),
+  sourceY: z.number().min(0).max(100),
+  displayX: z.number().min(0).max(100),
+  displayY: z.number().min(0).max(100),
+  size: z.number().min(5).max(50).default(20),
+  zoom: z.number().min(1.5).max(5).default(2.5),
+  borderWidth: z.number().min(0).max(10).default(3),
+  borderColor: hexColor.default('#ffffff'),
+});
+export type Loupe = z.infer<typeof loupeSchema>;
+
+// --- Callout ---
+
+export const calloutSchema = z.object({
+  id: z.string(),
+  sourceX: z.number().min(0).max(100),
+  sourceY: z.number().min(0).max(100),
+  sourceW: z.number().min(1).max(100),
+  sourceH: z.number().min(1).max(100),
+  displayX: z.number().min(0).max(100),
+  displayY: z.number().min(0).max(100),
+  displayScale: z.number().min(0.5).max(3).default(1),
+  rotation: z.number().min(-45).max(45).default(0),
+  borderRadius: z.number().min(0).max(30).default(8),
+  shadow: z.boolean().default(true),
+  borderWidth: z.number().min(0).max(5).default(0),
+  borderColor: hexColor.optional(),
+});
+export type Callout = z.infer<typeof calloutSchema>;
+
+// --- Overlay ---
+
+export const overlaySchema = z.object({
+  id: z.string(),
+  type: z.enum(['icon', 'badge', 'star-rating', 'custom', 'shape']),
+  imageDataUrl: z.string().optional(),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  size: z.number().min(2).max(30).default(10),
+  rotation: z.number().min(-180).max(180).default(0),
+  opacity: z.number().min(0).max(1).default(1),
+  shapeType: z.enum(['circle', 'rectangle', 'line']).optional(),
+  shapeColor: hexColor.optional(),
+  shapeOpacity: z.number().min(0).max(1).optional(),
+  shapeBlur: z.number().min(0).max(30).optional(),
+});
+export type Overlay = z.infer<typeof overlaySchema>;
+
 export const themeConfigSchema = z.object({
   style: templateStyleSchema,
   colors: colorConfigSchema,
@@ -51,6 +139,20 @@ export const themeConfigSchema = z.object({
   subtitleSize: z.number().int().min(8).max(120).optional(),
   headlineGradient: textGradientSchema.optional(),
   subtitleGradient: textGradientSchema.optional(),
+  // Background overrides
+  backgroundType: backgroundTypeSchema.optional(),
+  backgroundColor: hexColor.optional(),
+  backgroundGradient: backgroundGradientSchema.optional(),
+  backgroundImage: z.string().optional(),
+  backgroundOverlay: backgroundOverlaySchema.optional(),
+  // Typography overrides (override preset defaults when specified)
+  headlineLineHeight: z.number().min(0.8).max(2).optional(),
+  headlineLetterSpacing: z.string().optional(),
+  headlineTextTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).optional(),
+  headlineFontStyle: z.enum(['normal', 'italic']).optional(),
+  subtitleOpacity: z.number().min(0).max(1).optional(),
+  subtitleLetterSpacing: z.string().optional(),
+  subtitleTextTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).optional(),
 });
 
 // --- Frames section ---
@@ -111,24 +213,6 @@ export const annotationSchema = z.object({
 });
 export type Annotation = z.infer<typeof annotationSchema>;
 
-// --- Zoom Callout ---
-
-export const zoomCalloutSchema = z.object({
-  id: z.string().default(''),
-  sourceX: z.number().min(0).max(100).default(30),
-  sourceY: z.number().min(0).max(100).default(30),
-  sourceW: z.number().min(5).max(80).default(20),
-  sourceH: z.number().min(5).max(80).default(20),
-  targetX: z.number().min(0).max(100).default(70),
-  targetY: z.number().min(0).max(100).default(20),
-  magnification: z.number().min(1.5).max(5).default(2),
-  connectorStyle: z.enum(['line', 'elbow', 'none']).default('line'),
-  borderColor: hexColor.default('#FFFFFF'),
-  borderWidth: z.number().min(1).max(10).default(3),
-  shadow: z.boolean().default(true),
-});
-export type ZoomCallout = z.infer<typeof zoomCalloutSchema>;
-
 // --- Screen section ---
 
 export const screenConfigSchema = z.object({
@@ -144,7 +228,14 @@ export const screenConfigSchema = z.object({
   autoSizeSubtitle: z.boolean().default(false),
   spotlight: spotlightConfigSchema.optional(),
   annotations: z.array(annotationSchema).default([]),
-  zoomCallouts: z.array(zoomCalloutSchema).default([]),
+  // Device enhancements
+  deviceShadow: deviceShadowSchema.optional(),
+  borderSimulation: borderSimulationSchema.optional(),
+  cornerRadius: z.number().min(0).max(50).optional(),
+  // Effects
+  loupe: loupeSchema.optional(),
+  callouts: z.array(calloutSchema).optional(),
+  overlays: z.array(overlaySchema).optional(),
 });
 
 // --- Locale section ---
@@ -266,3 +357,5 @@ export type MacOutputConfig = z.infer<typeof macOutputConfigSchema>;
 export type WatchOutputConfig = z.infer<typeof watchOutputConfigSchema>;
 export type OutputConfig = z.infer<typeof outputConfigSchema>;
 export type AppframeConfig = z.infer<typeof appframeConfigSchema>;
+export type BackgroundType = z.infer<typeof backgroundTypeSchema>;
+export type BackgroundOverlay = z.infer<typeof backgroundOverlaySchema>;

@@ -1,0 +1,27 @@
+{# Loupe magnification — circular zoom of a screenshot region #}
+{% set loupeSize = (canvasWidth * loupe.size / 100) | round %}
+{% set loupePosX = (canvasWidth * loupe.displayX / 100) | round %}
+{% set loupePosY = (canvasHeight * loupe.displayY / 100) | round %}
+{% set zoomedWidth = (loupeSize * loupe.zoom) | round %}
+{% set sourceOffsetX = (loupe.sourceX / 100 * zoomedWidth - loupeSize / 2) | round %}
+{% set sourceOffsetY = (loupe.sourceY / 100 * zoomedWidth * canvasHeight / canvasWidth - loupeSize / 2) | round %}
+<div style="
+  position: absolute;
+  z-index: 10;
+  width: {{ loupeSize }}px;
+  height: {{ loupeSize }}px;
+  left: {{ loupePosX - loupeSize / 2 }}px;
+  top: {{ loupePosY - loupeSize / 2 }}px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: {{ loupe.borderWidth }}px solid {{ loupe.borderColor }};
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+">
+  <img src="{{ screenshotDataUrl }}" style="
+    position: absolute;
+    width: {{ zoomedWidth }}px;
+    height: auto;
+    left: -{{ sourceOffsetX }}px;
+    top: -{{ sourceOffsetY }}px;
+  ">
+</div>

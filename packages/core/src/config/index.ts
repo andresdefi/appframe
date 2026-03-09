@@ -23,5 +23,16 @@ export type {
   TextGradient,
   SpotlightConfig,
   Annotation,
-  ZoomCallout,
+  BackgroundType,
+  BackgroundGradient,
+  BackgroundOverlay,
+  DeviceShadow,
+  BorderSimulation,
+  Loupe,
+  Callout,
+  Overlay,
 } from './schema.js';
+export { STYLE_PRESETS } from './presets.js';
+export type { StylePreset, TypographyDefaults, ShadowConfig, BgEffect, ShadowIntensity } from './presets.js';
+export { GRADIENT_PRESETS, SOLID_PRESETS } from './background-presets.js';
+export type { GradientPreset } from './background-presets.js';

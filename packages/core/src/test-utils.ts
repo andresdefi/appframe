@@ -34,7 +34,6 @@ export function createMinimalConfig(overrides?: Partial<AppframeConfig>): Appfra
         autoSizeHeadline: false,
         autoSizeSubtitle: false,
         annotations: [],
-        zoomCallouts: [],
       },
     ],
     output: {

@@ -157,7 +157,7 @@ describe('translateConfig', () => {
           autoSizeHeadline: false,
           autoSizeSubtitle: false,
           annotations: [],
-          zoomCallouts: [],
+          
         },
       ],
     });
@@ -237,7 +237,7 @@ describe('translateConfig', () => {
           autoSizeHeadline: false,
           autoSizeSubtitle: false,
           annotations: [],
-          zoomCallouts: [],
+          
         },
       ],
     };
@@ -258,7 +258,7 @@ describe('translateConfig — spotlight, annotations, zoom callouts', () => {
     const config = createMinimalConfig({
       screens: [{
         screenshot: 's.png', headline: 'Hi', layout: 'center', composition: 'single',
-        autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [], zoomCallouts: [],
+        autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [],
         spotlight: { x: 50, y: 50, w: 30, h: 30, shape: 'circle', dimOpacity: 0.6, blur: 5 },
       }],
     });
@@ -273,7 +273,7 @@ describe('translateConfig — spotlight, annotations, zoom callouts', () => {
     const config = createMinimalConfig({
       screens: [{
         screenshot: 's.png', headline: 'Hi', layout: 'center', composition: 'single',
-        autoSizeHeadline: false, autoSizeSubtitle: false, zoomCallouts: [],
+        autoSizeHeadline: false, autoSizeSubtitle: false, 
         annotations: [
           { id: 'a1', shape: 'circle', x: 10, y: 20, w: 30, h: 30, strokeColor: '#FF0000', strokeWidth: 4 },
           { id: 'a2', shape: 'rectangle', x: 50, y: 50, w: 20, h: 20, strokeColor: '#00FF00', strokeWidth: 2, fillColor: '#0000FF' },
@@ -288,30 +288,11 @@ describe('translateConfig — spotlight, annotations, zoom callouts', () => {
     expect(highlights[1]).toMatchObject({ type: 'highlight', fill_color: '#0000FF' });
   });
 
-  it('includes callout elements for zoom callouts', () => {
-    const config = createMinimalConfig({
-      screens: [{
-        screenshot: 's.png', headline: 'Hi', layout: 'center', composition: 'single',
-        autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [],
-        zoomCallouts: [{
-          id: 'z1', sourceX: 20, sourceY: 30, sourceW: 20, sourceH: 20,
-          targetX: 60, targetY: 10, magnification: 2, connectorStyle: 'line',
-          borderColor: '#FFF', borderWidth: 3, shadow: true,
-        }],
-      }],
-    });
-    const result = translateConfig({ config, configDir: '/tmp', outputSize: 'iPhone6_7', outputDir: '/tmp/out' });
-    const screen = Object.values(result.screenshots)[0]!;
-    const callouts = screen.content.filter((e) => e.type === 'callout');
-    expect(callouts).toHaveLength(1);
-    expect(callouts[0]).toMatchObject({ type: 'callout', magnification: 2, shadow: true });
-  });
-
   it('includes per-screen background override', () => {
     const config = createMinimalConfig({
       screens: [{
         screenshot: 's.png', headline: 'Hi', layout: 'center', composition: 'single',
-        autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [], zoomCallouts: [],
+        autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [],
         background: '#FF0000',
       }],
     });

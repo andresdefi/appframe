@@ -13,7 +13,6 @@ export type {
   KoubouImageElement,
   KoubouSpotlightElement,
   KoubouHighlightElement,
-  KoubouCalloutElement,
   KoubouContentElement,
   KoubouScreenshot,
   KoubouDefaults,

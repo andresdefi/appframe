@@ -2,7 +2,7 @@ import { useRef, useState, useMemo, useCallback } from 'react';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { usePreviewStore } from '../../store';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
-import type { KoubouFamily, FrameData } from '../../store';
+import type { DeviceFamily, FrameData } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
 import { RangeSlider } from '../Controls/RangeSlider';
@@ -11,7 +11,7 @@ import { Checkbox } from '../Controls/Checkbox';
 import { CropModal } from '../Controls/CropModal';
 import { KOUBOU_COLOR_HEX } from '../../utils/presets';
 import type { FrameStyle, LayoutVariant } from '../../types';
-import { PLATFORM_DEVICE_DEFAULTS } from '../../types';
+import { PLATFORM_DEVICE_DEFAULTS, PLATFORM_PREVIEW_SIZES } from '../../types';
 
 const LAYOUT_OPTIONS = [
   { value: 'center', label: 'Center' },
@@ -51,6 +51,33 @@ const COMPOSITION_GROUPS = [
   },
 ];
 
+const PLATFORM_OPTIONS = [
+  { value: 'iphone', label: 'iPhone' },
+  { value: 'ipad', label: 'iPad' },
+  { value: 'mac', label: 'Mac' },
+  { value: 'watch', label: 'Apple Watch' },
+  { value: 'android', label: 'Android' },
+];
+
+const PLATFORM_TO_CATEGORY: Record<string, string> = {
+  iphone: 'iphone',
+  android: 'iphone',
+  ipad: 'ipad',
+  mac: 'mac',
+  watch: 'watch',
+};
+
+function getDefaultFrameForPlatform(platform: string, deviceFamilies: DeviceFamily[]): string {
+  if (platform === 'android') return 'generic-phone';
+  const category = PLATFORM_TO_CATEGORY[platform] ?? 'iphone';
+  const match = deviceFamilies
+    .filter((f) => f.category === category)
+    .sort((a, b) => b.year - a.year)[0];
+  if (match) return match.id;
+  if (category === 'ipad') return 'ipad-pro-13';
+  return 'generic-phone';
+}
+
 const FRAME_FILTER_TOLERANCE = 0.15;
 
 function isFrameMatchingAspectRatio(
@@ -67,15 +94,15 @@ function isFrameMatchingAspectRatio(
 function findBestDeviceMatch(
   width: number,
   height: number,
-  koubouFamilies: KoubouFamily[],
+  deviceFamilies: DeviceFamily[],
   frames: FrameData[],
 ): string | null {
   const tolerance = 0.1;
-  let bestMatch: KoubouFamily | null = null;
+  let bestMatch: DeviceFamily | null = null;
   let bestYear = -1;
-  let exactMatch: KoubouFamily | null = null;
+  let exactMatch: DeviceFamily | null = null;
 
-  for (const f of koubouFamilies) {
+  for (const f of deviceFamilies) {
     const res = f.screenResolution;
     const wR = Math.abs(width - res.width) / res.width;
     const hR = Math.abs(height - res.height) / res.height;
@@ -110,21 +137,42 @@ function findBestDeviceMatch(
   return null;
 }
 
+// Map platform to the Koubou categories it should show
+const PLATFORM_CATEGORIES: Record<string, string[]> = {
+  iphone: ['iphone'],
+  android: ['iphone'], // Android uses phone-shaped frames
+  ipad: ['ipad'],
+  mac: ['mac'],
+  watch: ['watch'],
+};
+
+// Map platform to the SVG frame tags that should match
+const PLATFORM_SVG_TAGS: Record<string, string[]> = {
+  iphone: ['default-ios', 'default-android'],
+  android: ['default-ios', 'default-android'],
+  ipad: ['default-ipad', 'fallback-tablet'],
+  mac: [],
+  watch: [],
+};
+
 function buildFrameOptions(
-  koubouFamilies: KoubouFamily[],
+  deviceFamilies: DeviceFamily[],
   frames: FrameData[],
   screenshotDims: { width: number; height: number } | null,
   showAllFrames: boolean,
+  platform: string,
 ) {
   const screenshotAR = screenshotDims ? screenshotDims.width / screenshotDims.height : null;
-
-  const shouldFilter = !showAllFrames && screenshotAR !== null;
+  const shouldFilterAR = !showAllFrames && screenshotAR !== null;
+  const allowedCategories = PLATFORM_CATEGORIES[platform] ?? ['iphone'];
+  const allowedSvgTags = PLATFORM_SVG_TAGS[platform] ?? [];
 
   // Koubou groups
   const grouped: Record<string, { value: string; label: string }[]> = {};
-  for (const f of koubouFamilies) {
-    if (shouldFilter && !isFrameMatchingAspectRatio(f.screenResolution, screenshotAR)) continue;
+  for (const f of deviceFamilies) {
     const cat = f.category || 'other';
+    if (!showAllFrames && !allowedCategories.includes(cat)) continue;
+    if (shouldFilterAR && !isFrameMatchingAspectRatio(f.screenResolution, screenshotAR)) continue;
     const list = grouped[cat] ?? [];
     list.push({ value: f.id, label: f.name });
     grouped[cat] = list;
@@ -138,7 +186,13 @@ function buildFrameOptions(
   // SVG frame groups
   const svgFrames: { value: string; label: string }[] = [];
   for (const fr of frames) {
-    if (shouldFilter && fr.screenResolution && !isFrameMatchingAspectRatio(fr.screenResolution, screenshotAR)) continue;
+    if (!showAllFrames && allowedSvgTags.length > 0) {
+      const frameTags = fr.tags ?? [];
+      if (!frameTags.some((t) => allowedSvgTags.includes(t))) continue;
+    } else if (!showAllFrames && allowedSvgTags.length === 0) {
+      continue; // No SVG frames for this platform (mac, watch)
+    }
+    if (shouldFilterAR && fr.screenResolution && !isFrameMatchingAspectRatio(fr.screenResolution, screenshotAR)) continue;
     svgFrames.push({ value: fr.id, label: fr.name });
   }
   if (svgFrames.length > 0) {
@@ -151,7 +205,14 @@ function buildFrameOptions(
 export function DeviceTab() {
   const { screen, update } = useCurrentScreen();
   const platform = usePreviewStore((s) => s.platform);
-  const koubouFamilies = usePreviewStore((s) => s.koubouFamilies);
+  const setPlatform = usePreviewStore((s) => s.setPlatform);
+  const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
+  const sizes = usePreviewStore((s) => s.sizes);
+  const setExportSize = usePreviewStore((s) => s.setExportSize);
+  const triggerRender = usePreviewStore((s) => s.triggerRender);
+  const updateScreen = usePreviewStore((s) => s.updateScreen);
+  const screens = usePreviewStore((s) => s.screens);
+  const deviceFamilies = usePreviewStore((s) => s.deviceFamilies);
   const frames = usePreviewStore((s) => s.frames);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCrop, setShowCrop] = useState(false);
@@ -162,17 +223,32 @@ export function DeviceTab() {
     [patchDevice],
   );
 
+  const handlePlatformChange = (value: string) => {
+    setPlatform(value);
+    const size = PLATFORM_PREVIEW_SIZES[value] ?? PLATFORM_PREVIEW_SIZES.iphone!;
+    setPreviewSize(size.w, size.h);
+    const platSizes = sizes[value] ?? [];
+    if (platSizes.length > 0) {
+      setExportSize(platSizes[0]!.key);
+    }
+    const defaultFrame = getDefaultFrameForPlatform(value, deviceFamilies);
+    for (let i = 0; i < screens.length; i++) {
+      updateScreen(i, { frameId: defaultFrame, deviceColor: '' });
+    }
+    triggerRender();
+  };
+
   if (!screen) return null;
 
-  const currentFamily = koubouFamilies.find((f) => f.id === screen.frameId);
+  const currentFamily = deviceFamilies.find((f) => f.id === screen.frameId);
   const hasColors = currentFamily && currentFamily.colors.length > 1;
   const isKoubouPng = currentFamily && currentFamily.screenRect;
   const isFrameNone = screen.frameStyle === 'none';
   const showAngle = screen.layout === 'angled-left' || screen.layout === 'angled-right';
 
   const frameGroups = useMemo(
-    () => buildFrameOptions(koubouFamilies, frames, screen.screenshotDims, showAllFrames),
-    [koubouFamilies, frames, screen.screenshotDims, showAllFrames],
+    () => buildFrameOptions(deviceFamilies, frames, screen.screenshotDims, showAllFrames, platform),
+    [deviceFamilies, frames, screen.screenshotDims, showAllFrames, platform],
   );
 
   const handleScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,12 +261,10 @@ export function DeviceTab() {
       const img = new Image();
       img.onload = () => {
         const dims = { width: img.naturalWidth, height: img.naturalHeight };
-        const bestId = findBestDeviceMatch(dims.width, dims.height, koubouFamilies, frames);
         update({
           screenshotDataUrl: dataUrl,
           screenshotName: file.name,
           screenshotDims: dims,
-          ...(bestId ? { frameId: bestId } : {}),
         });
       };
       img.src = dataUrl;
@@ -201,15 +275,13 @@ export function DeviceTab() {
 
   const handleCropApply = (croppedDataUrl: string) => {
     setShowCrop(false);
-    // Re-extract dimensions from cropped image
+    // Re-extract dimensions from cropped image — keep current frame selection
     const img = new Image();
     img.onload = () => {
       const dims = { width: img.naturalWidth, height: img.naturalHeight };
-      const bestId = findBestDeviceMatch(dims.width, dims.height, koubouFamilies, frames);
       update({
         screenshotDataUrl: croppedDataUrl,
         screenshotDims: dims,
-        ...(bestId ? { frameId: bestId } : {}),
       });
     };
     img.src = croppedDataUrl;
@@ -226,6 +298,16 @@ export function DeviceTab() {
           onCancel={() => setShowCrop(false)}
         />
       )}
+
+      {/* Platform */}
+      <Section title="Platform">
+        <Select
+          label=""
+          value={platform}
+          onChange={handlePlatformChange}
+          options={PLATFORM_OPTIONS}
+        />
+      </Section>
 
       {/* Screenshot */}
       <Section title="Screenshot">
@@ -284,7 +366,7 @@ export function DeviceTab() {
           value={screen.frameId}
           onChange={(v) => {
             // Auto-reset frameStyle when selecting a Koubou PNG device
-            const family = koubouFamilies.find((f) => f.id === v);
+            const family = deviceFamilies.find((f) => f.id === v);
             const isPng = family && family.screenRect;
             if (isPng && screen.frameStyle === 'none') {
               update({ frameId: v, frameStyle: 'flat' });
@@ -312,7 +394,7 @@ export function DeviceTab() {
                 <button
                   key={c.name}
                   className={`w-6 h-6 rounded border cursor-pointer hover:scale-110 transition-transform ${
-                    screen.koubouColor === c.name
+                    screen.deviceColor === c.name
                       ? 'border-accent ring-1 ring-accent'
                       : 'border-border'
                   }`}
@@ -320,7 +402,7 @@ export function DeviceTab() {
                     background: KOUBOU_COLOR_HEX[c.name] ?? '#888888',
                   }}
                   title={c.name}
-                  onClick={() => update({ koubouColor: c.name })}
+                  onClick={() => update({ deviceColor: c.name })}
                 />
               ))}
             </div>

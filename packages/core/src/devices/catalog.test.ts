@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
-  getKoubouDeviceFamilies,
-  getKoubouDeviceFamily,
-  getKoubouDeviceId,
-  getKoubouFamilyByFrameId,
-  getKoubouColorNames,
+  getDeviceFamilies,
+  getDeviceFamily,
+  getDeviceId,
+  getDeviceFamilyByFrameId,
+  getDeviceColorNames,
   findMatchingDeviceFamily,
 } from './catalog.js';
 
-describe('getKoubouDeviceFamilies', () => {
-  const families = getKoubouDeviceFamilies();
+describe('getDeviceFamilies', () => {
+  const families = getDeviceFamilies();
 
   it('returns all device families', () => {
     expect(families.length).toBeGreaterThan(0);
@@ -42,71 +42,71 @@ describe('getKoubouDeviceFamilies', () => {
   });
 });
 
-describe('getKoubouDeviceFamily', () => {
+describe('getDeviceFamily', () => {
   it('returns a family by id', () => {
-    const family = getKoubouDeviceFamily('iphone-16-pro-max');
+    const family = getDeviceFamily('iphone-16-pro-max');
     expect(family).not.toBeNull();
     expect(family!.name).toBe('iPhone 16 Pro Max');
   });
 
   it('returns null for unknown id', () => {
-    expect(getKoubouDeviceFamily('nonexistent')).toBeNull();
+    expect(getDeviceFamily('nonexistent')).toBeNull();
   });
 });
 
-describe('getKoubouDeviceId', () => {
+describe('getDeviceId', () => {
   it('returns default color portrait id', () => {
-    const id = getKoubouDeviceId('iphone-16-pro-max');
+    const id = getDeviceId('iphone-16-pro-max');
     expect(id).toBe('iPhone 16 Pro Max - Natural Titanium - Portrait');
   });
 
   it('returns specific color portrait id', () => {
-    const id = getKoubouDeviceId('iphone-16-pro-max', 'Black Titanium');
+    const id = getDeviceId('iphone-16-pro-max', 'Black Titanium');
     expect(id).toBe('iPhone 16 Pro Max - Black Titanium - Portrait');
   });
 
   it('returns landscape id when orientation is landscape', () => {
-    const id = getKoubouDeviceId('iphone-16-pro-max', undefined, 'landscape');
+    const id = getDeviceId('iphone-16-pro-max', undefined, 'landscape');
     expect(id).toBe('iPhone 16 Pro Max - Natural Titanium - Landscape');
   });
 
   it('returns null for unknown family', () => {
-    expect(getKoubouDeviceId('nonexistent')).toBeNull();
+    expect(getDeviceId('nonexistent')).toBeNull();
   });
 
   it('falls back to first variant for unknown color', () => {
-    const id = getKoubouDeviceId('iphone-16-pro-max', 'Imaginary Color');
+    const id = getDeviceId('iphone-16-pro-max', 'Imaginary Color');
     expect(id).toBe('iPhone 16 Pro Max - Natural Titanium - Portrait');
   });
 });
 
-describe('getKoubouFamilyByFrameId', () => {
+describe('getDeviceFamilyByFrameId', () => {
   it('returns most recent family for a known frame id', () => {
-    const family = getKoubouFamilyByFrameId('ipad-pro-13');
+    const family = getDeviceFamilyByFrameId('ipad-pro-13');
     expect(family).not.toBeNull();
     expect(family!.category).toBe('ipad');
   });
 
   it('returns null for unknown frame id', () => {
-    expect(getKoubouFamilyByFrameId('nonexistent-frame')).toBeNull();
+    expect(getDeviceFamilyByFrameId('nonexistent-frame')).toBeNull();
   });
 });
 
-describe('getKoubouColorNames', () => {
+describe('getDeviceColorNames', () => {
   it('returns color names for multi-color family', () => {
-    const colors = getKoubouColorNames('iphone-16-pro-max');
+    const colors = getDeviceColorNames('iphone-16-pro-max');
     expect(colors).toContain('Natural Titanium');
     expect(colors).toContain('Black Titanium');
     expect(colors.length).toBe(4);
   });
 
   it('returns single color for single-color family', () => {
-    const colors = getKoubouColorNames('iphone-14-pro-max');
+    const colors = getDeviceColorNames('iphone-14-pro-max');
     expect(colors).toEqual(['Default']);
   });
 
   it('returns empty for unknown family', () => {
-    expect(getKoubouColorNames('nonexistent')).toEqual([]);
+    expect(getDeviceColorNames('nonexistent')).toEqual([]);
   });
 });
 

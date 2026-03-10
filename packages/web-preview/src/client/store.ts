@@ -35,7 +35,7 @@ export function createScreenState(
       subtitle: config.theme.colors.subtitle ?? '#64748B',
     },
     frameId: config.frames.ios ?? config.frames.android ?? '',
-    koubouColor: config.frames.koubouColor ?? '',
+    deviceColor: config.frames.deviceColor ?? '',
     frameStyle: (config.frames.style === '3d' ? 'flat' : config.frames.style) as FrameStyle,
     composition: 'single',
     deviceScale: pd.deviceScale,
@@ -92,13 +92,15 @@ export interface FrameData {
   id: string;
   name: string;
   year: number;
+  platform?: string;
+  tags?: string[];
   screenResolution?: { width: number; height: number };
   screenArea?: { x: number; y: number; width: number; height: number; borderRadius: number };
   frameSize?: { width: number; height: number };
 }
 
 // Koubou family info from /api/koubou-devices
-export interface KoubouFamily {
+export interface DeviceFamily {
   id: string;
   name: string;
   category: string;
@@ -132,7 +134,7 @@ export interface PreviewStore {
   // Catalog data
   fonts: FontData[];
   frames: FrameData[];
-  koubouFamilies: KoubouFamily[];
+  deviceFamilies: DeviceFamily[];
   koubouAvailable: boolean;
   sizes: Record<string, SizeEntry[]>;
   exportSize: string;
@@ -153,7 +155,7 @@ export interface PreviewStore {
   setExportRenderer: (renderer: string) => void;
   setFonts: (fonts: FontData[]) => void;
   setFrames: (frames: FrameData[]) => void;
-  setKoubouFamilies: (families: KoubouFamily[]) => void;
+  setDeviceFamilies: (families: DeviceFamily[]) => void;
   setKoubouAvailable: (available: boolean) => void;
   setSizes: (sizes: Record<string, SizeEntry[]>) => void;
   updateScreen: (index: number, partial: Partial<ScreenState>) => void;
@@ -176,7 +178,7 @@ export const usePreviewStore = create<PreviewStore>((set) => ({
   renderVersion: 0,
   fonts: [],
   frames: [],
-  koubouFamilies: [],
+  deviceFamilies: [],
   koubouAvailable: false,
   sizes: {},
   exportSize: '',
@@ -194,7 +196,7 @@ export const usePreviewStore = create<PreviewStore>((set) => ({
   setExportRenderer: (renderer) => set({ exportRenderer: renderer }),
   setFonts: (fonts) => set({ fonts }),
   setFrames: (frames) => set({ frames }),
-  setKoubouFamilies: (families) => set({ koubouFamilies: families }),
+  setDeviceFamilies: (families) => set({ deviceFamilies: families }),
   setKoubouAvailable: (available) => set({ koubouAvailable: available }),
   setSizes: (sizes) => set({ sizes }),
 
@@ -235,7 +237,7 @@ export const usePreviewStore = create<PreviewStore>((set) => ({
         newState.fontWeight = last.fontWeight;
         newState.colors = { ...last.colors };
         newState.frameId = last.frameId;
-        newState.koubouColor = last.koubouColor;
+        newState.deviceColor = last.deviceColor;
         newState.frameStyle = last.frameStyle;
         newState.composition = last.composition;
         newState.deviceScale = last.deviceScale;

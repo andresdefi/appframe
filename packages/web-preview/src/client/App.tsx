@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { usePreviewStore } from './store';
-import type { FontData, SizeEntry, KoubouFamily } from './store';
+import type { FontData, SizeEntry, DeviceFamily } from './store';
 import { fetchConfig, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes } from './utils/api';
 import { TabBar } from './components/Sidebar/TabBar';
 import { DesignTab } from './components/Sidebar/DesignTab';
@@ -10,6 +10,7 @@ import { EffectsTab } from './components/Sidebar/EffectsTab';
 import { ExportTab } from './components/Sidebar/ExportTab';
 import { PreviewArea } from './components/Preview/PreviewArea';
 import { PLATFORM_PREVIEW_SIZES } from './types';
+import { Agentation } from 'agentation';
 
 const TAB_PANELS: Record<string, React.ComponentType> = {
   design: DesignTab,
@@ -26,7 +27,7 @@ export function App() {
   const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
   const setFonts = usePreviewStore((s) => s.setFonts);
   const setFrames = usePreviewStore((s) => s.setFrames);
-  const setKoubouFamilies = usePreviewStore((s) => s.setKoubouFamilies);
+  const setDeviceFamilies = usePreviewStore((s) => s.setDeviceFamilies);
   const setKoubouAvailable = usePreviewStore((s) => s.setKoubouAvailable);
   const setSizes = usePreviewStore((s) => s.setSizes);
   const setExportSize = usePreviewStore((s) => s.setExportSize);
@@ -55,8 +56,8 @@ export function App() {
         // Fetch koubou devices (non-blocking — may not be available)
         try {
           const koubou = await fetchKoubouDevices();
-          const families = koubou.families as KoubouFamily[];
-          setKoubouFamilies(families);
+          const families = koubou.families as DeviceFamily[];
+          setDeviceFamilies(families);
           setKoubouAvailable(true);
         } catch {
           setKoubouAvailable(false);
@@ -84,7 +85,7 @@ export function App() {
     }
 
     init();
-  }, [initScreens, setPreviewSize, setFonts, setFrames, setKoubouFamilies, setKoubouAvailable, setSizes, setExportSize]);
+  }, [initScreens, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
 
   if (error) {
     return (
@@ -127,6 +128,9 @@ export function App() {
 
       {/* Preview */}
       <PreviewArea />
+
+      {/* Visual annotation tool for AI agents */}
+      <Agentation endpoint="http://localhost:4747" />
     </div>
   );
 }

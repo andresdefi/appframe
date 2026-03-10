@@ -8,7 +8,7 @@ import type { DeviceSlotPreset } from '../composer/presets.js';
 import { FONT_CATALOG, getFontName } from '../fonts/loader.js';
 import { KOUBOU_DIMENSIONS } from './types.js';
 import type { KoubouConfig, KoubouBackground, KoubouContentElement } from './types.js';
-import { getKoubouDeviceId } from './catalog.js';
+import { getDeviceId } from './catalog.js';
 
 // Map appframe size keys to Koubou output_size names
 const SIZE_MAP: Record<string, string> = {
@@ -334,10 +334,10 @@ export function translateConfig(options: TranslateOptions): KoubouConfig {
 
   // Resolve device frame via catalog (supports color variants)
   const frameId = config.frames.ios ?? config.frames.android;
-  const koubouColor = config.frames.koubouColor;
+  const deviceColor = config.frames.deviceColor;
   let device = DEFAULT_DEVICE;
   if (frameId) {
-    const catalogDevice = getKoubouDeviceId(frameId, koubouColor);
+    const catalogDevice = getDeviceId(frameId, deviceColor);
     device = catalogDevice ?? DEFAULT_DEVICE;
   }
 
@@ -419,5 +419,5 @@ export function mapSizeToKoubou(sizeKey: number | string): string | null {
 }
 
 export function mapDeviceToKoubou(frameId: string, color?: string): string | null {
-  return getKoubouDeviceId(frameId, color);
+  return getDeviceId(frameId, color);
 }

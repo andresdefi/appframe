@@ -161,7 +161,7 @@ export const frameConfigSchema = z.object({
   ios: z.string().optional(),
   android: z.string().optional(),
   style: frameStyleSchema.default('flat'),
-  koubouColor: z.string().optional(),
+  deviceColor: z.string().optional(),
 });
 
 // --- Composition ---

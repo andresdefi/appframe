@@ -8,7 +8,7 @@ vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
 }));
 
-import { getKoubouFramesDir, getKoubouFramePath } from './frames.js';
+import { getKoubouFramesDir, getDeviceFramePath } from './frames.js';
 import { detectKoubou } from './detector.js';
 import { access } from 'node:fs/promises';
 
@@ -57,10 +57,10 @@ describe('getKoubouFramesDir', () => {
   });
 });
 
-describe('getKoubouFramePath', () => {
+describe('getDeviceFramePath', () => {
   it('returns null when frames dir not available', async () => {
     mockDetectKoubou.mockResolvedValue({ available: false, binaryPath: null, version: null });
-    const result = await getKoubouFramePath('MacBook Air 2022');
+    const result = await getDeviceFramePath('MacBook Air 2022');
     expect(result).toBeNull();
   });
 
@@ -72,7 +72,7 @@ describe('getKoubouFramePath', () => {
     });
     mockAccess.mockResolvedValue(undefined);
 
-    const result = await getKoubouFramePath('MacBook Air 2022');
+    const result = await getDeviceFramePath('MacBook Air 2022');
     expect(result).toBeTruthy();
     expect(result).toContain('MacBook Air 2022.png');
   });

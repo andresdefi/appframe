@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { listFrames, getKoubouDeviceFamilies } from '@appframe/core';
-import type { KoubouDeviceCategory } from '@appframe/core';
+import { listFrames, getDeviceFamilies } from '@appframe/core';
+import type { DeviceCategory } from '@appframe/core';
 
 export const framesCommand = new Command('frames')
   .description('Manage device frames');
@@ -39,7 +39,7 @@ framesCommand
       }
 
       console.log(chalk.dim(`  ${frames.length} frames available.`));
-      console.log(chalk.dim(`  Use --koubou to see the full Koubou device catalog (${getKoubouDeviceFamilies().length} device families).`));
+      console.log(chalk.dim(`  Use --koubou to see the full Koubou device catalog (${getDeviceFamilies().length} device families).`));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.log(chalk.red(`Failed to load frames: ${message}`));
@@ -48,18 +48,18 @@ framesCommand
   });
 
 function showKoubouCatalog(): void {
-  const families = getKoubouDeviceFamilies();
+  const families = getDeviceFamilies();
 
   console.log(chalk.blue('Koubou device catalog:\n'));
 
-  const categoryLabels: Record<KoubouDeviceCategory, string> = {
+  const categoryLabels: Record<DeviceCategory, string> = {
     iphone: 'iPhone',
     ipad: 'iPad',
     mac: 'Mac',
     watch: 'Apple Watch',
   };
 
-  const grouped = new Map<KoubouDeviceCategory, typeof families>();
+  const grouped = new Map<DeviceCategory, typeof families>();
   for (const family of families) {
     if (!grouped.has(family.category)) grouped.set(family.category, []);
     grouped.get(family.category)!.push(family);

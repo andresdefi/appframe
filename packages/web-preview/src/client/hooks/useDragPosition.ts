@@ -17,10 +17,6 @@ interface DragState {
   scale: number;
 }
 
-// Canvas reference dimensions (matching the server template)
-const CANVAS_W = 400;
-const CANVAS_H = 868;
-
 function getElPos(el: HTMLElement) {
   return {
     top: el.offsetTop,
@@ -42,6 +38,8 @@ export function useDragPosition(
   containerRef: React.RefObject<HTMLDivElement | null>,
   screen: ScreenState | undefined,
   scale: number,
+  canvasW: number,
+  canvasH: number,
   onDeviceDrop: (partial: { deviceTop: number; deviceOffsetX: number }) => void,
   onTextDrop: (cls: 'headline' | 'subtitle', pos: TextPosition) => void,
 ) {
@@ -52,13 +50,39 @@ export function useDragPosition(
       try {
         const doc = iframeRef.current?.contentDocument;
         if (!doc) return null;
-        let el = doc.elementFromPoint(ix, iy) as HTMLElement | null;
-        while (el && el !== doc.documentElement) {
-          if (el.classList?.contains('headline')) return { cls: 'headline', el, kind: 'text' };
-          if (el.classList?.contains('subtitle')) return { cls: 'subtitle', el, kind: 'text' };
-          if (el.classList?.contains('device-wrapper')) return { cls: 'device-wrapper', el, kind: 'device' };
-          el = el.parentElement as HTMLElement | null;
+
+        // Use elementsFromPoint to get ALL elements at the click position,
+        // then walk ancestors of each to classify the hit.
+        // Collect unique text/device hits and prefer the closest text element.
+        const allEls = doc.elementsFromPoint(ix, iy) as HTMLElement[];
+        let headlineEl: HTMLElement | null = null;
+        let subtitleEl: HTMLElement | null = null;
+        let deviceEl: HTMLElement | null = null;
+
+        for (const startEl of allEls) {
+          let el: HTMLElement | null = startEl;
+          while (el && el !== doc.documentElement) {
+            if (!headlineEl && el.classList?.contains('headline')) headlineEl = el;
+            if (!subtitleEl && el.classList?.contains('subtitle')) subtitleEl = el;
+            if (!deviceEl && el.classList?.contains('device-wrapper')) deviceEl = el;
+            el = el.parentElement as HTMLElement | null;
+          }
         }
+
+        // If both text elements are hit, pick the one whose vertical center is closest
+        if (headlineEl && subtitleEl) {
+          const hRect = headlineEl.getBoundingClientRect();
+          const sRect = subtitleEl.getBoundingClientRect();
+          const hCy = hRect.top + hRect.height / 2;
+          const sCy = sRect.top + sRect.height / 2;
+          if (Math.abs(iy - hCy) <= Math.abs(iy - sCy)) {
+            return { cls: 'headline', el: headlineEl, kind: 'text' };
+          }
+          return { cls: 'subtitle', el: subtitleEl, kind: 'text' };
+        }
+        if (headlineEl) return { cls: 'headline', el: headlineEl, kind: 'text' };
+        if (subtitleEl) return { cls: 'subtitle', el: subtitleEl, kind: 'text' };
+        if (deviceEl) return { cls: 'device-wrapper', el: deviceEl, kind: 'device' };
       } catch {
         // Cross-origin or unavailable
       }
@@ -109,13 +133,13 @@ export function useDragPosition(
           if (!drag || drag.kind !== 'device') return;
           const dx = (ev.clientX - drag.startX) / drag.scale;
           const dy = (ev.clientY - drag.startY) / drag.scale;
-          const newOffsetX = Math.max(-80, Math.min(80, drag.startDeviceOffsetX + Math.round((dx / CANVAS_W) * 100)));
-          const newTop = Math.max(-80, Math.min(80, drag.startDeviceTop + Math.round((dy / CANVAS_H) * 100)));
+          const newOffsetX = Math.max(-80, Math.min(80, drag.startDeviceOffsetX + Math.round((dx / canvasW) * 100)));
+          const newTop = Math.max(-80, Math.min(80, drag.startDeviceTop + Math.round((dy / canvasH) * 100)));
 
           // Instant patch
           drag.el.style.top = newTop + '%';
           drag.el.style.left = newOffsetX
-            ? `calc(50% + ${(newOffsetX / 100) * CANVAS_W}px)`
+            ? `calc(50% + ${(newOffsetX / 100) * canvasW}px)`
             : '50%';
         };
 
@@ -125,8 +149,8 @@ export function useDragPosition(
           drag.el.style.outline = 'none';
           const dx = (ev.clientX - drag.startX) / drag.scale;
           const dy = (ev.clientY - drag.startY) / drag.scale;
-          const newOffsetX = Math.max(-80, Math.min(80, drag.startDeviceOffsetX + Math.round((dx / CANVAS_W) * 100)));
-          const newTop = Math.max(-80, Math.min(80, drag.startDeviceTop + Math.round((dy / CANVAS_H) * 100)));
+          const newOffsetX = Math.max(-80, Math.min(80, drag.startDeviceOffsetX + Math.round((dx / canvasW) * 100)));
+          const newTop = Math.max(-80, Math.min(80, drag.startDeviceTop + Math.round((dy / canvasH) * 100)));
           dragRef.current = null;
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
@@ -185,9 +209,9 @@ export function useDragPosition(
           if (!drag || drag.kind !== 'text') return;
           drag.el.style.outline = 'none';
           const finalPos = getElPos(drag.el);
-          const topPct = Math.round(((finalPos.top / CANVAS_H) * 100) * 10) / 10;
-          const leftPct = Math.round(((finalPos.left / CANVAS_W) * 100) * 10) / 10;
-          const widthPct = Math.round(((drag.origWidth / CANVAS_W) * 100) * 10) / 10;
+          const topPct = Math.round(((finalPos.top / canvasH) * 100) * 10) / 10;
+          const leftPct = Math.round(((finalPos.left / canvasW) * 100) * 10) / 10;
+          const widthPct = Math.round(((drag.origWidth / canvasW) * 100) * 10) / 10;
           dragRef.current = null;
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);

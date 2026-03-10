@@ -64,7 +64,7 @@ export interface ScreenState {
   subtitleRotation: number;
   colors: ScreenColors;
   frameId: string;
-  koubouColor: string;
+  deviceColor: string;
   frameStyle: FrameStyle;
   composition: CompositionPreset;
   deviceScale: number;

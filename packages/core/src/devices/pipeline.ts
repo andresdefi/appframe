@@ -356,7 +356,7 @@ export interface KoubouSingleScreenOptions {
   layout: LayoutVariant;
   frameId?: string;
   frameStyle: string;
-  koubouColor?: string;
+  deviceColor?: string;
   outputSize: string;
   headlineGradient?: TextGradient;
   subtitleGradient?: TextGradient;
@@ -405,7 +405,7 @@ export async function renderSingleScreenWithKoubou(
       frames: {
         style: options.frameStyle as 'flat' | '3d' | 'floating' | 'none',
         ios: options.frameId,
-        koubouColor: options.koubouColor,
+        deviceColor: options.deviceColor,
       },
       screens: [{
         screenshot: screenshotPath,

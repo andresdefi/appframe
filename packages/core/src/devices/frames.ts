@@ -1,8 +1,16 @@
 import { access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { detectKoubou } from './detector.js';
 
 const HOME = process.env.HOME ?? '';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** Resolve the bundled frames/ directory at the project root */
+function getBundledFramesDir(): string {
+  // packages/core/src/koubou/ → ../../../../frames/
+  return join(__dirname, '..', '..', '..', '..', 'frames');
+}
 
 /**
  * Derives the Koubou frames directory from the `kou` binary path.
@@ -57,9 +65,23 @@ export async function getKoubouFramesDir(): Promise<string | null> {
 
 /**
  * Resolves a Koubou device identifier (e.g., "MacBook Air 2022") to its PNG file path.
+ * Identifiers prefixed with "local:" resolve to bundled PNGs in the frames/ directory
+ * (e.g., "local:apple/iphone-17-pro/frame" → frames/apple/iphone-17-pro/frame.png).
  * Returns null if the frames directory or file is not found.
  */
-export async function getKoubouFramePath(koubouId: string): Promise<string | null> {
+export async function getDeviceFramePath(koubouId: string): Promise<string | null> {
+  // Bundled local frames (e.g., Apple Figma exports)
+  if (koubouId.startsWith('local:')) {
+    const relativePath = koubouId.slice('local:'.length);
+    const pngPath = join(getBundledFramesDir(), `${relativePath}.png`);
+    try {
+      await access(pngPath);
+      return pngPath;
+    } catch {
+      return null;
+    }
+  }
+
   const framesDir = await getKoubouFramesDir();
   if (!framesDir) return null;
 

@@ -13,7 +13,7 @@ vi.mock('@appframe/core', () => ({
       frameSize: { width: 1400, height: 3000 },
     },
   ]),
-  getKoubouDeviceFamilies: vi.fn().mockReturnValue([
+  getDeviceFamilies: vi.fn().mockReturnValue([
     {
       id: 'iphone-16-pro-max',
       name: 'iPhone 16 Pro Max',
@@ -41,7 +41,7 @@ vi.mock('chalk', () => ({
 }));
 
 import { framesCommand } from './frames.js';
-import { listFrames, getKoubouDeviceFamilies } from '@appframe/core';
+import { listFrames, getDeviceFamilies } from '@appframe/core';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -58,11 +58,11 @@ describe('frames list', () => {
 });
 
 describe('frames list --koubou', () => {
-  it('calls getKoubouDeviceFamilies', async () => {
+  it('calls getDeviceFamilies', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const listCmd = framesCommand.commands.find((c) => c.name() === 'list')!;
     await listCmd.parseAsync(['node', 'test', '--koubou']);
-    expect(getKoubouDeviceFamilies).toHaveBeenCalled();
+    expect(getDeviceFamilies).toHaveBeenCalled();
     consoleSpy.mockRestore();
   });
 });

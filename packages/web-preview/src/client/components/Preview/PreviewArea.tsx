@@ -19,7 +19,7 @@ export function PreviewArea() {
   const renderVersion = usePreviewStore((s) => s.renderVersion);
   const platform = usePreviewStore((s) => s.platform);
   const locale = usePreviewStore((s) => s.locale);
-  const koubouFamilies = usePreviewStore((s) => s.koubouFamilies);
+  const deviceFamilies = usePreviewStore((s) => s.deviceFamilies);
   const areaRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
 
@@ -69,7 +69,7 @@ export function PreviewArea() {
               renderVersion={renderVersion}
               platform={platform}
               locale={locale}
-              koubouFamilies={koubouFamilies}
+              deviceFamilies={deviceFamilies}
             />
           ))}
           <button
@@ -105,7 +105,7 @@ interface ScreenCardProps {
   renderVersion: number;
   platform: string;
   locale: string;
-  koubouFamilies: unknown[];
+  deviceFamilies: unknown[];
 }
 
 function ScreenCard({
@@ -124,7 +124,7 @@ function ScreenCard({
   renderVersion,
   platform,
   locale,
-  koubouFamilies,
+  deviceFamilies,
 }: ScreenCardProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -162,6 +162,8 @@ function ScreenCard({
     containerRef,
     screen,
     scale,
+    previewW,
+    previewH,
     handleDeviceDrop,
     handleTextDrop,
   );
@@ -186,7 +188,7 @@ function ScreenCard({
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const body = buildPreviewBody(screen, platform, previewW, previewH, locale, koubouFamilies);
+      const body = buildPreviewBody(screen, platform, previewW, previewH, locale, deviceFamilies);
 
       fetchPreviewHtml(body, controller.signal)
         .then((html) => {

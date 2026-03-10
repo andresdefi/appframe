@@ -3,20 +3,9 @@ import { usePreviewStore } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
 import { fetchExport, reloadConfig } from '../../utils/api';
-import { PLATFORM_PREVIEW_SIZES } from '../../types';
-
-const PLATFORM_OPTIONS = [
-  { value: 'iphone', label: 'iPhone' },
-  { value: 'ipad', label: 'iPad' },
-  { value: 'mac', label: 'Mac' },
-  { value: 'watch', label: 'Apple Watch' },
-  { value: 'android', label: 'Android' },
-];
 
 export function ExportTab() {
   const platform = usePreviewStore((s) => s.platform);
-  const setPlatform = usePreviewStore((s) => s.setPlatform);
-  const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
   const sizes = usePreviewStore((s) => s.sizes);
   const exportSize = usePreviewStore((s) => s.exportSize);
   const setExportSize = usePreviewStore((s) => s.setExportSize);
@@ -55,18 +44,6 @@ export function ExportTab() {
     }
   }
 
-  const handlePlatformChange = (value: string) => {
-    setPlatform(value);
-    const size = PLATFORM_PREVIEW_SIZES[value] ?? PLATFORM_PREVIEW_SIZES.iphone!;
-    setPreviewSize(size.w, size.h);
-    // Select first size for this platform
-    const platSizes = sizes[value] ?? [];
-    if (platSizes.length > 0) {
-      setExportSize(platSizes[0]!.key);
-    }
-    triggerRender();
-  };
-
   const handleExport = async () => {
     const screen = screens[selectedScreen];
     if (!screen) return;
@@ -90,7 +67,7 @@ export function ExportTab() {
         fontWeight: screen.fontWeight,
         frameId: screen.frameId,
         frameStyle: screen.frameStyle,
-        koubouColor: screen.koubouColor || undefined,
+        deviceColor: screen.deviceColor || undefined,
         deviceScale: screen.deviceScale,
         deviceTop: screen.deviceTop,
         screenshotDataUrl: screen.screenshotDataUrl || undefined,
@@ -127,15 +104,6 @@ export function ExportTab() {
 
   return (
     <>
-      <Section title="Platform">
-        <Select
-          label=""
-          value={platform}
-          onChange={handlePlatformChange}
-          options={PLATFORM_OPTIONS}
-        />
-      </Section>
-
       <Section title="Export">
         <Select
           label="Output Size"

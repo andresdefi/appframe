@@ -1,26 +1,12 @@
 import type { ScreenState } from '../types';
 
-function resolvePreviewFrameId(
-  frameId: string,
-  koubouFamilies: unknown[],
-): string {
-  const families = koubouFamilies as Array<{
-    id: string;
-    previewFrameId?: string;
-    screenRect?: unknown;
-  }>;
-  const family = families.find((f) => f.id === frameId);
-  if (family?.previewFrameId) return family.previewFrameId;
-  return frameId;
-}
-
 export function buildPreviewBody(
   screen: ScreenState,
   _platform: string,
   previewW: number,
   previewH: number,
   locale: string,
-  koubouFamilies: unknown[],
+  _deviceFamilies: unknown[],
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {
     screenIndex: screen.screenIndex,
@@ -37,8 +23,8 @@ export function buildPreviewBody(
     subtitleSize: screen.subtitleSize || undefined,
     headlineRotation: screen.headlineRotation || undefined,
     subtitleRotation: screen.subtitleRotation || undefined,
-    frameId: resolvePreviewFrameId(screen.frameId, koubouFamilies),
-    koubouColor: screen.koubouColor || undefined,
+    frameId: screen.frameId,
+    deviceColor: screen.deviceColor || undefined,
     frameStyle: screen.frameStyle,
     deviceScale: screen.deviceScale,
     deviceTop: screen.deviceTop,

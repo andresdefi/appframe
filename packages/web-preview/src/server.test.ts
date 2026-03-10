@@ -20,7 +20,7 @@ vi.mock('@appframe/core', () => ({
   COMPOSITION_PRESETS: {
     single: { id: 'single', name: 'Single', description: 'Single device', deviceCount: 1, slots: [] },
   },
-  getKoubouDeviceFamilies: vi.fn().mockReturnValue([
+  getDeviceFamilies: vi.fn().mockReturnValue([
     { id: 'iphone-16', name: 'iPhone 16', category: 'iphone', year: 2024, colors: [{ name: 'Black', koubouId: 'iPhone 16 - Black' }] },
   ]),
   detectKoubou: vi.fn().mockResolvedValue({ available: false, version: null }),
@@ -30,7 +30,7 @@ vi.mock('@appframe/core', () => ({
   getDefaultFrame: vi.fn(),
 }));
 
-import { listFrames, getKoubouDeviceFamilies, detectKoubou, FONT_CATALOG, COMPOSITION_PRESETS } from '@appframe/core';
+import { listFrames, getDeviceFamilies, detectKoubou, FONT_CATALOG, COMPOSITION_PRESETS } from '@appframe/core';
 
 let app: Express;
 
@@ -58,7 +58,7 @@ beforeEach(() => {
   app.get('/api/fonts', (_req, res) => { res.json(FONT_CATALOG); });
   app.get('/api/compositions', (_req, res) => { res.json(Object.values(COMPOSITION_PRESETS)); });
   app.get('/api/koubou-devices', (_req, res) => {
-    const families = getKoubouDeviceFamilies() as Array<{ category: string }>;
+    const families = getDeviceFamilies() as Array<{ category: string }>;
     const grouped: Record<string, unknown[]> = {};
     for (const family of families) {
       const list = grouped[family.category] ?? [];

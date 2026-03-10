@@ -10,7 +10,7 @@ import type { GenerateOptions, GenerateResult, RenderResult, ScreenshotSize } fr
 import type { AppframeConfig, ScreenConfig, TemplateStyle } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
 import { injectSpotlightHTML, injectAnnotationsHTML } from '../templates/injectors.js';
-import { resolveLocalizedAsset } from '../koubou/assets.js';
+import { resolveLocalizedAsset } from '../devices/assets.js';
 
 async function screenshotToDataUrl(screenshotPath: string): Promise<string> {
   try {

@@ -3,6 +3,7 @@ import cors from 'cors';
 import { join, dirname, resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { startHttpServer } from 'agentation-mcp';
 import {
   loadConfig,
   listFrames,
@@ -13,10 +14,10 @@ import {
   FONT_CATALOG,
   COMPOSITION_PRESETS,
   STORE_SIZES,
-  getKoubouDeviceFamilies,
-  getKoubouDeviceFamily,
-  getKoubouDeviceId,
-  getKoubouFramePath,
+  getDeviceFamilies,
+  getDeviceFamily,
+  getDeviceId,
+  getDeviceFramePath,
   injectSpotlightHTML,
   injectAnnotationsHTML,
   detectKoubou,
@@ -26,6 +27,8 @@ import type { AppframeConfig, TemplateStyle, LayoutVariant, FrameStyle, Composit
 import type { TemplateContext, DeviceContext } from '@appframe/core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const AGENTATION_PORT = 4747;
 
 export interface PreviewServerOptions {
   configPath: string;
@@ -101,7 +104,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   // API: List Koubou device catalog (grouped by category)
   app.get('/api/koubou-devices', (_req, res) => {
-    const families = getKoubouDeviceFamilies();
+    const families = getDeviceFamilies();
     const grouped: Record<string, typeof families> = {};
     for (const family of families) {
       const list = grouped[family.category] ?? [];
@@ -116,19 +119,19 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     try {
       const { familyId } = req.params;
       const color = req.query.color as string | undefined;
-      const family = getKoubouDeviceFamily(familyId);
+      const family = getDeviceFamily(familyId);
       if (!family) {
         res.status(404).json({ error: `Unknown device family: ${familyId}` });
         return;
       }
 
-      const koubouId = getKoubouDeviceId(familyId, color || undefined);
+      const koubouId = getDeviceId(familyId, color || undefined);
       if (!koubouId) {
         res.status(404).json({ error: `No Koubou device ID for family: ${familyId}` });
         return;
       }
 
-      const pngPath = await getKoubouFramePath(koubouId);
+      const pngPath = await getDeviceFramePath(koubouId);
       if (!pngPath) {
         res.status(404).json({ error: 'Koubou frame not found. Is Koubou installed?' });
         return;
@@ -216,7 +219,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     subtitleLetterSpacing?: string;
     subtitleTextTransform?: string;
     renderer?: 'playwright' | 'koubou';
-    koubouColor?: string;
+    deviceColor?: string;
     // Background overrides
     backgroundType?: 'preset' | 'solid' | 'gradient' | 'image';
     backgroundColor?: string;
@@ -283,7 +286,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       subtitleLetterSpacing: body.subtitleLetterSpacing as string | undefined,
       subtitleTextTransform: body.subtitleTextTransform as string | undefined,
       renderer: body.renderer as 'playwright' | 'koubou' | undefined,
-      koubouColor: body.koubouColor as string | undefined,
+      deviceColor: body.deviceColor as string | undefined,
       // Background overrides
       backgroundType: body.backgroundType as PreviewParams['backgroundType'],
       backgroundColor: body.backgroundColor as string | undefined,
@@ -322,12 +325,16 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     let framePngUrl: string | undefined;
 
     // Prefer Koubou PNG frame when available (higher quality than SVG)
-    if (p.frameId) {
-      const koubouFamily = getKoubouDeviceFamily(p.frameId);
+    const koubouFamily = p.frameId ? getDeviceFamily(p.frameId) : null;
+    if (koubouFamily) {
+      // If no SVG frame was found, try the Koubou family's previewFrameId as SVG fallback
+      if (!frame && koubouFamily.previewFrameId) {
+        frame = await getFrame(koubouFamily.previewFrameId);
+      }
       if (koubouFamily?.screenRect && koubouFamily.framePngSize) {
-        const koubouColor = p.koubouColor ?? config.frames.koubouColor;
-        const koubouId = getKoubouDeviceId(koubouFamily.id, koubouColor || undefined);
-        const pngExists = koubouId ? await getKoubouFramePath(koubouId) : null;
+        const deviceColor = p.deviceColor ?? config.frames.deviceColor;
+        const koubouId = getDeviceId(koubouFamily.id, deviceColor || undefined);
+        const pngExists = koubouId ? await getDeviceFramePath(koubouId) : null;
         if (pngExists) {
           const pngBuffer = await readFile(pngExists);
           framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
@@ -456,10 +463,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
                 : null;
               slotFramePngUrl = undefined;
             } else {
-              const extraKoubou = getKoubouDeviceFamily(extra.frameId);
+              const extraKoubou = getDeviceFamily(extra.frameId);
               if (extraKoubou?.screenRect && extraKoubou.framePngSize) {
-                const extraKoubouId = getKoubouDeviceId(extraKoubou.id);
-                const extraPngExists = extraKoubouId ? await getKoubouFramePath(extraKoubouId) : null;
+                const extraKoubouId = getDeviceId(extraKoubou.id);
+                const extraPngExists = extraKoubouId ? await getDeviceFramePath(extraKoubouId) : null;
                 if (extraPngExists) {
                   const extraPngBuffer = await readFile(extraPngExists);
                   slotFramePngUrl = `data:image/png;base64,${extraPngBuffer.toString('base64')}`;
@@ -627,7 +634,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           layout: (p.layout ?? screen?.layout ?? 'center'),
           frameId: p.frameId ?? config.frames.ios,
           frameStyle: (p.fStyle ?? config.frames.style),
-          koubouColor: p.koubouColor ?? config.frames.koubouColor,
+          deviceColor: p.deviceColor ?? config.frames.deviceColor,
           outputSize: koubouOutputSize,
           headlineGradient: p.headlineGradient ?? config.theme.headlineGradient,
           subtitleGradient: p.subtitleGradient ?? config.theme.subtitleGradient,
@@ -699,6 +706,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.listen(port, () => {
     console.log(`appframe preview running at http://localhost:${port}`);
   });
+
+  // Start agentation annotation server for AI agent integration
+  startHttpServer(AGENTATION_PORT);
+  console.log(`agentation annotation server running at http://localhost:${AGENTATION_PORT}`);
 
   // Cleanup on exit
   process.on('SIGINT', async () => {

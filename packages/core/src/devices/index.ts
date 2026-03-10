@@ -20,13 +20,13 @@ export type {
   KoubouLocalizationConfig,
 } from './types.js';
 export {
-  getKoubouDeviceFamilies,
-  getKoubouDeviceFamily,
-  getKoubouDeviceId,
-  getKoubouFamilyByFrameId,
-  getKoubouColorNames,
+  getDeviceFamilies,
+  getDeviceFamily,
+  getDeviceId,
+  getDeviceFamilyByFrameId,
+  getDeviceColorNames,
   findMatchingDeviceFamily,
   getDevicePlatformCategory,
 } from './catalog.js';
-export type { KoubouDeviceFamily, KoubouDeviceCategory, KoubouColorVariant } from './catalog.js';
-export { getKoubouFramesDir, getKoubouFramePath } from './frames.js';
+export type { DeviceFamily, DeviceCategory, DeviceColorVariant } from './catalog.js';
+export { getKoubouFramesDir, getDeviceFramePath } from './frames.js';

@@ -89,25 +89,25 @@ export {
   mapSizeToKoubou,
   mapDeviceToKoubou,
   KOUBOU_DIMENSIONS,
-  getKoubouDeviceFamilies,
-  getKoubouDeviceFamily,
-  getKoubouDeviceId,
-  getKoubouFamilyByFrameId,
-  getKoubouColorNames,
+  getDeviceFamilies,
+  getDeviceFamily,
+  getDeviceId,
+  getDeviceFamilyByFrameId,
+  getDeviceColorNames,
   findMatchingDeviceFamily,
   getDevicePlatformCategory,
   getKoubouFramesDir,
-  getKoubouFramePath,
-} from './koubou/index.js';
+  getDeviceFramePath,
+} from './devices/index.js';
 export type {
   KoubouConfig,
   KoubouLocalizationConfig,
   KoubouDetectionResult,
   KoubouSingleScreenOptions,
   TranslateOptions as KoubouTranslateOptions,
-  KoubouDeviceFamily,
-  KoubouDeviceCategory,
-  KoubouColorVariant,
-} from './koubou/index.js';
+  DeviceFamily,
+  DeviceCategory,
+  DeviceColorVariant,
+} from './devices/index.js';
 
 export const VERSION = '0.1.0';

@@ -30,7 +30,7 @@ export function usePreviewRender() {
       subtitleRotation: screen.subtitleRotation,
       colors: screen.colors,
       frameId: screen.frameId,
-      koubouColor: screen.koubouColor,
+      deviceColor: screen.deviceColor,
       frameStyle: screen.frameStyle,
       composition: screen.composition,
       deviceScale: screen.deviceScale,

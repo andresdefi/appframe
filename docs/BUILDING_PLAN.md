@@ -144,7 +144,6 @@ appframe/
 │   │   ├── ipad-pro-13/
 │   │   └── ...
 │   ├── android/
-│   │   ├── pixel-10/
 │   │   └── generic/
 │   └── manifest.json            # Frame metadata (dimensions, offsets, etc.)
 ├── fonts/                       # Bundled fonts (open-source only)
@@ -239,7 +238,7 @@ theme:
 
 frames:
   ios: iphone-16-pro-max
-  android: pixel-10
+  android: generic-phone
   style: flat  # flat | 3d | floating | none
 
 screens:

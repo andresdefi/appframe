@@ -25,7 +25,7 @@ theme:
 
 frames:
   ios: generic-phone
-  android: pixel-10
+  android: generic-phone
   style: flat
 
 screens:

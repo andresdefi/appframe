@@ -58,6 +58,16 @@ export function TextTab() {
             className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent"
           />
         </div>
+        <ColorPicker
+          label="Headline Color"
+          value={screen.colors.text}
+          onChange={(v) => update({ colors: { ...screen.colors, text: v } })}
+        />
+        <ColorPicker
+          label="Subtitle Color"
+          value={screen.colors.subtitle}
+          onChange={(v) => update({ colors: { ...screen.colors, subtitle: v } })}
+        />
       </Section>
 
       {/* Typography */}

@@ -45,7 +45,8 @@ describe('frame loader', () => {
   it('finds default Android phone frame', async () => {
     const frame = await getDefaultFrame('android', 'phone', manifestPath);
     expect(frame).toBeDefined();
-    expect(frame!.platform).toBe('android');
+    // Generic phone serves both platforms via tags, platform field is 'ios'
+    expect(frame!.id).toBe('generic-phone');
   });
 
   it('frame paths are absolute after loading', async () => {

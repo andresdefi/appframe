@@ -403,7 +403,7 @@ export async function renderSingleScreenWithKoubou(
         subtitleGradient: options.subtitleGradient,
       },
       frames: {
-        style: options.frameStyle as 'flat' | '3d' | 'floating' | 'none',
+        style: options.frameStyle as 'flat' | '3d' | 'none',
         ios: options.frameId,
         deviceColor: options.deviceColor,
       },

@@ -26,30 +26,30 @@ frames:
   style: flat
 
 screens:
-  - screenshot: screenshots/home.png
+  - screenshot: placeholder
     headline: "Trust No One"
     subtitle: "The ultimate party bluffing game"
     layout: center
 
-  - screenshot: screenshots/setup.png
+  - screenshot: placeholder
     headline: "Customize Every Round"
     subtitle: "Choose categories, players & impostors"
     layout: center
 
-  - screenshot: screenshots/innocent.png
+  - screenshot: placeholder
     headline: "Get Your Secret Word"
     layout: center
 
-  - screenshot: screenshots/impostor.png
+  - screenshot: placeholder
     headline: "Can You Blend In?"
     subtitle: "The impostor must bluff their way through"
     layout: center
 
-  - screenshot: screenshots/play.png
+  - screenshot: placeholder
     headline: "Give One-Word Clues"
     layout: center
 
-  - screenshot: screenshots/results.png
+  - screenshot: placeholder
     headline: "Catch the Impostor!"
     subtitle: "Vote, reveal & play again"
     layout: center

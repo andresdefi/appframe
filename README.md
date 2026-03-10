@@ -69,7 +69,7 @@ theme:
 
 frames:
   ios: iphone-16-pro-max
-  android: pixel-10
+  android: generic-phone
   style: flat
 
 screens:

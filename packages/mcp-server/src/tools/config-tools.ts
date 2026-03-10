@@ -129,7 +129,7 @@ export function registerConfigTools(server: McpServer): void {
         theme: { style, colors, font: 'inter', fontWeight: 600 },
         frames: {
           ios: platforms.includes('ios') ? 'generic-phone' : undefined,
-          android: platforms.includes('android') ? 'pixel-10' : undefined,
+          android: platforms.includes('android') ? 'generic-phone' : undefined,
           style: 'flat',
         },
         screens: [

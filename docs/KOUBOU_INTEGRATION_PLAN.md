@@ -66,7 +66,7 @@ Replace Playwright with Koubou for final screenshot export. Keep HTML preview fo
   ```
   iphone-16-pro-max → "iPhone 16 Pro Max Portrait"
   iphone-16-pro     → "iPhone 16 Pro Portrait"
-  pixel-10          → (Android not supported by Koubou — fallback to Playwright)
+  generic-phone     → (Android not supported by Koubou — fallback to Playwright)
   ```
 - [x] Map appframe layout variants to Koubou image positioning:
   ```

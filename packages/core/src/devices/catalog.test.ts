@@ -35,8 +35,8 @@ describe('getDeviceFamilies', () => {
   it('contains expected category distribution', () => {
     const counts = { iphone: 0, ipad: 0, mac: 0, watch: 0 };
     for (const f of families) counts[f.category]++;
-    expect(counts.iphone).toBeGreaterThanOrEqual(10);
-    expect(counts.ipad).toBeGreaterThanOrEqual(5);
+    expect(counts.iphone).toBeGreaterThanOrEqual(4);
+    expect(counts.ipad).toBeGreaterThanOrEqual(2);
     expect(counts.mac).toBeGreaterThanOrEqual(3);
     expect(counts.watch).toBeGreaterThanOrEqual(3);
   });
@@ -44,9 +44,9 @@ describe('getDeviceFamilies', () => {
 
 describe('getDeviceFamily', () => {
   it('returns a family by id', () => {
-    const family = getDeviceFamily('iphone-16-pro-max');
+    const family = getDeviceFamily('iphone-17-pro-max');
     expect(family).not.toBeNull();
-    expect(family!.name).toBe('iPhone 16 Pro Max');
+    expect(family!.name).toBe('iPhone 17 Pro Max');
   });
 
   it('returns null for unknown id', () => {
@@ -56,18 +56,18 @@ describe('getDeviceFamily', () => {
 
 describe('getDeviceId', () => {
   it('returns default color portrait id', () => {
-    const id = getDeviceId('iphone-16-pro-max');
-    expect(id).toBe('iPhone 16 Pro Max - Natural Titanium - Portrait');
+    const id = getDeviceId('iphone-17-pro-max');
+    expect(id).toBe('local:apple/iphone-17-pro-max/frame');
   });
 
   it('returns specific color portrait id', () => {
-    const id = getDeviceId('iphone-16-pro-max', 'Black Titanium');
-    expect(id).toBe('iPhone 16 Pro Max - Black Titanium - Portrait');
+    const id = getDeviceId('ipad-pro-13-m4', 'Space Gray');
+    expect(id).toBe('iPad Pro 13 - M4 - Space Gray - Portrait');
   });
 
   it('returns landscape id when orientation is landscape', () => {
-    const id = getDeviceId('iphone-16-pro-max', undefined, 'landscape');
-    expect(id).toBe('iPhone 16 Pro Max - Natural Titanium - Landscape');
+    const id = getDeviceId('ipad-pro-13-m4', undefined, 'landscape');
+    expect(id).toBe('iPad Pro 13 - M4 - Silver - Landscape');
   });
 
   it('returns null for unknown family', () => {
@@ -75,8 +75,8 @@ describe('getDeviceId', () => {
   });
 
   it('falls back to first variant for unknown color', () => {
-    const id = getDeviceId('iphone-16-pro-max', 'Imaginary Color');
-    expect(id).toBe('iPhone 16 Pro Max - Natural Titanium - Portrait');
+    const id = getDeviceId('ipad-pro-13-m4', 'Imaginary Color');
+    expect(id).toBe('iPad Pro 13 - M4 - Silver - Portrait');
   });
 });
 
@@ -94,14 +94,14 @@ describe('getDeviceFamilyByFrameId', () => {
 
 describe('getDeviceColorNames', () => {
   it('returns color names for multi-color family', () => {
-    const colors = getDeviceColorNames('iphone-16-pro-max');
-    expect(colors).toContain('Natural Titanium');
-    expect(colors).toContain('Black Titanium');
-    expect(colors.length).toBe(4);
+    const colors = getDeviceColorNames('ipad-pro-13-m4');
+    expect(colors).toContain('Silver');
+    expect(colors).toContain('Space Gray');
+    expect(colors.length).toBe(2);
   });
 
   it('returns single color for single-color family', () => {
-    const colors = getDeviceColorNames('iphone-14-pro-max');
+    const colors = getDeviceColorNames('iphone-17-pro-max');
     expect(colors).toEqual(['Default']);
   });
 

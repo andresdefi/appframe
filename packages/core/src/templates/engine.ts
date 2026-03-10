@@ -146,9 +146,7 @@ function buildShadowCss(preset: StylePreset, context: TemplateContext): string {
   }
 
   let shadowDefs: Array<[number, number, number]>;
-  if (layout === 'floating') {
-    shadowDefs = preset.shadow.floating;
-  } else if (layout === 'angled-left' || layout === 'angled-right') {
+  if (layout === 'angled-left' || layout === 'angled-right') {
     shadowDefs = preset.shadow.angled;
   } else {
     shadowDefs = preset.shadow.standard;
@@ -162,9 +160,8 @@ function buildShadowCss(preset: StylePreset, context: TemplateContext): string {
 
   // Glow preset adds a color glow layer
   if (preset.shadow.intensity === 'glow') {
-    const isFloating = layout === 'floating';
-    const glowScale = isFloating ? (preset.shadow.floatingGlowScale ?? 0.1) : (preset.shadow.glowScale ?? 0.08);
-    const glowAlpha = isFloating ? (preset.shadow.floatingGlowAlpha ?? '88') : (preset.shadow.glowAlpha ?? '66');
+    const glowScale = preset.shadow.glowScale ?? 0.08;
+    const glowAlpha = preset.shadow.glowAlpha ?? '66';
     return `filter: drop-shadow(0 0 ${Math.round(cw * glowScale)}px ${colors.primary}${glowAlpha}) ${shadowLayers};`;
   }
 
@@ -245,10 +242,14 @@ function resolvePresetContext(preset: StylePreset, context: TemplateContext) {
     resolvedBgEffect = 'none' as typeof resolvedBgEffect;
   }
 
-  // Resolve shadow CSS — custom deviceShadow overrides preset
+  // Resolve shadow CSS — custom deviceShadow overrides preset.
+  // When background is not 'preset', show no shadow unless the user
+  // explicitly enabled a custom deviceShadow in the Device tab.
   const shadowCss = context.deviceShadow
     ? buildDeviceShadowCss(context.deviceShadow)
-    : buildShadowCss(preset, context);
+    : (bgType !== 'preset')
+      ? ''
+      : buildShadowCss(preset, context);
 
   return {
     isFullscreen: preset.isFullscreen,
@@ -269,7 +270,6 @@ function resolvePresetContext(preset: StylePreset, context: TemplateContext) {
     presetTextAreaTop: preset.textAreaTop,
     presetTextAreaPadding: preset.textAreaPadding,
     presetPerspectiveAngled: preset.perspective.angled,
-    presetPerspectiveFloating: preset.perspective.floating,
     presetPerspectiveStandard: preset.perspective.standard,
     presetShadowCss: shadowCss,
   };

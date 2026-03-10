@@ -7,7 +7,6 @@ import {
   screenConfigSchema,
   spotlightConfigSchema,
   annotationSchema,
-  zoomCalloutSchema,
   localizationConfigSchema,
   outputConfigSchema,
   platformSchema,
@@ -61,7 +60,7 @@ describe('templateStyleSchema', () => {
 
 describe('frameStyleSchema', () => {
   it('accepts all valid frame styles', () => {
-    for (const s of ['flat', '3d', 'floating', 'none']) {
+    for (const s of ['flat', '3d', 'none']) {
       expect(frameStyleSchema.safeParse(s).success).toBe(true);
     }
   });
@@ -73,7 +72,7 @@ describe('frameStyleSchema', () => {
 
 describe('layoutVariantSchema', () => {
   it('accepts all valid layouts', () => {
-    for (const l of ['center', 'angled-left', 'angled-right', 'floating', 'side-by-side']) {
+    for (const l of ['center', 'angled-left', 'angled-right', 'side-by-side']) {
       expect(layoutVariantSchema.safeParse(l).success).toBe(true);
     }
   });
@@ -154,7 +153,6 @@ describe('screenConfigSchema', () => {
       expect(result.data.layout).toBe('center');
       expect(result.data.composition).toBe('single');
       expect(result.data.annotations).toEqual([]);
-      expect(result.data.zoomCallouts).toEqual([]);
     }
   });
 
@@ -195,22 +193,6 @@ describe('annotationSchema', () => {
 
   it('rejects strokeWidth outside range', () => {
     expect(annotationSchema.safeParse({ strokeWidth: 25 }).success).toBe(false);
-  });
-});
-
-describe('zoomCalloutSchema', () => {
-  it('fills defaults', () => {
-    const result = zoomCalloutSchema.safeParse({});
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.connectorStyle).toBe('line');
-      expect(result.data.shadow).toBe(true);
-      expect(result.data.magnification).toBe(2);
-    }
-  });
-
-  it('rejects magnification outside range', () => {
-    expect(zoomCalloutSchema.safeParse({ magnification: 10 }).success).toBe(false);
   });
 });
 

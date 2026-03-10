@@ -24,13 +24,13 @@ describe('mapSizeToKoubou', () => {
 
 describe('mapDeviceToKoubou', () => {
   it('maps known device with color', () => {
-    const result = mapDeviceToKoubou('iphone-16-pro-max', 'Black Titanium');
-    expect(result).toBe('iPhone 16 Pro Max - Black Titanium - Portrait');
+    const result = mapDeviceToKoubou('ipad-pro-13-m4', 'Space Gray');
+    expect(result).toBe('iPad Pro 13 - M4 - Space Gray - Portrait');
   });
 
   it('maps known device without color (uses default)', () => {
-    const result = mapDeviceToKoubou('iphone-16-pro-max');
-    expect(result).toBe('iPhone 16 Pro Max - Natural Titanium - Portrait');
+    const result = mapDeviceToKoubou('iphone-17-pro-max');
+    expect(result).toBe('local:apple/iphone-17-pro-max/frame');
   });
 
   it('returns null for unknown device', () => {

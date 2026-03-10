@@ -79,15 +79,14 @@
       --device-angle: {{ devAngle }}deg;
       --device-tilt: {{ devTilt }}deg;
       left: calc(50% + {{ devOffsetX }}px);
+      --device-perspective: {% if layout == 'angled-left' or layout == 'angled-right' %}{{ (dw * 1200 / (canvasWidth * 0.92)) | round }}{% else %}{{ (dw * 1500 / (canvasWidth * 0.92)) | round }}{% endif %}px;
 
       {% if layout == 'angled-left' %}
-        transform: translateX(-50%) perspective(1200px) rotateX(var(--device-tilt)) rotateY(var(--device-angle)) rotateZ(var(--device-rotation));
+        transform: scale(calc(1 - sin(var(--device-tilt)) * 0.2)) translateX(-50%) perspective(var(--device-perspective)) rotateX(var(--device-tilt)) rotateY(var(--device-angle)) rotateZ(var(--device-rotation));
       {% elif layout == 'angled-right' %}
-        transform: translateX(-50%) perspective(1200px) rotateX(var(--device-tilt)) rotateY(calc(-1 * var(--device-angle))) rotateZ(var(--device-rotation));
-      {% elif layout == 'floating' %}
-        transform: translateX(-50%) translateY(-3%) perspective(1500px) rotateX(var(--device-tilt)) rotateZ(var(--device-rotation));
+        transform: scale(calc(1 - sin(var(--device-tilt)) * 0.2)) translateX(-50%) perspective(var(--device-perspective)) rotateX(var(--device-tilt)) rotateY(calc(-1 * var(--device-angle))) rotateZ(var(--device-rotation));
       {% else %}
-        transform: translateX(-50%) perspective(1500px) rotateX(var(--device-tilt)) rotateZ(var(--device-rotation));
+        transform: scale(calc(1 - sin(var(--device-tilt)) * 0.2)) translateX(-50%) perspective(var(--device-perspective)) rotateX(var(--device-tilt)) rotateZ(var(--device-rotation));
       {% endif %}
 
       {% if frameStyle == '3d' %}
@@ -96,8 +95,6 @@
           drop-shadow(0 {{ (canvasWidth * 0.02) | round }}px {{ (canvasWidth * 0.04) | round }}px rgba(0,0,0,0.2))
           drop-shadow(0 {{ (canvasWidth * 0.06) | round }}px {{ (canvasWidth * 0.12) | round }}px rgba(0,0,0,0.25))
           drop-shadow(0 {{ (canvasWidth * 0.1) | round }}px {{ (canvasWidth * 0.2) | round }}px rgba(0,0,0,0.15));
-      {% elif layout == 'floating' %}
-        filter: drop-shadow(0 {{ (canvasWidth * 0.035) | round }}px {{ (canvasWidth * 0.09) | round }}px rgba(0,0,0,0.18));
       {% else %}
         filter: drop-shadow(0 {{ (canvasWidth * 0.015) | round }}px {{ (canvasWidth * 0.04) | round }}px rgba(0,0,0,0.12));
       {% endif %}

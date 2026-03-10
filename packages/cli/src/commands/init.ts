@@ -128,7 +128,7 @@ theme:
 
 frames:
   ${platforms.includes('ios') ? 'ios: generic-phone' : '# ios: generic-phone'}
-  ${platforms.includes('android') ? 'android: pixel-10' : '# android: pixel-10'}
+  ${platforms.includes('android') ? 'android: generic-phone' : '# android: generic-phone'}
   style: flat
 
 screens:

@@ -49,10 +49,17 @@ export function useInstantPatch() {
           if (!wrapper.dataset.origDw) {
             wrapper.dataset.origDw = String(parseFloat(wrapper.style.width) || wrapper.getBoundingClientRect().width);
           }
+          if (!wrapper.dataset.origPerspective) {
+            const pVal = getComputedStyle(wrapper).getPropertyValue('--device-perspective');
+            wrapper.dataset.origPerspective = String(parseFloat(pVal) || 1500);
+          }
           const origDw = parseFloat(wrapper.dataset.origDw);
           const newDw = Math.round(canvasWidth * partial.deviceScale / 100);
           const ratio = newDw / origDw;
           wrapper.style.width = newDw + 'px';
+          // Scale perspective proportionally so tilt effect stays consistent
+          const origPerspective = parseFloat(wrapper.dataset.origPerspective);
+          wrapper.style.setProperty('--device-perspective', Math.round(origPerspective * ratio) + 'px');
           // Scale screenshot-clip from original dimensions (not current, to avoid drift)
           wrapper.querySelectorAll('.screenshot-clip').forEach((clip) => {
             const el = clip as HTMLElement;

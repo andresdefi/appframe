@@ -10,19 +10,17 @@ import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
 import { CropModal } from '../Controls/CropModal';
 import { KOUBOU_COLOR_HEX } from '../../utils/presets';
-import type { FrameStyle, LayoutVariant } from '../../types';
+import type { FrameStyle, LayoutVariant, TemplateStyle } from '../../types';
 import { PLATFORM_DEVICE_DEFAULTS, PLATFORM_PREVIEW_SIZES } from '../../types';
 
 const LAYOUT_OPTIONS = [
   { value: 'center', label: 'Center' },
   { value: 'angled-left', label: 'Angled Left' },
   { value: 'angled-right', label: 'Angled Right' },
-  { value: 'floating', label: 'Floating' },
 ];
 
 const FRAME_STYLE_OPTIONS = [
   { value: 'flat', label: 'Flat' },
-  { value: 'floating', label: 'Floating' },
   { value: 'none', label: 'None (frameless)' },
 ];
 
@@ -475,94 +473,105 @@ export function DeviceTab() {
 
       {/* Device Layout */}
       <Section title="Device Layout">
-        <Select
-          label="Layout"
-          value={screen.layout}
-          onChange={(v) => update({ layout: v as LayoutVariant })}
-          options={LAYOUT_OPTIONS}
-        />
-        <RangeSlider
-          label="Device Size"
-          value={screen.deviceScale}
-          min={50}
-          max={100}
-          formatValue={(v) => `${v}%`}
-          onChange={(v) => update({ deviceScale: v })}
-          onInstant={(v) => instantDevice('deviceScale', v)}
-        />
-        <RangeSlider
-          label="Device Position"
-          value={screen.deviceTop}
-          min={-80}
-          max={80}
-          formatValue={(v) => `${v}%`}
-          onChange={(v) => update({ deviceTop: v })}
-          onInstant={(v) => instantDevice('deviceTop', v)}
-        />
-        <RangeSlider
-          label="Horizontal Position"
-          value={screen.deviceOffsetX}
-          min={-80}
-          max={80}
-          formatValue={(v) => String(v)}
-          onChange={(v) => update({ deviceOffsetX: v })}
-          onInstant={(v) => instantDevice('deviceOffsetX', v)}
-        />
-        <RangeSlider
-          label="Device Rotation"
-          value={screen.deviceRotation}
-          min={-180}
-          max={180}
-          formatValue={(v) => `${v}\u00B0`}
-          onChange={(v) => update({ deviceRotation: v })}
-          onInstant={(v) => instantDevice('deviceRotation', v)}
-        />
-        {showAngle && (
-          <RangeSlider
-            label="Perspective Angle"
-            value={screen.deviceAngle}
-            min={2}
-            max={45}
-            formatValue={(v) => `${v}\u00B0`}
-            onChange={(v) => update({ deviceAngle: v })}
-            onInstant={(v) => instantDevice('deviceAngle', v)}
-          />
-        )}
-        <RangeSlider
-          label="3D Tilt"
-          value={screen.deviceTilt}
-          min={0}
-          max={20}
-          formatValue={(v) => `${v}\u00B0`}
-          onChange={(v) => update({ deviceTilt: v })}
-          onInstant={(v) => instantDevice('deviceTilt', v)}
-        />
-        {isFrameNone && (
-          <RangeSlider
-            label="Corner Radius"
-            value={screen.cornerRadius}
-            min={0}
-            max={50}
-            formatValue={(v) => `${v}%`}
-            onChange={(v) => update({ cornerRadius: v })}
-          />
-        )}
-        <button
-          className="w-full py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
-          onClick={() =>
-            update({
-              deviceScale: pd.deviceScale,
-              deviceTop: pd.deviceTop,
-              deviceRotation: 0,
-              deviceOffsetX: 0,
-              deviceAngle: pd.deviceAngle,
-              deviceTilt: 0,
-              cornerRadius: 0,
-            })
+        <Checkbox
+          label="Fullscreen Screenshot"
+          checked={screen.style === 'fullscreen'}
+          onChange={(checked) =>
+            update({ style: (checked ? 'fullscreen' : 'minimal') as TemplateStyle })
           }
-        >
-          Reset Device Position
-        </button>
+        />
+        {screen.style !== 'fullscreen' && (
+          <>
+            <Select
+              label="Layout"
+              value={screen.layout}
+              onChange={(v) => update({ layout: v as LayoutVariant })}
+              options={LAYOUT_OPTIONS}
+            />
+            <RangeSlider
+              label="Device Size"
+              value={screen.deviceScale}
+              min={50}
+              max={100}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ deviceScale: v })}
+              onInstant={(v) => instantDevice('deviceScale', v)}
+            />
+            <RangeSlider
+              label="Device Position"
+              value={screen.deviceTop}
+              min={-80}
+              max={80}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ deviceTop: v })}
+              onInstant={(v) => instantDevice('deviceTop', v)}
+            />
+            <RangeSlider
+              label="Horizontal Position"
+              value={screen.deviceOffsetX}
+              min={-80}
+              max={80}
+              formatValue={(v) => String(v)}
+              onChange={(v) => update({ deviceOffsetX: v })}
+              onInstant={(v) => instantDevice('deviceOffsetX', v)}
+            />
+            <RangeSlider
+              label="Device Rotation"
+              value={screen.deviceRotation}
+              min={-180}
+              max={180}
+              formatValue={(v) => `${v}\u00B0`}
+              onChange={(v) => update({ deviceRotation: v })}
+              onInstant={(v) => instantDevice('deviceRotation', v)}
+            />
+            {showAngle && (
+              <RangeSlider
+                label="Perspective Angle"
+                value={screen.deviceAngle}
+                min={2}
+                max={45}
+                formatValue={(v) => `${v}\u00B0`}
+                onChange={(v) => update({ deviceAngle: v })}
+                onInstant={(v) => instantDevice('deviceAngle', v)}
+              />
+            )}
+            <RangeSlider
+              label="3D Tilt"
+              value={screen.deviceTilt}
+              min={0}
+              max={40}
+              formatValue={(v) => `${v}\u00B0`}
+              onChange={(v) => update({ deviceTilt: v })}
+              onInstant={(v) => instantDevice('deviceTilt', v)}
+            />
+            {isFrameNone && (
+              <RangeSlider
+                label="Corner Radius"
+                value={screen.cornerRadius}
+                min={0}
+                max={50}
+                formatValue={(v) => `${v}%`}
+                onChange={(v) => update({ cornerRadius: v })}
+              />
+            )}
+            <button
+              className="w-full py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
+              onClick={() =>
+                update({
+                  deviceScale: pd.deviceScale,
+                  deviceTop: pd.deviceTop,
+                  deviceRotation: 0,
+                  deviceOffsetX: 0,
+                  deviceAngle: pd.deviceAngle,
+                  deviceTilt: 0,
+                  cornerRadius: 0,
+                })
+              }
+            >
+              Reset Device Position
+            </button>
+          </>
+        )}
       </Section>
 
       {/* Device Shadow */}

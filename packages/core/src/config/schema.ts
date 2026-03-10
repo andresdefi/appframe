@@ -8,12 +8,11 @@ const hexColor = z
 
 export const platformSchema = z.enum(['ios', 'android', 'mac', 'watch']);
 export const templateStyleSchema = z.enum(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial', 'fullscreen']);
-export const frameStyleSchema = z.enum(['flat', '3d', 'floating', 'none']);
+export const frameStyleSchema = z.enum(['flat', '3d', 'none']);
 export const layoutVariantSchema = z.enum([
   'center',
   'angled-left',
   'angled-right',
-  'floating',
   'side-by-side',
 ]);
 

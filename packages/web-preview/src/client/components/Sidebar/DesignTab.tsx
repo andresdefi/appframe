@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { Section } from '../Controls/Section';
@@ -17,7 +17,6 @@ const TEMPLATE_OPTIONS = [
   { value: 'clean', label: 'Clean' },
   { value: 'branded', label: 'Branded' },
   { value: 'editorial', label: 'Editorial' },
-  { value: 'fullscreen', label: 'Fullscreen Screenshot' },
 ];
 
 const BG_TYPES: { value: BackgroundType; label: string }[] = [
@@ -60,9 +59,15 @@ export function DesignTab() {
     [screen, patchBackground],
   );
 
+  // Local UI state: 'preset' tab can be shown without immediately applying a preset.
+  // backgroundType only becomes 'preset' when the user picks from the dropdown.
+  const [showPreset, setShowPreset] = useState(false);
+
   if (!screen) return null;
 
   const bgType = screen.backgroundType;
+  // The visible UI mode: show preset panel if user clicked Preset radio OR if bg is already preset
+  const uiMode = showPreset || bgType === 'preset' ? 'preset' : bgType;
 
   const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -95,8 +100,16 @@ export function DesignTab() {
                 type="radio"
                 name="bg-type"
                 value={bt.value}
-                checked={bgType === bt.value}
-                onChange={() => update({ backgroundType: bt.value })}
+                checked={uiMode === bt.value}
+                onChange={() => {
+                  if (bt.value === 'preset') {
+                    // Just show the dropdown — don't change backgroundType yet
+                    setShowPreset(true);
+                  } else {
+                    setShowPreset(false);
+                    update({ backgroundType: bt.value });
+                  }
+                }}
                 className="accent-accent"
               />
               {bt.label}
@@ -105,17 +118,23 @@ export function DesignTab() {
         </div>
 
         {/* Preset controls */}
-        {bgType === 'preset' && (
+        {uiMode === 'preset' && (
           <Select
             label="Style Preset"
-            value={screen.style}
-            onChange={(v) => update({ style: v as TemplateStyle })}
-            options={TEMPLATE_OPTIONS}
+            value={bgType === 'preset' ? screen.style : ''}
+            onChange={(v) => {
+              // Only now apply preset mode + selected style
+              update({ backgroundType: 'preset', style: v as TemplateStyle });
+            }}
+            options={[
+              { value: '', label: 'Select a preset...' },
+              ...TEMPLATE_OPTIONS,
+            ]}
           />
         )}
 
         {/* Solid color controls */}
-        {bgType === 'solid' && (
+        {uiMode === 'solid' && (
           <ColorPicker
             label="Color"
             value={screen.backgroundColor}
@@ -126,7 +145,7 @@ export function DesignTab() {
         )}
 
         {/* Gradient controls */}
-        {bgType === 'gradient' && (
+        {uiMode === 'gradient' && (
           <>
             {/* Gradient presets */}
             <div className="flex flex-wrap gap-1 mb-2">
@@ -226,7 +245,7 @@ export function DesignTab() {
         )}
 
         {/* Image controls */}
-        {bgType === 'image' && (
+        {uiMode === 'image' && (
           <>
             <button
               className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
@@ -301,8 +320,8 @@ export function DesignTab() {
         )}
       </Section>
 
-      {/* Colors section — only visible in preset mode */}
-      <Section title="Colors" hidden={bgType !== 'preset'}>
+      {/* Preset colors — only visible when a preset is actively applied */}
+      <Section title="Preset Colors" hidden={bgType !== 'preset'}>
         <ColorPicker
           label="Primary"
           value={screen.colors.primary}
@@ -317,16 +336,6 @@ export function DesignTab() {
           label="Background"
           value={screen.colors.background}
           onChange={(v) => update({ colors: { ...screen.colors, background: v } })}
-        />
-        <ColorPicker
-          label="Text"
-          value={screen.colors.text}
-          onChange={(v) => update({ colors: { ...screen.colors, text: v } })}
-        />
-        <ColorPicker
-          label="Subtitle"
-          value={screen.colors.subtitle}
-          onChange={(v) => update({ colors: { ...screen.colors, subtitle: v } })}
         />
       </Section>
     </>

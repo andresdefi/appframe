@@ -19,7 +19,7 @@ export function createScreenState(
     screenIndex: index,
     headline: screen ? screen.headline : 'New Screen',
     subtitle: screen ? (screen.subtitle ?? '') : '',
-    style: config.theme.style as TemplateStyle,
+    style: 'minimal' as TemplateStyle,
     layout: 'center',
     font: config.theme.font,
     fontWeight: config.theme.fontWeight,

@@ -21,13 +21,10 @@ export interface ShadowConfig {
   intensity: ShadowIntensity;
   // Shadow CSS values (multiplied by canvasWidth) — [y-offset-scale, blur-scale, opacity]
   standard: Array<[number, number, number]>;
-  floating: Array<[number, number, number]>;
   angled: Array<[number, number, number]>;
   // For glow style: extra glow shadow prepended (uses primary color)
   glowScale?: number;
   glowAlpha?: string;
-  floatingGlowScale?: number;
-  floatingGlowAlpha?: string;
 }
 
 export type BgEffect = 'none' | 'orbs' | 'glow' | 'shapes' | 'flat-circles' | 'divider';
@@ -37,7 +34,7 @@ export interface StylePreset {
   bgEffect: BgEffect;
   typography: TypographyDefaults;
   shadow: ShadowConfig;
-  perspective: { angled: number; floating: number; standard: number };
+  perspective: { angled: number; standard: number };
   textAreaTop: number; // as fraction of canvasHeight
   textAreaPadding: number; // as fraction of canvasWidth
   isFullscreen: boolean;
@@ -64,10 +61,10 @@ export const STYLE_PRESETS: Record<TemplateStyle, StylePreset> = {
     shadow: {
       intensity: 'light',
       standard: [[0.02, 0.05, 0.15]],
-      floating: [[0.04, 0.1, 0.22]],
+
       angled: [[0.02, 0.05, 0.18]],
     },
-    perspective: { angled: 1200, floating: 1500, standard: 1500 },
+    perspective: { angled: 1200, standard: 1500 },
     textAreaTop: 0.03,
     textAreaPadding: 0.07,
     isFullscreen: false,
@@ -93,10 +90,10 @@ export const STYLE_PRESETS: Record<TemplateStyle, StylePreset> = {
     shadow: {
       intensity: 'heavy',
       standard: [[0.03, 0.08, 0.4]],
-      floating: [[0.05, 0.12, 0.45]],
+
       angled: [[0.03, 0.08, 0.4]],
     },
-    perspective: { angled: 800, floating: 1500, standard: 1500 },
+    perspective: { angled: 800, standard: 1500 },
     textAreaTop: 0.03,
     textAreaPadding: 0.06,
     isFullscreen: false,
@@ -122,14 +119,13 @@ export const STYLE_PRESETS: Record<TemplateStyle, StylePreset> = {
     shadow: {
       intensity: 'glow',
       standard: [[0.03, 0.06, 0.5]],
-      floating: [[0.05, 0.1, 0.55]],
+
       angled: [[0.03, 0.06, 0.5]],
       glowScale: 0.08,
       glowAlpha: '66',
-      floatingGlowScale: 0.1,
-      floatingGlowAlpha: '88',
+
     },
-    perspective: { angled: 1000, floating: 1500, standard: 1500 },
+    perspective: { angled: 1000, standard: 1500 },
     textAreaTop: 0.03,
     textAreaPadding: 0.07,
     isFullscreen: false,
@@ -155,10 +151,10 @@ export const STYLE_PRESETS: Record<TemplateStyle, StylePreset> = {
     shadow: {
       intensity: 'light',
       standard: [[0.025, 0.06, 0.22]],
-      floating: [[0.04, 0.1, 0.28]],
+
       angled: [[0.025, 0.06, 0.22]],
     },
-    perspective: { angled: 900, floating: 1500, standard: 1500 },
+    perspective: { angled: 900, standard: 1500 },
     textAreaTop: 0.03,
     textAreaPadding: 0.07,
     isFullscreen: false,
@@ -184,10 +180,10 @@ export const STYLE_PRESETS: Record<TemplateStyle, StylePreset> = {
     shadow: {
       intensity: 'light',
       standard: [[0.02, 0.05, 0.15]],
-      floating: [[0.04, 0.1, 0.2]],
+
       angled: [[0.02, 0.05, 0.15]],
     },
-    perspective: { angled: 1200, floating: 1500, standard: 1500 },
+    perspective: { angled: 1200, standard: 1500 },
     textAreaTop: 0.03,
     textAreaPadding: 0.07,
     isFullscreen: false,
@@ -213,10 +209,10 @@ export const STYLE_PRESETS: Record<TemplateStyle, StylePreset> = {
     shadow: {
       intensity: 'medium',
       standard: [[0.025, 0.06, 0.25]],
-      floating: [[0.04, 0.1, 0.3]],
+
       angled: [[0.025, 0.06, 0.25]],
     },
-    perspective: { angled: 900, floating: 1500, standard: 1500 },
+    perspective: { angled: 900, standard: 1500 },
     textAreaTop: 0.03,
     textAreaPadding: 0.07,
     isFullscreen: false,
@@ -242,10 +238,10 @@ export const STYLE_PRESETS: Record<TemplateStyle, StylePreset> = {
     shadow: {
       intensity: 'light',
       standard: [[0.015, 0.04, 0.12]],
-      floating: [[0.035, 0.09, 0.18]],
+
       angled: [[0.015, 0.04, 0.12]],
     },
-    perspective: { angled: 1200, floating: 1500, standard: 1500 },
+    perspective: { angled: 1200, standard: 1500 },
     textAreaTop: 0.04,
     textAreaPadding: 0.07,
     isFullscreen: false,
@@ -271,10 +267,10 @@ export const STYLE_PRESETS: Record<TemplateStyle, StylePreset> = {
     shadow: {
       intensity: 'light',
       standard: [],
-      floating: [],
+
       angled: [],
     },
-    perspective: { angled: 1200, floating: 1500, standard: 1500 },
+    perspective: { angled: 1200, standard: 1500 },
     textAreaTop: 0.03,
     textAreaPadding: 0.07,
     isFullscreen: true,

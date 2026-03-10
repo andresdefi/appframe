@@ -1,7 +1,7 @@
 import { usePreviewStore } from '../../store';
 
 const TABS = [
-  { id: 'design', label: 'Design' },
+  { id: 'design', label: 'Background' },
   { id: 'device', label: 'Device' },
   { id: 'text', label: 'Text' },
   { id: 'effects', label: 'Effects' },

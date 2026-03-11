@@ -149,8 +149,6 @@ function translateLayout(layout: LayoutVariant): { position: [string, string]; s
       return { position: ['45%', '60%'], scale: 0.80 };
     case 'angled-right':
       return { position: ['55%', '60%'], scale: 0.80 };
-    case 'side-by-side':
-      return { position: ['50%', '60%'], scale: 0.75 };
     default:
       return { position: ['50%', '60%'], scale: 0.80 };
   }

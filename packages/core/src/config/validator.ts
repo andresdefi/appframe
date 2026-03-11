@@ -5,6 +5,7 @@ import type { AppframeConfig } from './schema.js';
 export interface ValidationResult {
   success: true;
   config: AppframeConfig;
+  warnings: FormattedWarning[];
 }
 
 export interface ValidationError {
@@ -17,10 +18,33 @@ export interface FormattedError {
   message: string;
 }
 
+export interface FormattedWarning {
+  path: string;
+  message: string;
+}
+
+const HEADLINE_MAX_LENGTH = 40;
+
+function collectWarnings(config: AppframeConfig): FormattedWarning[] {
+  const warnings: FormattedWarning[] = [];
+
+  config.screens.forEach((screen, i) => {
+    if (screen.headline.length > HEADLINE_MAX_LENGTH) {
+      warnings.push({
+        path: `screens.${i}.headline`,
+        message: `Headline is ${screen.headline.length} chars — consider keeping it under ${HEADLINE_MAX_LENGTH} for readability at thumbnail size`,
+      });
+    }
+  });
+
+  return warnings;
+}
+
 export function validateConfig(raw: unknown): ValidationResult | ValidationError {
   try {
     const config = appframeConfigSchema.parse(raw);
-    return { success: true, config };
+    const warnings = collectWarnings(config);
+    return { success: true, config, warnings };
   } catch (err) {
     if (err instanceof ZodError) {
       const errors = err.issues.map((e) => ({

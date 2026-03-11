@@ -114,6 +114,79 @@ export interface DeviceContext {
   zIndex: number;
 }
 
+export interface PanoramicTemplateContext {
+  // Canvas dimensions (total wide canvas)
+  canvasWidth: number;
+  canvasHeight: number;
+  frameCount: number;
+  frameWidth: number;
+
+  // Font
+  font: string;
+  fontWeight: number;
+
+  // Frame style
+  frameStyle: FrameStyle;
+
+  // Background CSS
+  backgroundCss: string;
+
+  // Debug
+  showGuides?: boolean;
+
+  // Pre-computed elements with pixel values
+  elements: PanoramicRenderedElement[];
+
+  // Injected by engine
+  fontFaceCss?: string;
+  fontFamily?: string;
+}
+
+export interface PanoramicRenderedElement {
+  type: 'device' | 'text' | 'label' | 'decoration';
+  z: number;
+
+  // Pixel positions (computed from % of canvas)
+  xPx: number;
+  yPx: number;
+
+  // Device-specific
+  widthPx?: number;
+  rotation?: number;
+  screenshotDataUrl?: string;
+  frameSvg?: string | null;
+  framePngUrl?: string;
+  shadowCss?: string;
+  clipLeft?: number;
+  clipTop?: number;
+  clipWidth?: number;
+  clipHeight?: number;
+  clipRadius?: number;
+  borderRadius?: number;
+  borderSimulation?: { thickness: number; color: string; radius: number };
+
+  // Text-specific
+  content?: string;
+  fontSizePx?: number;
+  color?: string;
+  font?: string;
+  fontWeight?: number;
+  fontStyle?: string;
+  textAlign?: string;
+  maxWidthPx?: number;
+  lineHeight?: number;
+  gradientCss?: string;
+
+  // Label-specific
+  backgroundColor?: string;
+  paddingPx?: number;
+
+  // Decoration-specific
+  shape?: string;
+  heightPx?: number;
+  opacity?: number;
+}
+
 export interface TemplateRenderOptions {
   templateDir?: string;
   fontsDir?: string;
@@ -173,6 +246,7 @@ export class TemplateEngine {
   private templateDir: string;
   private fontsDir?: string;
   private fontFaceCache = new Map<string, string>();
+  private compiledTemplateCache = new Map<string, nunjucks.Template>();
 
   constructor(options?: TemplateRenderOptions) {
     this.templateDir = options?.templateDir ?? join(__dirname, '..', '..', 'templates');
@@ -181,6 +255,20 @@ export class TemplateEngine {
       autoescape: true,
       noCache: true,
     });
+  }
+
+  /**
+   * Load a template from disk, compile it once via nunjucks, and cache the
+   * compiled Template object. Subsequent calls for the same path skip both
+   * the disk read *and* the nunjucks parse/compile step.
+   */
+  private async getCompiledTemplate(templatePath: string): Promise<nunjucks.Template> {
+    const cached = this.compiledTemplateCache.get(templatePath);
+    if (cached !== undefined) return cached;
+    const content = await readFile(templatePath, 'utf-8');
+    const compiled = new nunjucks.Template(content, this.env, templatePath, true);
+    this.compiledTemplateCache.set(templatePath, compiled);
+    return compiled;
   }
 
   async render(context: TemplateContext): Promise<string> {
@@ -195,10 +283,31 @@ export class TemplateEngine {
     const presetContext = resolvePresetContext(preset, context);
 
     const templatePath = this.resolveTemplatePath();
-    const templateContent = await readFile(templatePath, 'utf-8');
-    return this.env.renderString(templateContent, {
+    const compiled = await this.getCompiledTemplate(templatePath);
+    return compiled.render({
       ...context,
       ...presetContext,
+      fontFaceCss: this.fontFaceCache.get(fontKey),
+      fontFamily: getFontName(fontKey),
+    });
+  }
+
+  async renderPanoramic(context: PanoramicTemplateContext): Promise<string> {
+    const fontKey = context.font || 'inter';
+
+    if (!this.fontFaceCache.has(fontKey)) {
+      this.fontFaceCache.set(fontKey, await loadFontFaces(fontKey, this.fontsDir));
+    }
+
+    const templatePath = join(this.templateDir, 'panoramic', 'base.html');
+    const compiled = await this.getCompiledTemplate(templatePath);
+
+    // Sort elements by z-index for proper layering
+    const sortedElements = [...context.elements].sort((a, b) => a.z - b.z);
+
+    return compiled.render({
+      ...context,
+      elements: sortedElements,
       fontFaceCss: this.fontFaceCache.get(fontKey),
       fontFamily: getFontName(fontKey),
     });

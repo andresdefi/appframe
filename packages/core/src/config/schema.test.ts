@@ -72,7 +72,7 @@ describe('frameStyleSchema', () => {
 
 describe('layoutVariantSchema', () => {
   it('accepts all valid layouts', () => {
-    for (const l of ['center', 'angled-left', 'angled-right', 'side-by-side']) {
+    for (const l of ['center', 'angled-left', 'angled-right']) {
       expect(layoutVariantSchema.safeParse(l).success).toBe(true);
     }
   });

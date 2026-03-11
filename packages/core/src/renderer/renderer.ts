@@ -38,24 +38,27 @@ export class Renderer {
       // Small delay for any CSS transitions/rendering to settle
       await page.waitForTimeout(200);
 
+      const clipRegion = options.clip ?? {
+        x: 0,
+        y: 0,
+        width: options.width,
+        height: options.height,
+      };
+
       await page.screenshot({
         path: options.outputPath,
         type: 'png',
         fullPage: false,
-        clip: {
-          x: 0,
-          y: 0,
-          width: options.width,
-          height: options.height,
-        },
+        clip: clipRegion,
       });
 
+      const scaleFactor = options.deviceScaleFactor ?? 2;
       const stats = await stat(options.outputPath);
 
       return {
         outputPath: options.outputPath,
-        width: options.width * (options.deviceScaleFactor ?? 2),
-        height: options.height * (options.deviceScaleFactor ?? 2),
+        width: clipRegion.width * scaleFactor,
+        height: clipRegion.height * scaleFactor,
         fileSize: stats.size,
       };
     } finally {

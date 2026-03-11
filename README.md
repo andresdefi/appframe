@@ -4,15 +4,25 @@ Open-source tool for generating professional App Store & Play Store promotional 
 
 Takes raw app screenshots and transforms them into polished, store-ready promotional images with device frames, headlines, styled backgrounds, and professional layouts.
 
+## Screenshots Are Ads, Not Docs
+
+The #1 mistake developers make with store screenshots: showing UI instead of selling outcomes. Every screenshot should sell **one idea**. You're not documenting features — you're selling a feeling, an outcome, or killing a pain point.
+
+**Good**: "Never miss a workout again." (kills a pain)
+**Bad**: "View your workout history with filters, tags, and calendar sync" (feature list)
+
+See [Writing Great Copy](#writing-great-copy) below.
+
 ## Features
 
-- **4 template styles**: minimal, bold, dark, playful — each with distinct visual personalities
-- **7 layout variants**: center, left, right, angled-left, angled-right, floating, side-by-side
-- **7 device frames**: iPhone 16/15 Pro Max, iPad Pro 13"/11", Pixel 10, generic phone/tablet
-- **Multi-platform**: Generates images for App Store (iOS/iPadOS) and Play Store (Android) at exact required dimensions
+- **8 template styles**: minimal, bold, glow, playful, clean, branded, editorial, fullscreen
+- **9 composition presets**: single, peek-right/left, tilt-right/left, duo-overlap, duo-split, hero-tilt, fanned-cards
+- **100+ device frames**: iPhone 17/Air, iPad Pro, Apple Watch, Android, generic frames
+- **Multi-platform**: iOS, Android, Mac, and Apple Watch at exact store-required dimensions
 - **Multi-language**: Generate screenshots in any language from a single config file
-- **AI-collaborative**: MCP server lets AI agents suggest copy, themes, and generate screenshots
-- **Web preview**: Local browser UI for visual tweaking in real-time
+- **Per-screen customization**: Override backgrounds, compositions, and layouts per slide
+- **AI-collaborative**: MCP server + AI agent skill for automated screenshot generation with variant support
+- **Web preview**: Local browser UI for real-time visual tweaking with drag positioning
 - **Auto-capture**: Capture screenshots from iOS Simulator (xcrun) or Android Emulator (adb)
 - **Store upload**: Push screenshots directly to App Store Connect and Google Play Console
 
@@ -23,7 +33,7 @@ Takes raw app screenshots and transforms them into polished, store-ready promoti
 npm install -g appframe
 
 # Initialize a config for your app
-appframe init --name "My App" --platforms ios,android --style minimal
+appframe init --name "My App" --style minimal
 
 # Add your screenshots to the screenshots/ folder, then generate
 appframe generate
@@ -32,92 +42,15 @@ appframe generate
 appframe preview
 ```
 
-## CLI Commands
+## AI Agent Integration
 
-| Command | Description |
-|---------|-------------|
-| `appframe init` | Create a new config file interactively |
-| `appframe generate` | Generate all store screenshots from config |
-| `appframe validate` | Validate a config file |
-| `appframe preview` | Open web preview for visual tweaking |
-| `appframe capture` | Auto-capture from simulator/emulator |
-| `appframe frames list` | List available device frames |
-| `appframe upload` | Upload to App Store Connect / Google Play |
-| `appframe setup` | Install optional dependencies (Koubou) |
-| `appframe koubou-config` | Preview translated Koubou YAML (debug) |
+appframe works with AI coding agents (Claude Code, Cursor, Windsurf, and 40+ others) via a skill:
 
-## Config File
-
-appframe uses a YAML config file (`appframe.yml`):
-
-```yaml
-app:
-  name: My App
-  description: A great app
-  platforms: [ios, android]
-
-theme:
-  style: minimal
-  colors:
-    primary: "#2563EB"
-    secondary: "#7C3AED"
-    background: "#F8FAFC"
-    text: "#0F172A"
-    subtitle: "#64748B"
-  font: inter
-  fontWeight: 600
-
-frames:
-  ios: iphone-16-pro-max
-  android: generic-phone
-  style: flat
-
-screens:
-  - screenshot: screenshots/screen-1.png
-    headline: Track Every Expense
-    subtitle: Effortless financial clarity
-    layout: center
-
-  - screenshot: screenshots/screen-2.png
-    headline: Smart Categories
-    layout: angled-right
-
-  - screenshot: screenshots/screen-3.png
-    headline: Beautiful Reports
-    layout: left
-
-locales:
-  es:
-    screens:
-      - headline: Rastrea Cada Gasto
-        subtitle: Claridad financiera sin esfuerzo
-      - headline: Categorías Inteligentes
-      - headline: Reportes Hermosos
-
-output:
-  platforms: [ios, android]
-  ios:
-    sizes: [6.7, 6.5]
-    format: png
-  android:
-    sizes: [phone]
-    format: png
-    featureGraphic: true
-  directory: ./output
+```bash
+npx skills add your-username/appframe
 ```
 
-## Template Styles
-
-| Style | Description | Best for |
-|-------|-------------|----------|
-| **minimal** | Clean, light, Apple-style with subtle shadows | Productivity, finance, health, utilities |
-| **bold** | Vibrant gradients, large heavy typography | Social, entertainment, lifestyle |
-| **dark** | Premium, sleek with glowing accents | Finance, pro tools, music, photography |
-| **playful** | Colorful, fun shapes, tilted devices | Games, education, kids, casual |
-
-## MCP Server
-
-appframe includes an MCP server for AI agent integration. Add it to your MCP config:
+Or via MCP server:
 
 ```json
 {
@@ -129,28 +62,185 @@ appframe includes an MCP server for AI agent integration. Add it to your MCP con
 }
 ```
 
-### Available MCP Tools
+When used with AI agents, appframe generates **2-3 design variants** for you to choose from — a clean/safe version, a dynamic/varied version, and an elegant/editorial version. The agent handles copy, theme, and layout decisions, then you pick your favorite.
+
+## Writing Great Copy
+
+Write all headlines **before** designing layouts. Bad copy ruins good design.
+
+### Three Approaches
+
+Use one per slide:
+
+| Approach | What it does | Example |
+|----------|-------------|---------|
+| **Paint a moment** | Reader pictures themselves doing it | "Check your coffee without opening the app." |
+| **State an outcome** | What life looks like after | "A home for every coffee you buy." |
+| **Kill a pain** | Name a problem and destroy it | "Never waste a great bag of coffee." |
+
+### The Rules
+
+1. **One idea per headline.** Never join two things with "and."
+2. **Short, common words.** 1-2 syllables. No jargon unless domain-specific.
+3. **3-5 words per line.** Must be readable at thumbnail size in the App Store.
+4. **Line breaks are intentional.** Use `\n` in your YAML to control where lines break.
+
+### What Never Works
+
+- Feature lists: "Log every item with tags, categories, and notes"
+- Two ideas with "and": "Track expenses and never miss a bill"
+- Vague aspirational: "Every moment, captured"
+- Marketing buzzwords: "AI-powered insights" (unless it genuinely is AI)
+
+### Slide Framework
+
+| Slot | Purpose |
+|------|---------|
+| #1 | **Hero** — app's main benefit, the one thing it does best |
+| #2 | **Differentiator** — what makes it unique vs alternatives |
+| #3 | **Ecosystem** — widgets, watch, extensions (skip if N/A) |
+| #4+ | **Core features** — one per slide, most important first |
+| 2nd to last | **Trust signal** — "made for people who [X]" |
+| Last | **Summary** — remaining features or coming soon |
+
+## Config File
+
+appframe uses a YAML config file (`appframe.yml`):
+
+```yaml
+app:
+  name: "FitPulse"
+  description: "Personal fitness tracker"
+  platforms: [ios, android]
+  features:
+    - Custom workout plans
+    - Progress tracking
+
+theme:
+  style: glow
+  colors:
+    primary: "#6366F1"
+    secondary: "#EC4899"
+    background: "#0A0A0F"
+    text: "#F8FAFC"
+    subtitle: "#94A3B8"
+  font: space-grotesk
+  fontWeight: 700
+
+frames:
+  ios: iphone-17-pro
+  android: generic-phone
+  style: flat
+
+screens:
+  # Slide 1: Hero — centered
+  - screenshot: screenshots/home.png
+    headline: "Your body,\nyour rules."
+    subtitle: "Fitness that adapts to you"
+    layout: center
+    composition: single
+
+  # Slide 2: Differentiator — angled, different background
+  - screenshot: screenshots/workouts.png
+    headline: "Plans that\nactually work."
+    layout: angled-right
+    background: "#1E1B4B"
+
+  # Slide 3: Feature — peek right for visual variety
+  - screenshot: screenshots/progress.png
+    headline: "Watch yourself\nimprove."
+    composition: peek-right
+
+  # Slide 4: Feature — peek left (pairs with previous)
+  - screenshot: screenshots/challenges.png
+    headline: "Compete with\nfriends."
+    composition: peek-left
+    background: "#18181B"
+
+  # Slide 5: Trust — back to centered
+  - screenshot: screenshots/nutrition.png
+    headline: "Fuel your\nprogress."
+    subtitle: "Built for people who show up"
+
+output:
+  platforms: [ios, android]
+  ios:
+    sizes: [6.7, 6.5]
+    format: png
+  android:
+    sizes: ["phone"]
+    format: png
+    featureGraphic: true
+  directory: ./output
+```
+
+## Template Styles
+
+| Style | Description | Best for |
+|-------|-------------|----------|
+| **minimal** | Clean, light, Apple-style with subtle shadows | Productivity, finance, health, utilities |
+| **bold** | Vibrant gradients, large heavy typography, uppercase | Social, entertainment, lifestyle |
+| **glow** | Dark premium with glowing color accents | Finance, pro tools, music, photography |
+| **playful** | Colorful shapes, fun decorations | Games, education, kids, casual |
+| **clean** | Zero decoration, just text + device | Modern no-frills look (YouTube, Uber) |
+| **branded** | Strong brand color as background | Apps with strong brand identity |
+| **editorial** | Elegant muted tones, italic headings | Lifestyle, wellness, premium |
+| **fullscreen** | Full-bleed screenshot, no device frame | Immersive apps |
+
+## Composition Presets
+
+Vary layouts across slides — never use the same composition for every screenshot.
+
+| Preset | Devices | Effect |
+|--------|---------|--------|
+| `single` | 1 | Default centered device |
+| `peek-right` | 1 | Device bleeds off right edge |
+| `peek-left` | 1 | Device bleeds off left edge |
+| `tilt-left` | 1 | Dramatic tilt overflowing left |
+| `tilt-right` | 1 | Dramatic tilt overflowing right |
+| `duo-overlap` | 2 | Two overlapping devices |
+| `duo-split` | 2 | Two devices on opposite edges |
+| `hero-tilt` | 2 | Large hero + smaller background device |
+| `fanned-cards` | 3 | Three devices fanned out |
+
+Composition presets set initial device positioning — you can fine-tune scale, rotation, offset, and angle from there via the web preview or YAML config.
+
+**Tip**: Pair `peek-right` on one slide with `peek-left` on the next — when viewed in the App Store, devices appear to span across screenshots.
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `appframe init` | Create a new config file |
+| `appframe generate` | Generate all store screenshots from config |
+| `appframe validate` | Validate config (includes copy length warnings) |
+| `appframe preview` | Open web preview for visual tweaking |
+| `appframe capture` | Auto-capture from simulator/emulator |
+| `appframe frames list` | List available device frames |
+| `appframe upload` | Upload to App Store Connect / Google Play |
+| `appframe setup` | Install optional dependencies (Koubou) |
+
+## MCP Tools
 
 | Tool | Description |
 |------|-------------|
 | `appframe_init_config` | Create a new config file |
 | `appframe_read_config` | Read config contents |
-| `appframe_validate_config` | Validate config |
+| `appframe_validate_config` | Validate config with warnings |
 | `appframe_update_config` | Update config fields |
 | `appframe_generate` | Generate all screenshots |
 | `appframe_preview_screen` | Render a single screen preview |
 | `appframe_list_frames` | List available device frames |
-| `appframe_list_templates` | List available template styles |
-| `appframe_suggest_copy` | AI-guided promotional copy generation |
+| `appframe_list_templates` | List template styles |
+| `appframe_suggest_copy` | AI-guided copy with 3 approaches |
 | `appframe_suggest_theme` | AI-guided theme suggestion |
-| `appframe_upload_plan` | Preview what would be uploaded |
+| `appframe_generate_variants` | Generate 2-3 design variant configs |
+| `appframe_upload_plan` | Preview upload plan |
 | `appframe_upload` | Upload screenshots to stores |
 
 ## Store Upload
 
 ### App Store Connect
-
-Set these environment variables:
 
 ```bash
 export ASC_ISSUER_ID="your-issuer-id"
@@ -166,34 +256,29 @@ export GOOGLE_PLAY_SERVICE_ACCOUNT="/path/to/service-account.json"
 export GOOGLE_PLAY_PACKAGE_NAME="com.example.myapp"
 ```
 
-Then run:
-
 ```bash
-# Preview what would be uploaded
-appframe upload --dry-run
-
-# Upload to both stores
-appframe upload
-
-# Upload iOS only
+appframe upload --dry-run    # Preview what would be uploaded
+appframe upload              # Upload to both stores
 appframe upload --platform ios
-
-# Upload specific locale
 appframe upload --locale es
 ```
 
 ## Output Sizes
 
 ### iOS (App Store)
+
 | Display | Output size |
 |---------|-------------|
 | iPhone 6.7" | 1290 x 2796 |
 | iPhone 6.5" | 1284 x 2778 |
+| iPhone 6.3" | 1206 x 2622 |
 | iPhone 5.5" | 1242 x 2208 |
+| iPad 13" | 2064 x 2752 |
 | iPad 12.9" | 2048 x 2732 |
 | iPad 11" | 1668 x 2388 |
 
 ### Android (Google Play)
+
 | Display | Output size |
 |---------|-------------|
 | Phone | 1080 x 1920 |
@@ -201,22 +286,48 @@ appframe upload --locale es
 | 10" Tablet | 1800 x 2560 |
 | Feature Graphic | 1024 x 500 |
 
+## Available Fonts
+
+inter, space-grotesk, poppins, montserrat, dm-sans, plus-jakarta-sans, raleway, playfair-display
+
+All fonts are bundled — no external requests needed.
+
+## Rendering Backends
+
+### Playwright (default)
+
+Built-in HTML/CSS renderer. Fast, supports all templates and effects.
+
+```bash
+appframe generate --renderer playwright
+```
+
+### Koubou (optional)
+
+[Koubou](https://github.com/bitomule/Koubou) provides photorealistic device frames (126+ frames).
+
+```bash
+appframe setup              # Install Koubou
+appframe generate --renderer koubou
+appframe generate --renderer auto   # Uses Koubou if available
+```
+
+| | Playwright | Koubou |
+|---|---|---|
+| Speed | ~1.5s per image | ~7s per image |
+| Device frames | SVG overlays (100+) | Photorealistic bezels (126+) |
+| Text rendering | Embedded web fonts | System fonts |
+| Background effects | Full CSS | Gradients only |
+
 ## Development
 
 ```bash
-# Clone and install
 git clone https://github.com/your-username/appframe.git
 cd appframe
 pnpm install
-
-# Build all packages
 pnpm build
-
-# Run tests
 pnpm test
-
-# Watch mode
-pnpm dev
+pnpm dev    # Watch mode
 ```
 
 ### Project Structure
@@ -228,51 +339,17 @@ packages/
   mcp-server/     MCP server for AI agents
   web-preview/    Express preview server with browser UI
   store-upload/   App Store Connect + Google Play upload
-frames/           SVG device frames + manifest
+skills/           AI agent skill (SKILL.md)
+frames/           Device frame assets + manifest
+fonts/            Bundled web fonts
 examples/         Example app configs
 ```
-
-## Rendering Backends
-
-appframe supports two rendering backends:
-
-### Playwright (default)
-Built-in HTML/CSS renderer. Fast, supports all templates and glow effects. Uses SVG device frame overlays.
-
-```bash
-appframe generate --renderer playwright
-```
-
-### Koubou (optional, recommended for export)
-[Koubou](https://github.com/bitomule/Koubou) provides pixel-perfect rendering with 126+ photorealistic device frames. Install it for higher-quality final exports.
-
-```bash
-# Install Koubou
-appframe setup
-# or: pip install koubou
-
-# Generate with Koubou
-appframe generate --renderer koubou
-
-# Auto-detect (uses Koubou if available, falls back to Playwright)
-appframe generate --renderer auto
-```
-
-| | Playwright | Koubou |
-|---|---|---|
-| Speed | ~1.5s per image | ~7s per image |
-| Device frames | SVG overlays (7 frames) | Photorealistic bezels (126 frames) |
-| Text rendering | Embedded web fonts (exact) | System fonts (install for best results) |
-| Background effects | Full CSS (glow, gradients) | Linear/radial gradients |
-| Platforms | iOS + Android | iOS only (Android falls back to Playwright) |
-
-**Tip:** For best font matching with Koubou, install the fonts on your system (e.g., `brew install font-inter`).
 
 ## Requirements
 
 - Node.js >= 18
-- Playwright (auto-installed on first run for rendering)
-- Koubou (optional) — `pip install koubou` for pixel-perfect device frames
+- Playwright (auto-installed on first run)
+- Koubou (optional) — `pip install koubou`
 
 ## License
 

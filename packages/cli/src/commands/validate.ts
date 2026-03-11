@@ -50,4 +50,13 @@ export const validateCommand = new Command('validate')
     console.log(`  Style:     ${result.config.theme.style}`);
     console.log(`  Screens:   ${result.config.screens.length}`);
     console.log(`  Locales:   ${Object.keys(result.config.locales ?? {}).length || 'default only'}`);
+
+    if (result.warnings.length > 0) {
+      console.log();
+      console.log(chalk.yellow(`Warnings (${result.warnings.length}):`));
+      for (const warning of result.warnings) {
+        const path = warning.path ? chalk.dim(warning.path) + ': ' : '';
+        console.log(`  ${path}${warning.message}`);
+      }
+    }
   });

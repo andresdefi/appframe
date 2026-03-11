@@ -91,7 +91,7 @@ export function DesignTab() {
 
   return (
     <>
-      <Section title="Background">
+      <Section title="Background" tooltip="Choose between solid colors, gradients, images, or template presets for your screenshot background.">
         {/* Background type radio */}
         <div className="flex gap-3 mb-2.5">
           {BG_TYPES.map((bt) => (

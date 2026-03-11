@@ -251,7 +251,7 @@ function ScreenCard({
           {canRemove && (
             <button
               className="text-text-dim hover:text-red-400 px-1"
-              onClick={(e) => { e.stopPropagation(); onRemove(); }}
+              onClick={(e) => { e.stopPropagation(); if (confirm('Remove this screen?')) onRemove(); }}
               title="Remove screen"
             >
               &times;

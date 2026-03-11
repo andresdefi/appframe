@@ -34,6 +34,9 @@ export type {
   Loupe,
   Callout,
   Overlay,
+  PanoramicElement,
+  PanoramicConfig,
+  PanoramicBackground,
   ValidationResult,
   ValidationError,
   FormattedError,
@@ -57,7 +60,7 @@ export type {
 } from './frames/index.js';
 
 export { TemplateEngine } from './templates/index.js';
-export type { TemplateContext, DeviceContext } from './templates/index.js';
+export type { TemplateContext, DeviceContext, PanoramicTemplateContext, PanoramicRenderedElement } from './templates/index.js';
 export { injectSpotlightHTML, injectAnnotationsHTML } from './templates/index.js';
 
 export { loadFontFaces, loadAllFontFaces, getFontName, FONT_CATALOG } from './fonts/index.js';
@@ -65,6 +68,7 @@ export type { FontInfo } from './fonts/index.js';
 
 export { Renderer } from './renderer/renderer.js';
 export { generateScreenshots } from './renderer/pipeline.js';
+export { generatePanoramicScreenshots } from './renderer/panoramic.js';
 export { STORE_SIZES, getTargetSizes } from './renderer/sizes.js';
 export type { ScreenshotSize } from './renderer/types.js';
 export type {

@@ -386,6 +386,7 @@ export async function renderSingleScreenWithKoubou(
 
     // Build a minimal AppframeConfig
     const config: AppframeConfig = {
+      mode: 'individual',
       app: {
         name: 'preview',
         description: 'Web UI export',

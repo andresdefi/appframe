@@ -44,6 +44,7 @@ const CURSOR_MAP: Record<string, string> = {
 };
 
 export function CropModal({ imageDataUrl, onApply, onCancel }: CropModalProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const cropRef = useRef<CropRect>({ x: 0, y: 0, w: 0, h: 0 });
@@ -108,6 +109,33 @@ export function CropModal({ imageDataUrl, onApply, onCancel }: CropModalProps) {
       ctx.stroke();
     }
   }, []);
+
+  // Close on Escape key + focus trap
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onCancel(); return; }
+      // Focus trap: keep Tab within the modal
+      if (e.key === 'Tab' && containerRef.current) {
+        const focusable = containerRef.current.querySelectorAll<HTMLElement>(
+          'button, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0]!;
+        const last = focusable[focusable.length - 1]!;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    // Auto-focus the container
+    containerRef.current?.focus();
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
 
   useEffect(() => {
     const img = new Image();
@@ -243,7 +271,9 @@ export function CropModal({ imageDataUrl, onApply, onCancel }: CropModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+      ref={containerRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center outline-none"
       style={{ background: 'rgba(0,0,0,0.8)' }}
     >
       <div className="text-white text-base font-semibold mb-3">Crop Screenshot</div>

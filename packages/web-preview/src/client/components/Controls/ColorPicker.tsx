@@ -36,9 +36,10 @@ export function ColorPicker({
           {presets.map((color) => (
             <button
               key={color}
-              className="w-6 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform"
+              className="w-6 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent focus:outline-none"
               style={{ background: color }}
               title={color}
+              aria-label={`Select color ${color}`}
               onClick={() => {
                 onPresetClick?.(color);
                 onChange(color);

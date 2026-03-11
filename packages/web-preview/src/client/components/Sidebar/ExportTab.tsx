@@ -1,8 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePreviewStore } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
 import { fetchExport, reloadConfig } from '../../utils/api';
+
+function Toast({ message, onDone }: { message: string; onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 3000);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <div className="fixed top-4 right-4 z-50 bg-green-600 text-white text-sm px-4 py-2 rounded-lg shadow-lg animate-in fade-in">
+      {message}
+    </div>
+  );
+}
 
 export function ExportTab() {
   const platform = usePreviewStore((s) => s.platform);
@@ -24,6 +36,8 @@ export function ExportTab() {
 
   const [exporting, setExporting] = useState(false);
   const [status, setStatus] = useState('Ready');
+  const [toast, setToast] = useState<string | null>(null);
+  const clearToast = useCallback(() => setToast(null), []);
 
   const platformSizes = sizes[platform] ?? [];
   const sizeOptions = platformSizes.map((s) => ({
@@ -84,11 +98,57 @@ export function ExportTab() {
 
       const sizeKb = Math.round(blob.size / 1024);
       setStatus(`Exported (${sizeKb}KB)`);
+      setToast(`Screen ${selectedScreen + 1} exported (${sizeKb}KB)`);
     } catch (err) {
       setStatus(`Export error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setExporting(false);
     }
+  };
+
+  const handleExportAll = async () => {
+    if (screens.length === 0) return;
+    setExporting(true);
+    let exported = 0;
+    for (let i = 0; i < screens.length; i++) {
+      const screen = screens[i];
+      if (!screen) continue;
+      setStatus(`Exporting screen ${i + 1} of ${screens.length}...`);
+      try {
+        const blob = await fetchExport({
+          screenIndex: screen.screenIndex,
+          sizeKey: exportSize,
+          renderer: exportRenderer,
+          headline: screen.headline,
+          subtitle: screen.subtitle || undefined,
+          style: screen.style,
+          layout: screen.layout,
+          colors: screen.colors,
+          font: screen.font,
+          fontWeight: screen.fontWeight,
+          frameId: screen.frameId,
+          frameStyle: screen.frameStyle,
+          deviceColor: screen.deviceColor || undefined,
+          deviceScale: screen.deviceScale,
+          deviceTop: screen.deviceTop,
+          screenshotDataUrl: screen.screenshotDataUrl || undefined,
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `screenshot-${i + 1}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        exported++;
+      } catch (err) {
+        setStatus(`Error on screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
+      }
+    }
+    setExporting(false);
+    setStatus(`Exported ${exported} of ${screens.length} screens`);
+    setToast(`Exported ${exported} screenshots`);
   };
 
   const handleReload = async () => {
@@ -102,8 +162,19 @@ export function ExportTab() {
     }
   };
 
+  if (screens.length === 0) {
+    return (
+      <Section title="Export">
+        <p className="text-xs text-text-dim text-center py-4">
+          No screens to export. Add a screen first in the Design tab.
+        </p>
+      </Section>
+    );
+  }
+
   return (
     <>
+      {toast && <Toast message={toast} onDone={clearToast} />}
       <Section title="Export">
         <Select
           label="Output Size"
@@ -126,6 +197,15 @@ export function ExportTab() {
         >
           {exporting ? 'Exporting...' : 'Download Screenshot'}
         </button>
+        {screens.length > 1 && (
+          <button
+            className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-1"
+            onClick={handleExportAll}
+            disabled={exporting}
+          >
+            {exporting ? 'Exporting...' : `Export All ${screens.length} Screens`}
+          </button>
+        )}
       </Section>
 
       <Section title="Locale">

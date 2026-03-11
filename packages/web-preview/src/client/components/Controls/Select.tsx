@@ -18,7 +18,9 @@ interface SelectProps {
   hidden?: boolean;
 }
 
-export function Select({ label, value, onChange, options, groups, hidden }: SelectProps) {
+import { memo } from 'react';
+
+export const Select = memo(function Select({ label, value, onChange, options, groups, hidden }: SelectProps) {
   if (hidden) return null;
   return (
     <div className="mb-2.5">
@@ -45,4 +47,4 @@ export function Select({ label, value, onChange, options, groups, hidden }: Sele
       </select>
     </div>
   );
-}
+});

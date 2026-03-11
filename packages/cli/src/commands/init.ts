@@ -107,6 +107,12 @@ function generateConfig(opts: {
 
   return `# appframe config — ${name}
 # Docs: https://github.com/appframe/appframe
+#
+# Copy tips — screenshots are ads, not docs:
+#   - One idea per headline (never use "and")
+#   - 3-5 words per line, readable at thumbnail size
+#   - Three approaches: paint a moment, state an outcome, kill a pain
+#   - Use \\n for intentional line breaks
 
 app:
   name: "${name}"
@@ -131,11 +137,16 @@ frames:
   ${platforms.includes('android') ? 'android: generic-phone' : '# android: generic-phone'}
   style: flat
 
+# Vary layouts across slides — don't use the same composition for every screen.
+# Compositions: single, peek-right, peek-left, tilt-left, tilt-right,
+#               duo-overlap, duo-split, hero-tilt, fanned-cards
+# Tip: pair peek-right with peek-left on adjacent slides for cross-screen effects.
 screens:
   - screenshot: screenshots/screen-1.png
     headline: "Your main headline here"
     subtitle: "A supporting line that adds context"
     layout: center
+    composition: single
 
   - screenshot: screenshots/screen-2.png
     headline: "Highlight a key feature"
@@ -144,6 +155,9 @@ screens:
   - screenshot: screenshots/screen-3.png
     headline: "Show another great feature"
     layout: center
+
+# Per-screen background override — alternate light/dark for visual rhythm:
+#   background: "#1E1B4B"
 
 # locales:
 #   es:

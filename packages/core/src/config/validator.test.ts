@@ -152,7 +152,7 @@ describe('validateConfig', () => {
   });
 
   it('validates all layout variants', () => {
-    const layouts = ['center', 'angled-left', 'angled-right', 'side-by-side'];
+    const layouts = ['center', 'angled-left', 'angled-right'];
     for (const layout of layouts) {
       const config = makeValidConfig({
         screens: [{ screenshot: 's.png', headline: 'Test', layout }],

@@ -60,21 +60,27 @@ export const uploadCommand = new Command('upload')
 
       // Confirmation
       if (!options.yes) {
-        console.log(chalk.yellow('⚠  This will replace existing screenshots in the store listings.'));
-        console.log(chalk.dim('  Use --yes to skip this prompt, or --dry-run to preview.\n'));
+        if (!process.stdin.isTTY) {
+          console.log(chalk.red('Non-interactive environment detected — cannot prompt for confirmation.'));
+          console.log(chalk.dim('Pass --yes / -y to confirm uploads in non-interactive environments (e.g. CI).'));
+          process.exit(1);
+        } else {
+          console.log(chalk.yellow('⚠  This will replace existing screenshots in the store listings.'));
+          console.log(chalk.dim('  Use --yes to skip this prompt, or --dry-run to preview.\n'));
 
-        const readline = await import('node:readline');
-        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-        const answer = await new Promise<string>((resolve) => {
-          rl.question(chalk.white('  Proceed with upload? [y/N] '), resolve);
-        });
-        rl.close();
+          const readline = await import('node:readline');
+          const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+          const answer = await new Promise<string>((resolve) => {
+            rl.question(chalk.white('  Proceed with upload? [y/N] '), resolve);
+          });
+          rl.close();
 
-        if (answer.toLowerCase() !== 'y') {
-          console.log(chalk.dim('\n  Upload cancelled.'));
-          return;
+          if (answer.toLowerCase() !== 'y') {
+            console.log(chalk.dim('\n  Upload cancelled.'));
+            return;
+          }
+          console.log();
         }
-        console.log();
       }
 
       // Required environment variables hint

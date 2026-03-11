@@ -74,6 +74,34 @@ function getLocalizedScreenshot(
   return join(configDir, defaultScreenshot);
 }
 
+/**
+ * Simple concurrency limiter — runs async tasks with at most `concurrency`
+ * executing simultaneously. Results are returned in the original task order.
+ */
+async function runWithConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number,
+): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < tasks.length) {
+      const idx = nextIndex++;
+      results[idx] = await tasks[idx]!();
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, tasks.length) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+const DEFAULT_RENDER_CONCURRENCY = 3;
+
 export async function generateScreenshots(options: GenerateOptions): Promise<GenerateResult> {
   const startTime = Date.now();
   const config = await loadConfig(options.configPath);
@@ -87,7 +115,6 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
   try {
     await renderer.init();
 
-    const results: RenderResult[] = [];
     const sizes = getTargetSizesFromConfig(config);
 
     // Determine locales to generate
@@ -98,95 +125,116 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
       ? [{ screen: config.screens[options.screenIndex]!, index: options.screenIndex }]
       : config.screens.map((screen, index) => ({ screen, index }));
 
-    const totalSteps = sizes.length * locales.length * screens.length;
-    let currentStep = 0;
+    // Ensure output directory exists once (not per-task)
+    const outputDir = options.outputDir ?? join(configDir, config.output.directory);
+    await mkdir(outputDir, { recursive: true });
+
+    // Build all render tasks up-front so we can run them concurrently
+    interface RenderTask {
+      size: ScreenshotSize;
+      locale: string;
+      screen: ScreenConfig;
+      screenIndex: number;
+      stepNumber: number;
+    }
+
+    const renderTasks: RenderTask[] = [];
+    let stepCounter = 0;
 
     for (const size of sizes) {
-      // Filter by platform if specified
       if (options.platform && options.platform !== 'all' && size.platform !== options.platform) {
         continue;
       }
-
       for (const locale of locales) {
         for (const { screen, index } of screens) {
-          currentStep++;
-
-          // Get localized text
-          const headline = getLocalizedText(config, index, locale, 'headline') ?? screen.headline;
-          const subtitle = getLocalizedText(config, index, locale, 'subtitle') ?? screen.subtitle;
-
-          // Resolve screenshot path (with per-locale override support)
-          const screenshotPath = getLocalizedScreenshot(config, index, locale, configDir, screen.screenshot);
-          const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
-
-          // Resolve frame
-          const frame = await resolveFrame(config, screen, size.platform);
-          let frameSvg: string | null = null;
-          if (frame && config.frames.style !== 'none') {
-            frameSvg = await loadFrameSvgContent(frame);
-          }
-
-          // Build template context
-          const style = (options.templateOverride as TemplateStyle | undefined) ?? config.theme.style;
-          const context: TemplateContext = {
-            headline,
-            subtitle,
-            screenshotDataUrl,
-            style,
-            colors: config.theme.colors,
-            font: config.theme.font,
-            fontWeight: config.theme.fontWeight,
-            layout: screen.layout,
-            frame: frame ?? null,
-            frameStyle: config.frames.style,
-            frameSvg,
-            canvasWidth: size.width,
-            canvasHeight: size.height,
-            headlineGradient: config.theme.headlineGradient,
-            subtitleGradient: config.theme.subtitleGradient,
-            autoSizeHeadline: screen.autoSizeHeadline,
-            autoSizeSubtitle: screen.autoSizeSubtitle,
-            headlineLineHeight: config.theme.headlineLineHeight,
-            headlineLetterSpacing: config.theme.headlineLetterSpacing,
-            headlineTextTransform: config.theme.headlineTextTransform,
-            headlineFontStyle: config.theme.headlineFontStyle,
-            subtitleOpacity: config.theme.subtitleOpacity,
-            subtitleLetterSpacing: config.theme.subtitleLetterSpacing,
-            subtitleTextTransform: config.theme.subtitleTextTransform,
-          };
-
-          // Render template to HTML
-          let html = await templateEngine.render(context);
-
-          // Inject overlay features
-          if (screen.spotlight) {
-            html = injectSpotlightHTML(html, screen.spotlight);
-          }
-          if (screen.annotations && screen.annotations.length > 0) {
-            html = injectAnnotationsHTML(html, screen.annotations, size.width);
-          }
-
-          // Generate output path
-          const outputDir = options.outputDir ?? join(configDir, config.output.directory);
-          await mkdir(outputDir, { recursive: true });
-
-          const filename = `${sanitizeFilename(config.app.name)}_${size.platform}_${size.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}_${locale}_${index + 1}.png`;
-          const outputPath = join(outputDir, filename);
-
-          options.onProgress?.(currentStep, totalSteps, filename);
-
-          // Render to PNG
-          const result = await renderer.render({
-            html,
-            width: size.width,
-            height: size.height,
-            outputPath,
+          stepCounter++;
+          renderTasks.push({
+            size,
+            locale,
+            screen,
+            screenIndex: index,
+            stepNumber: stepCounter,
           });
-
-          results.push(result);
         }
       }
     }
+
+    const totalSteps = renderTasks.length;
+
+    const tasks = renderTasks.map((task) => async (): Promise<RenderResult> => {
+      const { size, locale, screen, screenIndex: idx } = task;
+
+      // Get localized text
+      const headline = getLocalizedText(config, idx, locale, 'headline') ?? screen.headline;
+      const subtitle = getLocalizedText(config, idx, locale, 'subtitle') ?? screen.subtitle;
+
+      // Resolve screenshot path (with per-locale override support)
+      const screenshotPath = getLocalizedScreenshot(config, idx, locale, configDir, screen.screenshot);
+      const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+
+      // Resolve frame
+      const frame = await resolveFrame(config, screen, size.platform);
+      let frameSvg: string | null = null;
+      if (frame && config.frames.style !== 'none') {
+        frameSvg = await loadFrameSvgContent(frame);
+      }
+
+      // Build template context
+      const style = (options.templateOverride as TemplateStyle | undefined) ?? config.theme.style;
+      const context: TemplateContext = {
+        headline,
+        subtitle,
+        screenshotDataUrl,
+        style,
+        colors: config.theme.colors,
+        font: config.theme.font,
+        fontWeight: config.theme.fontWeight,
+        layout: screen.layout,
+        frame: frame ?? null,
+        frameStyle: config.frames.style,
+        frameSvg,
+        canvasWidth: size.width,
+        canvasHeight: size.height,
+        headlineGradient: config.theme.headlineGradient,
+        subtitleGradient: config.theme.subtitleGradient,
+        autoSizeHeadline: screen.autoSizeHeadline,
+        autoSizeSubtitle: screen.autoSizeSubtitle,
+        headlineLineHeight: config.theme.headlineLineHeight,
+        headlineLetterSpacing: config.theme.headlineLetterSpacing,
+        headlineTextTransform: config.theme.headlineTextTransform,
+        headlineFontStyle: config.theme.headlineFontStyle,
+        subtitleOpacity: config.theme.subtitleOpacity,
+        subtitleLetterSpacing: config.theme.subtitleLetterSpacing,
+        subtitleTextTransform: config.theme.subtitleTextTransform,
+      };
+
+      // Render template to HTML
+      let html = await templateEngine.render(context);
+
+      // Inject overlay features
+      if (screen.spotlight) {
+        html = injectSpotlightHTML(html, screen.spotlight);
+      }
+      if (screen.annotations && screen.annotations.length > 0) {
+        html = injectAnnotationsHTML(html, screen.annotations, size.width);
+      }
+
+      const filename = `${sanitizeFilename(config.app.name)}_${size.platform}_${size.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}_${locale}_${idx + 1}.png`;
+      const outputPath = join(outputDir, filename);
+
+      options.onProgress?.(task.stepNumber, totalSteps, filename);
+
+      // Render to PNG
+      return renderer.render({
+        html,
+        width: size.width,
+        height: size.height,
+        outputPath,
+      });
+    });
+
+    const concurrency = options.concurrency ?? DEFAULT_RENDER_CONCURRENCY;
+    const results = await runWithConcurrency(tasks, concurrency);
 
     return {
       screenshots: results,

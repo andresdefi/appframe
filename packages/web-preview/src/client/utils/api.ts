@@ -48,6 +48,17 @@ export async function fetchSizes(): Promise<Record<string, unknown[]>> {
   return res.json() as Promise<Record<string, unknown[]>>;
 }
 
+export async function fetchPanoramicPreviewHtml(body: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
+  const res = await fetch(`${API}/api/panoramic-preview-html`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!res.ok) throw new Error(`Panoramic preview failed: ${res.statusText}`);
+  return res.text();
+}
+
 export async function fetchExport(body: Record<string, unknown>): Promise<Blob> {
   const res = await fetch(`${API}/api/export`, {
     method: 'POST',

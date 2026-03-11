@@ -24,10 +24,14 @@ export function registerConfigTools(server: McpServer): void {
           };
         }
 
+        const warningsText = result.warnings.length > 0
+          ? `\n\nWarnings:\n${result.warnings.map(w => `  ${w.path}: ${w.message}`).join('\n')}`
+          : '';
+
         return {
           content: [{
             type: 'text' as const,
-            text: `Config is valid.\n  App: ${result.config.app.name}\n  Platforms: ${result.config.app.platforms.join(', ')}\n  Style: ${result.config.theme.style}\n  Screens: ${result.config.screens.length}\n  Locales: ${Object.keys(result.config.locales ?? {}).length || 'default only'}`,
+            text: `Config is valid.\n  App: ${result.config.app.name}\n  Platforms: ${result.config.app.platforms.join(', ')}\n  Style: ${result.config.theme.style}\n  Screens: ${result.config.screens.length}\n  Locales: ${Object.keys(result.config.locales ?? {}).length || 'default only'}${warningsText}`,
           }],
         };
       } catch (err) {
@@ -133,7 +137,7 @@ export function registerConfigTools(server: McpServer): void {
           style: 'flat',
         },
         screens: [
-          { screenshot: 'screenshots/screen-1.png', headline: 'Your main headline here', subtitle: 'A supporting line', layout: 'center' },
+          { screenshot: 'screenshots/screen-1.png', headline: 'Your main headline here', subtitle: 'A supporting line', layout: 'center', composition: 'single' },
           { screenshot: 'screenshots/screen-2.png', headline: 'Highlight a key feature', layout: 'angled-right' },
           { screenshot: 'screenshots/screen-3.png', headline: 'Show another great feature', layout: 'center' },
         ],

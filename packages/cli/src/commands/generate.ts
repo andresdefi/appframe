@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { resolve } from 'node:path';
 import chalk from 'chalk';
-import { loadConfig, generateScreenshots, generateWithKoubou, detectKoubou } from '@appframe/core';
+import { loadConfig, generateScreenshots, generatePanoramicScreenshots, generateWithKoubou, detectKoubou } from '@appframe/core';
 
 interface GenerateOptions {
   config: string;
@@ -27,6 +27,16 @@ export const generateCommand = new Command('generate')
   .action(async (options: GenerateOptions) => {
     const configPath = resolve(options.config);
 
+    // Validate renderer option early, before doing any work
+    const validRenderers = ['playwright', 'koubou', 'auto'] as const;
+    const rendererInput = options.renderer ?? 'auto';
+    if (!validRenderers.includes(rendererInput as (typeof validRenderers)[number])) {
+      console.log(
+        chalk.red(`Invalid renderer "${rendererInput}". Valid options are: ${validRenderers.join(', ')}.`),
+      );
+      process.exit(1);
+    }
+
     let config;
     try {
       config = await loadConfig(configPath);
@@ -36,50 +46,75 @@ export const generateCommand = new Command('generate')
       process.exit(1);
     }
 
+    const isPanoramic = config.mode === 'panoramic';
+
     if (options.dryRun) {
       console.log(chalk.blue('Dry run — would generate:\n'));
 
-      const platforms = options.platform && options.platform !== 'all'
-        ? [options.platform]
-        : config.output.platforms;
-
-      const locales = options.locale
-        ? [options.locale]
-        : config.locales
-          ? Object.keys(config.locales)
-          : ['default'];
-
-      const screens = options.screen !== undefined
-        ? [config.screens[parseInt(options.screen, 10)]]
-        : config.screens;
-
-      let count = 0;
-      for (const platform of platforms) {
-        for (const locale of locales) {
-          for (let i = 0; i < screens.length; i++) {
-            const screen = screens[i];
-            if (!screen) continue;
-            const name = `${config.app.name}_${platform}_${locale}_${i + 1}.png`;
-            console.log(`  ${chalk.dim(name)} — "${screen.headline}"`);
+      if (isPanoramic) {
+        const frameCount = config.frameCount ?? 0;
+        const platforms = options.platform && options.platform !== 'all'
+          ? [options.platform]
+          : config.output.platforms;
+        let count = 0;
+        for (const platform of platforms) {
+          for (let i = 0; i < frameCount; i++) {
+            const name = `${config.app.name}_${platform}_panoramic_${i + 1}.png`;
+            console.log(`  ${chalk.dim(name)} — frame ${i + 1} of ${frameCount}`);
             count++;
           }
         }
-      }
+        console.log(chalk.dim(`\n${count} panoramic screenshots would be generated.`));
+      } else {
+        const platforms = options.platform && options.platform !== 'all'
+          ? [options.platform]
+          : config.output.platforms;
 
-      console.log(chalk.dim(`\n${count} screenshots would be generated.`));
+        const locales = options.locale
+          ? [options.locale]
+          : config.locales
+            ? Object.keys(config.locales)
+            : ['default'];
+
+        const screens = options.screen !== undefined
+          ? [config.screens[parseInt(options.screen, 10)]]
+          : config.screens;
+
+        let count = 0;
+        for (const platform of platforms) {
+          for (const locale of locales) {
+            for (let i = 0; i < screens.length; i++) {
+              const screen = screens[i];
+              if (!screen) continue;
+              const name = `${config.app.name}_${platform}_${locale}_${i + 1}.png`;
+              console.log(`  ${chalk.dim(name)} — "${screen.headline}"`);
+              count++;
+            }
+          }
+        }
+
+        console.log(chalk.dim(`\n${count} screenshots would be generated.`));
+      }
       return;
     }
 
     // Resolve renderer
-    const renderer = await resolveRenderer(options.renderer ?? 'auto');
+    const renderer = isPanoramic ? 'playwright' : await resolveRenderer(options.renderer ?? 'auto');
 
-    console.log(chalk.blue(`Generating screenshots for ${chalk.bold(config.app.name)}...`));
-    console.log(chalk.dim(`  Renderer: ${renderer}\n`));
+    console.log(chalk.blue(`Generating ${isPanoramic ? 'panoramic ' : ''}screenshots for ${chalk.bold(config.app.name)}...`));
+    console.log(chalk.dim(`  Renderer: ${renderer}${isPanoramic ? ' (panoramic mode)' : ''}\n`));
 
     const startTime = Date.now();
 
     try {
-      const generateFn = renderer === 'koubou' ? generateWithKoubou : generateScreenshots;
+      let generateFn: typeof generateScreenshots;
+      if (isPanoramic) {
+        generateFn = generatePanoramicScreenshots;
+      } else if (renderer === 'koubou') {
+        generateFn = generateWithKoubou;
+      } else {
+        generateFn = generateScreenshots;
+      }
 
       const result = await generateFn({
         configPath,
@@ -123,6 +158,8 @@ async function resolveRenderer(requested: string): Promise<'playwright' | 'koubo
     return 'playwright';
   }
 
-  console.log(chalk.yellow(`Unknown renderer "${requested}", falling back to playwright.`));
-  return 'playwright';
+  const valid = ['playwright', 'koubou', 'auto'];
+  throw new Error(
+    `Unknown renderer "${requested}". Valid options are: ${valid.join(', ')}.`,
+  );
 }

@@ -23,8 +23,8 @@ import {
   detectKoubou,
   renderSingleScreenWithKoubou,
 } from '@appframe/core';
-import type { AppframeConfig, TemplateStyle, LayoutVariant, FrameStyle, CompositionPreset, FrameDefinition, KoubouSingleScreenOptions } from '@appframe/core';
-import type { TemplateContext, DeviceContext } from '@appframe/core';
+import type { AppframeConfig, TemplateStyle, LayoutVariant, FrameStyle, CompositionPreset, FrameDefinition, KoubouSingleScreenOptions, PanoramicElement, PanoramicBackground } from '@appframe/core';
+import type { TemplateContext, DeviceContext, PanoramicTemplateContext, PanoramicRenderedElement } from '@appframe/core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -53,6 +53,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // Legacy UI accessible at /legacy/ during migration
   app.use('/legacy', express.static(publicDir, { etag: false, lastModified: false }));
   app.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+
+  // API: Health check
+  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
   // API: Get current config
   app.get('/api/config', (_req, res) => {
@@ -147,16 +150,18 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
-  // API: Koubou availability status (cached)
-  let koubouStatusCache: { available: boolean; version: string | null } | null = null;
+  // API: Koubou availability status (cached with 5-minute TTL)
+  const KOUBOU_CACHE_TTL = 300_000; // 5 minutes
+  let koubouStatusCache: { available: boolean; version: string | null; timestamp: number } | null = null;
 
   app.get('/api/koubou-status', async (_req, res) => {
     try {
-      if (!koubouStatusCache) {
+      const now = Date.now();
+      if (!koubouStatusCache || (now - koubouStatusCache.timestamp) > KOUBOU_CACHE_TTL) {
         const detection = await detectKoubou();
-        koubouStatusCache = { available: detection.available, version: detection.version };
+        koubouStatusCache = { available: detection.available, version: detection.version, timestamp: now };
       }
-      res.json(koubouStatusCache);
+      res.json({ available: koubouStatusCache.available, version: koubouStatusCache.version });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });
@@ -236,72 +241,126 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     overlays?: Array<{ id: string; type: 'icon' | 'badge' | 'star-rating' | 'custom' | 'shape'; imageDataUrl?: string; x: number; y: number; size: number; rotation: number; opacity: number; shapeType?: 'circle' | 'rectangle' | 'line'; shapeColor?: string; shapeOpacity?: number; shapeBlur?: number }>;
   }
 
+  // Input validation helpers
+  function expectNumber(v: unknown): number | undefined {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    return undefined;
+  }
+  function expectString(v: unknown): string | undefined {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'string') return v;
+    return undefined;
+  }
+  function expectBoolean(v: unknown): boolean | undefined {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'boolean') return v;
+    return undefined;
+  }
+  function expectObject(v: unknown): Record<string, unknown> | undefined {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>;
+    return undefined;
+  }
+  function expectArray(v: unknown): unknown[] | undefined {
+    if (v === undefined || v === null) return undefined;
+    if (Array.isArray(v)) return v;
+    return undefined;
+  }
+
   function parseBody(body: Record<string, unknown>, defaultWidth = 400, defaultHeight = 868): PreviewParams {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new Error('Request body must be a JSON object');
+    }
+
+    const width = expectNumber(body.width) ?? defaultWidth;
+    const height = expectNumber(body.height) ?? defaultHeight;
+    const screenIndex = expectNumber(body.screenIndex) ?? 0;
+
+    if (!Number.isInteger(screenIndex) || screenIndex < 0) {
+      throw new Error('screenIndex must be a non-negative integer');
+    }
+    if (width <= 0 || height <= 0) {
+      throw new Error('width and height must be positive numbers');
+    }
+
     return {
-      screenIndex: (body.screenIndex as number) ?? 0,
-      locale: (body.locale as string) ?? 'default',
-      style: body.style as TemplateStyle | undefined,
-      layout: body.layout as LayoutVariant | undefined,
-      headline: body.headline as string | undefined,
-      subtitle: body.subtitle as string | undefined,
-      colors: body.colors as Record<string, string> | undefined,
-      font: body.font as string | undefined,
-      fontWeight: body.fontWeight as number | undefined,
-      headlineSize: body.headlineSize as number | undefined,
-      subtitleSize: body.subtitleSize as number | undefined,
-      headlineRotation: body.headlineRotation as number | undefined,
-      subtitleRotation: body.subtitleRotation as number | undefined,
-      frameId: body.frameId as string | undefined,
-      fStyle: body.frameStyle as FrameStyle | undefined,
-      width: (body.width as number) ?? defaultWidth,
-      height: (body.height as number) ?? defaultHeight,
-      deviceTop: body.deviceTop as number | undefined,
-      deviceScale: body.deviceScale as number | undefined,
-      deviceRotation: body.deviceRotation as number | undefined,
-      deviceOffsetX: body.deviceOffsetX as number | undefined,
-      deviceAngle: body.deviceAngle as number | undefined,
-      deviceTilt: body.deviceTilt as number | undefined,
-      headlineTop: body.headlineTop as number | undefined,
-      headlineLeft: body.headlineLeft as number | undefined,
-      headlineWidth: body.headlineWidth as number | undefined,
-      subtitleTop: body.subtitleTop as number | undefined,
-      subtitleLeft: body.subtitleLeft as number | undefined,
-      subtitleWidth: body.subtitleWidth as number | undefined,
-      clientScreenshot: body.screenshotDataUrl as string | undefined,
-      platform: body.platform as string | undefined,
-      sizeKey: body.sizeKey as string | undefined,
-      composition: body.composition as CompositionPreset | undefined,
-      extraScreenshots: body.extraScreenshots as Array<{ screenshotDataUrl?: string; frameId?: string }> | undefined,
-      headlineGradient: body.headlineGradient as { colors: string[]; direction: number } | undefined,
-      subtitleGradient: body.subtitleGradient as { colors: string[]; direction: number } | undefined,
-      autoSizeHeadline: body.autoSizeHeadline as boolean | undefined,
-      autoSizeSubtitle: body.autoSizeSubtitle as boolean | undefined,
-      spotlight: body.spotlight as PreviewParams['spotlight'] | undefined,
-      annotations: body.annotations as PreviewParams['annotations'] | undefined,
-      headlineLineHeight: body.headlineLineHeight as number | undefined,
-      headlineLetterSpacing: body.headlineLetterSpacing as string | undefined,
-      headlineTextTransform: body.headlineTextTransform as string | undefined,
-      headlineFontStyle: body.headlineFontStyle as string | undefined,
-      subtitleOpacity: body.subtitleOpacity as number | undefined,
-      subtitleLetterSpacing: body.subtitleLetterSpacing as string | undefined,
-      subtitleTextTransform: body.subtitleTextTransform as string | undefined,
-      renderer: body.renderer as 'playwright' | 'koubou' | undefined,
-      deviceColor: body.deviceColor as string | undefined,
+      screenIndex,
+      locale: expectString(body.locale) ?? 'default',
+      style: expectString(body.style) as TemplateStyle | undefined,
+      layout: expectString(body.layout) as LayoutVariant | undefined,
+      headline: expectString(body.headline),
+      subtitle: expectString(body.subtitle),
+      colors: expectObject(body.colors) as Record<string, string> | undefined,
+      font: expectString(body.font),
+      fontWeight: expectNumber(body.fontWeight),
+      headlineSize: expectNumber(body.headlineSize),
+      subtitleSize: expectNumber(body.subtitleSize),
+      headlineRotation: expectNumber(body.headlineRotation),
+      subtitleRotation: expectNumber(body.subtitleRotation),
+      frameId: expectString(body.frameId),
+      fStyle: expectString(body.frameStyle) as FrameStyle | undefined,
+      width,
+      height,
+      deviceTop: expectNumber(body.deviceTop),
+      deviceScale: expectNumber(body.deviceScale),
+      deviceRotation: expectNumber(body.deviceRotation),
+      deviceOffsetX: expectNumber(body.deviceOffsetX),
+      deviceAngle: expectNumber(body.deviceAngle),
+      deviceTilt: expectNumber(body.deviceTilt),
+      headlineTop: expectNumber(body.headlineTop),
+      headlineLeft: expectNumber(body.headlineLeft),
+      headlineWidth: expectNumber(body.headlineWidth),
+      subtitleTop: expectNumber(body.subtitleTop),
+      subtitleLeft: expectNumber(body.subtitleLeft),
+      subtitleWidth: expectNumber(body.subtitleWidth),
+      clientScreenshot: expectString(body.screenshotDataUrl),
+      platform: expectString(body.platform),
+      sizeKey: expectString(body.sizeKey),
+      composition: expectString(body.composition) as CompositionPreset | undefined,
+      extraScreenshots: expectArray(body.extraScreenshots) as Array<{ screenshotDataUrl?: string; frameId?: string }> | undefined,
+      headlineGradient: expectObject(body.headlineGradient) as { colors: string[]; direction: number } | undefined,
+      subtitleGradient: expectObject(body.subtitleGradient) as { colors: string[]; direction: number } | undefined,
+      autoSizeHeadline: expectBoolean(body.autoSizeHeadline),
+      autoSizeSubtitle: expectBoolean(body.autoSizeSubtitle),
+      spotlight: expectObject(body.spotlight) as PreviewParams['spotlight'] | undefined,
+      annotations: expectArray(body.annotations) as PreviewParams['annotations'] | undefined,
+      headlineLineHeight: expectNumber(body.headlineLineHeight),
+      headlineLetterSpacing: expectString(body.headlineLetterSpacing),
+      headlineTextTransform: expectString(body.headlineTextTransform),
+      headlineFontStyle: expectString(body.headlineFontStyle),
+      subtitleOpacity: expectNumber(body.subtitleOpacity),
+      subtitleLetterSpacing: expectString(body.subtitleLetterSpacing),
+      subtitleTextTransform: expectString(body.subtitleTextTransform),
+      renderer: expectString(body.renderer) as 'playwright' | 'koubou' | undefined,
+      deviceColor: expectString(body.deviceColor),
       // Background overrides
-      backgroundType: body.backgroundType as PreviewParams['backgroundType'],
-      backgroundColor: body.backgroundColor as string | undefined,
-      backgroundGradient: body.backgroundGradient as PreviewParams['backgroundGradient'],
-      backgroundImageDataUrl: body.backgroundImageDataUrl as string | undefined,
-      backgroundOverlay: body.backgroundOverlay as PreviewParams['backgroundOverlay'],
+      backgroundType: expectString(body.backgroundType) as PreviewParams['backgroundType'],
+      backgroundColor: expectString(body.backgroundColor),
+      backgroundGradient: expectObject(body.backgroundGradient) as PreviewParams['backgroundGradient'],
+      backgroundImageDataUrl: expectString(body.backgroundImageDataUrl),
+      backgroundOverlay: expectObject(body.backgroundOverlay) as PreviewParams['backgroundOverlay'],
       // Device enhancements
-      deviceShadow: body.deviceShadow as PreviewParams['deviceShadow'],
-      borderSimulation: body.borderSimulation as PreviewParams['borderSimulation'],
-      cornerRadius: body.cornerRadius as number | undefined,
+      deviceShadow: expectObject(body.deviceShadow) as PreviewParams['deviceShadow'],
+      borderSimulation: expectObject(body.borderSimulation) as PreviewParams['borderSimulation'],
+      cornerRadius: expectNumber(body.cornerRadius),
       // Effects
-      loupe: body.loupe as PreviewParams['loupe'],
-      callouts: body.callouts as PreviewParams['callouts'],
-      overlays: body.overlays as PreviewParams['overlays'],
+      loupe: expectObject(body.loupe) as PreviewParams['loupe'],
+      callouts: expectArray(body.callouts) as PreviewParams['callouts'],
+      overlays: expectArray(body.overlays) as PreviewParams['overlays'],
     };
+  }
+
+  function clampPreviewParams(p: PreviewParams): PreviewParams {
+    const clamp = (v: number | undefined, min: number, max: number) =>
+      v === undefined ? undefined : Math.max(min, Math.min(max, v));
+    p.width = Math.max(100, Math.min(10000, p.width));
+    p.height = Math.max(100, Math.min(10000, p.height));
+    p.deviceScale = clamp(p.deviceScale, 0, 200);
+    p.deviceRotation = clamp(p.deviceRotation, -360, 360);
+    p.headlineSize = clamp(p.headlineSize, 0, 500);
+    p.subtitleSize = clamp(p.subtitleSize, 0, 500);
+    return p;
   }
 
   async function resolveContext(p: PreviewParams): Promise<{ context: TemplateContext; html?: undefined } | { context: TemplateContext }> {
@@ -314,8 +373,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     if (p.clientScreenshot) {
       screenshotDataUrl = p.clientScreenshot;
     } else {
-      const screenshotPath = screen ? join(configDir, screen.screenshot) : '';
-      screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+      const screenshotPath = screen ? resolve(configDir, screen.screenshot) : '';
+      if (screenshotPath && !screenshotPath.startsWith(resolve(configDir))) {
+        screenshotDataUrl = placeholderSvgDataUrl();
+      } else {
+        screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+      }
     }
 
     let frame = p.frameId
@@ -428,13 +491,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     const preset = COMPOSITION_PRESETS[compositionId];
 
     if (compositionId !== 'single' && preset && preset.deviceCount === 1) {
-      const slot = preset.slots[0]!;
-      context.deviceOffsetX = slot.offsetX;
-      context.deviceTop = slot.offsetY;
-      context.deviceScale = slot.scale;
-      context.deviceRotation = slot.rotation;
-      context.deviceAngle = slot.angle;
-      context.deviceTilt = slot.tilt;
+      // Single-device presets: client applies preset values to sliders on selection,
+      // then sends them as regular device values. No server override needed —
+      // the user can freely adjust sliders after picking a preset.
     } else if (compositionId !== 'single' && preset && preset.deviceCount > 1) {
       const devices: DeviceContext[] = [];
 
@@ -514,7 +573,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // API: Render HTML only (no Playwright screenshot — used by iframe preview)
   app.post('/api/preview-html', async (req, res) => {
     try {
-      const p = parseBody(req.body as Record<string, unknown>);
+      const p = clampPreviewParams(parseBody(req.body as Record<string, unknown>));
       const { context } = await resolveContext(p);
 
       let html = await templateEngine.render(context);
@@ -529,9 +588,195 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
+  // API: Panoramic preview HTML (renders the wide canvas)
+  app.post('/api/panoramic-preview-html', async (req, res) => {
+    try {
+      const body = req.body as Record<string, unknown>;
+      const frameCount = body.frameCount as number;
+      const frameWidth = body.frameWidth as number;
+      const frameHeight = body.frameHeight as number;
+      const background = body.background as PanoramicBackground;
+      const elements = body.elements as PanoramicElement[];
+      const font = (body.font as string) ?? config.theme.font;
+      const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
+      const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
+
+      const totalWidth = frameWidth * frameCount;
+
+      // Build rendered elements
+      const renderedElements: PanoramicRenderedElement[] = [];
+      for (const el of elements) {
+        const xPx = (el.x / 100) * totalWidth;
+        const yPx = (el.y / 100) * frameHeight;
+
+        if (el.type === 'device') {
+          const widthPx = (el.width / 100) * totalWidth;
+
+          // Resolve screenshot — support both file paths and inline data URLs
+          let screenshotDataUrl: string;
+          if (el.screenshot.startsWith('data:')) {
+            screenshotDataUrl = el.screenshot;
+          } else {
+            const screenshotPath = resolve(configDir, el.screenshot);
+            if (!screenshotPath.startsWith(resolve(configDir))) {
+              screenshotDataUrl = placeholderSvgDataUrl();
+            } else {
+              screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+            }
+          }
+
+          // Resolve frame — supports both SVG manifest frames and Koubou PNG frames
+          const frameId = el.frame ?? config.frames.ios ?? undefined;
+          let frame: FrameDefinition | undefined;
+          let frameSvg: string | null = null;
+          let framePngUrl: string | undefined;
+
+          if (frameId) {
+            frame = await getFrame(frameId);
+
+            // If not in SVG manifest, check Koubou device families for PNG frames
+            if (!frame) {
+              const koubouFamily = getDeviceFamily(frameId);
+              if (koubouFamily) {
+                // Try SVG fallback via previewFrameId
+                if (koubouFamily.previewFrameId) {
+                  frame = await getFrame(koubouFamily.previewFrameId);
+                }
+                // Try Koubou PNG frame
+                if (koubouFamily.screenRect && koubouFamily.framePngSize) {
+                  const deviceColor = el.deviceColor ?? config.frames.deviceColor;
+                  const koubouId = getDeviceId(koubouFamily.id, deviceColor || undefined);
+                  const pngPath = koubouId ? await getDeviceFramePath(koubouId) : null;
+                  if (pngPath) {
+                    const pngBuffer = await readFile(pngPath);
+                    framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+                    frame = {
+                      id: koubouFamily.id,
+                      name: koubouFamily.name,
+                      manufacturer: 'Apple',
+                      year: koubouFamily.year,
+                      platform: 'ios' as const,
+                      framePath: '',
+                      screenArea: {
+                        x: koubouFamily.screenRect.x,
+                        y: koubouFamily.screenRect.y,
+                        width: koubouFamily.screenRect.width,
+                        height: koubouFamily.screenRect.height,
+                        borderRadius: koubouFamily.screenBorderRadius ?? 0,
+                      },
+                      frameSize: {
+                        width: koubouFamily.framePngSize.width,
+                        height: koubouFamily.framePngSize.height,
+                      },
+                      screenResolution: koubouFamily.screenResolution,
+                      tags: [koubouFamily.category],
+                    } satisfies FrameDefinition;
+                  }
+                }
+              }
+            }
+          } else {
+            frame = await getDefaultFrame('ios');
+          }
+
+          let clipLeft = 0, clipTop = 0, clipWidth = widthPx, clipHeight = widthPx * 2, clipRadius = 0;
+
+          if (frame && frameStyle !== 'none') {
+            // Use PNG frame if available, otherwise SVG
+            if (!framePngUrl && frame.framePath) {
+              frameSvg = await readFile(frame.framePath, 'utf-8');
+            }
+            const scale = widthPx / frame.frameSize.width;
+            clipLeft = frame.screenArea.x * scale;
+            clipTop = frame.screenArea.y * scale;
+            clipWidth = frame.screenArea.width * scale;
+            clipHeight = frame.screenArea.height * scale;
+            clipRadius = frame.screenArea.borderRadius * scale;
+          }
+
+          const shadowCss = el.shadow
+            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(el.shadow.opacity * 255).toString(16).padStart(2, '0')});`
+            : '';
+
+          renderedElements.push({
+            type: 'device', z: el.z, xPx, yPx, widthPx,
+            rotation: el.rotation, screenshotDataUrl, frameSvg, framePngUrl, shadowCss,
+            clipLeft, clipTop, clipWidth, clipHeight, clipRadius,
+            borderSimulation: el.borderSimulation
+              ? { thickness: el.borderSimulation.thickness, color: el.borderSimulation.color, radius: el.borderSimulation.radius }
+              : undefined,
+          });
+        } else if (el.type === 'text') {
+          let gradientCss: string | undefined;
+          if (el.gradient) {
+            const colors = el.gradient.colors.join(', ');
+            gradientCss = el.gradient.type === 'radial'
+              ? `radial-gradient(circle at ${el.gradient.radialPosition ?? 'center'}, ${colors})`
+              : `linear-gradient(${el.gradient.direction ?? 135}deg, ${colors})`;
+          }
+          renderedElements.push({
+            type: 'text', z: el.z, xPx, yPx,
+            content: el.content, fontSizePx: (el.fontSize / 100) * frameHeight,
+            color: el.color, font: el.font, fontWeight: el.fontWeight, fontStyle: el.fontStyle,
+            textAlign: el.textAlign, lineHeight: el.lineHeight,
+            maxWidthPx: el.maxWidth ? (el.maxWidth / 100) * totalWidth : undefined,
+            gradientCss,
+          });
+        } else if (el.type === 'label') {
+          renderedElements.push({
+            type: 'label', z: el.z, xPx, yPx,
+            content: el.content, fontSizePx: (el.fontSize / 100) * frameHeight,
+            color: el.color, backgroundColor: el.backgroundColor,
+            paddingPx: (el.padding / 100) * frameHeight, borderRadius: el.borderRadius,
+          });
+        } else if (el.type === 'decoration') {
+          renderedElements.push({
+            type: 'decoration', z: el.z, xPx, yPx,
+            widthPx: (el.width / 100) * totalWidth,
+            heightPx: el.height ? (el.height / 100) * frameHeight : (el.width / 100) * totalWidth,
+            shape: el.shape, color: el.color, opacity: el.opacity, rotation: el.rotation,
+          });
+        }
+      }
+
+      // Build background CSS
+      let backgroundCss = '#000000';
+      if (background.type === 'gradient' && background.gradient) {
+        const colors = background.gradient.colors.join(', ');
+        backgroundCss = background.gradient.type === 'radial'
+          ? `radial-gradient(circle at ${background.gradient.radialPosition}, ${colors})`
+          : `linear-gradient(${background.gradient.direction}deg, ${colors})`;
+      } else if (background.type === 'image' && background.image) {
+        backgroundCss = `url('${background.image}') center/cover no-repeat`;
+      } else if (background.type === 'solid' && background.color) {
+        backgroundCss = background.color;
+      }
+
+      const panoramicContext: PanoramicTemplateContext = {
+        canvasWidth: totalWidth,
+        canvasHeight: frameHeight,
+        frameCount,
+        frameWidth,
+        font,
+        fontWeight,
+        frameStyle,
+        backgroundCss,
+        showGuides: true,
+        elements: renderedElements,
+      };
+
+      const html = await templateEngine.renderPanoramic(panoramicContext);
+      res.set('Content-Type', 'text/html');
+      res.send(html);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.post('/api/preview', async (req, res) => {
     try {
-      const p = parseBody(req.body as Record<string, unknown>);
+      const p = clampPreviewParams(parseBody(req.body as Record<string, unknown>));
       const { context } = await resolveContext(p);
 
       let html = await templateEngine.render(context);
@@ -540,19 +785,21 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       if (p.annotations && p.annotations.length > 0) html = injectAnnotationsHTML(html, p.annotations, p.width);
 
       const tmpPath = join(configDir, `.appframe-preview-${Date.now()}.png`);
-      await renderer.render({
-        html,
-        width: p.width,
-        height: p.height,
-        outputPath: tmpPath,
-      });
-
-      const imageBuffer = await readFile(tmpPath);
       const { unlink } = await import('node:fs/promises');
-      await unlink(tmpPath);
+      try {
+        await renderer.render({
+          html,
+          width: p.width,
+          height: p.height,
+          outputPath: tmpPath,
+        });
 
-      res.set('Content-Type', 'image/png');
-      res.send(imageBuffer);
+        const imageBuffer = await readFile(tmpPath);
+        res.set('Content-Type', 'image/png');
+        res.send(imageBuffer);
+      } finally {
+        await unlink(tmpPath).catch(() => {});
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });
@@ -584,7 +831,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // API: Export full-resolution screenshot
   app.post('/api/export', async (req, res) => {
     try {
-      const p = parseBody(req.body as Record<string, unknown>);
+      const p = clampPreviewParams(parseBody(req.body as Record<string, unknown>));
       const sizeKey = p.sizeKey ?? 'ios-6.7';
 
       const { STORE_SIZES } = await import('@appframe/core');
@@ -605,7 +852,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         const screen = config.screens[p.screenIndex] ?? null;
         let screenshotData = p.clientScreenshot;
         if (!screenshotData && screen) {
-          const screenshotPath = join(configDir, screen.screenshot);
+          const screenshotPath = resolve(configDir, screen.screenshot);
+          if (!screenshotPath.startsWith(resolve(configDir))) {
+            res.status(400).json({ error: 'Screenshot path escapes project directory' });
+            return;
+          }
           screenshotData = await screenshotToDataUrl(screenshotPath);
         }
         if (!screenshotData) {
@@ -659,21 +910,23 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         if (p.annotations && p.annotations.length > 0) html = injectAnnotationsHTML(html, p.annotations, p.width);
 
         const tmpPath = join(configDir, `.appframe-export-${Date.now()}.png`);
-        await renderer.render({
-          html,
-          width: sizeSpec.width,
-          height: sizeSpec.height,
-          outputPath: tmpPath,
-        });
-
-        const imageBuffer = await readFile(tmpPath);
         const { unlink } = await import('node:fs/promises');
-        await unlink(tmpPath);
+        try {
+          await renderer.render({
+            html,
+            width: sizeSpec.width,
+            height: sizeSpec.height,
+            outputPath: tmpPath,
+          });
 
-        const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${p.screenIndex + 1}_${sizeKey}.png`;
-        res.set('Content-Type', 'image/png');
-        res.set('Content-Disposition', `attachment; filename="${filename}"`);
-        res.send(imageBuffer);
+          const imageBuffer = await readFile(tmpPath);
+          const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${p.screenIndex + 1}_${sizeKey}.png`;
+          res.set('Content-Type', 'image/png');
+          res.set('Content-Disposition', `attachment; filename="${filename}"`);
+          res.send(imageBuffer);
+        } finally {
+          await unlink(tmpPath).catch(() => {});
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -748,6 +1001,18 @@ function injectTextPositionCSS(
   }
   if (rules.length === 0) return html;
   return html.replace('</head>', `<style>${rules.join('\n')}</style>\n</head>`);
+}
+
+function placeholderSvgDataUrl(): string {
+  return 'data:image/svg+xml;base64,' + Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800">
+      <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#667eea"/><stop offset="100%" style="stop-color:#764ba2"/>
+      </linearGradient></defs>
+      <rect width="400" height="800" fill="url(#g)"/>
+      <text x="200" y="400" text-anchor="middle" fill="white" font-family="sans-serif" font-size="14">Screenshot placeholder</text>
+    </svg>`
+  ).toString('base64');
 }
 
 async function screenshotToDataUrl(path: string): Promise<string> {

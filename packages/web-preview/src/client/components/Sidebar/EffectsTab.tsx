@@ -26,6 +26,7 @@ export function EffectsTab() {
   };
 
   const removeAnnotation = (idx: number) => {
+    if (!confirm('Remove this annotation?')) return;
     update({ annotations: screen.annotations.filter((_, i) => i !== idx) });
   };
 
@@ -56,6 +57,7 @@ export function EffectsTab() {
   };
 
   const removeCallout = (idx: number) => {
+    if (!confirm('Remove this callout?')) return;
     update({ callouts: screen.callouts.filter((_, i) => i !== idx) });
   };
 
@@ -83,6 +85,7 @@ export function EffectsTab() {
   };
 
   const removeOverlay = (idx: number) => {
+    if (!confirm('Remove this overlay?')) return;
     update({ overlays: screen.overlays.filter((_, i) => i !== idx) });
   };
 
@@ -104,7 +107,7 @@ export function EffectsTab() {
   return (
     <>
       {/* Spotlight */}
-      <Section title="Spotlight / Dimming">
+      <Section title="Spotlight / Dimming" tooltip="Dim the background and highlight a specific area of your screenshot to draw attention.">
         <Checkbox
           label="Enable Spotlight"
           checked={!!screen.spotlight}
@@ -172,7 +175,7 @@ export function EffectsTab() {
       </Section>
 
       {/* Loupe */}
-      <Section title="Loupe / Magnification">
+      <Section title="Loupe / Magnification" tooltip="Magnify a region of the screenshot and display it enlarged elsewhere on the frame.">
         <Checkbox
           label="Enable Loupe"
           checked={!!screen.loupe}
@@ -199,7 +202,7 @@ export function EffectsTab() {
       </Section>
 
       {/* Callouts */}
-      <Section title="Callouts">
+      <Section title="Callouts" tooltip="Crop and enlarge a portion of the screenshot, displayed as a floating callout card.">
         <button
           className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
           onClick={addCallout}
@@ -226,7 +229,7 @@ export function EffectsTab() {
       </Section>
 
       {/* Overlays */}
-      <Section title="Overlays">
+      <Section title="Overlays" tooltip="Add decorative shapes, stars, icons, or badges floating over the screenshot.">
         <button
           className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
           onClick={addOverlay}

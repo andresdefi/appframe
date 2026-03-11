@@ -5,6 +5,7 @@ import type { AppframeConfig } from './config/schema.js';
 
 export function createMinimalConfig(overrides?: Partial<AppframeConfig>): AppframeConfig {
   return {
+    mode: 'individual' as const,
     app: {
       name: 'Test App',
       description: 'A test application',

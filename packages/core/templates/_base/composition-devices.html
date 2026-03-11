@@ -15,15 +15,13 @@
   {% set slotDw = (canvasWidth * dev.scale / 100) | round %}
   {% set slotOffsetXPx = (canvasWidth * dev.offsetX / 100) | round %}
   {% set slotTopPx = (canvasHeight * dev.offsetY / 100) | round %}
-  {% set shadowBlur = (canvasWidth * 0.04) | round %}
-  {% set shadowY = (canvasWidth * 0.02) | round %}
   <div class="comp-device" style="
     width: {{ slotDw }}px;
     top: {{ slotTopPx }}px;
     left: calc(50% + {{ slotOffsetXPx }}px);
     z-index: {{ dev.zIndex }};
     transform: translateX(-50%) perspective(1200px) rotateX({{ dev.tilt }}deg) rotateY({{ dev.angle }}deg) rotateZ({{ dev.rotation }}deg);
-    filter: drop-shadow(0 {{ shadowY }}px {{ shadowBlur }}px rgba(0,0,0,0.25));
+    {{ presetShadowCss | safe }}
   ">
     {% if (dev.frameSvg or dev.framePngUrl) and frameStyle != 'none' %}
       {% if dev.framePngUrl %}

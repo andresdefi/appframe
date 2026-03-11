@@ -80,10 +80,21 @@ export function RangeSlider({
         ) : (
           <span
             className="text-xs text-text-dim min-w-[40px] text-right shrink-0 cursor-text hover:text-text transition-colors"
+            tabIndex={disabled ? undefined : 0}
+            role="button"
+            aria-label={`Edit ${label} value`}
             onClick={() => {
               if (disabled) return;
               setDraft(String(value));
               setEditing(true);
+            }}
+            onKeyDown={(e) => {
+              if (disabled) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setDraft(String(value));
+                setEditing(true);
+              }
             }}
           >
             {displayValue}

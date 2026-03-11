@@ -4,7 +4,9 @@ interface CheckboxProps {
   onChange: (checked: boolean) => void;
 }
 
-export function Checkbox({ label, checked, onChange }: CheckboxProps) {
+import { memo } from 'react';
+
+export const Checkbox = memo(function Checkbox({ label, checked, onChange }: CheckboxProps) {
   return (
     <div className="mb-2.5">
       <label className="text-xs text-text-dim cursor-pointer flex items-center gap-1">
@@ -18,4 +20,4 @@ export function Checkbox({ label, checked, onChange }: CheckboxProps) {
       </label>
     </div>
   );
-}
+});

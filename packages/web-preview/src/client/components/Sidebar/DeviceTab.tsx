@@ -10,8 +10,9 @@ import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
 import { CropModal } from '../Controls/CropModal';
 import { KOUBOU_COLOR_HEX } from '../../utils/presets';
-import type { FrameStyle, LayoutVariant, TemplateStyle } from '../../types';
+import type { FrameStyle, LayoutVariant, TemplateStyle, CompositionPreset } from '../../types';
 import { PLATFORM_DEVICE_DEFAULTS, PLATFORM_PREVIEW_SIZES } from '../../types';
+import { COMPOSITION_PRESETS } from '../../utils/compositionPresets';
 
 const LAYOUT_OPTIONS = [
   { value: 'center', label: 'Center' },
@@ -643,7 +644,24 @@ export function DeviceTab() {
         <Select
           label="Device Arrangement"
           value={screen.composition}
-          onChange={(v) => update({ composition: v as typeof screen.composition })}
+          onChange={(v) => {
+            const comp = v as CompositionPreset;
+            const preset = COMPOSITION_PRESETS[comp];
+            if (preset && preset.deviceCount === 1) {
+              const slot = preset.slots[0]!;
+              update({
+                composition: comp,
+                deviceOffsetX: slot.offsetX,
+                deviceTop: slot.offsetY,
+                deviceScale: slot.scale,
+                deviceRotation: slot.rotation,
+                deviceAngle: slot.angle,
+                deviceTilt: slot.tilt,
+              });
+            } else {
+              update({ composition: comp });
+            }
+          }}
           options={COMPOSITION_OPTIONS}
           groups={COMPOSITION_GROUPS}
         />

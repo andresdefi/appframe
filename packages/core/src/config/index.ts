@@ -1,6 +1,6 @@
 export { loadConfig } from './loader.js';
 export { validateConfig, validateConfigOrThrow } from './validator.js';
-export type { ValidationResult, ValidationError, FormattedError } from './validator.js';
+export type { ValidationResult, ValidationError, FormattedError, FormattedWarning } from './validator.js';
 export { appframeConfigSchema } from './schema.js';
 export type {
   AppframeConfig,
@@ -31,6 +31,9 @@ export type {
   Loupe,
   Callout,
   Overlay,
+  PanoramicElement,
+  PanoramicConfig,
+  PanoramicBackground,
 } from './schema.js';
 export { STYLE_PRESETS } from './presets.js';
 export type { StylePreset, TypographyDefaults, ShadowConfig, BgEffect, ShadowIntensity } from './presets.js';

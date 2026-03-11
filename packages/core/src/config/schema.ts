@@ -13,7 +13,6 @@ export const layoutVariantSchema = z.enum([
   'center',
   'angled-left',
   'angled-right',
-  'side-by-side',
 ]);
 
 // --- App section ---
@@ -223,7 +222,7 @@ export const screenConfigSchema = z.object({
   background: z.string().optional(),
   composition: compositionPresetSchema.default('single'),
   extraDevices: z.array(compositionDeviceSchema).optional(),
-  autoSizeHeadline: z.boolean().default(false),
+  autoSizeHeadline: z.boolean().default(true),
   autoSizeSubtitle: z.boolean().default(false),
   spotlight: spotlightConfigSchema.optional(),
   annotations: z.array(annotationSchema).default([]),
@@ -293,18 +292,129 @@ export const outputConfigSchema = z.object({
   directory: z.string().default('./output'),
 });
 
+// --- Panoramic mode ---
+
+export const panoramicBackgroundSchema = z.object({
+  type: z.enum(['solid', 'gradient', 'image']).default('solid'),
+  color: hexColor.optional(),
+  gradient: backgroundGradientSchema.optional(),
+  image: z.string().optional(),
+});
+
+const panoramicDeviceElementSchema = z.object({
+  type: z.literal('device'),
+  screenshot: z.string().min(1),
+  frame: z.string().optional(),
+  deviceColor: z.string().optional(),
+  x: z.number().min(-50).max(150).describe('Horizontal position as % of total canvas width'),
+  y: z.number().min(-50).max(150).describe('Vertical position as % of canvas height'),
+  width: z.number().min(5).max(100).describe('Device width as % of canvas width'),
+  rotation: z.number().min(-180).max(180).default(0),
+  z: z.number().int().min(0).max(100).default(1),
+  shadow: deviceShadowSchema.optional(),
+  borderSimulation: borderSimulationSchema.optional(),
+});
+
+const panoramicTextElementSchema = z.object({
+  type: z.literal('text'),
+  content: z.string().min(1),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  fontSize: z.number().min(0.5).max(20).describe('Font size as % of canvas height'),
+  color: hexColor.default('#FFFFFF'),
+  font: z.string().optional().describe('Per-element font override (defaults to theme font)'),
+  fontWeight: z.number().int().min(100).max(900).default(700),
+  fontStyle: z.enum(['normal', 'italic']).default('normal'),
+  textAlign: z.enum(['left', 'center', 'right']).default('left'),
+  maxWidth: z.number().min(1).max(100).optional().describe('Max width as % of canvas width'),
+  lineHeight: z.number().min(0.8).max(2).default(1.15),
+  gradient: backgroundGradientSchema.optional().describe('Text gradient (overrides solid color)'),
+  z: z.number().int().min(0).max(100).default(10),
+});
+
+const panoramicLabelElementSchema = z.object({
+  type: z.literal('label'),
+  content: z.string().min(1),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  fontSize: z.number().min(0.5).max(10).default(1.5),
+  color: hexColor.default('#FFFFFF'),
+  backgroundColor: hexColor.optional(),
+  padding: z.number().min(0).max(5).default(0.5).describe('Padding as % of canvas height'),
+  borderRadius: z.number().min(0).max(50).default(8),
+  z: z.number().int().min(0).max(100).default(10),
+});
+
+const panoramicDecorationElementSchema = z.object({
+  type: z.literal('decoration'),
+  shape: z.enum(['circle', 'rectangle', 'line', 'dot-grid']),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  width: z.number().min(0.5).max(100),
+  height: z.number().min(0.5).max(100).optional(),
+  color: hexColor.default('#FFFFFF'),
+  opacity: z.number().min(0).max(1).default(0.2),
+  rotation: z.number().min(-180).max(180).default(0),
+  z: z.number().int().min(0).max(100).default(0),
+});
+
+export const panoramicElementSchema = z.discriminatedUnion('type', [
+  panoramicDeviceElementSchema,
+  panoramicTextElementSchema,
+  panoramicLabelElementSchema,
+  panoramicDecorationElementSchema,
+]);
+
+export const panoramicConfigSchema = z.object({
+  background: panoramicBackgroundSchema.default({ type: 'solid' }),
+  elements: z.array(panoramicElementSchema).min(1, 'At least one element is required'),
+});
+
 // --- Full config ---
 
 export const appframeConfigSchema = z
   .object({
+    mode: z.enum(['individual', 'panoramic']).default('individual'),
     app: appConfigSchema,
     theme: themeConfigSchema,
     frames: frameConfigSchema.default({ style: 'flat' }),
-    screens: z.array(screenConfigSchema).min(1, 'At least one screen is required'),
+    screens: z.array(screenConfigSchema).default([]),
+    frameCount: z.number().int().min(2).max(10).optional(),
+    panoramic: panoramicConfigSchema.optional(),
     locales: z.record(z.string(), localeConfigSchema).optional(),
     localization: localizationConfigSchema.optional(),
     output: outputConfigSchema,
   })
+  .refine(
+    (config) => {
+      if (config.mode === 'individual') return config.screens.length >= 1;
+      return true;
+    },
+    {
+      message: 'At least one screen is required in individual mode',
+      path: ['screens'],
+    },
+  )
+  .refine(
+    (config) => {
+      if (config.mode === 'panoramic') return config.panoramic != null;
+      return true;
+    },
+    {
+      message: 'The "panoramic" section is required when mode is "panoramic"',
+      path: ['panoramic'],
+    },
+  )
+  .refine(
+    (config) => {
+      if (config.mode === 'panoramic') return config.frameCount != null && config.frameCount >= 2;
+      return true;
+    },
+    {
+      message: '"frameCount" (>= 2) is required when mode is "panoramic"',
+      path: ['frameCount'],
+    },
+  )
   .refine(
     (config) => {
       if (!config.locales) return true;
@@ -358,3 +468,6 @@ export type OutputConfig = z.infer<typeof outputConfigSchema>;
 export type AppframeConfig = z.infer<typeof appframeConfigSchema>;
 export type BackgroundType = z.infer<typeof backgroundTypeSchema>;
 export type BackgroundOverlay = z.infer<typeof backgroundOverlaySchema>;
+export type PanoramicElement = z.infer<typeof panoramicElementSchema>;
+export type PanoramicConfig = z.infer<typeof panoramicConfigSchema>;
+export type PanoramicBackground = z.infer<typeof panoramicBackgroundSchema>;

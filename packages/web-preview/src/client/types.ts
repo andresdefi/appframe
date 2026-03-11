@@ -15,6 +15,8 @@ import type {
   CompositionPreset,
   TextGradient,
   AppframeConfig,
+  PanoramicElement,
+  PanoramicBackground,
 } from '@appframe/core';
 
 export type {
@@ -34,6 +36,8 @@ export type {
   CompositionPreset,
   TextGradient,
   AppframeConfig,
+  PanoramicElement,
+  PanoramicBackground,
 };
 
 export interface TextPosition {

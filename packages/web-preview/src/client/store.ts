@@ -232,7 +232,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   previewW: 400,
   previewH: 868,
   selectedScreen: 0,
-  activeTab: 'design',
+  activeTab: 'background',
   locale: 'default',
   previewBg: 'dark',
   renderVersion: 0,

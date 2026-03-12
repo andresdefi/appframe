@@ -61,9 +61,11 @@ The default `center` layout is the right default — `peek` and `tilt` presets s
 - Or: a dedicated `hero` composition preset
 - Either way, it's a tool in the toolbox — the AI agent decides when to use it based on the app's style
 
-### 1.5 Copy Quality Has No Guardrails
+### 1.5 Copy Quality Has No Guardrails — ✅ RESOLVED
 
 **Problem**: The only copy guidance is buried in the MCP suggestion tool prompt. Schema allows 1-char to infinite headlines. `autoSizeHeadline` defaults to false, so long headlines overflow.
+
+**Status**: Fixed — `autoSizeHeadline` defaults to `true`, validator warns at 40+ chars.
 
 **What they do better**: Entire copywriting framework in SKILL.md — "one idea per headline", "3-5 words per line", "readable at thumbnail size", three approaches (paint a moment, state an outcome, kill a pain).
 
@@ -79,11 +81,9 @@ The default `center` layout is the right default — `peek` and `tilt` presets s
 
 **Fix**: Increase default opacities. Better to be slightly too visible than invisible.
 
-### 1.7 `side-by-side` Layout Not Implemented
+### 1.7 `side-by-side` Layout Not Implemented — ✅ RESOLVED
 
-**Problem**: Defined in `layoutVariantSchema` enum but no template handles it. Schema accepts it, validator passes it, template silently renders as `center`.
-
-**Fix**: Either implement it properly or remove it from the schema to stop lying to users.
+Removed from schema. Only `center`, `angled-left`, `angled-right` remain as layout variants.
 
 ### 1.8 Composition Presets Are Invisible
 
@@ -99,7 +99,7 @@ The default `center` layout is the right default — `peek` and `tilt` presets s
 
 ## Part 2: New Features
 
-### 2.1 Panoramic Canvas Mode (NEW — HIGH PRIORITY)
+### 2.1 Panoramic Canvas Mode (✅ DONE)
 
 **Concept**: A new rendering mode where all screens are designed on a single continuous canvas, then sliced into individual store screenshots at export.
 
@@ -218,7 +218,9 @@ panoramic:
 - Web preview could show variants side-by-side for comparison
 - The skill (see 2.3) should instruct AI agents to always generate multiple variants
 
-### 2.3 Create an appframe Skill (SKILL.md)
+### 2.3 Create an appframe Skill (SKILL.md) — ✅ DONE
+
+Implemented at `skills/appframe-screenshots/SKILL.md`.
 
 **Purpose**: Make appframe installable via `npx skills add` for Claude Code, Cursor, Windsurf, and 40+ other AI agents.
 
@@ -241,55 +243,55 @@ panoramic:
 
 ## Part 3: Existing Bug Fixes
 
-### 3.1 `side-by-side` Layout Ghost
-Schema defines it, nothing implements it. Either implement or remove from schema.
+### 3.1 `side-by-side` Layout Ghost — ✅ RESOLVED
+Removed from schema. Only `center`, `angled-left`, `angled-right` remain.
 
-### 3.2 3D Frame Style Disabled
+### 3.2 3D Frame Style Disabled — OPEN
 Most premium visual output path is blocked by Playwright CSS preserve-3d + filter conflict. Worth another attempt with the split-wrapper approach — shadow on outer div, 3D transforms on inner div, with explicit background on the inner div to prevent bleed-through.
 
-### 3.3 Composition Devices Ignore Style Shadow
-`composition-devices.html` uses hardcoded `rgba(0,0,0,0.25)` shadow instead of the template's shadow preset. Should read from style context.
+### 3.3 Composition Devices Ignore Style Shadow — PARTIAL
+Templates now use `{{ presetShadowCss }}` from style context. However, `panoramic.ts` still hardcodes `rgba(0,0,0,0.25)` shadow for panoramic composition devices.
 
 ---
 
 ## Part 4: Action Plan (Priority Order)
 
 ### Phase 1: Composition & Layout Fixes (Quick Wins)
-1. Make composition presets act as starting points, not locks — allow user overrides of device position after preset is applied
-2. Implement or remove `side-by-side` layout (schema declares it, nothing renders it)
-3. Increase opacity of `flat-circles` background effect
-4. Default `autoSizeHeadline` to true
-5. Add headline max-length soft warning in validator
-6. Fix composition device shadow to use style presets instead of hardcoded values
-7. Add at least one example config that demonstrates varied compositions and per-screen backgrounds
+1. [ ] Make composition presets act as starting points, not locks — allow user overrides of device position after preset is applied
+2. [x] ~~Implement or remove `side-by-side` layout~~ — removed from schema
+3. [x] Increase opacity of `flat-circles` background effect (raised from ~9% to ~25%)
+4. [x] Default `autoSizeHeadline` to true
+5. [x] Add headline max-length soft warning in validator (40-char threshold)
+6. [x] Fix composition device shadow to use style presets instead of hardcoded values (templates fixed; panoramic.ts still hardcoded)
+7. [x] Add at least one example config that demonstrates varied compositions and per-screen backgrounds (fitness-app example)
 
 ### Phase 2: AI Agent Integration (Core Strategy)
-1. Create SKILL.md for `npx skills add` distribution
-2. Implement `appframe_generate_variants` MCP tool — generates 2-3 complete configs with different design strategies (centered/safe, dynamic/varied, panoramic/cinematic)
-3. Add `--variants N` flag to CLI generate command
-4. Enhance MCP `suggest_copy` tool with copywriting framework (paint a moment, state an outcome, kill a pain)
-5. Test with Claude Code, Cursor, Windsurf
+1. [x] Create SKILL.md for `npx skills add` distribution
+2. [x] Implement `appframe_generate_variants` MCP tool
+3. [ ] Add `--variants N` flag to CLI generate command
+4. [ ] Enhance MCP `suggest_copy` tool with full copywriting framework (paint a moment, state an outcome, kill a pain)
+5. [ ] Test with Claude Code, Cursor, Windsurf
 
 ### Phase 3: Copywriting & Docs
-1. Port copy guidelines from app-store-screenshots SKILL.md into README
-2. Add "screenshots are ads, not docs" section to README
-3. Include copy guidance in `appframe init` output comments
+1. [ ] Port copy guidelines from app-store-screenshots SKILL.md into README
+2. [ ] Add "screenshots are ads, not docs" section to README
+3. [ ] Include copy guidance in `appframe init` output comments
 
-### Phase 4: Panoramic Canvas Mode
-1. Design the YAML schema for panoramic mode
-2. Implement panoramic renderer (full-canvas → slice at boundaries)
-3. Add panoramic editing to web preview (draggable elements, visible slice lines)
-4. Create example panoramic configs
-5. Integrate panoramic as one of the AI-generated variant options
+### Phase 4: Panoramic Canvas Mode — ✅ DONE
+1. [x] Design the YAML schema for panoramic mode
+2. [x] Implement panoramic renderer (full-canvas → slice at boundaries)
+3. [x] Add panoramic editing to web preview (draggable elements, visible slice lines)
+4. [x] Create example panoramic configs
+5. [x] Integrate panoramic as one of the AI-generated variant options
 
 ### Phase 5: Additional Enhancements
-1. Add more `textPosition` options (top-left, bottom-center, overlay, etc.)
-2. Optional hero slide concept (hero composition preset or `hero: true` flag)
-3. Per-screen `style` override (mix templates across slides)
+1. [ ] Add more `textPosition` options (top-left, bottom-center, overlay, etc.)
+2. [ ] Optional hero slide concept (hero composition preset or `hero: true` flag)
+3. [ ] Per-screen `style` override (mix templates across slides)
 
 ### Phase 6: Community
-1. Small PR to ParthJadhav/app-store-screenshots mentioning appframe as complementary tool for Android/multi-platform
-2. Publish appframe skill to skills.sh registry
+1. [ ] Small PR to ParthJadhav/app-store-screenshots mentioning appframe as complementary tool for Android/multi-platform
+2. [ ] Publish appframe skill to skills.sh registry
 
 ---
 

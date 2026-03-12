@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from 'react';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
+import { usePreviewStore } from '../../store';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { Section } from '../Controls/Section';
 import { ColorPicker } from '../Controls/ColorPicker';
@@ -74,7 +75,10 @@ export function DesignTab() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      update({ backgroundImageDataUrl: ev.target?.result as string });
+      const dataUrl = ev.target?.result as string;
+      // Use getState() to avoid stale closure in the async callback
+      const { selectedScreen, updateScreen } = usePreviewStore.getState();
+      updateScreen(selectedScreen, { backgroundImageDataUrl: dataUrl });
     };
     reader.readAsDataURL(file);
     e.target.value = '';

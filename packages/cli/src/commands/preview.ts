@@ -8,6 +8,24 @@ interface PreviewOptions {
   port: string;
 }
 
+interface PortProbeResult {
+  available: boolean;
+  error?: NodeJS.ErrnoException;
+}
+
+async function probePort(port: number): Promise<PortProbeResult> {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.once('error', (error: NodeJS.ErrnoException) => {
+      resolve({ available: false, error });
+    });
+    server.once('listening', () => {
+      server.close(() => resolve({ available: true }));
+    });
+    server.listen(port);
+  });
+}
+
 export const previewCommand = new Command('preview')
   .description('Open web preview for tweaking screenshots')
   .option('-c, --config <path>', 'Path to config file', 'appframe.yml')
@@ -23,19 +41,17 @@ export const previewCommand = new Command('preview')
 
     console.log(chalk.blue('Starting appframe preview server...\n'));
 
-    // Check if the port is already in use
-    const portInUse = await new Promise<boolean>((resolve) => {
-      const server = createServer();
-      server.once('error', () => resolve(true));
-      server.once('listening', () => {
-        server.close(() => resolve(false));
-      });
-      server.listen(port);
-    });
+    const portProbe = await probePort(port);
 
-    if (portInUse) {
+    if (!portProbe.available && portProbe.error?.code === 'EADDRINUSE') {
       console.log(chalk.red(`Port ${port} is already in use.`));
       console.log(chalk.dim(`Try a different port with: appframe preview --port <other>`));
+      process.exit(1);
+    }
+
+    if (!portProbe.available) {
+      const reason = portProbe.error?.message ?? 'Unknown error';
+      console.log(chalk.red(`Failed to bind preview server on port ${port}: ${reason}`));
       process.exit(1);
     }
 

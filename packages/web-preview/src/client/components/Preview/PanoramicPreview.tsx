@@ -294,21 +294,10 @@ export function PanoramicPreview() {
 
   return (
     <div ref={areaRef} className={`flex-1 flex flex-col overflow-hidden ${bgClass}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-surface">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-accent bg-accent/10 px-2 py-0.5 rounded">
-            Panoramic
-          </span>
-          <span className="text-xs text-text-dim">
-            {frameCount} frames &middot; {totalCanvasWidth}&times;{previewH}
-          </span>
-        </div>
-      </div>
-
       {/* Canvas */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-6">
-        <div className="relative">
+      <div className="flex-1 overflow-auto">
+        <div className="flex items-center justify-center p-6 min-h-full min-w-min">
+          <div className="relative w-fit">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center z-20">
               <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -352,6 +341,7 @@ export function PanoramicPreview() {
             />
           </div>
 
+          </div>
         </div>
       </div>
       {/* Zoom control */}

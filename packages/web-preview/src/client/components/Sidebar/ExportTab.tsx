@@ -3,6 +3,7 @@ import { usePreviewStore } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
 import { fetchExport, fetchPanoramicExport, reloadConfig } from '../../utils/api';
+import { buildExportBody } from '../../utils/previewBody';
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -139,24 +140,13 @@ export function ExportTab() {
       : `Exporting screen ${selectedScreen + 1}...`);
 
     try {
-      const blob = await fetchExport({
-        screenIndex: screen.screenIndex,
+      const blob = await fetchExport(buildExportBody(screen, {
+        previewW,
+        previewH,
+        locale,
         sizeKey: exportSize,
         renderer: exportRenderer,
-        headline: screen.headline,
-        subtitle: screen.subtitle || undefined,
-        style: screen.style,
-        layout: screen.layout,
-        colors: screen.colors,
-        font: screen.font,
-        fontWeight: screen.fontWeight,
-        frameId: screen.frameId,
-        frameStyle: screen.frameStyle,
-        deviceColor: screen.deviceColor || undefined,
-        deviceScale: screen.deviceScale,
-        deviceTop: screen.deviceTop,
-        screenshotDataUrl: screen.screenshotDataUrl || undefined,
-      });
+      }));
 
       downloadBlob(blob, `screenshot-${selectedScreen + 1}.png`);
 
@@ -179,24 +169,13 @@ export function ExportTab() {
       if (!screen) continue;
       setStatus(`Exporting screen ${i + 1} of ${screens.length}...`);
       try {
-        const blob = await fetchExport({
-          screenIndex: screen.screenIndex,
+        const blob = await fetchExport(buildExportBody(screen, {
+          previewW,
+          previewH,
+          locale,
           sizeKey: exportSize,
           renderer: exportRenderer,
-          headline: screen.headline,
-          subtitle: screen.subtitle || undefined,
-          style: screen.style,
-          layout: screen.layout,
-          colors: screen.colors,
-          font: screen.font,
-          fontWeight: screen.fontWeight,
-          frameId: screen.frameId,
-          frameStyle: screen.frameStyle,
-          deviceColor: screen.deviceColor || undefined,
-          deviceScale: screen.deviceScale,
-          deviceTop: screen.deviceTop,
-          screenshotDataUrl: screen.screenshotDataUrl || undefined,
-        });
+        }));
         downloadBlob(blob, `screenshot-${i + 1}.png`);
         exported++;
       } catch (err) {
@@ -227,7 +206,7 @@ export function ExportTab() {
           No screens to export.{' '}
           <button
             className="text-accent hover:text-accent-hover underline"
-            onClick={() => usePreviewStore.getState().setActiveTab('design')}
+            onClick={() => usePreviewStore.getState().setActiveTab('background')}
           >
             Go to Background tab
           </button>{' '}

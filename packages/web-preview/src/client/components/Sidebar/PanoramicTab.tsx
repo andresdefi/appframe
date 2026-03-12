@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo, useState } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { usePreviewStore } from '../../store';
 import type { FrameData, DeviceFamily } from '../../store';
 import type { PanoramicElement } from '../../types';
@@ -853,6 +853,8 @@ export function PanoramicTab() {
   const platform = usePreviewStore((s) => s.platform);
   const setPlatformRaw = usePreviewStore((s) => s.setPlatform);
   const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
+  const sizes = usePreviewStore((s) => s.sizes);
+  const setExportSize = usePreviewStore((s) => s.setExportSize);
   const { patchBackground } = usePanoramicInstantPatch();
 
   const handlePlatformChange = useCallback(
@@ -860,8 +862,12 @@ export function PanoramicTab() {
       setPlatformRaw(v);
       const size = PLATFORM_PREVIEW_SIZES[v];
       if (size) setPreviewSize(size.w, size.h);
+      const platformSizes = sizes[v] ?? [];
+      if (platformSizes.length > 0) {
+        setExportSize(platformSizes[0]!.key);
+      }
     },
-    [setPlatformRaw, setPreviewSize],
+    [setExportSize, setPlatformRaw, setPreviewSize, sizes],
   );
 
   const instantBgColor = useCallback(
@@ -1259,6 +1265,476 @@ export function PanoramicTab() {
       <div className="px-5 py-3 text-[10px] text-text-dim">
         Spotlight, annotations, and overlays are available in the Effects tab.
       </div>
+    </div>
+  );
+}
+
+// --- Tab sub-components for the header-bar tab layout ---
+
+export function PanoramicBackgroundContent() {
+  const frameCount = usePreviewStore((s) => s.panoramicFrameCount);
+  const setFrameCount = usePreviewStore((s) => s.setPanoramicFrameCount);
+  const background = usePreviewStore((s) => s.panoramicBackground);
+  const updateBackground = usePreviewStore((s) => s.updatePanoramicBackground);
+  const platform = usePreviewStore((s) => s.platform);
+  const setPlatformRaw = usePreviewStore((s) => s.setPlatform);
+  const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
+  const sizes = usePreviewStore((s) => s.sizes);
+  const setExportSize = usePreviewStore((s) => s.setExportSize);
+  const { patchBackground } = usePanoramicInstantPatch();
+
+  const handlePlatformChange = useCallback(
+    (v: string) => {
+      setPlatformRaw(v);
+      const size = PLATFORM_PREVIEW_SIZES[v];
+      if (size) setPreviewSize(size.w, size.h);
+      const platformSizes = sizes[v] ?? [];
+      if (platformSizes.length > 0) {
+        setExportSize(platformSizes[0]!.key);
+      }
+    },
+    [setExportSize, setPlatformRaw, setPreviewSize, sizes],
+  );
+
+  const instantBgColor = useCallback(
+    (color: string) => patchBackground({ type: 'solid', color }),
+    [patchBackground],
+  );
+
+  const instantGradient = useCallback(
+    (overrides?: { direction?: number; colors?: string[] }) => {
+      const g = background.gradient ?? { type: 'linear' as const, colors: ['#6366f1', '#ec4899'], direction: 135, radialPosition: 'center' as const };
+      patchBackground({
+        type: 'gradient',
+        gradientType: g.type,
+        colors: overrides?.colors ?? g.colors,
+        direction: overrides?.direction ?? g.direction,
+        radialPosition: g.radialPosition,
+      });
+    },
+    [background.gradient, patchBackground],
+  );
+
+  const bgType = background.type;
+  const bgColor = background.color ?? '#000000';
+  const bgGradient = background.gradient ?? {
+    type: 'linear' as const,
+    colors: ['#6366f1', '#ec4899'],
+    direction: 135,
+    radialPosition: 'center' as const,
+  };
+
+  return (
+    <div>
+      <Section title="Canvas" defaultCollapsed={false}>
+        <Select
+          label="Platform"
+          value={platform}
+          onChange={handlePlatformChange}
+          options={PLATFORM_OPTIONS}
+        />
+        <RangeSlider label="Frame Count" value={frameCount} min={2} max={10} onChange={setFrameCount} />
+      </Section>
+
+      <Section title="Background">
+        <div className="flex gap-3 mb-2.5">
+          {(['solid', 'gradient', 'image', 'preset'] as const).map((t) => (
+            <label key={t} className="text-xs text-text-dim cursor-pointer flex items-center gap-1">
+              <input
+                type="radio"
+                name="pano-bg-type"
+                value={t}
+                checked={bgType === t}
+                onChange={() => updateBackground({ type: t })}
+                className="accent-accent"
+              />
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </label>
+          ))}
+        </div>
+
+        {bgType === 'preset' && (
+          <Select
+            label="Style Preset"
+            value={background.preset ?? ''}
+            onChange={(v) => updateBackground({ preset: v })}
+            options={[
+              { value: '', label: 'Select a preset...' },
+              { value: 'minimal', label: 'Minimal' },
+              { value: 'bold', label: 'Bold' },
+              { value: 'glow', label: 'Glow' },
+              { value: 'playful', label: 'Playful' },
+              { value: 'clean', label: 'Clean' },
+              { value: 'branded', label: 'Branded' },
+              { value: 'editorial', label: 'Editorial' },
+            ]}
+          />
+        )}
+
+        {bgType === 'solid' && (
+          <ColorPicker
+            label="Color"
+            value={bgColor}
+            onChange={(v) => updateBackground({ color: v })}
+            onInstant={instantBgColor}
+            presets={SOLID_PRESETS}
+          />
+        )}
+
+        {bgType === 'gradient' && (
+          <>
+            <div className="flex flex-wrap gap-1 mb-2">
+              {GRADIENT_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  className="w-8 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent focus:outline-none"
+                  style={{
+                    background: `linear-gradient(${preset.direction}deg, ${preset.colors.join(', ')})`,
+                  }}
+                  title={preset.name}
+                  aria-label={`Apply ${preset.name} gradient`}
+                  onClick={() =>
+                    updateBackground({
+                      gradient: {
+                        type: 'linear',
+                        colors: [...preset.colors],
+                        direction: preset.direction,
+                        radialPosition: 'center',
+                      },
+                    })
+                  }
+                />
+              ))}
+            </div>
+
+            <div className="flex gap-3 mb-2">
+              {(['linear', 'radial'] as const).map((t) => (
+                <label key={t} className="text-xs text-text-dim cursor-pointer flex items-center gap-1">
+                  <input
+                    type="radio"
+                    checked={bgGradient.type === t}
+                    onChange={() =>
+                      updateBackground({ gradient: { ...bgGradient, type: t } })
+                    }
+                    className="accent-accent"
+                  />
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </label>
+              ))}
+            </div>
+
+            {bgGradient.type === 'linear' && (
+              <RangeSlider
+                label="Direction"
+                value={bgGradient.direction}
+                min={0}
+                max={360}
+                formatValue={(v) => `${v}\u00B0`}
+                onChange={(v) =>
+                  updateBackground({ gradient: { ...bgGradient, direction: v } })
+                }
+                onInstant={(v) => instantGradient({ direction: v })}
+              />
+            )}
+
+            {bgGradient.type === 'radial' && (
+              <Select
+                label="Center"
+                value={bgGradient.radialPosition ?? 'center'}
+                onChange={(v) =>
+                  updateBackground({
+                    gradient: { ...bgGradient, radialPosition: v as 'center' | 'top' | 'bottom' | 'left' | 'right' },
+                  })
+                }
+                options={[
+                  { value: 'center', label: 'Center' },
+                  { value: 'top', label: 'Top' },
+                  { value: 'bottom', label: 'Bottom' },
+                  { value: 'left', label: 'Left' },
+                  { value: 'right', label: 'Right' },
+                ]}
+              />
+            )}
+
+            {bgGradient.colors.map((color, i) => (
+              <ColorPicker
+                key={i}
+                label={`Stop ${i + 1}`}
+                value={color}
+                onChange={(v) => {
+                  const colors = [...bgGradient.colors];
+                  colors[i] = v;
+                  updateBackground({ gradient: { ...bgGradient, colors } });
+                }}
+              />
+            ))}
+
+            {bgGradient.colors.length < 5 && (
+              <button
+                className="w-full text-[11px] py-1 bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                onClick={() => {
+                  const colors = [...bgGradient.colors, '#ffffff'];
+                  updateBackground({ gradient: { ...bgGradient, colors } });
+                }}
+              >
+                + Add Color Stop
+              </button>
+            )}
+          </>
+        )}
+
+        {bgType === 'image' && (
+          <>
+            <PanoramicBgImage
+              imageDataUrl={background.image}
+              onUpload={(dataUrl) => updateBackground({ image: dataUrl })}
+              onRemove={() => updateBackground({ image: undefined })}
+            />
+            <div className="mt-2">
+              <Checkbox
+                label="Dim Overlay"
+                checked={!!background.overlay}
+                onChange={(checked) =>
+                  updateBackground({
+                    overlay: checked
+                      ? { color: '#000000', opacity: 0.3 }
+                      : undefined,
+                  })
+                }
+              />
+              {background.overlay && (
+                <>
+                  <ColorPicker
+                    label="Color"
+                    value={background.overlay.color}
+                    onChange={(v) =>
+                      updateBackground({
+                        overlay: { ...background.overlay!, color: v },
+                      })
+                    }
+                  />
+                  <RangeSlider
+                    label="Opacity"
+                    value={Math.round(background.overlay.opacity * 100)}
+                    min={0}
+                    max={100}
+                    formatValue={(v) => `${v}%`}
+                    onChange={(v) =>
+                      updateBackground({
+                        overlay: { ...background.overlay!, opacity: v / 100 },
+                      })
+                    }
+                  />
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+export function PanoramicDeviceContent() {
+  const elements = usePreviewStore((s) => s.panoramicElements);
+  const selectedElementIndex = usePreviewStore((s) => s.selectedElementIndex);
+  const setSelectedElement = usePreviewStore((s) => s.setSelectedElement);
+  const addElement = usePreviewStore((s) => s.addPanoramicElement);
+  const config = usePreviewStore((s) => s.config);
+
+  const filtered = elements
+    .map((el, i) => ({ el, i }))
+    .filter(({ el }) => el.type === 'device' || el.type === 'decoration');
+
+  const addDevice = () => {
+    const deviceCount = elements.filter((e) => e.type === 'device').length;
+    const screenshot = config?.screens[deviceCount]?.screenshot
+      ?? config?.screens[0]?.screenshot
+      ?? 'screenshots/screen-1.png';
+    addElement({
+      type: 'device',
+      screenshot,
+      x: 10 + deviceCount * 20,
+      y: 15,
+      width: 12,
+      rotation: 0,
+      z: 5,
+    });
+  };
+
+  const addDecoration = () => {
+    addElement({
+      type: 'decoration',
+      shape: 'circle',
+      x: 50,
+      y: 50,
+      width: 5,
+      height: 8,
+      color: config?.theme.colors.primary ?? '#6366F1',
+      opacity: 0.15,
+      rotation: 0,
+      z: 0,
+    });
+  };
+
+  const showInspector = selectedElementIndex !== null &&
+    elements[selectedElementIndex] &&
+    (elements[selectedElementIndex]!.type === 'device' || elements[selectedElementIndex]!.type === 'decoration');
+
+  return (
+    <div>
+      <Section title="Screenshots">
+        <ScreenshotUploader />
+      </Section>
+
+      <Section title={`Devices & Decorations (${filtered.length})`} defaultCollapsed={false}>
+        <div className="grid grid-cols-2 gap-1 mb-3">
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addDevice}
+          >
+            + Device
+          </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addDecoration}
+          >
+            + Decoration
+          </button>
+        </div>
+
+        {filtered.length === 0 && (
+          <p className="text-xs text-text-dim text-center py-4">
+            Add devices to place screenshots on the panoramic canvas.
+          </p>
+        )}
+        <div className="space-y-1">
+          {filtered.map(({ el, i }) => {
+            const typeNum = elements.slice(0, i).filter((e) => e.type === el.type).length + 1;
+            return (
+              <button
+                key={i}
+                className={`w-full text-left text-xs px-2.5 py-2 rounded-md transition-colors ${
+                  i === selectedElementIndex
+                    ? 'bg-accent/15 text-accent border border-accent/30'
+                    : 'bg-surface-2 border border-border hover:border-accent/30'
+                }`}
+                onClick={() => setSelectedElement(i === selectedElementIndex ? null : i)}
+              >
+                <span className="font-medium">{ELEMENT_TYPE_LABELS[el.type]} #{typeNum}</span>
+                <span className="text-text-dim ml-1">
+                  ({Math.round(el.x)}%, {Math.round(el.y)}%)
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+
+      {showInspector && <ElementInspector index={selectedElementIndex!} />}
+    </div>
+  );
+}
+
+export function PanoramicTextContent() {
+  const elements = usePreviewStore((s) => s.panoramicElements);
+  const selectedElementIndex = usePreviewStore((s) => s.selectedElementIndex);
+  const setSelectedElement = usePreviewStore((s) => s.setSelectedElement);
+  const addElement = usePreviewStore((s) => s.addPanoramicElement);
+
+  const filtered = elements
+    .map((el, i) => ({ el, i }))
+    .filter(({ el }) => el.type === 'text' || el.type === 'label');
+
+  const addText = () => {
+    const textCount = elements.filter((e) => e.type === 'text').length;
+    addElement({
+      type: 'text',
+      content: 'New headline',
+      x: 5 + textCount * 20,
+      y: 5,
+      fontSize: 3.5,
+      color: '#FFFFFF',
+      fontWeight: 700,
+      fontStyle: 'normal',
+      textAlign: 'left',
+      lineHeight: 1.15,
+      maxWidth: 25,
+      z: 10,
+    });
+  };
+
+  const addLabel = () => {
+    addElement({
+      type: 'label',
+      content: 'New Label',
+      x: 50,
+      y: 50,
+      fontSize: 1.5,
+      color: '#FFFFFF',
+      backgroundColor: '#00000044',
+      padding: 0.5,
+      borderRadius: 8,
+      z: 15,
+    });
+  };
+
+  const showInspector = selectedElementIndex !== null &&
+    elements[selectedElementIndex] &&
+    (elements[selectedElementIndex]!.type === 'text' || elements[selectedElementIndex]!.type === 'label');
+
+  return (
+    <div>
+      <Section title={`Text & Labels (${filtered.length})`} defaultCollapsed={false}>
+        <div className="grid grid-cols-2 gap-1 mb-3">
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addText}
+          >
+            + Text
+          </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addLabel}
+          >
+            + Label
+          </button>
+        </div>
+
+        {filtered.length === 0 && (
+          <p className="text-xs text-text-dim text-center py-4">
+            Add text elements for headlines, subtitles, and labels.
+          </p>
+        )}
+        <div className="space-y-1">
+          {filtered.map(({ el, i }) => {
+            const typeNum = elements.slice(0, i).filter((e) => e.type === el.type).length + 1;
+            return (
+              <button
+                key={i}
+                className={`w-full text-left text-xs px-2.5 py-2 rounded-md transition-colors ${
+                  i === selectedElementIndex
+                    ? 'bg-accent/15 text-accent border border-accent/30'
+                    : 'bg-surface-2 border border-border hover:border-accent/30'
+                }`}
+                onClick={() => setSelectedElement(i === selectedElementIndex ? null : i)}
+              >
+                <span className="font-medium">{ELEMENT_TYPE_LABELS[el.type]} #{typeNum}</span>
+                <span className="text-text-dim ml-1">
+                  ({Math.round(el.x)}%, {Math.round(el.y)}%)
+                </span>
+                {(el.type === 'text' || el.type === 'label') && (
+                  <span className="text-text-dim ml-1 truncate" title={(el as { content: string }).content}>
+                    &mdash; {(el as { content: string }).content.slice(0, 20)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+
+      {showInspector && <ElementInspector index={selectedElementIndex!} />}
     </div>
   );
 }

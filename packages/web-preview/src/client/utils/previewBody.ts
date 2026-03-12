@@ -1,14 +1,12 @@
 import type { ScreenState } from '../types';
 
-export function buildPreviewBody(
+export function buildScreenRenderBody(
   screen: ScreenState,
-  _platform: string,
   previewW: number,
   previewH: number,
   locale: string,
-  _deviceFamilies: unknown[],
 ): Record<string, unknown> {
-  const body: Record<string, unknown> = {
+  return {
     screenIndex: screen.screenIndex,
     screenshotDataUrl: screen.screenshotDataUrl || undefined,
     locale: locale !== 'default' ? locale : undefined,
@@ -45,7 +43,6 @@ export function buildPreviewBody(
     autoSizeSubtitle: screen.autoSizeSubtitle || undefined,
     spotlight: screen.spotlight || undefined,
     annotations: screen.annotations.length > 0 ? screen.annotations : undefined,
-    // Background overrides
     backgroundType: screen.backgroundType !== 'preset' ? screen.backgroundType : undefined,
     backgroundColor: screen.backgroundType === 'solid' ? screen.backgroundColor : undefined,
     backgroundGradient: screen.backgroundType === 'gradient' ? screen.backgroundGradient : undefined,
@@ -54,15 +51,12 @@ export function buildPreviewBody(
       screen.backgroundType === 'image' && screen.backgroundOverlay
         ? screen.backgroundOverlay
         : undefined,
-    // Device enhancements
     deviceShadow: screen.deviceShadow || undefined,
     borderSimulation: screen.borderSimulation || undefined,
     cornerRadius: screen.cornerRadius || undefined,
-    // Effects
     loupe: screen.loupe || undefined,
     callouts: screen.callouts.length > 0 ? screen.callouts : undefined,
     overlays: screen.overlays.length > 0 ? screen.overlays : undefined,
-    // Typography overrides
     headlineLineHeight: screen.headlineLineHeight ? screen.headlineLineHeight / 100 : undefined,
     headlineLetterSpacing: screen.headlineLetterSpacing
       ? `${screen.headlineLetterSpacing / 100}em`
@@ -74,10 +68,35 @@ export function buildPreviewBody(
       ? `${screen.subtitleLetterSpacing / 100}em`
       : undefined,
     subtitleTextTransform: screen.subtitleTextTransform || undefined,
-    // Dimensions
     width: previewW,
     height: previewH,
   };
+}
 
-  return body;
+export function buildPreviewBody(
+  screen: ScreenState,
+  _platform: string,
+  previewW: number,
+  previewH: number,
+  locale: string,
+  _deviceFamilies: unknown[],
+): Record<string, unknown> {
+  return buildScreenRenderBody(screen, previewW, previewH, locale);
+}
+
+export function buildExportBody(
+  screen: ScreenState,
+  options: {
+    previewW: number;
+    previewH: number;
+    locale: string;
+    sizeKey: string;
+    renderer: string;
+  },
+): Record<string, unknown> {
+  return {
+    ...buildScreenRenderBody(screen, options.previewW, options.previewH, options.locale),
+    sizeKey: options.sizeKey,
+    renderer: options.renderer,
+  };
 }

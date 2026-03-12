@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
 import { fetchConfig, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes } from './utils/api';
+import { HeaderBar } from './components/HeaderBar';
 import { DesignTab } from './components/Sidebar/DesignTab';
 import { DeviceTab } from './components/Sidebar/DeviceTab';
 import { TextTab } from './components/Sidebar/TextTab';
 import { EffectsTab } from './components/Sidebar/EffectsTab';
 import { ExportTab } from './components/Sidebar/ExportTab';
-import { PanoramicTab } from './components/Sidebar/PanoramicTab';
+import { PanoramicBackgroundContent, PanoramicDeviceContent, PanoramicTextContent } from './components/Sidebar/PanoramicTab';
 import { PanoramicEffectsTab } from './components/Sidebar/PanoramicEffectsTab';
 import { PreviewArea } from './components/Preview/PreviewArea';
 import { PanoramicPreview } from './components/Preview/PanoramicPreview';
@@ -17,7 +18,6 @@ import { Agentation } from 'agentation';
 export function App() {
   const config = usePreviewStore((s) => s.config);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
-  const togglePanoramic = usePreviewStore((s) => s.togglePanoramic);
   const initScreens = usePreviewStore((s) => s.initScreens);
   const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
   const setFonts = usePreviewStore((s) => s.setFonts);
@@ -26,13 +26,18 @@ export function App() {
   const setKoubouAvailable = usePreviewStore((s) => s.setKoubouAvailable);
   const setSizes = usePreviewStore((s) => s.setSizes);
   const setExportSize = usePreviewStore((s) => s.setExportSize);
-  const selectedScreen = usePreviewStore((s) => s.selectedScreen);
-  const screens = usePreviewStore((s) => s.screens);
+  const activeTab = usePreviewStore((s) => s.activeTab);
   const undo = usePreviewStore((s) => s.undo);
   const redo = usePreviewStore((s) => s.redo);
   const [error, setError] = useState<string | null>(null);
-
-  const currentScreen = screens[selectedScreen];
+  const initialNarrow = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  const initialAgentMode = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('agentation') === '1'
+      || window.localStorage.getItem('appframe:agentation') === '1'
+    : false;
+  const [isNarrow, setIsNarrow] = useState(initialNarrow);
+  const [sidebarOpen, setSidebarOpen] = useState(!initialNarrow);
+  const [agentMode, setAgentMode] = useState(initialAgentMode);
 
   // Ctrl+Z / Ctrl+Shift+Z (or Cmd on Mac) keyboard shortcuts
   useEffect(() => {
@@ -103,6 +108,22 @@ export function App() {
     init();
   }, [initScreens, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
 
+  useEffect(() => {
+    const syncLayout = () => {
+      const narrow = window.innerWidth < 768;
+      setIsNarrow(narrow);
+      if (!narrow) setSidebarOpen(true);
+    };
+
+    syncLayout();
+    window.addEventListener('resize', syncLayout);
+    return () => window.removeEventListener('resize', syncLayout);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('appframe:agentation', agentMode ? '1' : '0');
+  }, [agentMode]);
+
   if (error) {
     return (
       <div className="h-dvh flex items-center justify-center bg-bg text-red-400">
@@ -125,74 +146,50 @@ export function App() {
     );
   }
 
+  const sidebarContent = isPanoramic ? (
+    <>
+      {activeTab === 'background' && <PanoramicBackgroundContent />}
+      {activeTab === 'device' && <PanoramicDeviceContent />}
+      {activeTab === 'text' && <PanoramicTextContent />}
+      {activeTab === 'extras' && <PanoramicEffectsTab />}
+      {activeTab === 'export' && <ExportTab />}
+    </>
+  ) : (
+    <>
+      {activeTab === 'background' && <DesignTab />}
+      {activeTab === 'device' && <DeviceTab />}
+      {activeTab === 'text' && <TextTab />}
+      {activeTab === 'extras' && <EffectsTab />}
+      {activeTab === 'export' && <ExportTab />}
+    </>
+  );
+
   return (
-    <div className="h-dvh flex overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-80 min-w-80 bg-surface border-r border-border flex flex-col">
-        <div className="px-5 py-4 border-b border-border">
-          <div className="flex items-center justify-between">
-            <h1 className="text-base font-semibold">appframe</h1>
-            {/* Mode toggle */}
-            <button
-              className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                isPanoramic
-                  ? 'border-accent/40 bg-accent/10 text-accent'
-                  : 'border-border bg-bg text-text-dim hover:border-accent/30 hover:text-text'
-              }`}
-              onClick={togglePanoramic}
-              title={isPanoramic ? 'Switch to individual mode' : 'Switch to panoramic mode'}
-            >
-              <span className="w-3 h-3 flex items-center justify-center" aria-hidden="true">
-                {isPanoramic ? (
-                  <svg viewBox="0 0 12 12" fill="none" className="w-full h-full" aria-hidden="true">
-                    <rect x="0.5" y="2" width="11" height="8" rx="1" stroke="currentColor" strokeWidth="1"/>
-                    <line x1="3" y1="2" x2="3" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1"/>
-                    <line x1="6" y1="2" x2="6" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1"/>
-                    <line x1="9" y1="2" x2="9" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1"/>
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 12 12" fill="none" className="w-full h-full" aria-hidden="true">
-                    <rect x="2" y="1" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1"/>
-                  </svg>
-                )}
-              </span>
-              {isPanoramic ? 'Panoramic' : 'Individual'}
-            </button>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <p className="text-xs text-text-dim">{config.app.name}</p>
-            {!isPanoramic && currentScreen && (
-              <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded">
-                {selectedScreen + 1}
-              </span>
-            )}
+    <div className="h-dvh flex flex-col overflow-hidden">
+      <HeaderBar
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen((open) => !open)}
+        showSidebarToggle={isNarrow}
+        agentMode={agentMode}
+        onToggleAgentMode={() => setAgentMode((enabled) => !enabled)}
+      />
+      <div className="flex-1 flex overflow-hidden min-h-0 flex-col md:flex-row">
+        {/* Sidebar */}
+        <div
+          id="editor-sidebar"
+          className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex w-full md:w-80 md:min-w-80 max-h-[45vh] md:max-h-none bg-surface border-b md:border-b-0 md:border-r border-border flex-col shrink-0`}
+        >
+          <div className="flex-1 overflow-y-auto">
+            {sidebarContent}
           </div>
         </div>
-        {/* All sections in one scrollable list — no tabs */}
-        <div className="flex-1 overflow-y-auto">
-          {isPanoramic ? (
-            <>
-              <PanoramicTab />
-              <PanoramicEffectsTab />
-              <ExportTab />
-            </>
-          ) : (
-            <>
-              <DesignTab />
-              <DeviceTab />
-              <TextTab />
-              <EffectsTab />
-              <ExportTab />
-            </>
-          )}
-        </div>
+
+        {/* Preview */}
+        {isPanoramic ? <PanoramicPreview /> : <PreviewArea />}
       </div>
 
-      {/* Preview */}
-      {isPanoramic ? <PanoramicPreview /> : <PreviewArea />}
-
       {/* Visual annotation tool for AI agents */}
-      <Agentation endpoint="http://localhost:4747" />
+      {agentMode && <Agentation endpoint="http://localhost:4747" />}
     </div>
   );
 }

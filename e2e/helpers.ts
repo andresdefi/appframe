@@ -20,7 +20,7 @@ export function preview(page: Page): Locator {
 
 /** The mode toggle button in the header ("Individual" or "Panoramic") */
 export function modeToggle(page: Page): Locator {
-  return page.locator('button[title="Switch to individual mode"], button[title="Switch to panoramic mode"]');
+  return page.locator('button[title="Switch to Individual"], button[title="Switch to Panoramic"]');
 }
 
 // ─── Navigation helpers ───
@@ -34,14 +34,14 @@ export async function waitForApp(page: Page) {
 
 /** Get the current mode ("Individual" or "Panoramic") */
 export async function getCurrentMode(page: Page): Promise<string> {
-  const text = await modeToggle(page).textContent();
-  return text?.trim() ?? '';
+  const currentMode = await modeToggle(page).getAttribute('data-current-mode');
+  return currentMode?.trim() ?? '';
 }
 
 /** Switch to individual mode (no-op if already there) */
 export async function switchToIndividual(page: Page) {
   const current = await getCurrentMode(page);
-  if (current.includes('Panoramic')) {
+  if (current === 'panoramic') {
     await modeToggle(page).click();
     await page.waitForTimeout(500);
   }
@@ -50,7 +50,7 @@ export async function switchToIndividual(page: Page) {
 /** Switch to panoramic mode (no-op if already there) */
 export async function switchToPanoramic(page: Page) {
   const current = await getCurrentMode(page);
-  if (current.includes('Individual')) {
+  if (current === 'individual') {
     await modeToggle(page).click();
     await page.waitForTimeout(500);
   }

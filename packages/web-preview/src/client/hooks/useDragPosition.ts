@@ -27,6 +27,24 @@ function getElPos(el: HTMLElement) {
 }
 
 /**
+ * Compute element position relative to the iframe viewport using offset
+ * properties. Unlike getBoundingClientRect(), this is not affected by CSS
+ * transforms on the iframe element in the parent page, avoiding
+ * progressive shrinking when the preview is scaled.
+ */
+function getViewportRect(el: HTMLElement) {
+  let left = el.offsetLeft;
+  let top = el.offsetTop;
+  let parent = el.offsetParent as HTMLElement | null;
+  while (parent) {
+    left += parent.offsetLeft - parent.scrollLeft;
+    top += parent.offsetTop - parent.scrollTop;
+    parent = parent.offsetParent as HTMLElement | null;
+  }
+  return { left, top, width: el.offsetWidth, height: el.offsetHeight };
+}
+
+/**
  * Provides drag-to-reposition for device and text elements inside an iframe preview.
  * The drag overlay sits on top of the iframe and intercepts pointer events.
  *
@@ -71,10 +89,10 @@ export function useDragPosition(
 
         // If both text elements are hit, pick the one whose vertical center is closest
         if (headlineEl && subtitleEl) {
-          const hRect = headlineEl.getBoundingClientRect();
-          const sRect = subtitleEl.getBoundingClientRect();
-          const hCy = hRect.top + hRect.height / 2;
-          const sCy = sRect.top + sRect.height / 2;
+          const hVr = getViewportRect(headlineEl);
+          const sVr = getViewportRect(subtitleEl);
+          const hCy = hVr.top + hVr.height / 2;
+          const sCy = sVr.top + sVr.height / 2;
           if (Math.abs(iy - hCy) <= Math.abs(iy - sCy)) {
             return { cls: 'headline', el: headlineEl, kind: 'text' };
           }
@@ -162,23 +180,25 @@ export function useDragPosition(
       } else if (hit.kind === 'text') {
         const el = hit.el;
         const cls = hit.cls as 'headline' | 'subtitle';
-        const rect = el.getBoundingClientRect();
+        const vr = getViewportRect(el);
         const alreadyPositioned = !!(cls === 'headline' ? screen.textPositions.headline : screen.textPositions.subtitle);
-        // Visual center X — works for both flow and fixed+translateX(-50%) elements
-        const centerX = rect.left + rect.width / 2;
-        const origWidth = rect.width;
+        // When already positioned, the element has transform: translateX(-50%),
+        // so offsetLeft IS the visual center. In normal flow, the visual center
+        // is left + width/2.
+        const centerX = alreadyPositioned ? vr.left : vr.left + vr.width / 2;
+        const origWidth = vr.width;
 
         if (!alreadyPositioned) {
           const rotation = cls === 'headline' ? screen.headlineRotation : screen.subtitleRotation;
           const parts = ['translateX(-50%)'];
           if (rotation) parts.push(`rotate(${rotation}deg)`);
           el.style.position = 'fixed';
-          el.style.top = rect.top + 'px';
+          el.style.top = vr.top + 'px';
           el.style.left = centerX + 'px';
           el.style.transform = parts.join(' ');
           el.style.zIndex = '10';
           el.style.margin = '0';
-          el.style.width = rect.width + 'px';
+          el.style.width = vr.width + 'px';
         }
 
         dragRef.current = {
@@ -190,7 +210,7 @@ export function useDragPosition(
           startDeviceTop: 0,
           startDeviceOffsetX: 0,
           offsetX: pos.x - centerX,
-          offsetY: pos.y - rect.top,
+          offsetY: pos.y - vr.top,
           origWidth,
           scale,
         };

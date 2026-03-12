@@ -4,6 +4,10 @@ Open-source tool for generating professional App Store & Play Store promotional 
 
 Takes raw app screenshots and transforms them into polished, store-ready promotional images with device frames, headlines, styled backgrounds, and professional layouts.
 
+<p align="center">
+  <img src="docs/screenshots/web-preview-hero.png" alt="appframe web preview — visual editor with gradient backgrounds, device frames, and real-time preview" width="100%" />
+</p>
+
 ## Screenshots Are Ads, Not Docs
 
 The #1 mistake developers make with store screenshots: showing UI instead of selling outcomes. Every screenshot should sell **one idea**. You're not documenting features — you're selling a feeling, an outcome, or killing a pain point.
@@ -25,6 +29,39 @@ See [Writing Great Copy](#writing-great-copy) below.
 - **Web preview**: Local browser UI for real-time visual tweaking with drag positioning
 - **Auto-capture**: Capture screenshots from iOS Simulator (xcrun) or Android Emulator (adb)
 - **Store upload**: Push screenshots directly to App Store Connect and Google Play Console
+
+## Web Preview
+
+Run `appframe preview` to open a local browser UI where you can visually tweak every aspect of your screenshots in real time.
+
+### Background, Device & Text Controls
+
+Configure backgrounds (solid, gradient, image, or preset), select device frames and platforms, edit headlines and subtitles, and adjust typography — all with instant visual feedback.
+
+<p align="center">
+  <img src="docs/screenshots/web-preview-gradient.png" alt="Background panel with gradient presets" width="49%" />
+  <img src="docs/screenshots/web-preview-device.png" alt="Device panel with platform selection, frame, layout, shadow, and composition controls" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/web-preview-text.png" alt="Text panel with headline, subtitle, typography, position, and gradient controls" width="49%" />
+  <img src="docs/screenshots/web-preview-extras.png" alt="Extras panel with spotlight, annotations, loupe, callouts, and overlays" width="49%" />
+</p>
+
+### Panoramic Mode
+
+Switch to Panoramic mode for a continuous canvas layout where elements can span across frame boundaries — ideal for creating a cohesive visual story across all your App Store screenshots.
+
+<p align="center">
+  <img src="docs/screenshots/web-preview-panoramic.png" alt="Panoramic mode — continuous canvas with draggable text and device elements across frames" width="100%" />
+</p>
+
+### Export
+
+Choose output sizes for any device class, pick a rendering backend, and export individual screens or all at once.
+
+<p align="center">
+  <img src="docs/screenshots/web-preview-export.png" alt="Export panel with output size, renderer selection, and batch export" width="100%" />
+</p>
 
 ## Quick Start
 
@@ -63,6 +100,12 @@ Or via MCP server:
 ```
 
 When used with AI agents, appframe generates **2-3 design variants** for you to choose from — a clean/safe version, a dynamic/varied version, and an elegant/editorial version. The agent handles copy, theme, and layout decisions, then you pick your favorite.
+
+Toggle **AI Mode** in the web preview to connect your agent via MCP for live, collaborative editing:
+
+<p align="center">
+  <img src="docs/screenshots/web-preview-ai-mode.png" alt="AI Mode enabled — MCP connection status and agent overlay in the web preview" width="100%" />
+</p>
 
 ## Writing Great Copy
 

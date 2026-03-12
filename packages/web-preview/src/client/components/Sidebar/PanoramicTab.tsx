@@ -2,7 +2,6 @@ import { useRef, useCallback, useMemo } from 'react';
 import { usePreviewStore } from '../../store';
 import type { FrameData, DeviceFamily } from '../../store';
 import type { PanoramicElement } from '../../types';
-import { PLATFORM_PREVIEW_SIZES } from '../../types';
 import { usePanoramicInstantPatch } from '../../hooks/usePanoramicInstantPatch';
 import { Section } from '../Controls/Section';
 import { ColorPicker } from '../Controls/ColorPicker';
@@ -10,7 +9,9 @@ import { RangeSlider } from '../Controls/RangeSlider';
 import { Select } from '../Controls/Select';
 import { Checkbox } from '../Controls/Checkbox';
 import { GRADIENT_PRESETS, SOLID_PRESETS, KOUBOU_COLOR_HEX } from '../../utils/presets';
+import { getDefaultFrameForPlatform } from '../../utils/deviceFrames';
 import { buildFontGroups } from '../../utils/fontGroups';
+import { getDefaultExportSizeKey, getPlatformPreviewSize } from '../../utils/platformSelection';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
 
 const ELEMENT_TYPE_LABELS: Record<string, string> = {
@@ -855,19 +856,20 @@ export function PanoramicTab() {
   const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
   const sizes = usePreviewStore((s) => s.sizes);
   const setExportSize = usePreviewStore((s) => s.setExportSize);
+  const syncPanoramicDevicesForPlatform = usePreviewStore((s) => s.syncPanoramicDevicesForPlatform);
+  const deviceFamilies = usePreviewStore((s) => s.deviceFamilies);
   const { patchBackground } = usePanoramicInstantPatch();
 
   const handlePlatformChange = useCallback(
     (v: string) => {
       setPlatformRaw(v);
-      const size = PLATFORM_PREVIEW_SIZES[v];
-      if (size) setPreviewSize(size.w, size.h);
-      const platformSizes = sizes[v] ?? [];
-      if (platformSizes.length > 0) {
-        setExportSize(platformSizes[0]!.key);
-      }
+      syncPanoramicDevicesForPlatform(v);
+      const size = getPlatformPreviewSize(v);
+      setPreviewSize(size.w, size.h);
+      const defaultExportSize = getDefaultExportSizeKey(sizes, v);
+      if (defaultExportSize) setExportSize(defaultExportSize);
     },
-    [setExportSize, setPlatformRaw, setPreviewSize, sizes],
+    [setExportSize, setPlatformRaw, setPreviewSize, sizes, syncPanoramicDevicesForPlatform],
   );
 
   const instantBgColor = useCallback(
@@ -895,9 +897,12 @@ export function PanoramicTab() {
     const screenshot = config?.screens[deviceCount]?.screenshot
       ?? config?.screens[0]?.screenshot
       ?? 'screenshots/screen-1.png';
+    const defaultFrame = getDefaultFrameForPlatform(platform, deviceFamilies);
     addElement({
       type: 'device',
       screenshot,
+      frame: defaultFrame,
+      deviceColor: '',
       x: 10 + deviceCount * 20,
       y: 15,
       width: 12,
@@ -1281,19 +1286,19 @@ export function PanoramicBackgroundContent() {
   const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
   const sizes = usePreviewStore((s) => s.sizes);
   const setExportSize = usePreviewStore((s) => s.setExportSize);
+  const syncPanoramicDevicesForPlatform = usePreviewStore((s) => s.syncPanoramicDevicesForPlatform);
   const { patchBackground } = usePanoramicInstantPatch();
 
   const handlePlatformChange = useCallback(
     (v: string) => {
       setPlatformRaw(v);
-      const size = PLATFORM_PREVIEW_SIZES[v];
-      if (size) setPreviewSize(size.w, size.h);
-      const platformSizes = sizes[v] ?? [];
-      if (platformSizes.length > 0) {
-        setExportSize(platformSizes[0]!.key);
-      }
+      syncPanoramicDevicesForPlatform(v);
+      const size = getPlatformPreviewSize(v);
+      setPreviewSize(size.w, size.h);
+      const defaultExportSize = getDefaultExportSizeKey(sizes, v);
+      if (defaultExportSize) setExportSize(defaultExportSize);
     },
-    [setExportSize, setPlatformRaw, setPreviewSize, sizes],
+    [setExportSize, setPlatformRaw, setPreviewSize, sizes, syncPanoramicDevicesForPlatform],
   );
 
   const instantBgColor = useCallback(

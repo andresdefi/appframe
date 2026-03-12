@@ -12,7 +12,7 @@ import { PanoramicBackgroundContent, PanoramicDeviceContent, PanoramicTextConten
 import { PanoramicEffectsTab } from './components/Sidebar/PanoramicEffectsTab';
 import { PreviewArea } from './components/Preview/PreviewArea';
 import { PanoramicPreview } from './components/Preview/PanoramicPreview';
-import { PLATFORM_PREVIEW_SIZES } from './types';
+import { getDefaultExportSizeKey, getPlatformPreviewSize } from './utils/platformSelection';
 import { Agentation } from 'agentation';
 
 export function App() {
@@ -68,7 +68,7 @@ export function App() {
         ]);
 
         const platform = cfg.app.platforms[0] ?? 'iphone';
-        const size = PLATFORM_PREVIEW_SIZES[platform] ?? PLATFORM_PREVIEW_SIZES.iphone!;
+        const size = getPlatformPreviewSize(platform);
         setPreviewSize(size.w, size.h);
         setFonts(fonts as FontData[]);
         setFrames(frames as never[]);
@@ -93,10 +93,8 @@ export function App() {
           }
           setSizes(parsed);
           // Set default export size
-          const platSizes = parsed[platform];
-          if (platSizes && platSizes.length > 0) {
-            setExportSize(platSizes[0]!.key);
-          }
+          const defaultExportSize = getDefaultExportSizeKey(parsed, platform);
+          if (defaultExportSize) setExportSize(defaultExportSize);
         } catch {
           // Sizes are optional for preview
         }

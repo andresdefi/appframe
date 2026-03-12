@@ -114,9 +114,10 @@ const IPAD_PRO_13_M4: DeviceFamily = {
   screenResolution: { width: 2064, height: 2752 },
   appStoreSize: 'iPadPro13',
   previewFrameId: 'ipad-pro-13',
-  screenRect: { x: 112, y: 118, width: 2076, height: 2764 },
+  // Measured from the Koubou PNG's transparent screen opening.
+  screenRect: { x: 118, y: 124, width: 2064, height: 2752 },
   framePngSize: { width: 2300, height: 3000 },
-  screenBorderRadius: 100,
+  screenBorderRadius: 60,
 };
 
 const IPAD_PRO_11_M4: DeviceFamily = {
@@ -136,9 +137,10 @@ const IPAD_PRO_11_M4: DeviceFamily = {
   screenResolution: { width: 1668, height: 2388 },
   appStoreSize: 'iPadPro11',
   previewFrameId: 'ipad-pro-11',
-  screenRect: { x: 100, y: 104, width: 1680, height: 2432 },
+  // Measured from the Koubou PNG's transparent screen opening.
+  screenRect: { x: 106, y: 110, width: 1668, height: 2420 },
   framePngSize: { width: 1880, height: 2640 },
-  screenBorderRadius: 100,
+  screenBorderRadius: 64,
 };
 
 // --- Mac families ---
@@ -171,8 +173,10 @@ const MACBOOK_AIR_2022: DeviceFamily = {
   screenResolution: { width: 2560, height: 1664 },
   appStoreSize: 'MacBookAir',
   previewFrameId: '',
-  screenRect: { x: 330, y: 274, width: 2560, height: 1608 },
+  // Measured from the Koubou PNG's transparent screen opening.
+  screenRect: { x: 330, y: 218, width: 2560, height: 1664 },
   framePngSize: { width: 3220, height: 2100 },
+  screenBorderRadius: 57,
 };
 
 const MACBOOK_PRO_2021_14: DeviceFamily = {
@@ -187,8 +191,10 @@ const MACBOOK_PRO_2021_14: DeviceFamily = {
   screenResolution: { width: 3024, height: 1964 },
   appStoreSize: 'MacBookPro14',
   previewFrameId: '',
-  screenRect: { x: 461, y: 365, width: 3022, height: 1898 },
+  // Measured from the Koubou PNG's transparent screen opening.
+  screenRect: { x: 461, y: 301, width: 3022, height: 1962 },
   framePngSize: { width: 3944, height: 2564 },
+  screenBorderRadius: 47,
 };
 
 const MACBOOK_PRO_2021_16: DeviceFamily = {
@@ -203,8 +209,10 @@ const MACBOOK_PRO_2021_16: DeviceFamily = {
   screenResolution: { width: 3456, height: 2234 },
   appStoreSize: 'MacBookPro16',
   previewFrameId: '',
-  screenRect: { x: 443, y: 378, width: 3454, height: 2168 },
+  // Measured from the Koubou PNG's transparent screen opening.
+  screenRect: { x: 443, y: 314, width: 3454, height: 2232 },
   framePngSize: { width: 4340, height: 2860 },
+  screenBorderRadius: 46,
 };
 
 const IMAC_2021: DeviceFamily = {
@@ -271,9 +279,10 @@ const WATCH_SERIES_7_45: DeviceFamily = {
   screenResolution: { width: 396, height: 484 },
   appStoreSize: 'WatchS7_45',
   previewFrameId: '',
-  screenRect: { x: 73, y: 197, width: 394, height: 474 },
+  // Measured from the Koubou PNG's transparent screen opening.
+  screenRect: { x: 73, y: 199, width: 394, height: 472 },
   framePngSize: { width: 540, height: 860 },
-  screenBorderRadius: 136,
+  screenBorderRadius: 45,
 };
 
 const WATCH_SERIES_4_44: DeviceFamily = {
@@ -307,7 +316,7 @@ const WATCH_SERIES_4_40: DeviceFamily = {
   previewFrameId: '',
   screenRect: { x: 114, y: 308, width: 324, height: 394 },
   framePngSize: { width: 570, height: 1000 },
-  screenBorderRadius: 63,
+  screenBorderRadius: 79,
 };
 
 // --- Full catalog ---

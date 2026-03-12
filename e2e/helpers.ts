@@ -4,7 +4,7 @@ import type { Page, Locator } from '@playwright/test';
 
 /** The sidebar panel (left 320px column) */
 export function sidebar(page: Page): Locator {
-  return page.locator('.w-80');
+  return page.locator('#editor-sidebar');
 }
 
 /** The scrollable content area inside the sidebar */
@@ -28,7 +28,7 @@ export function modeToggle(page: Page): Locator {
 /** Wait for the preview server to be fully loaded */
 export async function waitForApp(page: Page) {
   await page.goto('/');
-  await page.locator('h1').filter({ hasText: 'appframe' }).waitFor({ timeout: 10_000 });
+  await page.getByText('appframe').first().waitFor({ timeout: 10_000 });
   await page.locator('iframe').first().waitFor({ state: 'attached', timeout: 10_000 });
 }
 

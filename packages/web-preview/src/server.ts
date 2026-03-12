@@ -175,6 +175,91 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   const templateEngine = new TemplateEngine();
 
+  type KoubouFamily = NonNullable<ReturnType<typeof getDeviceFamily>>;
+
+  type KoubouPreviewAdjustment = {
+    bleedLeft: number;
+    bleedTop: number;
+    bleedRight: number;
+    bleedBottom: number;
+    radiusBleed: number;
+  };
+
+  const KoubouPreviewAdjustments: Record<string, KoubouPreviewAdjustment> = {
+    'ipad-pro-11-m4': { bleedLeft: 20, bleedTop: 20, bleedRight: 20, bleedBottom: 20, radiusBleed: 36 },
+    'ipad-pro-13-m4': { bleedLeft: 20, bleedTop: 20, bleedRight: 20, bleedBottom: 20, radiusBleed: 36 },
+    'macbook-air-2020': { bleedLeft: 4, bleedTop: 4, bleedRight: 4, bleedBottom: 12, radiusBleed: -18 },
+    'macbook-air-2022': { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: -57 },
+    'macbook-pro-2021-14': { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: -47 },
+    'macbook-pro-2021-16': { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: -46 },
+    'watch-ultra': { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: -44 },
+    'watch-series-7-45': { bleedLeft: 8, bleedTop: 20, bleedRight: 8, bleedBottom: 8, radiusBleed: 0 },
+    'watch-series-4-44': { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: -18 },
+    'watch-series-4-40': { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: -18 },
+  };
+
+  function getKoubouPreviewAdjustment(
+    family: KoubouFamily,
+  ): KoubouPreviewAdjustment {
+    const explicit = KoubouPreviewAdjustments[family.id];
+    if (explicit) return explicit;
+
+    switch (family.category) {
+      case 'watch':
+        return { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: 0 };
+      case 'mac':
+        return { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: 0 };
+      case 'ipad':
+        return { bleedLeft: 18, bleedTop: 18, bleedRight: 18, bleedBottom: 18, radiusBleed: 32 };
+      case 'iphone':
+        return { bleedLeft: 0, bleedTop: 0, bleedRight: 0, bleedBottom: 0, radiusBleed: 0 };
+      default:
+        return { bleedLeft: 12, bleedTop: 12, bleedRight: 12, bleedBottom: 12, radiusBleed: 24 };
+    }
+  }
+
+  function buildKoubouPreviewFrame(family: KoubouFamily): FrameDefinition {
+    const { bleedLeft, bleedTop, bleedRight, bleedBottom, radiusBleed } = getKoubouPreviewAdjustment(family);
+    const left = Math.max(0, family.screenRect!.x - bleedLeft);
+    const top = Math.max(0, family.screenRect!.y - bleedTop);
+    const right = Math.min(
+      family.framePngSize!.width,
+      family.screenRect!.x + family.screenRect!.width + bleedRight,
+    );
+    const bottom = Math.min(
+      family.framePngSize!.height,
+      family.screenRect!.y + family.screenRect!.height + bleedBottom,
+    );
+
+    return {
+      id: family.id,
+      name: family.name,
+      manufacturer: 'Apple',
+      year: family.year,
+      platform: 'ios',
+      framePath: '',
+      screenArea: {
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+        borderRadius: Math.max(
+          0,
+          Math.min(
+            Math.floor(Math.min(right - left, bottom - top) / 2),
+            (family.screenBorderRadius ?? 0) + radiusBleed,
+          ),
+        ),
+      },
+      frameSize: {
+        width: family.framePngSize!.width,
+        height: family.framePngSize!.height,
+      },
+      screenResolution: family.screenResolution,
+      tags: [family.category],
+    } satisfies FrameDefinition;
+  }
+
   // Shared: extract preview params from request body and resolve screenshot/headline/subtitle
   interface PreviewParams {
     screenIndex: number;
@@ -402,27 +487,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         if (pngExists) {
           const pngBuffer = await readFile(pngExists);
           framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-          frame = {
-            id: koubouFamily.id,
-            name: koubouFamily.name,
-            manufacturer: 'Apple',
-            year: koubouFamily.year,
-            platform: 'ios' as const,
-            framePath: '',
-            screenArea: {
-              x: koubouFamily.screenRect.x,
-              y: koubouFamily.screenRect.y,
-              width: koubouFamily.screenRect.width,
-              height: koubouFamily.screenRect.height,
-              borderRadius: koubouFamily.screenBorderRadius ?? 0,
-            },
-            frameSize: {
-              width: koubouFamily.framePngSize.width,
-              height: koubouFamily.framePngSize.height,
-            },
-            screenResolution: koubouFamily.screenResolution,
-            tags: [koubouFamily.category],
-          } satisfies FrameDefinition;
+          frame = buildKoubouPreviewFrame(koubouFamily);
         }
       }
     }
@@ -651,27 +716,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
                   if (pngPath) {
                     const pngBuffer = await readFile(pngPath);
                     framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-                    frame = {
-                      id: koubouFamily.id,
-                      name: koubouFamily.name,
-                      manufacturer: 'Apple',
-                      year: koubouFamily.year,
-                      platform: 'ios' as const,
-                      framePath: '',
-                      screenArea: {
-                        x: koubouFamily.screenRect.x,
-                        y: koubouFamily.screenRect.y,
-                        width: koubouFamily.screenRect.width,
-                        height: koubouFamily.screenRect.height,
-                        borderRadius: koubouFamily.screenBorderRadius ?? 0,
-                      },
-                      frameSize: {
-                        width: koubouFamily.framePngSize.width,
-                        height: koubouFamily.framePngSize.height,
-                      },
-                      screenResolution: koubouFamily.screenResolution,
-                      tags: [koubouFamily.category],
-                    } satisfies FrameDefinition;
+                    frame = buildKoubouPreviewFrame(koubouFamily);
                   }
                 }
               }
@@ -1037,27 +1082,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
                   if (pngPath) {
                     const pngBuffer = await readFile(pngPath);
                     framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-                    frame = {
-                      id: koubouFamily.id,
-                      name: koubouFamily.name,
-                      manufacturer: 'Apple',
-                      year: koubouFamily.year,
-                      platform: 'ios' as const,
-                      framePath: '',
-                      screenArea: {
-                        x: koubouFamily.screenRect.x,
-                        y: koubouFamily.screenRect.y,
-                        width: koubouFamily.screenRect.width,
-                        height: koubouFamily.screenRect.height,
-                        borderRadius: koubouFamily.screenBorderRadius ?? 0,
-                      },
-                      frameSize: {
-                        width: koubouFamily.framePngSize.width,
-                        height: koubouFamily.framePngSize.height,
-                      },
-                      screenResolution: koubouFamily.screenResolution,
-                      tags: [koubouFamily.category],
-                    } satisfies FrameDefinition;
+                    frame = buildKoubouPreviewFrame(koubouFamily);
                   }
                 }
               }

@@ -10,8 +10,10 @@ import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
 import { CropModal } from '../Controls/CropModal';
 import { KOUBOU_COLOR_HEX } from '../../utils/presets';
+import { getDefaultFrameForPlatform } from '../../utils/deviceFrames';
+import { getDefaultExportSizeKey, getPlatformPreviewSize } from '../../utils/platformSelection';
 import type { FrameStyle, LayoutVariant, TemplateStyle, CompositionPreset } from '../../types';
-import { PLATFORM_DEVICE_DEFAULTS, PLATFORM_PREVIEW_SIZES } from '../../types';
+import { PLATFORM_DEVICE_DEFAULTS } from '../../types';
 import { COMPOSITION_PRESETS } from '../../utils/compositionPresets';
 
 const LAYOUT_OPTIONS = [
@@ -48,25 +50,6 @@ const PLATFORM_OPTIONS = [
   { value: 'watch', label: 'Apple Watch' },
   { value: 'android', label: 'Android' },
 ];
-
-const PLATFORM_TO_CATEGORY: Record<string, string> = {
-  iphone: 'iphone',
-  android: 'iphone',
-  ipad: 'ipad',
-  mac: 'mac',
-  watch: 'watch',
-};
-
-function getDefaultFrameForPlatform(platform: string, deviceFamilies: DeviceFamily[]): string {
-  if (platform === 'android') return 'generic-phone';
-  const category = PLATFORM_TO_CATEGORY[platform] ?? 'iphone';
-  const match = deviceFamilies
-    .filter((f) => f.category === category)
-    .sort((a, b) => b.year - a.year)[0];
-  if (match) return match.id;
-  if (category === 'ipad') return 'ipad-pro-13';
-  return 'generic-phone';
-}
 
 const FRAME_FILTER_TOLERANCE = 0.15;
 
@@ -215,12 +198,10 @@ export function DeviceTab() {
 
   const handlePlatformChange = (value: string) => {
     setPlatform(value);
-    const size = PLATFORM_PREVIEW_SIZES[value] ?? PLATFORM_PREVIEW_SIZES.iphone!;
+    const size = getPlatformPreviewSize(value);
     setPreviewSize(size.w, size.h);
-    const platSizes = sizes[value] ?? [];
-    if (platSizes.length > 0) {
-      setExportSize(platSizes[0]!.key);
-    }
+    const defaultExportSize = getDefaultExportSizeKey(sizes, value);
+    if (defaultExportSize) setExportSize(defaultExportSize);
     const defaultFrame = getDefaultFrameForPlatform(value, deviceFamilies);
     for (let i = 0; i < screens.length; i++) {
       updateScreen(i, { frameId: defaultFrame, deviceColor: '' });

@@ -49,6 +49,36 @@ describe('getDeviceFamily', () => {
     expect(family!.name).toBe('iPhone 17 Pro Max');
   });
 
+  it('uses measured screen geometry for the affected ipad, macbook, and watch png frames', () => {
+    expect(getDeviceFamily('ipad-pro-11-m4')).toMatchObject({
+      screenRect: { x: 106, y: 110, width: 1668, height: 2420 },
+      screenBorderRadius: 64,
+    });
+    expect(getDeviceFamily('ipad-pro-13-m4')).toMatchObject({
+      screenRect: { x: 118, y: 124, width: 2064, height: 2752 },
+      screenBorderRadius: 60,
+    });
+    expect(getDeviceFamily('macbook-air-2022')).toMatchObject({
+      screenRect: { x: 330, y: 218, width: 2560, height: 1664 },
+      screenBorderRadius: 57,
+    });
+    expect(getDeviceFamily('macbook-pro-2021-14')).toMatchObject({
+      screenRect: { x: 461, y: 301, width: 3022, height: 1962 },
+      screenBorderRadius: 47,
+    });
+    expect(getDeviceFamily('macbook-pro-2021-16')).toMatchObject({
+      screenRect: { x: 443, y: 314, width: 3454, height: 2232 },
+      screenBorderRadius: 46,
+    });
+    expect(getDeviceFamily('watch-series-7-45')).toMatchObject({
+      screenRect: { x: 73, y: 199, width: 394, height: 472 },
+      screenBorderRadius: 45,
+    });
+    expect(getDeviceFamily('watch-series-4-40')).toMatchObject({
+      screenBorderRadius: 79,
+    });
+  });
+
   it('returns null for unknown id', () => {
     expect(getDeviceFamily('nonexistent')).toBeNull();
   });

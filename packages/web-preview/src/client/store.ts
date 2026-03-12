@@ -9,6 +9,7 @@ import type {
   PanoramicEffects,
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
+import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
 
 export function createScreenState(
   index: number,
@@ -183,6 +184,7 @@ export interface PreviewStore {
   setSelectedElement: (index: number | null) => void;
   updatePanoramicBackground: (bg: Partial<PanoramicBackground>) => void;
   updatePanoramicElement: (index: number, partial: Partial<PanoramicElement>) => void;
+  syncPanoramicDevicesForPlatform: (platform: string) => void;
   addPanoramicElement: (element: PanoramicElement) => void;
   removePanoramicElement: (index: number) => void;
   setPanoramicFrameCount: (count: number) => void;
@@ -481,6 +483,24 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       pushSnapshot(state);
       elements[index] = { ...current, ...partial } as PanoramicElement;
       return { panoramicElements: elements };
+    }),
+
+  syncPanoramicDevicesForPlatform: (platform) =>
+    set((state) => {
+      const panoramicElements = syncPanoramicDevicesToPlatform(
+        state.panoramicElements,
+        platform,
+        state.deviceFamilies,
+      );
+
+      const changed = panoramicElements.some((element, index) => {
+        const current = state.panoramicElements[index];
+        return current !== element;
+      });
+      if (!changed) return state;
+
+      pushSnapshot(state);
+      return { panoramicElements };
     }),
 
   addPanoramicElement: (element) =>

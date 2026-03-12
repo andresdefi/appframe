@@ -16,14 +16,41 @@ export interface FontInfo {
 }
 
 export const FONT_CATALOG: FontInfo[] = [
+  // Sans-serif
   { id: 'inter', name: 'Inter', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'space-grotesk', name: 'Space Grotesk', weights: [400, 500, 700], category: 'sans-serif' },
+  { id: 'roboto', name: 'Roboto', weights: [400, 500, 700, 900], category: 'sans-serif' },
+  { id: 'open-sans', name: 'Open Sans', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'lato', name: 'Lato', weights: [400, 700, 900], category: 'sans-serif' },
   { id: 'poppins', name: 'Poppins', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
   { id: 'montserrat', name: 'Montserrat', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'nunito', name: 'Nunito', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
   { id: 'dm-sans', name: 'DM Sans', weights: [400, 500, 600, 700], category: 'sans-serif' },
   { id: 'plus-jakarta-sans', name: 'Plus Jakarta Sans', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
   { id: 'raleway', name: 'Raleway', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'space-grotesk', name: 'Space Grotesk', weights: [400, 500, 700], category: 'sans-serif' },
+  { id: 'work-sans', name: 'Work Sans', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'manrope', name: 'Manrope', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'outfit', name: 'Outfit', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'sora', name: 'Sora', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'figtree', name: 'Figtree', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'rubik', name: 'Rubik', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'urbanist', name: 'Urbanist', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'lexend', name: 'Lexend', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'albert-sans', name: 'Albert Sans', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  { id: 'red-hat-display', name: 'Red Hat Display', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
+  // Serif
   { id: 'playfair-display', name: 'Playfair Display', weights: [400, 500, 600, 700, 800], category: 'serif' },
+  { id: 'merriweather', name: 'Merriweather', weights: [400, 700, 900], category: 'serif' },
+  { id: 'lora', name: 'Lora', weights: [400, 500, 600, 700], category: 'serif' },
+  { id: 'source-serif-4', name: 'Source Serif 4', weights: [400, 500, 600, 700, 800], category: 'serif' },
+  { id: 'libre-baskerville', name: 'Libre Baskerville', weights: [400, 700], category: 'serif' },
+  { id: 'crimson-text', name: 'Crimson Text', weights: [400, 600, 700], category: 'serif' },
+  { id: 'eb-garamond', name: 'EB Garamond', weights: [400, 500, 600, 700, 800], category: 'serif' },
+  // Display
+  { id: 'bebas-neue', name: 'Bebas Neue', weights: [400], category: 'display' },
+  { id: 'oswald', name: 'Oswald', weights: [400, 500, 600, 700], category: 'display' },
+  { id: 'archivo-black', name: 'Archivo Black', weights: [400], category: 'display' },
+  { id: 'anton', name: 'Anton', weights: [400], category: 'display' },
 ];
 
 const FONT_NAME_MAP: Record<string, string> = Object.fromEntries(

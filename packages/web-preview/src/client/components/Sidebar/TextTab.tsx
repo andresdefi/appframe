@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useId, useMemo } from 'react';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { usePreviewStore } from '../../store';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
@@ -7,6 +7,7 @@ import { Select } from '../Controls/Select';
 import { RangeSlider } from '../Controls/RangeSlider';
 import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
+import { buildFontGroups } from '../../utils/fontGroups';
 
 const TEXT_TRANSFORM_OPTIONS = [
   { value: '', label: 'Auto' },
@@ -31,17 +32,21 @@ export function TextTab() {
     [patchText],
   );
 
-  if (!screen) return null;
+  const fontGroups = useMemo(() => buildFontGroups(fonts), [fonts]);
 
-  const fontOptions = fonts.map((f) => ({ value: f.name, label: f.name }));
+  const headlineId = useId();
+  const subtitleId = useId();
+
+  if (!screen) return null;
 
   return (
     <>
       {/* Text inputs */}
-      <Section title="Text">
+      <Section title="Text" tooltip="Edit the headline and subtitle text that appears above or below the device frame." defaultCollapsed={false}>
         <div className="mb-2.5">
-          <label className="block text-xs text-text-dim mb-1">Headline</label>
+          <label htmlFor={headlineId} className="block text-xs text-text-dim mb-1">Headline</label>
           <textarea
+            id={headlineId}
             rows={2}
             value={screen.headline}
             onChange={(e) => update({ headline: e.target.value })}
@@ -49,8 +54,9 @@ export function TextTab() {
           />
         </div>
         <div className="mb-2.5">
-          <label className="block text-xs text-text-dim mb-1">Subtitle</label>
+          <label htmlFor={subtitleId} className="block text-xs text-text-dim mb-1">Subtitle</label>
           <input
+            id={subtitleId}
             type="text"
             value={screen.subtitle}
             onChange={(e) => update({ subtitle: e.target.value })}
@@ -71,12 +77,12 @@ export function TextTab() {
       </Section>
 
       {/* Typography */}
-      <Section title="Typography">
+      <Section title="Typography" tooltip="Control font family, weight, size, rotation, spacing, and text transformations.">
         <Select
           label="Font"
           value={screen.font}
           onChange={(v) => update({ font: v })}
-          options={fontOptions}
+          groups={fontGroups}
         />
         <RangeSlider
           label="Font Weight"
@@ -194,7 +200,7 @@ export function TextTab() {
       </Section>
 
       {/* Text Position */}
-      <Section title="Text Position">
+      <Section title="Text Position" tooltip="Drag text elements in the preview to reposition, or reset to default positions.">
         <span className="text-[11px] text-text-dim leading-tight block mb-1.5">
           Drag the headline or subtitle in the preview to reposition them.
         </span>
@@ -209,7 +215,7 @@ export function TextTab() {
       </Section>
 
       {/* Text Gradient */}
-      <Section title="Text Gradient">
+      <Section title="Text Gradient" tooltip="Apply a gradient color effect to headline or subtitle text." defaultCollapsed>
         <Checkbox
           label="Enable Headline Gradient"
           checked={!!screen.headlineGradient}

@@ -18,12 +18,14 @@ export function PanoramicPreview() {
   const frameCount = usePreviewStore((s) => s.panoramicFrameCount);
   const background = usePreviewStore((s) => s.panoramicBackground);
   const elements = usePreviewStore((s) => s.panoramicElements);
+  const panoramicEffects = usePreviewStore((s) => s.panoramicEffects);
   const selectedElementIndex = usePreviewStore((s) => s.selectedElementIndex);
   const setSelectedElement = usePreviewStore((s) => s.setSelectedElement);
   const updateElement = usePreviewStore((s) => s.updatePanoramicElement);
 
   const [scale, setScale] = useState(0.3);
   const [loading, setLoading] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Drag state
   const dragRef = useRef<{
@@ -82,6 +84,7 @@ export function PanoramicPreview() {
         font: config.theme.font,
         fontWeight: config.theme.fontWeight,
         frameStyle: config.frames.style,
+        effects: panoramicEffects,
       };
 
       fetchPanoramicPreviewHtml(body as Record<string, unknown>, controller.signal)
@@ -108,7 +111,7 @@ export function PanoramicPreview() {
       abortRef.current?.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, frameCount, previewW, previewH, background, elements, renderVersion]);
+  }, [config, frameCount, previewW, previewH, background, elements, panoramicEffects, renderVersion]);
 
   // --- Drag-to-reposition ---
   // Convert mouse event coords to canvas % position
@@ -189,6 +192,7 @@ export function PanoramicPreview() {
           origX: el.x,
           origY: el.y,
         };
+        setIsDragging(true);
         e.preventDefault();
       }
     },
@@ -236,6 +240,7 @@ export function PanoramicPreview() {
       // Commit final position to store — triggers full re-render with correct left/top
       updateElement(drag.elementIndex, { x: newX, y: newY });
       dragRef.current = null;
+      setIsDragging(false);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -273,6 +278,17 @@ export function PanoramicPreview() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [selectedElementIndex, elements, updateElement]);
+
+  const [hoverCursor, setHoverCursor] = useState('default');
+
+  const handleOverlayMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (isDragging) return;
+      const idx = findElementAtPoint(e.clientX, e.clientY);
+      setHoverCursor(idx !== null ? 'grab' : 'default');
+    },
+    [isDragging, findElementAtPoint],
+  );
 
   const bgClass = previewBg === 'light' ? 'bg-gray-100' : 'bg-bg';
 
@@ -330,33 +346,43 @@ export function PanoramicPreview() {
             {/* Drag overlay — captures mouse events above the iframe */}
             <div
               className="absolute inset-0 z-10"
-              style={{ cursor: dragRef.current ? 'grabbing' : 'grab' }}
+              style={{ cursor: isDragging ? 'grabbing' : hoverCursor }}
               onMouseDown={handleOverlayMouseDown}
+              onMouseMove={handleOverlayMouseMove}
             />
           </div>
 
-          {/* Element position indicators */}
-          {elements.map((el, i) => {
-            const x = (el.x / 100) * totalCanvasWidth * scale;
-            const y = (el.y / 100) * previewH * scale;
-            const isSelected = i === selectedElementIndex;
-            return (
-              <div
-                key={i}
-                className={`absolute pointer-events-none ${
-                  isSelected
-                    ? 'w-3 h-3 rounded-full ring-2 ring-accent bg-accent'
-                    : 'w-2 h-2 rounded-full bg-white/40'
-                }`}
-                style={{
-                  left: x - (isSelected ? 6 : 4),
-                  top: y - (isSelected ? 6 : 4) + 18, // offset for frame labels
-                }}
-                title={`${el.type} #${i + 1}`}
-              />
-            );
-          })}
         </div>
+      </div>
+      {/* Zoom control */}
+      <div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-surface">
+        <span className="text-[10px] text-text-dim">Zoom</span>
+        <input
+          type="range"
+          min={5}
+          max={100}
+          value={Math.round(scale * 100)}
+          onChange={(e) => setScale(parseInt(e.target.value, 10) / 100)}
+          className="flex-1 h-1 accent-accent"
+          aria-label="Zoom level"
+          aria-valuemin={5}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(scale * 100)}
+          aria-valuetext={`${Math.round(scale * 100)}%`}
+        />
+        <span className="text-[10px] text-text-dim w-8 text-right">{Math.round(scale * 100)}%</span>
+        <button
+          className="text-[10px] text-text-dim hover:text-text transition-opacity"
+          onClick={computeScale}
+          aria-label="Reset zoom to fit"
+        >
+          Fit
+        </button>
+        {selectedElementIndex !== null && (
+          <span className="ml-auto text-[9px] text-text-dim border-l border-border pl-2" title="Use arrow keys to nudge selected element. Hold Shift for larger steps.">
+            Arrow keys to nudge
+          </span>
+        )}
       </div>
     </div>
   );

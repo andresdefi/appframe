@@ -20,10 +20,11 @@ import {
   getDeviceFramePath,
   injectSpotlightHTML,
   injectAnnotationsHTML,
+  injectOverlaysHTML,
   detectKoubou,
   renderSingleScreenWithKoubou,
 } from '@appframe/core';
-import type { AppframeConfig, TemplateStyle, LayoutVariant, FrameStyle, CompositionPreset, FrameDefinition, KoubouSingleScreenOptions, PanoramicElement, PanoramicBackground } from '@appframe/core';
+import type { AppframeConfig, TemplateStyle, LayoutVariant, FrameStyle, CompositionPreset, FrameDefinition, KoubouSingleScreenOptions, PanoramicElement, PanoramicBackground, Loupe } from '@appframe/core';
 import type { TemplateContext, DeviceContext, PanoramicTemplateContext, PanoramicRenderedElement } from '@appframe/core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -236,7 +237,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     borderSimulation?: { enabled: boolean; thickness: number; color: string; radius: number };
     cornerRadius?: number;
     // Effects
-    loupe?: { sourceX: number; sourceY: number; displayX: number; displayY: number; size: number; zoom: number; borderWidth: number; borderColor: string };
+    loupe?: Loupe;
     callouts?: Array<{ id: string; sourceX: number; sourceY: number; sourceW: number; sourceH: number; displayX: number; displayY: number; displayScale: number; rotation: number; borderRadius: number; shadow: boolean; borderWidth: number; borderColor?: string }>;
     overlays?: Array<{ id: string; type: 'icon' | 'badge' | 'star-rating' | 'custom' | 'shape'; imageDataUrl?: string; x: number; y: number; size: number; rotation: number; opacity: number; shapeType?: 'circle' | 'rectangle' | 'line'; shapeColor?: string; shapeOpacity?: number; shapeBlur?: number }>;
   }
@@ -752,6 +753,26 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         backgroundCss = background.color;
       }
 
+      // Compute a contrasting guide color from the background
+      const guideColor = (() => {
+        let hex = '#000000';
+        if (background.type === 'solid' && background.color) {
+          hex = background.color;
+        } else if (background.type === 'gradient' && background.gradient?.colors?.length) {
+          hex = background.gradient.colors[0] ?? hex;
+        }
+        // Parse hex to RGB and compute relative luminance
+        const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+        if (m) {
+          const r = parseInt(m[1]!, 16) / 255;
+          const g = parseInt(m[2]!, 16) / 255;
+          const b = parseInt(m[3]!, 16) / 255;
+          const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+          return luminance > 0.5 ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.2)';
+        }
+        return 'rgba(255, 255, 255, 0.2)';
+      })();
+
       const panoramicContext: PanoramicTemplateContext = {
         canvasWidth: totalWidth,
         canvasHeight: frameHeight,
@@ -762,10 +783,26 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         frameStyle,
         backgroundCss,
         showGuides: true,
+        guideColor,
         elements: renderedElements,
       };
 
-      const html = await templateEngine.renderPanoramic(panoramicContext);
+      let html = await templateEngine.renderPanoramic(panoramicContext);
+
+      // Inject effects (spotlight, annotations, overlays)
+      const effects = body.effects as { spotlight?: unknown; annotations?: unknown[]; overlays?: unknown[] } | undefined;
+      if (effects) {
+        if (effects.spotlight) {
+          html = injectSpotlightHTML(html, effects.spotlight as Parameters<typeof injectSpotlightHTML>[1]);
+        }
+        if (effects.annotations && effects.annotations.length > 0) {
+          html = injectAnnotationsHTML(html, effects.annotations as Parameters<typeof injectAnnotationsHTML>[1], totalWidth);
+        }
+        if (effects.overlays && effects.overlays.length > 0) {
+          html = injectOverlaysHTML(html, effects.overlays as Parameters<typeof injectOverlaysHTML>[1], totalWidth, frameHeight);
+        }
+      }
+
       res.set('Content-Type', 'text/html');
       res.send(html);
     } catch (err) {
@@ -927,6 +964,244 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         } finally {
           await unlink(tmpPath).catch(() => {});
         }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // API: Export panoramic frame(s) as PNG
+  app.post('/api/panoramic-export', async (req, res) => {
+    try {
+      const body = req.body as Record<string, unknown>;
+      const frameCount = body.frameCount as number;
+      const background = body.background as PanoramicBackground;
+      const elements = body.elements as PanoramicElement[];
+      const font = (body.font as string) ?? config.theme.font;
+      const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
+      const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
+      const frameIndex = body.frameIndex as number | undefined;
+      const sizeKey = (body.sizeKey as string) ?? 'ios-6.7';
+
+      const { STORE_SIZES } = await import('@appframe/core');
+      const sizeSpec = STORE_SIZES[sizeKey];
+      if (!sizeSpec) {
+        res.status(400).json({ error: `Unknown size: ${sizeKey}` });
+        return;
+      }
+
+      // Calculate export dimensions: each frame is sizeSpec size, total canvas is frameCount * width
+      const exportFrameW = sizeSpec.width;
+      const exportFrameH = sizeSpec.height;
+      const exportTotalW = exportFrameW * frameCount;
+
+      // Build rendered elements at export resolution
+      const renderedElements: PanoramicRenderedElement[] = [];
+      for (const el of elements) {
+        const xPx = (el.x / 100) * exportTotalW;
+        const yPx = (el.y / 100) * exportFrameH;
+
+        if (el.type === 'device') {
+          const widthPx = (el.width / 100) * exportTotalW;
+
+          let screenshotDataUrl: string;
+          if (el.screenshot.startsWith('data:')) {
+            screenshotDataUrl = el.screenshot;
+          } else {
+            const screenshotPath = resolve(configDir, el.screenshot);
+            if (!screenshotPath.startsWith(resolve(configDir))) {
+              screenshotDataUrl = placeholderSvgDataUrl();
+            } else {
+              screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+            }
+          }
+
+          const frameId = el.frame ?? config.frames.ios ?? undefined;
+          let frame: FrameDefinition | undefined;
+          let frameSvg: string | null = null;
+          let framePngUrl: string | undefined;
+
+          if (frameId) {
+            frame = await getFrame(frameId);
+            if (!frame) {
+              const koubouFamily = getDeviceFamily(frameId);
+              if (koubouFamily) {
+                if (koubouFamily.previewFrameId) {
+                  frame = await getFrame(koubouFamily.previewFrameId);
+                }
+                if (koubouFamily.screenRect && koubouFamily.framePngSize) {
+                  const deviceColor = el.deviceColor ?? config.frames.deviceColor;
+                  const koubouId = getDeviceId(koubouFamily.id, deviceColor || undefined);
+                  const pngPath = koubouId ? await getDeviceFramePath(koubouId) : null;
+                  if (pngPath) {
+                    const pngBuffer = await readFile(pngPath);
+                    framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+                    frame = {
+                      id: koubouFamily.id,
+                      name: koubouFamily.name,
+                      manufacturer: 'Apple',
+                      year: koubouFamily.year,
+                      platform: 'ios' as const,
+                      framePath: '',
+                      screenArea: {
+                        x: koubouFamily.screenRect.x,
+                        y: koubouFamily.screenRect.y,
+                        width: koubouFamily.screenRect.width,
+                        height: koubouFamily.screenRect.height,
+                        borderRadius: koubouFamily.screenBorderRadius ?? 0,
+                      },
+                      frameSize: {
+                        width: koubouFamily.framePngSize.width,
+                        height: koubouFamily.framePngSize.height,
+                      },
+                      screenResolution: koubouFamily.screenResolution,
+                      tags: [koubouFamily.category],
+                    } satisfies FrameDefinition;
+                  }
+                }
+              }
+            }
+          } else {
+            frame = await getDefaultFrame('ios');
+          }
+
+          let clipLeft = 0, clipTop = 0, clipWidth = widthPx, clipHeight = widthPx * 2, clipRadius = 0;
+
+          if (frame && frameStyle !== 'none') {
+            if (!framePngUrl && frame.framePath) {
+              frameSvg = await readFile(frame.framePath, 'utf-8');
+            }
+            const scale = widthPx / frame.frameSize.width;
+            clipLeft = frame.screenArea.x * scale;
+            clipTop = frame.screenArea.y * scale;
+            clipWidth = frame.screenArea.width * scale;
+            clipHeight = frame.screenArea.height * scale;
+            clipRadius = frame.screenArea.borderRadius * scale;
+          }
+
+          const shadowCss = el.shadow
+            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(el.shadow.opacity * 255).toString(16).padStart(2, '0')});`
+            : '';
+
+          renderedElements.push({
+            type: 'device', z: el.z, xPx, yPx, widthPx,
+            rotation: el.rotation, screenshotDataUrl, frameSvg, framePngUrl, shadowCss,
+            clipLeft, clipTop, clipWidth, clipHeight, clipRadius,
+            borderSimulation: el.borderSimulation
+              ? { thickness: el.borderSimulation.thickness, color: el.borderSimulation.color, radius: el.borderSimulation.radius }
+              : undefined,
+          });
+        } else if (el.type === 'text') {
+          let gradientCss: string | undefined;
+          if (el.gradient) {
+            const colors = el.gradient.colors.join(', ');
+            gradientCss = el.gradient.type === 'radial'
+              ? `radial-gradient(circle at ${el.gradient.radialPosition ?? 'center'}, ${colors})`
+              : `linear-gradient(${el.gradient.direction ?? 135}deg, ${colors})`;
+          }
+          renderedElements.push({
+            type: 'text', z: el.z, xPx, yPx,
+            content: el.content, fontSizePx: (el.fontSize / 100) * exportFrameH,
+            color: el.color, font: el.font, fontWeight: el.fontWeight, fontStyle: el.fontStyle,
+            textAlign: el.textAlign, lineHeight: el.lineHeight,
+            maxWidthPx: el.maxWidth ? (el.maxWidth / 100) * exportTotalW : undefined,
+            gradientCss,
+          });
+        } else if (el.type === 'label') {
+          renderedElements.push({
+            type: 'label', z: el.z, xPx, yPx,
+            content: el.content, fontSizePx: (el.fontSize / 100) * exportFrameH,
+            color: el.color, backgroundColor: el.backgroundColor,
+            paddingPx: (el.padding / 100) * exportFrameH, borderRadius: el.borderRadius,
+          });
+        } else if (el.type === 'decoration') {
+          renderedElements.push({
+            type: 'decoration', z: el.z, xPx, yPx,
+            widthPx: (el.width / 100) * exportTotalW,
+            heightPx: el.height ? (el.height / 100) * exportFrameH : (el.width / 100) * exportTotalW,
+            shape: el.shape, color: el.color, opacity: el.opacity, rotation: el.rotation,
+          });
+        }
+      }
+
+      // Build background CSS
+      let backgroundCss = '#000000';
+      if (background.type === 'gradient' && background.gradient) {
+        const colors = background.gradient.colors.join(', ');
+        backgroundCss = background.gradient.type === 'radial'
+          ? `radial-gradient(circle at ${background.gradient.radialPosition}, ${colors})`
+          : `linear-gradient(${background.gradient.direction}deg, ${colors})`;
+      } else if (background.type === 'image' && background.image) {
+        backgroundCss = `url('${background.image}') center/cover no-repeat`;
+      } else if (background.type === 'solid' && background.color) {
+        backgroundCss = background.color;
+      }
+
+      const panoramicContext: PanoramicTemplateContext = {
+        canvasWidth: exportTotalW,
+        canvasHeight: exportFrameH,
+        frameCount,
+        frameWidth: exportFrameW,
+        font,
+        fontWeight,
+        frameStyle,
+        backgroundCss,
+        showGuides: false, // No guides for export
+        elements: renderedElements,
+      };
+
+      let html = await templateEngine.renderPanoramic(panoramicContext);
+
+      // Inject effects for export too
+      const effects = body.effects as { spotlight?: unknown; annotations?: unknown[]; overlays?: unknown[] } | undefined;
+      if (effects) {
+        if (effects.spotlight) {
+          html = injectSpotlightHTML(html, effects.spotlight as Parameters<typeof injectSpotlightHTML>[1]);
+        }
+        if (effects.annotations && effects.annotations.length > 0) {
+          html = injectAnnotationsHTML(html, effects.annotations as Parameters<typeof injectAnnotationsHTML>[1], exportTotalW);
+        }
+        if (effects.overlays && effects.overlays.length > 0) {
+          html = injectOverlaysHTML(html, effects.overlays as Parameters<typeof injectOverlaysHTML>[1], exportTotalW, exportFrameH);
+        }
+      }
+
+      const tmpPath = join(configDir, `.appframe-panoramic-export-${Date.now()}.png`);
+      const { unlink } = await import('node:fs/promises');
+      try {
+        if (frameIndex !== undefined) {
+          // Export a single frame — clip to that frame's region
+          await renderer.render({
+            html,
+            width: exportTotalW,
+            height: exportFrameH,
+            outputPath: tmpPath,
+            clip: {
+              x: frameIndex * exportFrameW,
+              y: 0,
+              width: exportFrameW,
+              height: exportFrameH,
+            },
+          });
+        } else {
+          // Export the full panoramic canvas
+          await renderer.render({
+            html,
+            width: exportTotalW,
+            height: exportFrameH,
+            outputPath: tmpPath,
+          });
+        }
+
+        const imageBuffer = await readFile(tmpPath);
+        const suffix = frameIndex !== undefined ? `frame_${frameIndex + 1}` : 'panoramic';
+        const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_${suffix}_${sizeKey}.png`;
+        res.set('Content-Type', 'image/png');
+        res.set('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(imageBuffer);
+      } finally {
+        await unlink(tmpPath).catch(() => {});
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';

@@ -31,7 +31,7 @@
       top: 0;
       height: 100%;
       width: 1px;
-      background: rgba(255, 0, 0, 0.3);
+      background: {{ guideColor | default('rgba(255, 255, 255, 0.2)') }};
       z-index: 999;
       pointer-events: none;
     }

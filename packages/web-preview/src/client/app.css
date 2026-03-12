@@ -6,7 +6,7 @@
   --color-surface-2: #1e1e2e;
   --color-border: #2a2a3a;
   --color-text: #e2e8f0;
-  --color-text-dim: #64748b;
+  --color-text-dim: #8896aa;
   --color-accent: #6366f1;
   --color-accent-hover: #818cf8;
   --color-green: #22c55e;
@@ -17,4 +17,13 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

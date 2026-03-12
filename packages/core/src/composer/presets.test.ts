@@ -3,13 +3,12 @@ import { COMPOSITION_PRESETS } from './presets.js';
 import type { CompositionPreset } from './presets.js';
 
 const ALL_PRESETS: CompositionPreset[] = [
-  'single', 'peek-right', 'peek-left', 'tilt-left', 'tilt-right',
-  'duo-overlap', 'duo-split', 'hero-tilt', 'fanned-cards',
+  'single', 'duo-overlap', 'duo-split', 'hero-tilt', 'fanned-cards',
 ];
 
 describe('COMPOSITION_PRESETS', () => {
-  it('contains all 9 preset types', () => {
-    expect(Object.keys(COMPOSITION_PRESETS)).toHaveLength(9);
+  it('contains all 5 preset types', () => {
+    expect(Object.keys(COMPOSITION_PRESETS)).toHaveLength(5);
     for (const id of ALL_PRESETS) {
       expect(COMPOSITION_PRESETS[id]).toBeDefined();
     }
@@ -31,11 +30,9 @@ describe('COMPOSITION_PRESETS', () => {
     }
   });
 
-  it('single-device presets have 1 slot', () => {
-    for (const id of ['single', 'peek-right', 'peek-left', 'tilt-left', 'tilt-right'] as const) {
-      expect(COMPOSITION_PRESETS[id].deviceCount).toBe(1);
-      expect(COMPOSITION_PRESETS[id].slots).toHaveLength(1);
-    }
+  it('single-device preset has 1 slot', () => {
+    expect(COMPOSITION_PRESETS['single'].deviceCount).toBe(1);
+    expect(COMPOSITION_PRESETS['single'].slots).toHaveLength(1);
   });
 
   it('multi-device presets have 2-3 slots', () => {

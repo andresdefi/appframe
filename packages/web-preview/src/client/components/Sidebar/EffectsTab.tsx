@@ -5,15 +5,16 @@ import { RangeSlider } from '../Controls/RangeSlider';
 import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
 import { CollapsiblePanel } from '../Controls/CollapsiblePanel';
+import { useConfirmDialog } from '../Controls/ConfirmDialog';
 import type { Annotation, Callout, Overlay } from '../../types';
 
-let idCounter = 0;
 function nextId(prefix: string) {
-  return `${prefix}-${++idCounter}`;
+  return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
 export function EffectsTab() {
   const { screen, update } = useCurrentScreen();
+  const { confirm, dialog } = useConfirmDialog();
 
   if (!screen) return null;
 
@@ -25,8 +26,9 @@ export function EffectsTab() {
     update({ annotations });
   };
 
-  const removeAnnotation = (idx: number) => {
-    if (!confirm('Remove this annotation?')) return;
+  const removeAnnotation = async (idx: number) => {
+    const ok = await confirm({ title: 'Remove Annotation', message: `Remove Annotation ${idx + 1}? This cannot be undone.` });
+    if (!ok) return;
     update({ annotations: screen.annotations.filter((_, i) => i !== idx) });
   };
 
@@ -56,8 +58,9 @@ export function EffectsTab() {
     update({ callouts });
   };
 
-  const removeCallout = (idx: number) => {
-    if (!confirm('Remove this callout?')) return;
+  const removeCallout = async (idx: number) => {
+    const ok = await confirm({ title: 'Remove Callout', message: `Remove Callout ${idx + 1}? This cannot be undone.` });
+    if (!ok) return;
     update({ callouts: screen.callouts.filter((_, i) => i !== idx) });
   };
 
@@ -84,8 +87,9 @@ export function EffectsTab() {
     update({ overlays });
   };
 
-  const removeOverlay = (idx: number) => {
-    if (!confirm('Remove this overlay?')) return;
+  const removeOverlay = async (idx: number) => {
+    const ok = await confirm({ title: 'Remove Overlay', message: `Remove Overlay ${idx + 1}? This cannot be undone.` });
+    if (!ok) return;
     update({ overlays: screen.overlays.filter((_, i) => i !== idx) });
   };
 
@@ -106,8 +110,14 @@ export function EffectsTab() {
 
   return (
     <>
+      {dialog}
       {/* Spotlight */}
-      <Section title="Spotlight / Dimming" tooltip="Dim the background and highlight a specific area of your screenshot to draw attention.">
+      <Section title="Spotlight / Dimming" tooltip="Dim the background and highlight a specific area of your screenshot to draw attention." defaultCollapsed={false}>
+        {!screen.spotlight && (
+          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
+            Dim the screenshot background and highlight a specific region to guide the viewer&apos;s eye.
+          </p>
+        )}
         <Checkbox
           label="Enable Spotlight"
           checked={!!screen.spotlight}
@@ -141,7 +151,12 @@ export function EffectsTab() {
       </Section>
 
       {/* Annotations */}
-      <Section title="Annotations">
+      <Section title="Annotations" tooltip="Draw shapes (rectangles, circles) over the screenshot to highlight specific UI elements.">
+        {screen.annotations.length === 0 && (
+          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
+            Highlight areas of your screenshot with rectangles or circles. Great for drawing attention to specific features.
+          </p>
+        )}
         <button
           className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
           onClick={addAnnotation}
@@ -159,9 +174,9 @@ export function EffectsTab() {
               value={ann.shape}
               onChange={(v) => updateAnnotation(idx, { shape: v as 'rounded-rect' | 'rectangle' | 'circle' })}
               options={[
-                { value: 'rounded-rect', label: 'rounded-rect' },
-                { value: 'rectangle', label: 'rectangle' },
-                { value: 'circle', label: 'circle' },
+                { value: 'rounded-rect', label: 'Rounded Rect' },
+                { value: 'rectangle', label: 'Rectangle' },
+                { value: 'circle', label: 'Circle' },
               ]}
             />
             <ColorPicker label="Color" value={ann.strokeColor} onChange={(v) => updateAnnotation(idx, { strokeColor: v })} />
@@ -177,32 +192,66 @@ export function EffectsTab() {
       {/* Loupe */}
       <Section title="Loupe / Magnification" tooltip="Magnify a region of the screenshot and display it enlarged elsewhere on the frame.">
         <Checkbox
-          label="Enable Loupe"
+          label="Loupe"
           checked={!!screen.loupe}
           onChange={(checked) =>
             update({
               loupe: checked
-                ? { sourceX: 50, sourceY: 50, displayX: 70, displayY: 20, size: 20, zoom: 2.5, borderWidth: 3, borderColor: '#ffffff' }
+                ? { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, scale: 1.1, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 }
                 : null,
             })
           }
         />
-        {screen.loupe && (
-          <>
-            <RangeSlider label="Source X" value={screen.loupe.sourceX} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ loupe: { ...screen.loupe!, sourceX: v } })} />
-            <RangeSlider label="Source Y" value={screen.loupe.sourceY} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ loupe: { ...screen.loupe!, sourceY: v } })} />
-            <RangeSlider label="Display X" value={screen.loupe.displayX} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ loupe: { ...screen.loupe!, displayX: v } })} />
-            <RangeSlider label="Display Y" value={screen.loupe.displayY} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ loupe: { ...screen.loupe!, displayY: v } })} />
-            <RangeSlider label="Size" value={screen.loupe.size} min={5} max={50} formatValue={(v) => `${v}%`} onChange={(v) => update({ loupe: { ...screen.loupe!, size: v } })} />
-            <RangeSlider label="Zoom" value={Math.round(screen.loupe.zoom * 100)} min={150} max={500} step={10} formatValue={(v) => `${(v / 100).toFixed(1)}x`} onChange={(v) => update({ loupe: { ...screen.loupe!, zoom: v / 100 } })} />
-            <RangeSlider label="Border Width" value={screen.loupe.borderWidth} min={0} max={10} formatValue={(v) => `${v}px`} onChange={(v) => update({ loupe: { ...screen.loupe!, borderWidth: v } })} />
-            <ColorPicker label="Border Color" value={screen.loupe.borderColor} onChange={(v) => update({ loupe: { ...screen.loupe!, borderColor: v } })} />
-          </>
-        )}
+        {(() => {
+          const defaults = { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, scale: 1.1, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 };
+          const l = screen.loupe ?? defaults;
+          const upd = (partial: Record<string, unknown>) => update({ loupe: { ...l, ...partial } });
+          return (
+            <div className={!screen.loupe ? 'opacity-40 pointer-events-none' : ''}>
+              <RangeSlider label="Width" value={l.width} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ width: v })} />
+              <RangeSlider label="Height" value={l.height} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ height: v })} />
+              <RangeSlider label="Source X" value={l.sourceX} min={-1} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ sourceX: v })} />
+              <RangeSlider label="Source Y" value={l.sourceY} min={-1} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ sourceY: v })} />
+              <RangeSlider label="Corner Radius" value={l.cornerRadius ?? 0} min={0} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ cornerRadius: v })} />
+              <Checkbox
+                label="Border"
+                checked={(l.borderWidth ?? 0) > 0}
+                onChange={(checked) => upd({ borderWidth: checked ? 3 : 0 })}
+              />
+              {(l.borderWidth ?? 0) > 0 && (
+                <>
+                  <RangeSlider label="Border Width" value={l.borderWidth} min={1} max={10} formatValue={(v) => `${v}px`} onChange={(v) => upd({ borderWidth: v })} />
+                  <ColorPicker label="Border Color" value={l.borderColor} onChange={(v) => upd({ borderColor: v })} />
+                </>
+              )}
+              <Checkbox
+                label="Shadow"
+                checked={!!l.shadow}
+                onChange={(checked) => upd({ shadow: checked })}
+              />
+              {l.shadow && (
+                <>
+                  <ColorPicker label="Shadow Color" value={l.shadowColor ?? '#000000'} onChange={(v) => upd({ shadowColor: v })} />
+                  <RangeSlider label="Shadow Radius" value={l.shadowRadius ?? 30} min={0} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowRadius: v })} />
+                  <RangeSlider label="Shadow X Offset" value={l.shadowOffsetX ?? 0} min={-50} max={50} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowOffsetX: v })} />
+                  <RangeSlider label="Shadow Y Offset" value={l.shadowOffsetY ?? 0} min={-50} max={50} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowOffsetY: v })} />
+                </>
+              )}
+              <RangeSlider label="Scale" value={l.scale ?? 1.1} min={1} max={3} step={0.01} formatValue={(v) => `${v.toFixed(2)}x`} onChange={(v) => upd({ scale: v })} />
+              <RangeSlider label="X Offset" value={l.xOffset ?? 0} min={-100} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ xOffset: v })} />
+              <RangeSlider label="Y Offset" value={l.yOffset ?? 0} min={-100} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ yOffset: v })} />
+            </div>
+          );
+        })()}
       </Section>
 
       {/* Callouts */}
       <Section title="Callouts" tooltip="Crop and enlarge a portion of the screenshot, displayed as a floating callout card.">
+        {screen.callouts.length === 0 && (
+          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
+            Zoom into a specific area and display it as a floating card. Perfect for showcasing small UI details.
+          </p>
+        )}
         <button
           className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
           onClick={addCallout}
@@ -230,6 +279,11 @@ export function EffectsTab() {
 
       {/* Overlays */}
       <Section title="Overlays" tooltip="Add decorative shapes, stars, icons, or badges floating over the screenshot.">
+        {screen.overlays.length === 0 && (
+          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
+            Add floating shapes, star ratings, icons, or badges over your screenshot for extra visual appeal.
+          </p>
+        )}
         <button
           className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
           onClick={addOverlay}
@@ -247,11 +301,11 @@ export function EffectsTab() {
               value={ov.type}
               onChange={(v) => updateOverlay(idx, { type: v as Overlay['type'] })}
               options={[
-                { value: 'shape', label: 'shape' },
-                { value: 'star-rating', label: 'star-rating' },
-                { value: 'icon', label: 'icon' },
-                { value: 'badge', label: 'badge' },
-                { value: 'custom', label: 'custom' },
+                { value: 'shape', label: 'Shape' },
+                { value: 'star-rating', label: 'Star Rating' },
+                { value: 'icon', label: 'Icon' },
+                { value: 'badge', label: 'Badge' },
+                { value: 'custom', label: 'Custom' },
               ]}
             />
             <RangeSlider label="X" value={ov.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { x: v })} />

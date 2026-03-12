@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 interface ColorPickerProps {
   label: string;
   value: string;
@@ -15,13 +17,16 @@ export function ColorPicker({
   presets,
   onPresetClick,
 }: ColorPickerProps) {
+  const id = useId();
   return (
     <div className="mb-2.5">
       <div className="flex items-center gap-2">
-        <label className="text-xs text-text-dim flex-1">{label}</label>
+        <label htmlFor={id} className="text-xs text-text-dim flex-1">{label}</label>
         <input
+          id={id}
           type="color"
           value={value}
+          aria-label={label}
           className="w-8 h-8 border border-border rounded-md cursor-pointer bg-transparent p-0.5"
           onInput={(e) => {
             onInstant?.((e.target as HTMLInputElement).value);

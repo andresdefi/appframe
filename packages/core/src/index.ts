@@ -61,7 +61,7 @@ export type {
 
 export { TemplateEngine } from './templates/index.js';
 export type { TemplateContext, DeviceContext, PanoramicTemplateContext, PanoramicRenderedElement } from './templates/index.js';
-export { injectSpotlightHTML, injectAnnotationsHTML } from './templates/index.js';
+export { injectSpotlightHTML, injectAnnotationsHTML, injectOverlaysHTML } from './templates/index.js';
 
 export { loadFontFaces, loadAllFontFaces, getFontName, FONT_CATALOG } from './fonts/index.js';
 export type { FontInfo } from './fonts/index.js';

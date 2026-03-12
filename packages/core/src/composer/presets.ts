@@ -1,10 +1,5 @@
 export type CompositionPreset =
   | 'single'
-  // Single-device edge bleed presets
-  | 'peek-right'
-  | 'peek-left'
-  | 'tilt-left'
-  | 'tilt-right'
   // Multi-device presets
   | 'duo-overlap'
   | 'duo-split'
@@ -37,47 +32,6 @@ export const COMPOSITION_PRESETS: Record<CompositionPreset, CompositionDefinitio
     deviceCount: 1,
     slots: [
       { offsetX: 0, offsetY: 15, scale: 92, rotation: 0, angle: 0, tilt: 0, zIndex: 1 },
-    ],
-  },
-
-  // ===== Single-device edge bleed presets =====
-  // These position one device to overflow the canvas edge, creating
-  // a "bleeding" effect when screens are placed side by side in the store.
-
-  'peek-right': {
-    id: 'peek-right',
-    name: 'Peek Right',
-    description: 'Device bleeds off right edge — pair with Peek Left on next screen',
-    deviceCount: 1,
-    slots: [
-      { offsetX: 48, offsetY: 8, scale: 95, rotation: 5, angle: -8, tilt: 0, zIndex: 1 },
-    ],
-  },
-  'peek-left': {
-    id: 'peek-left',
-    name: 'Peek Left',
-    description: 'Device bleeds off left edge — pair with Peek Right on previous screen',
-    deviceCount: 1,
-    slots: [
-      { offsetX: -48, offsetY: 8, scale: 95, rotation: -5, angle: 8, tilt: 0, zIndex: 1 },
-    ],
-  },
-  'tilt-left': {
-    id: 'tilt-left',
-    name: 'Tilt Left',
-    description: 'Dramatic tilt overflowing left edge',
-    deviceCount: 1,
-    slots: [
-      { offsetX: -25, offsetY: 5, scale: 105, rotation: -18, angle: 15, tilt: 3, zIndex: 1 },
-    ],
-  },
-  'tilt-right': {
-    id: 'tilt-right',
-    name: 'Tilt Right',
-    description: 'Dramatic tilt overflowing right edge',
-    deviceCount: 1,
-    slots: [
-      { offsetX: 25, offsetY: 5, scale: 105, rotation: 18, angle: -15, tilt: 3, zIndex: 1 },
     ],
   },
 

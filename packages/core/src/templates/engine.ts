@@ -133,6 +133,7 @@ export interface PanoramicTemplateContext {
 
   // Debug
   showGuides?: boolean;
+  guideColor?: string;
 
   // Pre-computed elements with pixel values
   elements: PanoramicRenderedElement[];

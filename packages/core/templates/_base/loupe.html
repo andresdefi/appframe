@@ -1,27 +1,36 @@
-{# Loupe magnification — circular zoom of a screenshot region #}
-{% set loupeSize = (canvasWidth * loupe.size / 100) | round %}
-{% set loupePosX = (canvasWidth * loupe.displayX / 100) | round %}
-{% set loupePosY = (canvasHeight * loupe.displayY / 100) | round %}
-{% set zoomedWidth = (loupeSize * loupe.zoom) | round %}
-{% set sourceOffsetX = (loupe.sourceX / 100 * zoomedWidth - loupeSize / 2) | round %}
-{% set sourceOffsetY = (loupe.sourceY / 100 * zoomedWidth * canvasHeight / canvasWidth - loupeSize / 2) | round %}
+{# Loupe magnification — zoom of a screenshot region #}
+{% set loupeW = (canvasWidth * loupe.width) | round %}
+{% set loupeH = (canvasHeight * loupe.height) | round %}
+{% set loupeZoom = loupe.scale or loupe.zoom %}
+{% set loupePosX = (canvasWidth * (loupe.displayX or 50) / 100 + (loupe.xOffset or 0)) | round %}
+{% set loupePosY = (canvasHeight * (loupe.displayY or 50) / 100 + (loupe.yOffset or 0)) | round %}
+{% set zoomedWidth = (loupeW * loupeZoom) | round %}
+{% set zoomedHeight = (loupeH * loupeZoom) | round %}
+{% set sourceOffsetX = (((loupe.sourceX + 1) / 2) * zoomedWidth - loupeW / 2) | round %}
+{% set sourceOffsetY = (((loupe.sourceY + 1) / 2) * zoomedHeight - loupeH / 2) | round %}
+{% set borderRadius = loupe.cornerRadius or 0 %}
+{% set shadowCss = '' %}
+{% if loupe.shadow %}
+  {% set shadowCss = 'box-shadow: ' + (loupe.shadowOffsetX or 0) + 'px ' + (loupe.shadowOffsetY or 0) + 'px ' + (loupe.shadowRadius or 30) + 'px ' + (loupe.shadowColor or '#000000') + ';' %}
+{% endif %}
 <div style="
   position: absolute;
   z-index: 10;
-  width: {{ loupeSize }}px;
-  height: {{ loupeSize }}px;
-  left: {{ loupePosX - loupeSize / 2 }}px;
-  top: {{ loupePosY - loupeSize / 2 }}px;
-  border-radius: 50%;
+  width: {{ loupeW }}px;
+  height: {{ loupeH }}px;
+  left: {{ loupePosX - loupeW / 2 }}px;
+  top: {{ loupePosY - loupeH / 2 }}px;
+  border-radius: {{ borderRadius }}%;
   overflow: hidden;
-  border: {{ loupe.borderWidth }}px solid {{ loupe.borderColor }};
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  {% if loupe.borderWidth > 0 %}border: {{ loupe.borderWidth }}px solid {{ loupe.borderColor }};{% endif %}
+  {{ shadowCss }}
 ">
   <img src="{{ screenshotDataUrl }}" style="
     position: absolute;
     width: {{ zoomedWidth }}px;
-    height: auto;
+    height: {{ zoomedHeight }}px;
     left: -{{ sourceOffsetX }}px;
     top: -{{ sourceOffsetY }}px;
+    object-fit: cover;
   ">
 </div>

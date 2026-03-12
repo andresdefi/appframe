@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 
 interface RangeSliderProps {
   label: string;
@@ -23,6 +23,7 @@ export function RangeSlider({
   onInstant,
   disabled,
 }: RangeSliderProps) {
+  const id = useId();
   const displayValue = formatValue ? formatValue(value) : String(value);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -44,16 +45,22 @@ export function RangeSlider({
   }
 
   return (
-    <div className="mb-2.5">
-      <label className="block text-xs text-text-dim mb-1">{label}</label>
+    <div className={`mb-2.5${disabled ? ' opacity-50 cursor-not-allowed' : ''}`}>
+      <label htmlFor={id} className="block text-xs text-text-dim mb-1">{label}</label>
       <div className="flex items-center gap-2">
         <input
+          id={id}
           type="range"
           min={min}
           max={max}
           step={step}
           value={value}
           disabled={disabled}
+          aria-label={label}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={value}
+          aria-valuetext={displayValue}
           className="w-full accent-accent"
           onInput={(e) => {
             const v = Number((e.target as HTMLInputElement).value);
@@ -68,6 +75,7 @@ export function RangeSlider({
             ref={inputRef}
             type="text"
             inputMode="decimal"
+            aria-label={`Edit ${label} value`}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitEdit}
@@ -79,10 +87,12 @@ export function RangeSlider({
           />
         ) : (
           <span
-            className="text-xs text-text-dim min-w-[40px] text-right shrink-0 cursor-text hover:text-text transition-colors"
+            className={`text-xs text-text-dim min-w-[40px] text-right shrink-0 transition-colors${disabled ? '' : ' cursor-text hover:text-text'}`}
             tabIndex={disabled ? undefined : 0}
-            role="button"
-            aria-label={`Edit ${label} value`}
+            role="spinbutton"
+            aria-label={`${label}: ${displayValue}. Click to edit`}
+            aria-valuenow={value}
+            aria-valuetext={displayValue}
             onClick={() => {
               if (disabled) return;
               setDraft(String(value));

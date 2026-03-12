@@ -68,3 +68,13 @@ export async function fetchExport(body: Record<string, unknown>): Promise<Blob> 
   if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
   return res.blob();
 }
+
+export async function fetchPanoramicExport(body: Record<string, unknown>): Promise<Blob> {
+  const res = await fetch(`${API}/api/panoramic-export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Panoramic export failed: ${res.statusText}`);
+  return res.blob();
+}

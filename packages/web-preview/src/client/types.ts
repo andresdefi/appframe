@@ -40,6 +40,12 @@ export type {
   PanoramicBackground,
 };
 
+export interface PanoramicEffects {
+  spotlight: SpotlightConfig | null;
+  annotations: Annotation[];
+  overlays: Overlay[];
+}
+
 export interface TextPosition {
   x: number;
   y: number;

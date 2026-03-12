@@ -4,6 +4,7 @@ import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
 import { useDragPosition } from '../../hooks/useDragPosition';
 import { registerIframe } from '../../utils/iframeRegistry';
+import { useConfirmDialog } from '../Controls/ConfirmDialog';
 import type { TextPosition } from '../../types';
 
 export function PreviewArea() {
@@ -23,20 +24,30 @@ export function PreviewArea() {
   const areaRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
 
-  // Compute scale based on area size
+  // Compute scale to fit all screens + Add button in the available area
   const computeScale = useCallback(() => {
     const area = areaRef.current;
     if (!area) return;
-    const areaH = area.clientHeight - 120;
-    const maxCardH = Math.min(areaH * 0.85, 500);
-    const maxCardW = 400;
-    const scaleForH = maxCardH / previewH;
-    const scaleForW = maxCardW / previewW;
-    let s = Math.min(scaleForH, scaleForW);
+    const padding = 48; // p-6 on both sides
+    const gap = 16; // gap-4
+    const headerHeight = 56; // zoom bar + some padding
+    const areaW = area.clientWidth - padding;
+    const areaH = area.clientHeight - headerHeight - padding;
+
+    // Total items: N screen cards + 1 add-screen button (half-width)
+    const itemCount = screens.length + 0.5;
+    const totalGaps = screens.length * gap;
+
+    // Scale to fit width: all cards + gaps must fit in areaW
+    const scaleForW = (areaW - totalGaps) / (itemCount * previewW);
+    // Scale to fit height: tallest card must fit in areaH
+    const scaleForH = areaH / previewH;
+
+    let s = Math.min(scaleForW, scaleForH);
     s = Math.min(s, 1.3);
-    s = Math.max(s, 0.15);
+    s = Math.max(s, 0.1);
     setScale(s);
-  }, [previewH, previewW]);
+  }, [previewH, previewW, screens.length]);
 
   useEffect(() => {
     computeScale();
@@ -46,18 +57,21 @@ export function PreviewArea() {
 
   const bgClass = previewBg === 'light' ? 'bg-gray-100' : 'bg-bg';
 
+  const [manualZoom, setManualZoom] = useState<number | null>(null);
+  const effectiveScale = manualZoom ?? scale;
+
   return (
     <div ref={areaRef} className={`flex-1 flex flex-col overflow-hidden ${bgClass}`}>
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="flex items-center gap-4 p-6 h-full min-w-min">
+      <div className="flex-1 overflow-auto">
+        <div className="flex items-center justify-center gap-4 p-6 min-w-min min-h-full">
           {screens.map((screen, i) => (
             <ScreenCard
-              key={i}
+              key={`screen-${screen.screenIndex}-${i}`}
               index={i}
               selected={i === selectedScreen}
               previewW={previewW}
               previewH={previewH}
-              scale={scale}
+              scale={effectiveScale}
               headline={screen.headline}
               canRemove={screens.length > 1}
               canMoveLeft={i > 0}
@@ -73,16 +87,43 @@ export function PreviewArea() {
             />
           ))}
           <button
-            className="shrink-0 flex items-center justify-center border-2 border-dashed border-border rounded-lg text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer"
+            className="shrink-0 flex items-center justify-center border-2 border-dashed border-border rounded-lg text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             style={{
-              width: Math.round(previewW * scale * 0.5),
-              height: Math.round(previewH * scale),
+              width: Math.round(previewW * effectiveScale * 0.5),
+              height: Math.round(previewH * effectiveScale),
             }}
             onClick={addScreen}
+            aria-label="Add a new screen"
           >
             + Add Screen
           </button>
         </div>
+      </div>
+      {/* Zoom control */}
+      <div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-surface">
+        <span className="text-[10px] text-text-dim">Zoom</span>
+        <input
+          type="range"
+          min={10}
+          max={150}
+          value={Math.round((manualZoom ?? scale) * 100)}
+          onChange={(e) => setManualZoom(parseInt(e.target.value, 10) / 100)}
+          className="flex-1 h-1 accent-accent"
+          aria-label="Zoom level"
+          aria-valuemin={10}
+          aria-valuemax={150}
+          aria-valuenow={Math.round((manualZoom ?? scale) * 100)}
+          aria-valuetext={`${Math.round((manualZoom ?? scale) * 100)}%`}
+        />
+        <span className="text-[10px] text-text-dim w-8 text-right">{Math.round((manualZoom ?? scale) * 100)}%</span>
+        <button
+          className={`text-[10px] transition-opacity ${manualZoom !== null ? 'text-text-dim hover:text-text' : 'text-text-dim/50 cursor-default'}`}
+          onClick={() => setManualZoom(null)}
+          disabled={manualZoom === null}
+          aria-label="Reset zoom to fit"
+        >
+          Fit
+        </button>
       </div>
     </div>
   );
@@ -128,6 +169,7 @@ function ScreenCard({
 }: ScreenCardProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { confirm, dialog } = useConfirmDialog();
   const [initialLoad, setInitialLoad] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -220,6 +262,8 @@ function ScreenCard({
   }, [screen, renderVersion, platform, previewW, previewH, locale]);
 
   return (
+    <>
+    {dialog}
     <div
       className={`shrink-0 cursor-pointer rounded-lg overflow-hidden transition-shadow ${
         selected ? 'ring-2 ring-accent shadow-lg' : 'hover:ring-1 hover:ring-border'
@@ -230,9 +274,10 @@ function ScreenCard({
       <div className="flex items-center justify-between px-2 py-1 bg-surface text-[10px]">
         {canMoveLeft ? (
           <button
-            className="text-text-dim hover:text-text px-1"
+            className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
             onClick={(e) => { e.stopPropagation(); onMoveLeft(); }}
             title="Move left"
+            aria-label={`Move screen ${index + 1} left`}
           >
             &lsaquo;
           </button>
@@ -241,18 +286,24 @@ function ScreenCard({
         <div className="flex items-center gap-0.5">
           {canMoveRight && (
             <button
-              className="text-text-dim hover:text-text px-1"
+              className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
               onClick={(e) => { e.stopPropagation(); onMoveRight(); }}
               title="Move right"
+              aria-label={`Move screen ${index + 1} right`}
             >
               &rsaquo;
             </button>
           )}
           {canRemove && (
             <button
-              className="text-text-dim hover:text-red-400 px-1"
-              onClick={(e) => { e.stopPropagation(); if (confirm('Remove this screen?')) onRemove(); }}
+              className="text-text-dim hover:text-red-400 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+              onClick={async (e) => {
+                e.stopPropagation();
+                const ok = await confirm({ title: 'Remove Screen', message: `Remove Screen ${index + 1}? This cannot be undone.` });
+                if (ok) onRemove();
+              }}
               title="Remove screen"
+              aria-label={`Remove screen ${index + 1}`}
             >
               &times;
             </button>
@@ -293,5 +344,6 @@ function ScreenCard({
         />
       </div>
     </div>
+    </>
   );
 }

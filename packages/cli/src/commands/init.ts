@@ -138,9 +138,7 @@ frames:
   style: flat
 
 # Vary layouts across slides — don't use the same composition for every screen.
-# Compositions: single, peek-right, peek-left, tilt-left, tilt-right,
-#               duo-overlap, duo-split, hero-tilt, fanned-cards
-# Tip: pair peek-right with peek-left on adjacent slides for cross-screen effects.
+# Compositions: single, duo-overlap, duo-split, hero-tilt, fanned-cards
 screens:
   - screenshot: screenshots/screen-1.png
     headline: "Your main headline here"

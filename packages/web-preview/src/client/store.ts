@@ -6,6 +6,7 @@ import type {
   FrameStyle,
   PanoramicElement,
   PanoramicBackground,
+  PanoramicEffects,
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 
@@ -85,8 +86,10 @@ export function createScreenState(
 
 // Font info from /api/fonts
 export interface FontData {
+  id: string;
   name: string;
   weights: number[];
+  category?: 'sans-serif' | 'serif' | 'display';
 }
 
 // Frame info from /api/frames
@@ -138,6 +141,7 @@ export interface PreviewStore {
   panoramicFrameCount: number;
   panoramicBackground: PanoramicBackground;
   panoramicElements: PanoramicElement[];
+  panoramicEffects: PanoramicEffects;
   selectedElementIndex: number | null;
 
   // Catalog data
@@ -182,6 +186,7 @@ export interface PreviewStore {
   addPanoramicElement: (element: PanoramicElement) => void;
   removePanoramicElement: (index: number) => void;
   setPanoramicFrameCount: (count: number) => void;
+  updatePanoramicEffects: (partial: Partial<PanoramicEffects>) => void;
 
   // Undo/redo
   undo: () => void;
@@ -193,6 +198,7 @@ interface HistoryEntry {
   screens: ScreenState[];
   panoramicElements: PanoramicElement[];
   panoramicBackground: PanoramicBackground;
+  panoramicEffects: PanoramicEffects;
   selectedScreen: number;
   selectedElementIndex: number | null;
 }
@@ -206,12 +212,13 @@ function deepCopy<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
-function pushSnapshot(state: { screens: ScreenState[]; panoramicElements: PanoramicElement[]; panoramicBackground: PanoramicBackground; selectedScreen: number; selectedElementIndex: number | null }) {
+function pushSnapshot(state: { screens: ScreenState[]; panoramicElements: PanoramicElement[]; panoramicBackground: PanoramicBackground; panoramicEffects: PanoramicEffects; selectedScreen: number; selectedElementIndex: number | null }) {
   if (_skipSnapshot) return;
   _undoStack.push({
     screens: deepCopy(state.screens),
     panoramicElements: deepCopy(state.panoramicElements),
     panoramicBackground: deepCopy(state.panoramicBackground),
+    panoramicEffects: deepCopy(state.panoramicEffects),
     selectedScreen: state.selectedScreen,
     selectedElementIndex: state.selectedElementIndex,
   });
@@ -231,8 +238,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   renderVersion: 0,
   isPanoramic: false,
   panoramicFrameCount: 5,
-  panoramicBackground: { type: 'solid', color: '#000000' } as PanoramicBackground,
+  panoramicBackground: { type: 'solid', color: '#ffffff' } as PanoramicBackground,
   panoramicElements: [] as PanoramicElement[],
+  panoramicEffects: { spotlight: null, annotations: [], overlays: [] } as PanoramicEffects,
   selectedElementIndex: null,
   fonts: [],
   frames: [],
@@ -395,15 +403,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         // Set frame count to match screen count
         updates.panoramicFrameCount = screenCount;
 
-        // Set gradient background from theme
+        // Set solid white background (matches individual layout default)
         updates.panoramicBackground = {
-          type: 'gradient',
-          gradient: {
-            type: 'linear',
-            colors: [c.primary, c.secondary ?? c.background],
-            direction: 135,
-            radialPosition: 'center',
-          },
+          type: 'solid',
+          color: '#ffffff',
         };
 
         // Build elements from individual screens
@@ -451,16 +454,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         state.panoramicBackground.type === 'solid' &&
         (!state.panoramicBackground.color || state.panoramicBackground.color === '#000000')
       ) {
-        // No screens either — just set a nice gradient background
-        const c = state.config.theme.colors;
+        // No screens either — set solid white background (matches individual layout default)
         updates.panoramicBackground = {
-          type: 'gradient',
-          gradient: {
-            type: 'linear',
-            colors: [c.primary, c.secondary ?? c.background],
-            direction: 135,
-            radialPosition: 'center',
-          },
+          type: 'solid',
+          color: '#ffffff',
         };
       }
       return updates;
@@ -507,7 +504,38 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       return { panoramicElements: elements, selectedElementIndex };
     }),
 
-  setPanoramicFrameCount: (count) => set({ panoramicFrameCount: count }),
+  setPanoramicFrameCount: (count) =>
+    set((state) => {
+      const oldCount = state.panoramicFrameCount;
+      if (oldCount === count) return state;
+      pushSnapshot(state);
+      // Rescale element x and width so they stay in the same frame-relative position.
+      // Coordinates are stored as % of totalCanvasWidth (= previewW * frameCount).
+      // When frameCount changes, multiply x-axis values by oldCount/newCount.
+      const scale = oldCount / count;
+      const elements = state.panoramicElements.map((el) => {
+        const base = { ...el, x: el.x * scale };
+        if (el.type === 'device') {
+          return { ...base, width: el.width * scale };
+        }
+        if (el.type === 'text' && el.maxWidth) {
+          return { ...base, maxWidth: el.maxWidth * scale };
+        }
+        if (el.type === 'decoration') {
+          return { ...base, width: el.width * scale };
+        }
+        return base;
+      }) as typeof state.panoramicElements;
+      return { panoramicFrameCount: count, panoramicElements: elements };
+    }),
+
+  updatePanoramicEffects: (partial) =>
+    set((state) => {
+      pushSnapshot(state);
+      return {
+        panoramicEffects: { ...state.panoramicEffects, ...partial },
+      };
+    }),
 
   // Undo/redo
   undo: () => {
@@ -517,6 +545,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       screens: deepCopy(state.screens),
       panoramicElements: deepCopy(state.panoramicElements),
       panoramicBackground: deepCopy(state.panoramicBackground),
+      panoramicEffects: deepCopy(state.panoramicEffects),
       selectedScreen: state.selectedScreen,
       selectedElementIndex: state.selectedElementIndex,
     });
@@ -526,6 +555,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       screens: deepCopy(entry.screens),
       panoramicElements: deepCopy(entry.panoramicElements),
       panoramicBackground: deepCopy(entry.panoramicBackground),
+      panoramicEffects: deepCopy(entry.panoramicEffects),
       selectedScreen: entry.selectedScreen,
       selectedElementIndex: entry.selectedElementIndex,
     });
@@ -539,6 +569,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       screens: deepCopy(state.screens),
       panoramicElements: deepCopy(state.panoramicElements),
       panoramicBackground: deepCopy(state.panoramicBackground),
+      panoramicEffects: deepCopy(state.panoramicEffects),
       selectedScreen: state.selectedScreen,
       selectedElementIndex: state.selectedElementIndex,
     });
@@ -548,6 +579,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       screens: deepCopy(entry.screens),
       panoramicElements: deepCopy(entry.panoramicElements),
       panoramicBackground: deepCopy(entry.panoramicBackground),
+      panoramicEffects: deepCopy(entry.panoramicEffects),
       selectedScreen: entry.selectedScreen,
       selectedElementIndex: entry.selectedElementIndex,
     });

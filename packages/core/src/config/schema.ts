@@ -80,14 +80,26 @@ export type BorderSimulation = z.infer<typeof borderSimulationSchema>;
 // --- Loupe ---
 
 export const loupeSchema = z.object({
-  sourceX: z.number().min(0).max(100),
-  sourceY: z.number().min(0).max(100),
-  displayX: z.number().min(0).max(100),
-  displayY: z.number().min(0).max(100),
-  size: z.number().min(5).max(50).default(20),
-  zoom: z.number().min(1.5).max(5).default(2.5),
-  borderWidth: z.number().min(0).max(10).default(3),
+  sourceX: z.number().min(-1).max(1),
+  sourceY: z.number().min(-1).max(1),
+  displayX: z.number().min(0).max(100).optional(),
+  displayY: z.number().min(0).max(100).optional(),
+  width: z.number().min(0.05).max(1).default(0.5),
+  height: z.number().min(0.05).max(1).default(0.33),
+  // Legacy field — mapped to width at runtime
+  size: z.number().min(5).max(50).optional(),
+  zoom: z.number().min(1).max(5).default(2.5),
+  scale: z.number().min(1).max(3).optional(),
+  cornerRadius: z.number().min(0).max(100).default(0),
+  borderWidth: z.number().min(0).max(10).default(0),
   borderColor: hexColor.default('#ffffff'),
+  shadow: z.boolean().default(false),
+  shadowColor: hexColor.default('#000000'),
+  shadowRadius: z.number().min(0).max(100).default(30),
+  shadowOffsetX: z.number().min(-50).max(50).default(0),
+  shadowOffsetY: z.number().min(-50).max(50).default(0),
+  xOffset: z.number().min(-100).max(100).default(0),
+  yOffset: z.number().min(-100).max(100).default(0),
 });
 export type Loupe = z.infer<typeof loupeSchema>;
 
@@ -166,10 +178,6 @@ export const frameConfigSchema = z.object({
 
 export const compositionPresetSchema = z.enum([
   'single',
-  'peek-right',
-  'peek-left',
-  'tilt-left',
-  'tilt-right',
   'duo-overlap',
   'duo-split',
   'hero-tilt',
@@ -295,10 +303,15 @@ export const outputConfigSchema = z.object({
 // --- Panoramic mode ---
 
 export const panoramicBackgroundSchema = z.object({
-  type: z.enum(['solid', 'gradient', 'image']).default('solid'),
+  type: z.enum(['solid', 'gradient', 'image', 'preset']).default('solid'),
   color: hexColor.optional(),
   gradient: backgroundGradientSchema.optional(),
   image: z.string().optional(),
+  overlay: z.object({
+    color: hexColor.default('#000000'),
+    opacity: z.number().min(0).max(1).default(0.3),
+  }).optional(),
+  preset: z.string().optional(),
 });
 
 const panoramicDeviceElementSchema = z.object({
@@ -306,10 +319,18 @@ const panoramicDeviceElementSchema = z.object({
   screenshot: z.string().min(1),
   frame: z.string().optional(),
   deviceColor: z.string().optional(),
+  frameStyle: frameStyleSchema.default('flat'),
   x: z.number().min(-50).max(150).describe('Horizontal position as % of total canvas width'),
   y: z.number().min(-50).max(150).describe('Vertical position as % of canvas height'),
   width: z.number().min(5).max(100).describe('Device width as % of canvas width'),
   rotation: z.number().min(-180).max(180).default(0),
+  deviceScale: z.number().min(50).max(100).default(92),
+  deviceTop: z.number().min(-80).max(80).default(15),
+  deviceOffsetX: z.number().min(-80).max(80).default(0),
+  deviceAngle: z.number().min(2).max(45).default(8),
+  deviceTilt: z.number().min(0).max(40).default(0),
+  cornerRadius: z.number().min(0).max(50).default(0),
+  fullscreenScreenshot: z.boolean().default(false),
   z: z.number().int().min(0).max(100).default(1),
   shadow: deviceShadowSchema.optional(),
   borderSimulation: borderSimulationSchema.optional(),
@@ -328,6 +349,9 @@ const panoramicTextElementSchema = z.object({
   textAlign: z.enum(['left', 'center', 'right']).default('left'),
   maxWidth: z.number().min(1).max(100).optional().describe('Max width as % of canvas width'),
   lineHeight: z.number().min(0.8).max(2).default(1.15),
+  letterSpacing: z.number().min(-5).max(10).default(0).describe('Letter spacing in 0.01em units'),
+  textTransform: z.enum(['', 'none', 'uppercase', 'lowercase', 'capitalize']).default(''),
+  rotation: z.number().min(-30).max(30).default(0),
   gradient: backgroundGradientSchema.optional().describe('Text gradient (overrides solid color)'),
   z: z.number().int().min(0).max(100).default(10),
 });

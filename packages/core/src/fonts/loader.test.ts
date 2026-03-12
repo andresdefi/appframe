@@ -3,7 +3,7 @@ import { FONT_CATALOG, getFontName, loadFontFaces } from './loader.js';
 
 describe('FONT_CATALOG', () => {
   it('contains expected number of entries', () => {
-    expect(FONT_CATALOG.length).toBe(8);
+    expect(FONT_CATALOG.length).toBe(32);
   });
 
   it('every entry has valid structure', () => {

@@ -16,22 +16,6 @@ export const COMPOSITION_PRESETS: Record<string, { deviceCount: number; slots: D
     deviceCount: 1,
     slots: [{ offsetX: 0, offsetY: 15, scale: 92, rotation: 0, angle: 0, tilt: 0, zIndex: 1 }],
   },
-  'peek-right': {
-    deviceCount: 1,
-    slots: [{ offsetX: 48, offsetY: 8, scale: 95, rotation: 5, angle: -8, tilt: 0, zIndex: 1 }],
-  },
-  'peek-left': {
-    deviceCount: 1,
-    slots: [{ offsetX: -48, offsetY: 8, scale: 95, rotation: -5, angle: 8, tilt: 0, zIndex: 1 }],
-  },
-  'tilt-left': {
-    deviceCount: 1,
-    slots: [{ offsetX: -25, offsetY: 5, scale: 105, rotation: -18, angle: 15, tilt: 3, zIndex: 1 }],
-  },
-  'tilt-right': {
-    deviceCount: 1,
-    slots: [{ offsetX: 25, offsetY: 5, scale: 105, rotation: 18, angle: -15, tilt: 3, zIndex: 1 }],
-  },
   'duo-overlap': {
     deviceCount: 2,
     slots: [

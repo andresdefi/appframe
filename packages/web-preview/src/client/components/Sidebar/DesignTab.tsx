@@ -91,7 +91,7 @@ export function DesignTab() {
 
   return (
     <>
-      <Section title="Background" tooltip="Choose between solid colors, gradients, images, or template presets for your screenshot background.">
+      <Section title="Background" tooltip="Choose between solid colors, gradients, images, or template presets for your screenshot background." defaultCollapsed={false}>
         {/* Background type radio */}
         <div className="flex gap-3 mb-2.5">
           {BG_TYPES.map((bt) => (
@@ -127,7 +127,7 @@ export function DesignTab() {
               update({ backgroundType: 'preset', style: v as TemplateStyle });
             }}
             options={[
-              { value: '', label: 'Select a preset...' },
+              { value: '', label: 'Select a preset...', disabled: true },
               ...TEMPLATE_OPTIONS,
             ]}
           />
@@ -152,11 +152,12 @@ export function DesignTab() {
               {GRADIENT_PRESETS.map((preset) => (
                 <button
                   key={preset.name}
-                  className="w-8 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform"
+                  className="w-8 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent focus:outline-none"
                   style={{
                     background: `linear-gradient(${preset.direction}deg, ${preset.colors.join(', ')})`,
                   }}
                   title={preset.name}
+                  aria-label={`Apply ${preset.name} gradient`}
                   onClick={() =>
                     update({
                       backgroundGradient: {
@@ -177,6 +178,7 @@ export function DesignTab() {
                 <label key={t} className="text-xs text-text-dim cursor-pointer flex items-center gap-1">
                   <input
                     type="radio"
+                    name="gradient-type"
                     checked={screen.backgroundGradient.type === t}
                     onChange={() =>
                       update({
@@ -190,19 +192,21 @@ export function DesignTab() {
               ))}
             </div>
 
-            <RangeSlider
-              label="Direction"
-              value={screen.backgroundGradient.direction}
-              min={0}
-              max={360}
-              formatValue={(v) => `${v}\u00B0`}
-              onChange={(v) =>
-                update({
-                  backgroundGradient: { ...screen.backgroundGradient, direction: v },
-                })
-              }
-              onInstant={(v) => instantGradient({ direction: v })}
-            />
+            {screen.backgroundGradient.type === 'linear' && (
+              <RangeSlider
+                label="Direction"
+                value={screen.backgroundGradient.direction}
+                min={0}
+                max={360}
+                formatValue={(v) => `${v}\u00B0`}
+                onChange={(v) =>
+                  update({
+                    backgroundGradient: { ...screen.backgroundGradient, direction: v },
+                  })
+                }
+                onInstant={(v) => instantGradient({ direction: v })}
+              />
+            )}
 
             {screen.backgroundGradient.type === 'radial' && (
               <Select
@@ -247,6 +251,11 @@ export function DesignTab() {
         {/* Image controls */}
         {uiMode === 'image' && (
           <>
+            {!screen.backgroundImageDataUrl && (
+              <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
+                Upload a custom image to use as the screenshot background. Supports PNG, JPEG, and WebP.
+              </p>
+            )}
             <button
               className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
               onClick={() => bgImageInputRef.current?.click()}
@@ -258,6 +267,7 @@ export function DesignTab() {
               type="file"
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
+              aria-label="Upload background image"
               onChange={handleBgImageUpload}
             />
 
@@ -321,7 +331,7 @@ export function DesignTab() {
       </Section>
 
       {/* Preset colors — only visible when a preset is actively applied */}
-      <Section title="Preset Colors" hidden={bgType !== 'preset'}>
+      <Section title="Preset Colors" hidden={bgType !== 'preset'} tooltip="Override the default colors for the selected template preset.">
         <ColorPicker
           label="Primary"
           value={screen.colors.primary}

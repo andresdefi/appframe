@@ -13,7 +13,9 @@
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:ux": "playwright test e2e/ux-audit.spec.ts --reporter=list"
   },
   "keywords": [
     "app-store",
@@ -31,6 +33,7 @@
   "packageManager": "pnpm@9.15.4",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
     "@types/node": "^25.3.0",
     "@types/supertest": "^7.2.0",
     "@vitest/coverage-v8": "^4.0.18",

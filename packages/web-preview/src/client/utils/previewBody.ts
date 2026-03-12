@@ -15,7 +15,7 @@ export function buildPreviewBody(
     style: screen.style,
     layout: screen.layout,
     headline: screen.headline,
-    subtitle: screen.subtitle || undefined,
+    subtitle: screen.subtitle,
     colors: screen.colors,
     font: screen.font,
     fontWeight: screen.fontWeight,

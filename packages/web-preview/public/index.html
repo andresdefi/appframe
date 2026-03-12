@@ -818,12 +818,6 @@
         <label for="composition">Device Arrangement</label>
         <select id="composition">
           <option value="single">Single Device</option>
-          <optgroup label="Edge Bleed (1 device)">
-            <option value="peek-right">Peek Right</option>
-            <option value="peek-left">Peek Left</option>
-            <option value="tilt-left">Tilt Left</option>
-            <option value="tilt-right">Tilt Right</option>
-          </optgroup>
           <optgroup label="Multi-Device">
             <option value="duo-overlap">Duo Overlap (2)</option>
             <option value="duo-split">Duo Split (2)</option>
@@ -831,7 +825,6 @@
             <option value="fanned-cards">Fanned Cards (3)</option>
           </optgroup>
         </select>
-        <span style="font-size: 10px; color: #888; line-height: 1.3; display: block; margin-top: -6px; margin-bottom: 8px;">Edge bleed presets overflow screen edges — pair adjacent screens for cross-screen effects.</span>
         <div id="cross-screen-link" style="display: none;"></div>
         <div id="extra-devices-container" style="display: none;"></div>
       </div>
@@ -1332,10 +1325,6 @@
 
     var COMPOSITION_DEVICE_COUNTS = {
       'single': 1,
-      'peek-right': 1,
-      'peek-left': 1,
-      'tilt-left': 1,
-      'tilt-right': 1,
       'duo-overlap': 2,
       'duo-split': 2,
       'hero-tilt': 2,
@@ -1343,12 +1332,7 @@
     };
 
     // Preset slot values (must match packages/core/src/composer/presets.ts)
-    var PRESET_SLOTS = {
-      'peek-right': { offsetX: 48, offsetY: 8, scale: 95, rotation: 5, angle: -8, tilt: 0 },
-      'peek-left': { offsetX: -48, offsetY: 8, scale: 95, rotation: -5, angle: 8, tilt: 0 },
-      'tilt-right': { offsetX: 25, offsetY: 5, scale: 105, rotation: 18, angle: -15, tilt: 3 },
-      'tilt-left': { offsetX: -25, offsetY: 5, scale: 105, rotation: -18, angle: 15, tilt: 3 },
-    };
+    var PRESET_SLOTS = {};
 
     // Get the effective device values for a screen (preset values or slider values)
     function getEffectiveDeviceValues(state) {

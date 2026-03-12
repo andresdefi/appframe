@@ -84,7 +84,7 @@ describe('layoutVariantSchema', () => {
 
 describe('compositionPresetSchema', () => {
   it('accepts all valid presets', () => {
-    for (const p of ['single', 'peek-right', 'peek-left', 'tilt-left', 'tilt-right', 'duo-overlap', 'duo-split', 'hero-tilt', 'fanned-cards']) {
+    for (const p of ['single', 'duo-overlap', 'duo-split', 'hero-tilt', 'fanned-cards']) {
       expect(compositionPresetSchema.safeParse(p).success).toBe(true);
     }
   });

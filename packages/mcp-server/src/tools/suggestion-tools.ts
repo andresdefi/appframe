@@ -184,11 +184,10 @@ ${screens.map((s, i) => `  ${i + 1}. "${s.headline}"${s.subtitle ? ` — "${s.su
 
 ### Variant B: Dynamic & Varied
 - Style: \`bold\` or \`glow\`
-- Mix compositions: center, peek-right, peek-left, angled-right, angled-left
+- Mix compositions: single, duo-overlap, duo-split, hero-tilt, fanned-cards
 - Use per-screen \`background\` overrides to alternate light/dark
 - More dramatic visual presence
 - Font weight: 700-800
-- Pair peek-right on one slide with peek-left on the next for cross-screen effect
 
 ### Variant C: Elegant & Editorial (only if variantCount is 3)
 - Style: \`editorial\` or \`branded\`

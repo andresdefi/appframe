@@ -31,15 +31,6 @@ const COMPOSITION_OPTIONS = [
 
 const COMPOSITION_GROUPS = [
   {
-    label: 'Edge Bleed (1 device)',
-    options: [
-      { value: 'peek-right', label: 'Peek Right' },
-      { value: 'peek-left', label: 'Peek Left' },
-      { value: 'tilt-left', label: 'Tilt Left' },
-      { value: 'tilt-right', label: 'Tilt Right' },
-    ],
-  },
-  {
     label: 'Multi-Device',
     options: [
       { value: 'duo-overlap', label: 'Duo Overlap (2)' },
@@ -299,9 +290,9 @@ export function DeviceTab() {
       )}
 
       {/* Platform */}
-      <Section title="Platform">
+      <Section title="Platform" tooltip="Choose the target platform. This adjusts the preview dimensions and available device frames." defaultCollapsed={false}>
         <Select
-          label=""
+          label="Platform"
           value={platform}
           onChange={handlePlatformChange}
           options={PLATFORM_OPTIONS}
@@ -336,6 +327,7 @@ export function DeviceTab() {
           type="file"
           accept="image/png,image/jpeg,image/webp"
           className="hidden"
+          aria-label="Upload screenshot image"
           onChange={handleScreenshotUpload}
         />
         {screen.screenshotDataUrl && (
@@ -392,7 +384,7 @@ export function DeviceTab() {
               {currentFamily.colors.map((c) => (
                 <button
                   key={c.name}
-                  className={`w-6 h-6 rounded border cursor-pointer hover:scale-110 transition-transform ${
+                  className={`w-6 h-6 rounded border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent focus:outline-none ${
                     screen.deviceColor === c.name
                       ? 'border-accent ring-1 ring-accent'
                       : 'border-border'
@@ -401,6 +393,8 @@ export function DeviceTab() {
                     background: KOUBOU_COLOR_HEX[c.name] ?? '#888888',
                   }}
                   title={c.name}
+                  aria-label={`${c.name} color variant`}
+                  aria-pressed={screen.deviceColor === c.name}
                   onClick={() => update({ deviceColor: c.name })}
                 />
               ))}
@@ -473,7 +467,7 @@ export function DeviceTab() {
       </Section>
 
       {/* Device Layout */}
-      <Section title="Device Layout">
+      <Section title="Device Layout" tooltip="Control the size, position, rotation, and tilt of the device in the screenshot frame.">
         <Checkbox
           label="Fullscreen Screenshot"
           checked={screen.style === 'fullscreen'}
@@ -512,7 +506,7 @@ export function DeviceTab() {
               value={screen.deviceOffsetX}
               min={-80}
               max={80}
-              formatValue={(v) => String(v)}
+              formatValue={(v) => `${v}%`}
               onChange={(v) => update({ deviceOffsetX: v })}
               onInstant={(v) => instantDevice('deviceOffsetX', v)}
             />
@@ -576,7 +570,7 @@ export function DeviceTab() {
       </Section>
 
       {/* Device Shadow */}
-      <Section title="Device Shadow">
+      <Section title="Device Shadow" tooltip="Add a custom drop shadow behind the device frame." defaultCollapsed>
         <Checkbox
           label="Custom Shadow"
           checked={!!screen.deviceShadow}
@@ -588,59 +582,57 @@ export function DeviceTab() {
             })
           }
         />
-        {screen.deviceShadow && (
-          <>
-            <RangeSlider
-              label="Opacity"
-              value={Math.round(screen.deviceShadow.opacity * 100)}
-              min={0}
-              max={100}
-              formatValue={(v) => `${v}%`}
-              onChange={(v) =>
-                update({
-                  deviceShadow: { ...screen.deviceShadow!, opacity: v / 100 },
-                })
-              }
-            />
-            <RangeSlider
-              label="Blur"
-              value={screen.deviceShadow.blur}
-              min={0}
-              max={50}
-              formatValue={(v) => `${v}px`}
-              onChange={(v) =>
-                update({
-                  deviceShadow: { ...screen.deviceShadow!, blur: v },
-                })
-              }
-            />
-            <ColorPicker
-              label="Color"
-              value={screen.deviceShadow.color}
-              onChange={(v) =>
-                update({
-                  deviceShadow: { ...screen.deviceShadow!, color: v },
-                })
-              }
-            />
-            <RangeSlider
-              label="Y Offset"
-              value={screen.deviceShadow.offsetY}
-              min={0}
-              max={30}
-              formatValue={(v) => `${v}px`}
-              onChange={(v) =>
-                update({
-                  deviceShadow: { ...screen.deviceShadow!, offsetY: v },
-                })
-              }
-            />
-          </>
-        )}
+        <div className={!screen.deviceShadow ? 'opacity-40 pointer-events-none' : ''}>
+          <RangeSlider
+            label="Opacity"
+            value={screen.deviceShadow ? Math.round(screen.deviceShadow.opacity * 100) : 25}
+            min={0}
+            max={100}
+            formatValue={(v) => `${v}%`}
+            onChange={(v) =>
+              update({
+                deviceShadow: { ...(screen.deviceShadow ?? { opacity: 0.25, blur: 20, color: '#000000', offsetY: 10 }), opacity: v / 100 },
+              })
+            }
+          />
+          <RangeSlider
+            label="Blur"
+            value={screen.deviceShadow?.blur ?? 20}
+            min={0}
+            max={50}
+            formatValue={(v) => `${v}px`}
+            onChange={(v) =>
+              update({
+                deviceShadow: { ...(screen.deviceShadow ?? { opacity: 0.25, blur: 20, color: '#000000', offsetY: 10 }), blur: v },
+              })
+            }
+          />
+          <ColorPicker
+            label="Color"
+            value={screen.deviceShadow?.color ?? '#000000'}
+            onChange={(v) =>
+              update({
+                deviceShadow: { ...(screen.deviceShadow ?? { opacity: 0.25, blur: 20, color: '#000000', offsetY: 10 }), color: v },
+              })
+            }
+          />
+          <RangeSlider
+            label="Y Offset"
+            value={screen.deviceShadow?.offsetY ?? 10}
+            min={0}
+            max={30}
+            formatValue={(v) => `${v}px`}
+            onChange={(v) =>
+              update({
+                deviceShadow: { ...(screen.deviceShadow ?? { opacity: 0.25, blur: 20, color: '#000000', offsetY: 10 }), offsetY: v },
+              })
+            }
+          />
+        </div>
       </Section>
 
       {/* Composition */}
-      <Section title="Composition">
+      <Section title="Composition" tooltip="Choose how devices are arranged. Use multi-device layouts to show multiple app screens in one image." defaultCollapsed>
         <Select
           label="Device Arrangement"
           value={screen.composition}
@@ -665,9 +657,6 @@ export function DeviceTab() {
           options={COMPOSITION_OPTIONS}
           groups={COMPOSITION_GROUPS}
         />
-        <span className="text-[10px] text-text-dim leading-tight block -mt-1.5 mb-2">
-          Edge bleed presets overflow screen edges — pair adjacent screens for cross-screen effects.
-        </span>
       </Section>
     </>
   );

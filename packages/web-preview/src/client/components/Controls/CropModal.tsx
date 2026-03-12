@@ -273,6 +273,9 @@ export function CropModal({ imageDataUrl, onApply, onCancel }: CropModalProps) {
     <div
       ref={containerRef}
       tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Crop screenshot"
       className="fixed inset-0 z-[9999] flex flex-col items-center justify-center outline-none"
       style={{ background: 'rgba(0,0,0,0.8)' }}
     >
@@ -281,6 +284,8 @@ export function CropModal({ imageDataUrl, onApply, onCancel }: CropModalProps) {
         ref={canvasRef}
         className="border border-white/30"
         style={{ cursor: 'crosshair' }}
+        role="img"
+        aria-label="Screenshot crop area. Click and drag to select the region to crop."
         onMouseDown={handleMouseDown}
       />
       <div className="flex gap-2 mt-3">

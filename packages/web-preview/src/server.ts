@@ -46,6 +46,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
   // Serve React build (client-dist/) if available, fall back to legacy (public/)
   const clientDistDir = join(__dirname, '..', 'client-dist');
@@ -910,10 +911,24 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     return map[sizeKey] ?? null;
   }
 
+  function getRequestPayload(body: unknown): Record<string, unknown> {
+    if (
+      body
+      && typeof body === 'object'
+      && 'payload' in body
+      && typeof (body as { payload?: unknown }).payload === 'string'
+    ) {
+      const raw = (body as { payload: string }).payload;
+      return JSON.parse(raw) as Record<string, unknown>;
+    }
+
+    return (body ?? {}) as Record<string, unknown>;
+  }
+
   // API: Export full-resolution screenshot
   app.post('/api/export', async (req, res) => {
     try {
-      const p = clampPreviewParams(parseBody(req.body as Record<string, unknown>));
+      const p = clampPreviewParams(parseBody(getRequestPayload(req.body)));
       const sizeKey = p.sizeKey ?? 'ios-6.7';
 
       const { STORE_SIZES } = await import('@appframe/core');
@@ -1019,7 +1034,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // API: Export panoramic frame(s) as PNG
   app.post('/api/panoramic-export', async (req, res) => {
     try {
-      const body = req.body as Record<string, unknown>;
+      const body = getRequestPayload(req.body);
       const frameCount = body.frameCount as number;
       const background = body.background as PanoramicBackground;
       const elements = body.elements as PanoramicElement[];

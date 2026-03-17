@@ -4,6 +4,27 @@ import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
 import { fetchExport, fetchPanoramicExport, reloadConfig } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
+import { getDefaultExportSizeKey } from '../../utils/platformSelection';
+
+interface SaveFileWriter {
+  write: (data: Blob) => Promise<void>;
+  close: () => Promise<void>;
+}
+
+interface SaveFileHandle {
+  createWritable: () => Promise<SaveFileWriter>;
+}
+
+interface WindowWithSavePicker extends Window {
+  showSaveFilePicker?: (options?: {
+    suggestedName?: string;
+    excludeAcceptAllOption?: boolean;
+    types?: Array<{
+      description?: string;
+      accept: Record<string, string[]>;
+    }>;
+  }) => Promise<SaveFileHandle>;
+}
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -22,10 +43,44 @@ function downloadBlob(blob: Blob, filename: string) {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.style.display = 'none';
   document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  requestAnimationFrame(() => {
+    a.click();
+  });
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 60_000);
+}
+
+async function maybePickSaveFile(filename: string): Promise<SaveFileHandle | null | undefined> {
+  const picker = (window as WindowWithSavePicker).showSaveFilePicker;
+  if (typeof picker !== 'function') return undefined;
+
+  try {
+    return await picker({
+      suggestedName: filename,
+      excludeAcceptAllOption: false,
+      types: [
+        {
+          description: 'PNG image',
+          accept: { 'image/png': ['.png'] },
+        },
+      ],
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return null;
+    }
+    throw err;
+  }
+}
+
+async function saveToPickedFile(handle: SaveFileHandle, blob: Blob) {
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
 }
 
 export function ExportTab() {
@@ -43,7 +98,6 @@ export function ExportTab() {
   const config = usePreviewStore((s) => s.config);
   const initScreens = usePreviewStore((s) => s.initScreens);
   const triggerRender = usePreviewStore((s) => s.triggerRender);
-  const selectedScreen = usePreviewStore((s) => s.selectedScreen);
   const screens = usePreviewStore((s) => s.screens);
 
   // Panoramic state
@@ -65,6 +119,13 @@ export function ExportTab() {
     value: s.key,
     label: `${s.name} (${s.width}×${s.height})`,
   }));
+  const resolvedExportSize = exportSize || getDefaultExportSizeKey(sizes, platform) || '';
+
+  useEffect(() => {
+    if (!exportSize && resolvedExportSize) {
+      setExportSize(resolvedExportSize);
+    }
+  }, [exportSize, resolvedExportSize, setExportSize]);
 
   const koubouDisabled = !koubouAvailable || platform === 'android';
   const rendererOptions = [
@@ -91,7 +152,7 @@ export function ExportTab() {
     font: config?.theme.font,
     fontWeight: config?.theme.fontWeight,
     frameStyle: config?.frames.style,
-    sizeKey: exportSize,
+    sizeKey: resolvedExportSize,
     frameIndex,
   });
 
@@ -99,7 +160,7 @@ export function ExportTab() {
     setExporting(true);
     let exported = 0;
     for (let i = 0; i < panoramicFrameCount; i++) {
-      setStatus(`Exporting frame ${i + 1} of ${panoramicFrameCount}...`);
+      setStatus(`Downloading frame ${i + 1} of ${panoramicFrameCount}...`);
       try {
         const blob = await fetchPanoramicExport(buildPanoramicBody(i));
         downloadBlob(blob, `frame-${i + 1}.png`);
@@ -109,52 +170,45 @@ export function ExportTab() {
       }
     }
     setExporting(false);
-    setStatus(`Exported ${exported} of ${panoramicFrameCount} frames`);
-    setToast(`Exported ${exported} frames`);
+    setStatus(`Downloaded ${exported} of ${panoramicFrameCount} frames`);
+    setToast(`Downloaded ${exported} frames`);
   };
 
   const handlePanoramicExportFull = async () => {
+    const filename = 'panoramic-full.png';
+    const saveHandle = await maybePickSaveFile(filename);
+    if (saveHandle === null) {
+      setStatus('Download canceled');
+      return;
+    }
+
+    if (saveHandle) {
+      setExporting(true);
+      setStatus('Downloading full panoramic canvas...');
+      try {
+        const blob = await fetchPanoramicExport(buildPanoramicBody());
+        await saveToPickedFile(saveHandle, blob);
+        const sizeKb = Math.round(blob.size / 1024);
+        setStatus(`Downloaded panoramic (${sizeKb}KB)`);
+        setToast(`Panoramic canvas downloaded (${sizeKb}KB)`);
+      } catch (err) {
+        setStatus(`Download error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      } finally {
+        setExporting(false);
+      }
+      return;
+    }
+
     setExporting(true);
-    setStatus('Exporting full panoramic canvas...');
+    setStatus('Downloading full panoramic canvas...');
     try {
       const blob = await fetchPanoramicExport(buildPanoramicBody());
-      downloadBlob(blob, 'panoramic-full.png');
+      downloadBlob(blob, filename);
       const sizeKb = Math.round(blob.size / 1024);
-      setStatus(`Exported panoramic (${sizeKb}KB)`);
-      setToast(`Panoramic canvas exported (${sizeKb}KB)`);
+      setStatus(`Downloaded panoramic (${sizeKb}KB)`);
+      setToast(`Panoramic canvas downloaded (${sizeKb}KB)`);
     } catch (err) {
-      setStatus(`Export error: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  // --- Individual export helpers ---
-  const handleExport = async () => {
-    const screen = screens[selectedScreen];
-    if (!screen) return;
-
-    setExporting(true);
-    setStatus(exportRenderer === 'koubou'
-      ? `Rendering screen ${selectedScreen + 1} with Koubou...`
-      : `Exporting screen ${selectedScreen + 1}...`);
-
-    try {
-      const blob = await fetchExport(buildExportBody(screen, {
-        previewW,
-        previewH,
-        locale,
-        sizeKey: exportSize,
-        renderer: exportRenderer,
-      }));
-
-      downloadBlob(blob, `screenshot-${selectedScreen + 1}.png`);
-
-      const sizeKb = Math.round(blob.size / 1024);
-      setStatus(`Exported (${sizeKb}KB)`);
-      setToast(`Screen ${selectedScreen + 1} exported (${sizeKb}KB)`);
-    } catch (err) {
-      setStatus(`Export error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setStatus(`Download error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setExporting(false);
     }
@@ -167,13 +221,13 @@ export function ExportTab() {
     for (let i = 0; i < screens.length; i++) {
       const screen = screens[i];
       if (!screen) continue;
-      setStatus(`Exporting screen ${i + 1} of ${screens.length}...`);
+      setStatus(`Downloading screen ${i + 1} of ${screens.length}...`);
       try {
         const blob = await fetchExport(buildExportBody(screen, {
           previewW,
           previewH,
           locale,
-          sizeKey: exportSize,
+          sizeKey: resolvedExportSize,
           renderer: exportRenderer,
         }));
         downloadBlob(blob, `screenshot-${i + 1}.png`);
@@ -183,8 +237,8 @@ export function ExportTab() {
       }
     }
     setExporting(false);
-    setStatus(`Exported ${exported} of ${screens.length} screens`);
-    setToast(`Exported ${exported} screenshots`);
+    setStatus(`Downloaded ${exported} of ${screens.length} screens`);
+    setToast(`Downloaded ${exported} screenshots`);
   };
 
   const handleReload = async () => {
@@ -201,9 +255,9 @@ export function ExportTab() {
   // Empty state
   if (!isPanoramic && screens.length === 0) {
     return (
-      <Section title="Export" tooltip="Choose output size and renderer, then download your screenshots." defaultCollapsed={false}>
+      <Section title="Download" tooltip="Choose output size and renderer, then download your screenshots." defaultCollapsed={false}>
         <p className="text-xs text-text-dim text-center py-4">
-          No screens to export.{' '}
+          No screens to download.{' '}
           <button
             className="text-accent hover:text-accent-hover underline"
             onClick={() => usePreviewStore.getState().setActiveTab('background')}
@@ -219,10 +273,10 @@ export function ExportTab() {
   return (
     <>
       {toast && <Toast message={toast} onDone={clearToast} />}
-      <Section title="Export" tooltip="Choose output size and renderer, then download your screenshots." defaultCollapsed={false}>
+      <Section title="Download" tooltip="Choose output size and renderer, then download your screenshots." defaultCollapsed={false}>
         <Select
           label="Output Size"
-          value={exportSize}
+          value={resolvedExportSize}
           onChange={setExportSize}
           options={sizeOptions}
         />
@@ -242,34 +296,25 @@ export function ExportTab() {
               onClick={handlePanoramicExportAll}
               disabled={exporting}
             >
-              {exporting ? 'Exporting...' : `Export All ${panoramicFrameCount} Frames`}
+              {exporting ? 'Downloading...' : `Download all ${panoramicFrameCount} frames`}
             </button>
             <button
               className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-1"
               onClick={handlePanoramicExportFull}
               disabled={exporting}
             >
-              {exporting ? 'Exporting...' : 'Export Full Canvas'}
+              {exporting ? 'Downloading...' : 'Download full canvas'}
             </button>
           </>
         ) : (
           <>
             <button
               className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-md disabled:opacity-50 mt-1"
-              onClick={handleExport}
+              onClick={handleExportAll}
               disabled={exporting}
             >
-              {exporting ? 'Exporting...' : 'Download Screenshot'}
+              {exporting ? 'Downloading...' : `Download all ${screens.length} screens`}
             </button>
-            {screens.length > 1 && (
-              <button
-                className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-1"
-                onClick={handleExportAll}
-                disabled={exporting}
-              >
-                {exporting ? 'Exporting...' : `Export All ${screens.length} Screens`}
-              </button>
-            )}
           </>
         )}
       </Section>
@@ -316,7 +361,7 @@ export function ExportTab() {
             Reload Config
           </button>
         </div>
-        <div className={`text-[10px] mt-2 ${status.startsWith('Export error') || status.startsWith('Reload error') || status.startsWith('Error') ? 'text-red-400' : status.startsWith('Exported') || status === 'Config reloaded' ? 'text-green-400' : 'text-text-dim'}`}>
+        <div className={`text-[10px] mt-2 ${status.startsWith('Download error') || status.startsWith('Reload error') || status.startsWith('Error') ? 'text-red-400' : status.startsWith('Downloaded') || status === 'Config reloaded' ? 'text-green-400' : 'text-text-dim'}`}>
           {status}
         </div>
       </Section>

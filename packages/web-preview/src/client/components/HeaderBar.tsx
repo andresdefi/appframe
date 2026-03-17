@@ -13,7 +13,7 @@ const TABS = [
   { id: 'device', label: 'Device' },
   { id: 'text', label: 'Text' },
   { id: 'extras', label: 'Extras' },
-  { id: 'export', label: 'Export' },
+  { id: 'export', label: 'Download' },
 ] as const;
 
 export function HeaderBar({

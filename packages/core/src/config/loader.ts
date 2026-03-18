@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { parse } from 'yaml';
+import { readFile, writeFile } from 'node:fs/promises';
+import { parse, stringify } from 'yaml';
 import { validateConfigOrThrow } from './validator.js';
 import type { AppframeConfig } from './schema.js';
 
@@ -20,4 +20,9 @@ export async function loadConfig(configPath: string): Promise<AppframeConfig> {
   }
 
   return validateConfigOrThrow(raw);
+}
+
+export async function saveConfig(configPath: string, config: AppframeConfig): Promise<void> {
+  const content = stringify(config, { indent: 2, indentSeq: true });
+  await writeFile(configPath, content, 'utf-8');
 }

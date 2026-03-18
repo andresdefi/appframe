@@ -1,4 +1,4 @@
-export { loadConfig } from './loader.js';
+export { loadConfig, saveConfig } from './loader.js';
 export { validateConfig, validateConfigOrThrow } from './validator.js';
 export type { ValidationResult, ValidationError, FormattedError, FormattedWarning } from './validator.js';
 export { appframeConfigSchema } from './schema.js';

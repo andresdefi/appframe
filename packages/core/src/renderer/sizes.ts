@@ -4,22 +4,22 @@ import type { ScreenshotSize } from './types.js';
 // Canvas sizes for rendering (at 1x, Playwright will capture at 2x via deviceScaleFactor)
 export const STORE_SIZES: Record<string, ScreenshotSize> = {
   // iOS iPhone — dimensions from Apple's screenshot specifications
-  'ios-6.9': {
-    name: 'iPhone 6.9"',
-    width: 630,  // 1260 / 2
-    height: 1368, // 2736 / 2
-    platform: 'ios',
-  },
   'ios-6.7': {
     name: 'iPhone 6.7"',
-    width: 645,  // 1290 / 2
-    height: 1398, // 2796 / 2
+    width: 642,  // 1284 / 2
+    height: 1389, // 2778 / 2
     platform: 'ios',
   },
   'ios-6.5': {
     name: 'iPhone 6.5"',
-    width: 642,  // 1284 / 2
-    height: 1389, // 2778 / 2
+    width: 621,  // 1242 / 2
+    height: 1344, // 2688 / 2
+    platform: 'ios',
+  },
+  'ios-6.9': {
+    name: 'iPhone 6.9"',
+    width: 645,  // 1290 / 2
+    height: 1398, // 2796 / 2
     platform: 'ios',
   },
   'ios-6.3': {

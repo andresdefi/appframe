@@ -10,6 +10,7 @@ import type {
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
+import { saveConfig as saveConfigApi } from './utils/api';
 
 export function createScreenState(
   index: number,
@@ -193,6 +194,8 @@ export interface PreviewStore {
   // Undo/redo
   undo: () => void;
   redo: () => void;
+  save: () => Promise<void>;
+  isSaving: boolean;
 }
 
 // Simple undo/redo history for screen and panoramic state
@@ -252,6 +255,84 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   exportSize: '',
   exportRenderer: 'playwright',
   screens: [],
+  isSaving: false,
+
+  save: async () => {
+    const { config, screens, isPanoramic, panoramicFrameCount, panoramicBackground, panoramicElements } = get();
+    if (!config) return;
+
+    set({ isSaving: true });
+    try {
+      const updatedConfig = { ...config };
+
+      if (isPanoramic) {
+        updatedConfig.mode = 'panoramic';
+        updatedConfig.frameCount = panoramicFrameCount;
+        updatedConfig.panoramic = {
+          background: panoramicBackground,
+          elements: panoramicElements,
+        };
+      } else {
+        updatedConfig.mode = 'individual';
+        updatedConfig.screens = screens.map((s, i) => {
+          const original = config.screens[i] || { screenshot: `screenshots/screen-${i + 1}.png`, headline: s.headline };
+
+          // Reconstruct the screenshot path if only the filename changed
+          let screenshot = original.screenshot;
+          if (s.screenshotName && !original.screenshot.endsWith(s.screenshotName)) {
+            const parts = original.screenshot.split('/');
+            parts[parts.length - 1] = s.screenshotName;
+            screenshot = parts.join('/');
+          }
+
+          // Serialize background back to a string for YAML
+          let background = (original as any).background;
+          if (s.backgroundType === 'solid') {
+            background = s.backgroundColor;
+          } else if (s.backgroundType === 'gradient') {
+            const g = s.backgroundGradient;
+            if (g.type === 'linear') {
+              background = `linear-gradient(${g.direction}deg, ${g.colors.join(', ')})`;
+            } else {
+              background = `radial-gradient(circle at ${g.radialPosition}, ${g.colors.join(', ')})`;
+            }
+          }
+
+          return {
+            ...original,
+            screenshot,
+            headline: s.headline,
+            subtitle: s.subtitle,
+            layout: s.layout,
+            device: s.frameId || (original as any).device,
+            background,
+            composition: s.composition,
+            autoSizeHeadline: s.autoSizeHeadline,
+            autoSizeSubtitle: s.autoSizeSubtitle,
+            spotlight: s.spotlight || undefined,
+            annotations: s.annotations,
+            deviceShadow: s.deviceShadow || undefined,
+            borderSimulation: s.borderSimulation || undefined,
+            cornerRadius: s.cornerRadius || undefined,
+            loupe: s.loupe || undefined,
+            callouts: s.callouts.length > 0 ? s.callouts : undefined,
+            overlays: s.overlays.length > 0 ? s.overlays : undefined,
+            // Custom patched fields for per-screen text colors
+            textColor: s.colors.text !== config.theme.colors.text ? s.colors.text : undefined,
+            subtitleColor: s.colors.subtitle !== (config.theme.colors.subtitle || '#64748B') ? s.colors.subtitle : undefined,
+          };
+        }) as any[];
+      }
+
+      await saveConfigApi(updatedConfig);
+      set({ config: updatedConfig });
+    } catch (err) {
+      console.error('Failed to save config:', err);
+      throw err;
+    } finally {
+      set({ isSaving: false });
+    }
+  },
 
   setConfig: (config) => set({ config }),
   setPlatform: (platform) => set({ platform }),
@@ -292,10 +373,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     // Always populate panoramic state if the config has it
     const panoramicUpdate = config.panoramic
       ? {
-          panoramicFrameCount: config.frameCount ?? 5,
-          panoramicBackground: config.panoramic.background,
-          panoramicElements: config.panoramic.elements,
-        }
+        panoramicFrameCount: config.frameCount ?? 5,
+        panoramicBackground: config.panoramic.background,
+        panoramicElements: config.panoramic.elements,
+      }
       : {};
 
     set({

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { startHttpServer } from 'agentation-mcp';
 import {
   loadConfig,
+  saveConfig,
   listFrames,
   getFrame,
   getDefaultFrame,
@@ -881,7 +882,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         res.set('Content-Type', 'image/png');
         res.send(imageBuffer);
       } finally {
-        await unlink(tmpPath).catch(() => {});
+        await unlink(tmpPath).catch(() => { });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -1022,7 +1023,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           res.set('Content-Disposition', `attachment; filename="${filename}"`);
           res.send(imageBuffer);
         } finally {
-          await unlink(tmpPath).catch(() => {});
+          await unlink(tmpPath).catch(() => { });
         }
       }
     } catch (err) {
@@ -1241,7 +1242,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         res.set('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(imageBuffer);
       } finally {
-        await unlink(tmpPath).catch(() => {});
+        await unlink(tmpPath).catch(() => { });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -1254,6 +1255,19 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     try {
       config = await loadConfig(resolvedConfigPath);
       koubouStatusCache = null;
+      res.json({ success: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // API: Save config to disk
+  app.post('/api/save-config', async (req, res) => {
+    try {
+      const newConfig = req.body as AppframeConfig;
+      await saveConfig(resolvedConfigPath, newConfig);
+      config = newConfig;
       res.json({ success: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';

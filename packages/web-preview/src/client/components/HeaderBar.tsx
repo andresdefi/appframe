@@ -39,11 +39,10 @@ export function HeaderBar({
       <div className="flex items-center gap-2 min-w-0">
         {showSidebarToggle && (
           <button
-            className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              sidebarOpen
+            className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${sidebarOpen
                 ? 'border-accent/40 bg-accent/10 text-accent'
                 : 'border-border bg-bg text-text-dim hover:border-accent/30 hover:text-text'
-            }`}
+              }`}
             onClick={onToggleSidebar}
             aria-expanded={sidebarOpen}
             aria-controls="editor-sidebar"
@@ -70,11 +69,10 @@ export function HeaderBar({
         {TABS.map((tab) => (
           <button
             key={tab.id}
-            className={`text-[11px] px-3 py-1.5 rounded-md transition-colors whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              activeTab === tab.id
+            className={`text-[11px] px-3 py-1.5 rounded-md transition-colors whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${activeTab === tab.id
                 ? 'bg-accent/10 text-accent font-medium'
                 : 'text-text-dim hover:text-text hover:bg-surface-2'
-            }`}
+              }`}
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.label}
@@ -84,11 +82,10 @@ export function HeaderBar({
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
         <button
-          className={`hidden sm:inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-            agentMode
+          className={`hidden sm:inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${agentMode
               ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300'
               : 'border-border bg-bg text-text-dim hover:border-emerald-400/30 hover:text-text'
-          }`}
+            }`}
           onClick={onToggleAgentMode}
           aria-pressed={agentMode}
         >
@@ -96,11 +93,26 @@ export function HeaderBar({
         </button>
 
         <button
-          className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-            isPanoramic
+          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded bg-accent hover:bg-accent-hover text-white transition-opacity disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          onClick={() => usePreviewStore.getState().save()}
+          disabled={usePreviewStore((s) => s.isSaving)}
+        >
+          {usePreviewStore((s) => s.isSaving) ? (
+            <>
+              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Saving...
+            </>
+          ) : 'Save Changes'}
+        </button>
+
+        <button
+          className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${isPanoramic
               ? 'border-accent/40 bg-accent/10 text-accent'
               : 'border-border bg-bg text-text-dim hover:border-accent/30 hover:text-text'
-          }`}
+            }`}
           onClick={togglePanoramic}
           title={modeToggleLabel}
           aria-label={`${modeToggleLabel}. Current mode: ${currentMode}.`}
@@ -109,14 +121,14 @@ export function HeaderBar({
           <span className="w-3 h-3 flex items-center justify-center" aria-hidden="true">
             {isPanoramic ? (
               <svg viewBox="0 0 12 12" fill="none" className="w-full h-full" aria-hidden="true">
-                <rect x="0.5" y="2" width="11" height="8" rx="1" stroke="currentColor" strokeWidth="1"/>
-                <line x1="3" y1="2" x2="3" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1"/>
-                <line x1="6" y1="2" x2="6" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1"/>
-                <line x1="9" y1="2" x2="9" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1"/>
+                <rect x="0.5" y="2" width="11" height="8" rx="1" stroke="currentColor" strokeWidth="1" />
+                <line x1="3" y1="2" x2="3" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1" />
+                <line x1="6" y1="2" x2="6" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1" />
+                <line x1="9" y1="2" x2="9" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1" />
               </svg>
             ) : (
               <svg viewBox="0 0 12 12" fill="none" className="w-full h-full" aria-hidden="true">
-                <rect x="2" y="1" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1"/>
+                <rect x="2" y="1" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1" />
               </svg>
             )}
           </span>

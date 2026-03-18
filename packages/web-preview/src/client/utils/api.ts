@@ -13,6 +13,15 @@ export async function reloadConfig(): Promise<AppframeConfig> {
   return fetchConfig();
 }
 
+export async function saveConfig(config: AppframeConfig): Promise<void> {
+  const res = await fetch(`${API}/api/save-config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) throw new Error(`Failed to save config: ${res.statusText}`);
+}
+
 export async function fetchPreviewHtml(body: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
   const res = await fetch(`${API}/api/preview-html`, {
     method: 'POST',

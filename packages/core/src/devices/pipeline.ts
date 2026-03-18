@@ -168,8 +168,9 @@ async function generateWithKoubouInlineLocales(ctx: KoubouPipelineContext): Prom
       try {
         await runKou(binaryPath, configPath);
       } catch (err) {
-        try { await unlink(configPath); } catch { /* ignore */ }
+        // try { await unlink(configPath); } catch { /* ignore */ }
         const message = err instanceof Error ? err.message : 'Unknown error';
+        console.error("KOUBOU STDERR:", (err as any).stderr);
         throw new Error(`Koubou generation failed: ${message}`);
       }
 

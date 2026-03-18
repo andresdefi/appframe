@@ -1,5 +1,6 @@
 export {
   loadConfig,
+  saveConfig,
   validateConfig,
   validateConfigOrThrow,
   appframeConfigSchema,

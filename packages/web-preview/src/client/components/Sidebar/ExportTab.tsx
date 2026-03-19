@@ -3,7 +3,7 @@ import { usePreviewStore } from '../../store';
 import type { LocaleConfig } from '../../types';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
-import { fetchAutoTranslateLocale, fetchExport, fetchPanoramicExport, reloadProject } from '../../utils/api';
+import { fetchAutoTranslateLocale, fetchExport, fetchExportConfig, fetchPanoramicExport, reloadProject } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
 import { getAvailableLocales, getLocaleLabel } from '../../utils/locales';
@@ -65,6 +65,7 @@ export function ExportTab() {
   const initScreens = usePreviewStore((s) => s.initScreens);
   const triggerRender = usePreviewStore((s) => s.triggerRender);
   const screens = usePreviewStore((s) => s.screens);
+  const sessionBacked = usePreviewStore((s) => s.sessionBacked);
 
   // Panoramic state
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
@@ -261,6 +262,27 @@ export function ExportTab() {
     }
   };
 
+  const handleConfigExport = async () => {
+    try {
+      setStatus('Building standalone config...');
+      const blob = await fetchExportConfig({
+        variantName: activeVariant?.name ?? 'Variant',
+        mode: isPanoramic ? 'panoramic' : 'individual',
+        sessionLocales,
+        screens,
+        panoramicFrameCount,
+        panoramicBackground,
+        panoramicElements,
+      });
+      const fileName = `${variantSlug}.config.yaml`;
+      downloadBlob(blob, fileName);
+      setStatus(`Downloaded config for ${activeVariant?.name ?? 'current variant'}`);
+      setToast(`Downloaded ${fileName}`);
+    } catch (err) {
+      setStatus(`Config export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
   // Empty state
   if (!isPanoramic && screens.length === 0) {
     return (
@@ -302,6 +324,14 @@ export function ExportTab() {
             options={rendererOptions}
           />
         )}
+
+        <button
+          className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-2"
+          onClick={handleConfigExport}
+          disabled={exporting}
+        >
+          {sessionBacked ? 'Download Selected Variant Config' : 'Download Current Config'}
+        </button>
 
         {isPanoramic ? (
           <button

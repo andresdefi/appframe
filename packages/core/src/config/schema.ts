@@ -282,7 +282,7 @@ export const localizationConfigSchema = z.object({
 // --- Output section ---
 
 export const iosOutputConfigSchema = z.object({
-  sizes: z.array(z.number()).default([6.7, 6.5]),
+  sizes: z.array(z.number()).default([6.9, 6.5]),
   format: z.enum(['png', 'jpeg']).default('png'),
   quality: z.number().int().min(1).max(100).optional(),
 });

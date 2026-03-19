@@ -64,52 +64,6 @@ function isFrameMatchingAspectRatio(
   );
 }
 
-function findBestDeviceMatch(
-  width: number,
-  height: number,
-  deviceFamilies: DeviceFamily[],
-  frames: FrameData[],
-): string | null {
-  const tolerance = 0.1;
-  let bestMatch: DeviceFamily | null = null;
-  let bestYear = -1;
-  let exactMatch: DeviceFamily | null = null;
-
-  for (const f of deviceFamilies) {
-    const res = f.screenResolution;
-    const wR = Math.abs(width - res.width) / res.width;
-    const hR = Math.abs(height - res.height) / res.height;
-    let isMatch = wR <= tolerance && hR <= tolerance;
-    if (!isMatch) {
-      const wRL = Math.abs(width - res.height) / res.height;
-      const hRL = Math.abs(height - res.width) / res.width;
-      isMatch = wRL <= tolerance && hRL <= tolerance;
-    }
-    if (isMatch) {
-      if (res.width === width && res.height === height) exactMatch = f;
-      if (f.year > bestYear) {
-        bestYear = f.year;
-        bestMatch = f;
-      }
-    }
-  }
-
-  for (const fr of frames) {
-    if (!fr.screenResolution) continue;
-    const sRes = fr.screenResolution;
-    const swR = Math.abs(width - sRes.width) / sRes.width;
-    const shR = Math.abs(height - sRes.height) / sRes.height;
-    if (swR <= tolerance && shR <= tolerance) {
-      if (sRes.width === width && sRes.height === height && !exactMatch) return fr.id;
-      if (!bestMatch || fr.year > bestYear) return fr.id;
-    }
-  }
-
-  if (exactMatch) return exactMatch.id;
-  if (bestMatch) return bestMatch.id;
-  return null;
-}
-
 // Map platform to the Koubou categories it should show
 const PLATFORM_CATEGORIES: Record<string, string[]> = {
   iphone: ['iphone'],

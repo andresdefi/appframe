@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { startHttpServer } from 'agentation-mcp';
 import {
   loadConfig,
+  validateConfigOrThrow,
   listFrames,
   getFrame,
   getDefaultFrame,
@@ -135,6 +136,220 @@ function createDefaultConfig(): AppframeConfig {
       directory: './output',
     },
   };
+}
+
+function cloneConfig<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function expectOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function buildBackgroundString(screen: Record<string, unknown>, fallback?: string): string | undefined {
+  const backgroundType = expectOptionalString(screen.backgroundType);
+  if (backgroundType === 'solid') {
+    return expectOptionalString(screen.backgroundColor) ?? fallback;
+  }
+  if (backgroundType === 'gradient') {
+    const gradient = screen.backgroundGradient;
+    if (!isRecord(gradient) || !Array.isArray(gradient.colors) || gradient.colors.length < 2) {
+      return fallback;
+    }
+    const colors = gradient.colors.map((entry) => String(entry)).join(', ');
+    if (gradient.type === 'radial') {
+      return `radial-gradient(circle at ${String(gradient.radialPosition ?? 'center')}, ${colors})`;
+    }
+    return `linear-gradient(${Number(gradient.direction ?? 135)}deg, ${colors})`;
+  }
+  if (backgroundType === 'preset') return undefined;
+  return fallback;
+}
+
+function normalizeScreenshotPath(
+  original: string | undefined,
+  nextName: unknown,
+  index: number,
+): string {
+  if (!original) {
+    return typeof nextName === 'string' && nextName
+      ? `screenshots/${nextName}`
+      : `screenshots/screen-${index + 1}.png`;
+  }
+  if (typeof nextName !== 'string' || !nextName || original.endsWith(nextName)) {
+    return original;
+  }
+  const parts = original.split('/');
+  parts[parts.length - 1] = nextName;
+  return parts.join('/');
+}
+
+function buildConfigFromEditorState(baseConfig: AppframeConfig, body: Record<string, unknown>): AppframeConfig {
+  const next = cloneConfig(baseConfig);
+  const mode = body.mode === 'panoramic' ? 'panoramic' : 'individual';
+  const screens = Array.isArray(body.screens)
+    ? body.screens.filter(isRecord)
+    : [];
+  const locales = isRecord(body.sessionLocales)
+    ? body.sessionLocales
+    : next.locales;
+
+  next.mode = mode;
+  next.locales = locales as AppframeConfig['locales'];
+
+  const firstScreen = screens[0];
+  if (firstScreen) {
+    next.theme = {
+      ...next.theme,
+      style: (expectOptionalString(firstScreen.style) as AppframeConfig['theme']['style']) ?? next.theme.style,
+      font: expectOptionalString(firstScreen.font) ?? next.theme.font,
+      fontWeight:
+        typeof firstScreen.fontWeight === 'number'
+          ? firstScreen.fontWeight
+          : next.theme.fontWeight,
+      headlineSize:
+        typeof firstScreen.headlineSize === 'number' && firstScreen.headlineSize > 0
+          ? firstScreen.headlineSize
+          : undefined,
+      subtitleSize:
+        typeof firstScreen.subtitleSize === 'number' && firstScreen.subtitleSize > 0
+          ? firstScreen.subtitleSize
+          : undefined,
+      headlineGradient: isRecord(firstScreen.headlineGradient)
+        ? firstScreen.headlineGradient as AppframeConfig['theme']['headlineGradient']
+        : undefined,
+      subtitleGradient: isRecord(firstScreen.subtitleGradient)
+        ? firstScreen.subtitleGradient as AppframeConfig['theme']['subtitleGradient']
+        : undefined,
+      headlineLineHeight:
+        typeof firstScreen.headlineLineHeight === 'number' && firstScreen.headlineLineHeight > 0
+          ? firstScreen.headlineLineHeight / 100
+          : undefined,
+      headlineLetterSpacing:
+        typeof firstScreen.headlineLetterSpacing === 'number' && firstScreen.headlineLetterSpacing !== 0
+          ? `${firstScreen.headlineLetterSpacing / 100}em`
+          : undefined,
+      headlineTextTransform:
+        (expectOptionalString(firstScreen.headlineTextTransform) as AppframeConfig['theme']['headlineTextTransform'])
+        ?? undefined,
+      headlineFontStyle:
+        (expectOptionalString(firstScreen.headlineFontStyle) as AppframeConfig['theme']['headlineFontStyle'])
+        ?? undefined,
+      subtitleOpacity:
+        typeof firstScreen.subtitleOpacity === 'number' && firstScreen.subtitleOpacity > 0
+          ? firstScreen.subtitleOpacity / 100
+          : undefined,
+      subtitleLetterSpacing:
+        typeof firstScreen.subtitleLetterSpacing === 'number' && firstScreen.subtitleLetterSpacing !== 0
+          ? `${firstScreen.subtitleLetterSpacing / 100}em`
+          : undefined,
+      subtitleTextTransform:
+        (expectOptionalString(firstScreen.subtitleTextTransform) as AppframeConfig['theme']['subtitleTextTransform'])
+        ?? undefined,
+    };
+
+    const colors = isRecord(firstScreen.colors) ? firstScreen.colors : null;
+    if (colors) {
+      next.theme.colors = {
+        primary: expectOptionalString(colors.primary) ?? next.theme.colors.primary,
+        secondary: expectOptionalString(colors.secondary) ?? next.theme.colors.secondary,
+        background: expectOptionalString(colors.background) ?? next.theme.colors.background,
+        text: expectOptionalString(colors.text) ?? next.theme.colors.text,
+        subtitle: expectOptionalString(colors.subtitle) ?? next.theme.colors.subtitle,
+      };
+    }
+
+    next.frames = {
+      ...next.frames,
+      style:
+        (expectOptionalString(firstScreen.frameStyle) as AppframeConfig['frames']['style'])
+        ?? next.frames.style,
+      deviceColor: expectOptionalString(firstScreen.deviceColor) ?? next.frames.deviceColor,
+    };
+  }
+
+  if (mode === 'panoramic') {
+    const fallbackPanoramic = next.panoramic;
+    next.frameCount =
+      typeof body.panoramicFrameCount === 'number'
+        ? body.panoramicFrameCount
+        : next.frameCount ?? 5;
+    next.panoramic = {
+      background: isRecord(body.panoramicBackground)
+        ? body.panoramicBackground as NonNullable<AppframeConfig['panoramic']>['background']
+        : fallbackPanoramic?.background ?? { type: 'solid' },
+      elements: Array.isArray(body.panoramicElements)
+        ? body.panoramicElements as NonNullable<AppframeConfig['panoramic']>['elements']
+        : fallbackPanoramic?.elements ?? [],
+    };
+    return validateConfigOrThrow(next);
+  }
+
+  next.screens = screens.map((screen, index) => {
+    const original = next.screens[index] ?? {
+      screenshot: `screenshots/screen-${index + 1}.png`,
+      headline: `Screen ${index + 1}`,
+      layout: 'center' as const,
+      composition: 'single' as const,
+      autoSizeHeadline: true,
+      autoSizeSubtitle: false,
+      annotations: [],
+    };
+
+    return {
+      ...original,
+      screenshot: normalizeScreenshotPath(original.screenshot, screen.screenshotName, index),
+      headline: expectOptionalString(screen.headline) ?? original.headline,
+      subtitle: expectOptionalString(screen.subtitle),
+      layout:
+        (expectOptionalString(screen.layout) as typeof original.layout)
+        ?? original.layout,
+      device: expectOptionalString(screen.frameId) ?? original.device,
+      background: buildBackgroundString(screen, original.background),
+      composition:
+        (expectOptionalString(screen.composition) as typeof original.composition)
+        ?? original.composition,
+      autoSizeHeadline:
+        typeof screen.autoSizeHeadline === 'boolean'
+          ? screen.autoSizeHeadline
+          : original.autoSizeHeadline,
+      autoSizeSubtitle:
+        typeof screen.autoSizeSubtitle === 'boolean'
+          ? screen.autoSizeSubtitle
+          : original.autoSizeSubtitle,
+      spotlight: isRecord(screen.spotlight)
+        ? screen.spotlight as typeof original.spotlight
+        : original.spotlight,
+      annotations: Array.isArray(screen.annotations)
+        ? screen.annotations as typeof original.annotations
+        : original.annotations ?? [],
+      deviceShadow: isRecord(screen.deviceShadow)
+        ? screen.deviceShadow as typeof original.deviceShadow
+        : original.deviceShadow,
+      borderSimulation: isRecord(screen.borderSimulation)
+        ? screen.borderSimulation as typeof original.borderSimulation
+        : original.borderSimulation,
+      cornerRadius:
+        typeof screen.cornerRadius === 'number'
+          ? screen.cornerRadius
+          : original.cornerRadius,
+      loupe: isRecord(screen.loupe)
+        ? screen.loupe as typeof original.loupe
+        : original.loupe,
+      callouts: Array.isArray(screen.callouts)
+        ? screen.callouts as typeof original.callouts
+        : original.callouts,
+      overlays: Array.isArray(screen.overlays)
+        ? screen.overlays as typeof original.overlays
+        : original.overlays,
+    };
+  });
+
+  return validateConfigOrThrow(next);
 }
 
 export async function startPreviewServer(options: PreviewServerOptions): Promise<void> {
@@ -269,6 +484,22 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });
+    }
+  });
+
+  app.post('/api/export-config', async (req, res) => {
+    try {
+      const body = isRecord(req.body) ? req.body : {};
+      const variantName = expectOptionalString(body.variantName) ?? config.app.name;
+      const nextConfig = buildConfigFromEditorState(config, body);
+      const yaml = `# appframe config — ${config.app.name} (${variantName})\n${JSON.stringify(nextConfig, null, 2)}`;
+      const filename = `${variantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'variant'}.config.yaml`;
+      res.set('Content-Type', 'application/x-yaml; charset=utf-8');
+      res.set('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(yaml);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(400).json({ error: message });
     }
   });
 
@@ -1277,6 +1508,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // Map STORE_SIZES keys to Koubou output_size values (iOS only)
   function sizeKeyToKoubouOutput(sizeKey: string): string | null {
     const map: Record<string, string> = {
+      'ios-6.9': 'iPhone6_9',
       'ios-6.7': 'iPhone6_7',
       'ios-6.5': 'iPhone6_5',
       'ios-5.5': 'iPhone5_5',
@@ -1314,7 +1546,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.post('/api/export', async (req, res) => {
     try {
       const p = clampPreviewParams(parseBody(getRequestPayload(req.body)));
-      const sizeKey = p.sizeKey ?? 'ios-6.7';
+      const sizeKey = p.sizeKey ?? 'ios-6.9';
 
       const { STORE_SIZES } = await import('@appframe/core');
       const sizeSpec = STORE_SIZES[sizeKey];
@@ -1463,7 +1695,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
       const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
       const frameIndex = body.frameIndex as number | undefined;
-      const sizeKey = (body.sizeKey as string) ?? 'ios-6.7';
+      const sizeKey = (body.sizeKey as string) ?? 'ios-6.9';
 
       const { STORE_SIZES } = await import('@appframe/core');
       const sizeSpec = STORE_SIZES[sizeKey];

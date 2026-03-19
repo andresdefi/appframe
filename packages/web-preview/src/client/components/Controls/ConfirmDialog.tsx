@@ -47,6 +47,7 @@ export function ConfirmDialog({
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
+    return undefined;
   }, [open, handleKeyDown]);
 
   if (!open) return null;

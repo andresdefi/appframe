@@ -1,7 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Section } from '../Controls/Section';
-import { usePreviewStore } from '../../store';
+import { usePreviewStore, variantSnapshotFromState } from '../../store';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
+
+const FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'individual', label: 'Individual' },
+  { id: 'panoramic', label: 'Panoramic' },
+  { id: 'approved', label: 'Approved' },
+] as const;
 
 function formatCopySlot(slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary'): string {
   switch (slot) {
@@ -52,12 +59,114 @@ export function VariantsTab() {
   const sessionBacked = usePreviewStore((s) => s.sessionBacked);
   const saveSession = usePreviewStore((s) => s.saveSession);
   const isSavingSession = usePreviewStore((s) => s.isSavingSession);
+  const platform = usePreviewStore((s) => s.platform);
+  const previewW = usePreviewStore((s) => s.previewW);
+  const previewH = usePreviewStore((s) => s.previewH);
+  const locale = usePreviewStore((s) => s.locale);
+  const currentSessionLocales = usePreviewStore((s) => s.sessionLocales);
+  const isPanoramic = usePreviewStore((s) => s.isPanoramic);
+  const screens = usePreviewStore((s) => s.screens);
+  const selectedScreen = usePreviewStore((s) => s.selectedScreen);
+  const panoramicFrameCount = usePreviewStore((s) => s.panoramicFrameCount);
+  const panoramicBackground = usePreviewStore((s) => s.panoramicBackground);
+  const panoramicElements = usePreviewStore((s) => s.panoramicElements);
+  const panoramicEffects = usePreviewStore((s) => s.panoramicEffects);
+  const selectedElementIndex = usePreviewStore((s) => s.selectedElementIndex);
+  const exportSize = usePreviewStore((s) => s.exportSize);
+  const exportRenderer = usePreviewStore((s) => s.exportRenderer);
   const { confirm, dialog } = useConfirmDialog();
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
 
   const approvedCount = useMemo(
     () => variants.filter((variant) => variant.status === 'approved').length,
     [variants],
   );
+  const activeVariant = useMemo(
+    () => variants.find((variant) => variant.id === activeVariantId) ?? null,
+    [variants, activeVariantId],
+  );
+  const currentSnapshot = useMemo(
+    () =>
+      variantSnapshotFromState({
+        platform,
+        previewW,
+        previewH,
+        locale,
+        sessionLocales: currentSessionLocales,
+        isPanoramic,
+        screens,
+        selectedScreen,
+        panoramicFrameCount,
+        panoramicBackground,
+        panoramicElements,
+        panoramicEffects,
+        selectedElementIndex,
+        exportSize,
+        exportRenderer,
+      }),
+    [
+      platform,
+      previewW,
+      previewH,
+      locale,
+      currentSessionLocales,
+      isPanoramic,
+      screens,
+      selectedScreen,
+      panoramicFrameCount,
+      panoramicBackground,
+      panoramicElements,
+      panoramicEffects,
+      selectedElementIndex,
+      exportSize,
+      exportRenderer,
+    ],
+  );
+  const isSessionDirty = useMemo(
+    () => (
+      sessionBacked
+      && activeVariant != null
+      && JSON.stringify(activeVariant.snapshot) !== JSON.stringify(currentSnapshot)
+    ),
+    [sessionBacked, activeVariant, currentSnapshot],
+  );
+  const filteredVariants = useMemo(
+    () =>
+      variants.filter((variant) => {
+        switch (filter) {
+          case 'individual':
+            return !variant.snapshot.isPanoramic;
+          case 'panoramic':
+            return variant.snapshot.isPanoramic;
+          case 'approved':
+            return variant.status === 'approved';
+          default:
+            return true;
+        }
+      }),
+    [variants, filter],
+  );
+  const comparisonPair = useMemo(() => {
+    const comparisonPool = filteredVariants.length >= 2 ? filteredVariants : variants;
+    if (comparisonPool.length < 2) return null;
+
+    const active = comparisonPool.find((variant) => variant.id === activeVariantId) ?? activeVariant;
+    const recommended = comparisonPool.find((variant) => variant.id === recommendedVariantId)
+      ?? variants.find((variant) => variant.id === recommendedVariantId);
+    if (active && recommended && active.id !== recommended.id) {
+      return [active, recommended] as const;
+    }
+
+    const approved = comparisonPool.find((variant) => variant.status === 'approved' && variant.id !== active?.id);
+    if (active && approved) {
+      return [active, approved] as const;
+    }
+
+    const [first] = comparisonPool;
+    if (!first) return null;
+    const second = comparisonPool.find((variant) => variant.id !== first.id);
+    return first && second ? [first, second] as const : null;
+  }, [filteredVariants, variants, activeVariantId, activeVariant, recommendedVariantId]);
 
   return (
     <>
@@ -103,10 +212,18 @@ export function VariantsTab() {
           <button
             className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-3 disabled:opacity-60"
             onClick={() => void saveSession()}
-            disabled={isSavingSession}
+            disabled={isSavingSession || !isSessionDirty}
           >
-            {isSavingSession ? 'Saving Session...' : 'Save Session'}
+            {isSavingSession ? 'Saving Session...' : isSessionDirty ? 'Save Session' : 'Session Saved'}
           </button>
+        )}
+
+        {sessionBacked && (
+          <div className={`mb-3 rounded-lg border px-3 py-2 text-[11px] ${isSessionDirty ? 'border-amber-500/20 bg-amber-500/8 text-amber-100' : 'border-emerald-500/20 bg-emerald-500/8 text-emerald-200'}`}>
+            {isSessionDirty
+              ? 'This variant has unsaved manual edits in the current session.'
+              : 'Session is in sync with the current manual edits.'}
+          </div>
         )}
 
         <div className="text-[10px] text-text-dim mb-3">
@@ -120,8 +237,78 @@ export function VariantsTab() {
           </div>
         )}
 
+        <div className="mb-3 flex flex-wrap gap-1">
+          {FILTERS.map((entry) => (
+            <button
+              key={entry.id}
+              className={`rounded-full px-2.5 py-1 text-[10px] transition-colors ${filter === entry.id ? 'bg-accent/10 text-accent border border-accent/30' : 'bg-surface border border-border text-text-dim hover:text-text'}`}
+              onClick={() => setFilter(entry.id)}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
+
+        {comparisonPair && (
+          <div className="mb-3 rounded-lg border border-border bg-surface/40 p-3">
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-text-dim">
+              Compare Concepts
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {comparisonPair.map((variant) => {
+                const preview = sessionAssetUrl(variant.previewArtifacts[0]?.thumbnailPath);
+                const isActive = variant.id === activeVariantId;
+                const mode = variant.snapshot.isPanoramic ? 'Panoramic' : 'Individual';
+                const unitCount = variant.snapshot.isPanoramic
+                  ? `${variant.snapshot.panoramicFrameCount} frames`
+                  : `${variant.snapshot.screens.length} screens`;
+
+                return (
+                  <div
+                    key={`compare-${variant.id}`}
+                    className="min-w-[220px] flex-1 rounded-md border border-border bg-bg/60 p-2.5"
+                  >
+                    {preview ? (
+                      <img
+                        src={preview}
+                        alt={`${variant.name} comparison preview`}
+                        className="mb-2 block h-24 w-full rounded-md border border-border object-cover object-top"
+                      />
+                    ) : (
+                      <div className="mb-2 flex h-24 items-center justify-center rounded-md border border-dashed border-border text-[10px] text-text-dim">
+                        No preview yet
+                      </div>
+                    )}
+
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <div className="text-xs font-medium text-text">{variant.name}</div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded ${variant.status === 'approved' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-surface text-text-dim'}`}>
+                        {variant.status === 'approved' ? 'Approved' : 'Draft'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-[10px] text-text-dim">
+                      <div>{mode} · {unitCount}</div>
+                      <div>{Object.keys(variant.snapshot.sessionLocales).length} locales · {variant.copyAssignments.length} copy slots</div>
+                      {variant.score && <div>Score {variant.score.total}/100</div>}
+                      {variant.score?.reason && <div>{variant.score.reason}</div>}
+                    </div>
+
+                    <button
+                      className={`mt-2 w-full rounded-md py-1.5 text-[11px] ${isActive ? 'bg-accent text-white' : 'bg-surface border border-border text-text-dim hover:text-text'}`}
+                      onClick={() => selectVariant(variant.id)}
+                    >
+                      {isActive ? 'Active In Editor' : 'Open In Editor'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
-          {variants.map((variant) => {
+          {filteredVariants.map((variant) => {
             const isActive = variant.id === activeVariantId;
             const isRecommended = variant.id === recommendedVariantId;
             const mode = variant.snapshot.isPanoramic ? 'Panoramic' : 'Individual';
@@ -218,6 +405,30 @@ export function VariantsTab() {
                     </div>
                   ) : null}
                 </div>
+
+                {variant.score && (
+                  <details className="mb-3 rounded-md border border-border bg-bg/40">
+                    <summary className="cursor-pointer list-none px-3 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-text-dim">
+                      Score Breakdown
+                    </summary>
+                    <div className="space-y-2 border-t border-border px-3 py-2">
+                      {Object.entries(variant.score.breakdown).map(([label, value]) => (
+                        <div key={label}>
+                          <div className="mb-1 flex items-center justify-between text-[10px] text-text-dim">
+                            <span>{label}</span>
+                            <span>{value}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-surface">
+                            <div
+                              className="h-full rounded-full bg-accent"
+                              style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
 
                 <div className="flex gap-2">
                   <button

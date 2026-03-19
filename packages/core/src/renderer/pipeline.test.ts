@@ -50,7 +50,7 @@ describe('generateScreenshots', () => {
     mockLoadConfig.mockResolvedValue(createMinimalConfig());
 
     const result = await generateScreenshots({ configPath: '/tmp/appframe.yml' });
-    expect(result.screenshots.length).toBe(2); // default iOS: 6.7 + 6.5
+    expect(result.screenshots.length).toBe(2); // default iOS: 6.9 + 6.5
     expect(result.totalTime).toBeGreaterThanOrEqual(0);
   });
 

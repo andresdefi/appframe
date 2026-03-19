@@ -68,11 +68,11 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
     borderSimulation: { enabled: true, thickness: 2, color: '#ffffff', radius: 24 },
     cornerRadius: 28,
     loupe: {
-      enabled: true,
       width: 0.5,
       height: 0.33,
       sourceX: 0.2,
       sourceY: 0.3,
+      zoom: 2.5,
       scale: 1.2,
       cornerRadius: 12,
       borderWidth: 2,
@@ -127,8 +127,8 @@ describe('preview/export payload builders', () => {
     const screen = createScreen();
     const localeConfig: LocaleConfig = {
       screens: [
-        {},
-        {},
+        { headline: 'Placeholder 1' },
+        { headline: 'Placeholder 2' },
         { headline: 'Sigue mejor', subtitle: 'Ve cada gasto con claridad' },
       ],
     };

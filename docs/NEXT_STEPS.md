@@ -326,18 +326,18 @@ This is the most important remaining capability area for before.click-level qual
 - [x] Show preview thumbnails in the variants tab.
 - [x] Support 4-concept sessions.
 - [ ] Show analysis/copy/plan metadata in dedicated panels.
-- [ ] Add side-by-side concept comparison view.
+- [x] Add side-by-side concept comparison view.
 - [ ] Add quick filter tabs for:
-  - [ ] all concepts
-  - [ ] individual only
-  - [ ] panoramic only
-  - [ ] approved only
-- [ ] Add richer recommendation UI with score breakdown display.
+  - [x] all concepts
+  - [x] individual only
+  - [x] panoramic only
+  - [x] approved only
+- [x] Add richer recommendation UI with score breakdown display.
 - [x] Add explicit "approve recommended" action.
 - [ ] Add "duplicate concept" in session-aware autopilot flows without losing metadata.
 - [x] Add "edit manually" affordance that preserves autopilot metadata.
 - [ ] Add "refine with AI" buttons in the UI.
-- [ ] Add preview thumbnails to any future concept comparison grid.
+- [x] Add preview thumbnails to any future concept comparison grid.
 - [ ] Improve panoramic concept preview UX so users can evaluate cross-frame continuity more clearly.
 
 ### 10.5. Useful Follow-Ups From PR #1
@@ -348,11 +348,11 @@ These ideas are worth keeping, but should be rebuilt on top of the current sessi
   Desired shape: save back into the active variant session or export a materialized config artifact for that concept, not overwrite the source input config blindly.
 - [ ] Define the exact persistence actions the UI should support:
   - [x] save edits to active variant snapshot in session
-  - [ ] materialize active variant to a standalone config file
+  - [x] materialize active variant to a standalone config file
   - [ ] promote approved variant to export-ready artifact
 - [x] Add validation-backed save endpoints for whichever persistence flow is chosen.
-- [ ] Add explicit dirty-state / save-state UI in web preview once session-backed persistence exists.
-- [ ] Verify App Store size mappings against the current Apple spec and update `packages/core/src/renderer/sizes.ts` where needed.
+- [x] Add explicit dirty-state / save-state UI in web preview once session-backed persistence exists.
+- [x] Verify App Store size mappings against the current Apple spec and update `packages/core/src/renderer/sizes.ts` where needed.
 - [ ] Consider keeping improved Koubou stderr logging, but only as a small isolated patch with cleanup behavior decided explicitly.
 - [ ] Add tests for any persistence flow so preview edits round-trip through load/save without losing config fields or session metadata.
 

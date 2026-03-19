@@ -35,10 +35,10 @@ describe('STORE_SIZES', () => {
 });
 
 describe('getTargetSizes', () => {
-  it('returns default iOS sizes (6.7 and 6.5)', () => {
+  it('returns default iOS sizes (6.9 and 6.5)', () => {
     const sizes = getTargetSizes(['ios']);
     expect(sizes).toHaveLength(2);
-    expect(sizes[0]!.name).toBe('iPhone 6.7"');
+    expect(sizes[0]!.name).toBe('iPhone 6.9"');
     expect(sizes[1]!.name).toBe('iPhone 6.5"');
   });
 

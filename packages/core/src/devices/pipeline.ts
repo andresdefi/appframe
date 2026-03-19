@@ -87,7 +87,7 @@ async function setupPipelineContext(options: GenerateOptions): Promise<KoubouPip
   const baseOutputDir = options.outputDir ?? join(configDir, config.output.directory);
   await mkdir(baseOutputDir, { recursive: true });
 
-  const iosSizes = config.output.ios?.sizes ?? [6.7, 6.5];
+  const iosSizes = config.output.ios?.sizes ?? [6.9, 6.5];
   const koubouSizes = iosSizes
     .map(size => ({ original: size, koubou: mapSizeToKoubou(size) }))
     .filter((s): s is { original: number; koubou: string } => s.koubou !== null);
@@ -309,7 +309,7 @@ export async function generateKoubouConfig(
   const config = await loadConfig(configPath);
   const configDir = dirname(resolve(configPath));
 
-  const size = outputSize ?? mapSizeToKoubou(config.output.ios?.sizes?.[0] ?? 6.7) ?? 'iPhone6_7';
+  const size = outputSize ?? mapSizeToKoubou(config.output.ios?.sizes?.[0] ?? 6.9) ?? 'iPhone6_9';
 
   let koubouConfig: KoubouConfig;
 

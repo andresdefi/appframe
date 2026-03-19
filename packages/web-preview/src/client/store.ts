@@ -338,7 +338,7 @@ function makeId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function variantSnapshotFromState(
+export function variantSnapshotFromState(
   state: Pick<
     PreviewStore,
     | 'platform'

@@ -197,13 +197,13 @@ export function EffectsTab() {
           onChange={(checked) =>
             update({
               loupe: checked
-                ? { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, scale: 1.1, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 }
+                ? { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, zoom: 2.5, scale: 1.1, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 }
                 : null,
             })
           }
         />
         {(() => {
-          const defaults = { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, scale: 1.1, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 };
+          const defaults = { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, zoom: 2.5, scale: 1.1, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 };
           const l = screen.loupe ?? defaults;
           const upd = (partial: Record<string, unknown>) => update({ loupe: { ...l, ...partial } });
           return (
@@ -237,6 +237,7 @@ export function EffectsTab() {
                   <RangeSlider label="Shadow Y Offset" value={l.shadowOffsetY ?? 0} min={-50} max={50} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowOffsetY: v })} />
                 </>
               )}
+              <RangeSlider label="Zoom" value={l.zoom ?? 2.5} min={1} max={5} step={0.1} formatValue={(v) => `${v.toFixed(1)}x`} onChange={(v) => upd({ zoom: v })} />
               <RangeSlider label="Scale" value={l.scale ?? 1.1} min={1} max={3} step={0.01} formatValue={(v) => `${v.toFixed(2)}x`} onChange={(v) => upd({ scale: v })} />
               <RangeSlider label="X Offset" value={l.xOffset ?? 0} min={-100} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ xOffset: v })} />
               <RangeSlider label="Y Offset" value={l.yOffset ?? 0} min={-100} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ yOffset: v })} />

@@ -19,6 +19,7 @@ const ELEMENT_TYPE_LABELS: Record<string, string> = {
   text: 'Text',
   label: 'Label',
   decoration: 'Decoration',
+  image: 'Image',
 };
 
 const PLATFORM_CATEGORIES: Record<string, string[]> = {
@@ -37,11 +38,7 @@ const PLATFORM_SVG_TAGS: Record<string, string[]> = {
   watch: [],
 };
 
-function buildFrameGroups(
-  deviceFamilies: DeviceFamily[],
-  frames: FrameData[],
-  platform?: string,
-) {
+function buildFrameGroups(deviceFamilies: DeviceFamily[], frames: FrameData[], platform?: string) {
   const allowedCategories = platform ? (PLATFORM_CATEGORIES[platform] ?? ['iphone']) : null;
   const allowedSvgTags = platform ? (PLATFORM_SVG_TAGS[platform] ?? []) : null;
 
@@ -79,9 +76,7 @@ function buildFrameGroups(
  * This maps the store's element index to the data-index in the rendered HTML.
  */
 function getSortedIndex(elements: PanoramicElement[], storeIndex: number): number {
-  const sorted = elements
-    .map((el, i) => ({ z: el.z, i }))
-    .sort((a, b) => a.z - b.z);
+  const sorted = elements.map((el, i) => ({ z: el.z, i })).sort((a, b) => a.z - b.z);
   return sorted.findIndex((s) => s.i === storeIndex);
 }
 
@@ -95,13 +90,11 @@ function ElementInspector({ index }: { index: number }) {
   const frames = usePreviewStore((s) => s.frames);
   const fonts = usePreviewStore((s) => s.fonts);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const { confirm, dialog } = useConfirmDialog();
   const { patchElement } = usePanoramicInstantPatch();
 
-  const sortedIndex = useMemo(
-    () => getSortedIndex(elements, index),
-    [elements, index],
-  );
+  const sortedIndex = useMemo(() => getSortedIndex(elements, index), [elements, index]);
 
   const update = useCallback(
     (partial: Partial<PanoramicElement>) => {
@@ -139,18 +132,34 @@ function ElementInspector({ index }: { index: number }) {
     e.target.value = '';
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      update({ src: ev.target?.result as string } as Partial<PanoramicElement>);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   return (
     <div>
       {dialog}
       <div className="px-5 py-3 border-b border-border flex items-center justify-between">
         <span className="text-xs font-medium">
-          {ELEMENT_TYPE_LABELS[element.type]} #{elements.slice(0, index).filter((e) => e.type === element.type).length + 1}
+          {ELEMENT_TYPE_LABELS[element.type]} #
+          {elements.slice(0, index).filter((e) => e.type === element.type).length + 1}
         </span>
         <button
           className="text-[10px] text-red-400 hover:text-red-300"
           onClick={async () => {
-            const typeNum = elements.slice(0, index).filter((e) => e.type === element.type).length + 1;
-            const ok = await confirm({ title: 'Remove Element', message: `Remove ${ELEMENT_TYPE_LABELS[element.type]} #${typeNum}? This cannot be undone.` });
+            const typeNum =
+              elements.slice(0, index).filter((e) => e.type === element.type).length + 1;
+            const ok = await confirm({
+              title: 'Remove Element',
+              message: `Remove ${ELEMENT_TYPE_LABELS[element.type]} #${typeNum}? This cannot be undone.`,
+            });
             if (ok) removeElement(index);
           }}
         >
@@ -190,193 +199,273 @@ function ElementInspector({ index }: { index: number }) {
       </Section>
 
       {/* ========== DEVICE ========== */}
-      {element.type === 'device' && (() => {
-        const isFrameNone = (element.frameStyle ?? 'flat') === 'none';
-        const isKoubouPng = currentFamily && currentFamily.screenRect;
-        const isFullscreen = element.fullscreenScreenshot ?? false;
-        return (
-        <>
-          <Section title="Screenshot">
-            {element.screenshot.startsWith('data:') ? (
-              <div className="flex items-center gap-2 mb-2">
-                <img
-                  src={element.screenshot}
-                  alt=""
-                  className="w-10 h-10 rounded object-cover border border-border"
-                />
-                <span className="text-xs text-text-dim truncate flex-1">Custom upload</span>
-              </div>
-            ) : (
-              <div className="text-xs text-text-dim mb-2 truncate">{element.screenshot}</div>
-            )}
-            <button
-              className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Upload Screenshot
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              aria-label="Upload screenshot image"
-              onChange={handleScreenshotUpload}
-            />
-            {element.screenshot.startsWith('data:') && (
-              <button
-                className="w-full py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
-                onClick={() => update({ screenshot: config?.screens[0]?.screenshot ?? 'screenshots/screen-1.png' })}
-              >
-                Revert to File
-              </button>
-            )}
-          </Section>
-
-          <Section title="Device Frame">
-            <Select
-              label="Frame"
-              value={currentFrameId}
-              onChange={(v) => {
-                const family = deviceFamilies.find((f) => f.id === v);
-                const isPng = family && family.screenRect;
-                if (isPng && isFrameNone) {
-                  update({ frame: v, frameStyle: 'flat' } as Partial<PanoramicElement>);
-                } else {
-                  update({ frame: v } as Partial<PanoramicElement>);
-                }
-              }}
-              groups={frameGroups}
-            />
-            {hasColors && (
-              <div className="mb-2.5">
-                <label className="block text-xs text-text-dim mb-1">Color Variant</label>
-                <div className="flex flex-wrap gap-1">
-                  {currentFamily.colors.map((c) => (
-                    <button
-                      key={c.name}
-                      className={`w-6 h-6 rounded border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent ${element.deviceColor === c.name ? 'border-accent ring-1 ring-accent' : 'border-border'}`}
-                      style={{ background: KOUBOU_COLOR_HEX[c.name] ?? '#888888' }}
-                      title={c.name}
-                      aria-label={`${c.name} color variant`}
-                      aria-pressed={element.deviceColor === c.name}
-                      onClick={() => update({ deviceColor: c.name } as Partial<PanoramicElement>)}
+      {element.type === 'device' &&
+        (() => {
+          const isFrameNone = (element.frameStyle ?? 'flat') === 'none';
+          const isKoubouPng = currentFamily && currentFamily.screenRect;
+          const isFullscreen = element.fullscreenScreenshot ?? false;
+          return (
+            <>
+              <Section title="Screenshot">
+                {element.screenshot.startsWith('data:') ? (
+                  <div className="flex items-center gap-2 mb-2">
+                    <img
+                      src={element.screenshot}
+                      alt=""
+                      className="w-10 h-10 rounded object-cover border border-border"
                     />
-                  ))}
-                </div>
-              </div>
-            )}
-            <Select
-              label="Frame Style"
-              value={element.frameStyle ?? 'flat'}
-              onChange={(v) => update({ frameStyle: v } as Partial<PanoramicElement>)}
-              options={[
-                { value: 'flat', label: 'Flat' },
-                { value: 'none', label: 'None (frameless)' },
-              ]}
-              hidden={!!isKoubouPng}
-            />
-            {/* Border simulation — only when frameless */}
-            {isFrameNone && (
-              <>
+                    <span className="text-xs text-text-dim truncate flex-1">Custom upload</span>
+                  </div>
+                ) : (
+                  <div className="text-xs text-text-dim mb-2 truncate">{element.screenshot}</div>
+                )}
+                <button
+                  className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Upload Screenshot
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  aria-label="Upload screenshot image"
+                  onChange={handleScreenshotUpload}
+                />
+                {element.screenshot.startsWith('data:') && (
+                  <button
+                    className="w-full py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
+                    onClick={() =>
+                      update({
+                        screenshot: config?.screens[0]?.screenshot ?? 'screenshots/screen-1.png',
+                      })
+                    }
+                  >
+                    Revert to File
+                  </button>
+                )}
+              </Section>
+
+              <Section title="Device Frame">
+                <Select
+                  label="Frame"
+                  value={currentFrameId}
+                  onChange={(v) => {
+                    const family = deviceFamilies.find((f) => f.id === v);
+                    const isPng = family && family.screenRect;
+                    if (isPng && isFrameNone) {
+                      update({ frame: v, frameStyle: 'flat' } as Partial<PanoramicElement>);
+                    } else {
+                      update({ frame: v } as Partial<PanoramicElement>);
+                    }
+                  }}
+                  groups={frameGroups}
+                />
+                {hasColors && (
+                  <div className="mb-2.5">
+                    <label className="block text-xs text-text-dim mb-1">Color Variant</label>
+                    <div className="flex flex-wrap gap-1">
+                      {currentFamily.colors.map((c) => (
+                        <button
+                          key={c.name}
+                          className={`w-6 h-6 rounded border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent ${element.deviceColor === c.name ? 'border-accent ring-1 ring-accent' : 'border-border'}`}
+                          style={{ background: KOUBOU_COLOR_HEX[c.name] ?? '#888888' }}
+                          title={c.name}
+                          aria-label={`${c.name} color variant`}
+                          aria-pressed={element.deviceColor === c.name}
+                          onClick={() =>
+                            update({ deviceColor: c.name } as Partial<PanoramicElement>)
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <Select
+                  label="Frame Style"
+                  value={element.frameStyle ?? 'flat'}
+                  onChange={(v) => update({ frameStyle: v } as Partial<PanoramicElement>)}
+                  options={[
+                    { value: 'flat', label: 'Flat' },
+                    { value: 'none', label: 'None (frameless)' },
+                  ]}
+                  hidden={!!isKoubouPng}
+                />
+                {/* Border simulation — only when frameless */}
+                {isFrameNone && (
+                  <>
+                    <Checkbox
+                      label="Border Simulation"
+                      checked={!!(element as { borderSimulation?: unknown }).borderSimulation}
+                      onChange={(checked) =>
+                        update({
+                          borderSimulation: checked
+                            ? { enabled: true, thickness: 4, color: '#1a1a1a', radius: 40 }
+                            : undefined,
+                        } as Partial<PanoramicElement>)
+                      }
+                    />
+                    {(
+                      element as {
+                        borderSimulation?: { thickness: number; color: string; radius: number };
+                      }
+                    ).borderSimulation &&
+                      (() => {
+                        const bs = (
+                          element as {
+                            borderSimulation: { thickness: number; color: string; radius: number };
+                          }
+                        ).borderSimulation;
+                        return (
+                          <>
+                            <RangeSlider
+                              label="Thickness"
+                              value={bs.thickness}
+                              min={1}
+                              max={20}
+                              formatValue={(v) => `${v}px`}
+                              onChange={(v) =>
+                                update({
+                                  borderSimulation: { ...bs, thickness: v },
+                                } as Partial<PanoramicElement>)
+                              }
+                            />
+                            <ColorPicker
+                              label="Color"
+                              value={bs.color}
+                              onChange={(v) =>
+                                update({
+                                  borderSimulation: { ...bs, color: v },
+                                } as Partial<PanoramicElement>)
+                              }
+                            />
+                            <RangeSlider
+                              label="Radius"
+                              value={bs.radius}
+                              min={0}
+                              max={60}
+                              formatValue={(v) => `${v}px`}
+                              onChange={(v) =>
+                                update({
+                                  borderSimulation: { ...bs, radius: v },
+                                } as Partial<PanoramicElement>)
+                              }
+                            />
+                          </>
+                        );
+                      })()}
+                  </>
+                )}
+              </Section>
+
+              <Section
+                title="Device Layout"
+                tooltip="Control device scale, position, and fullscreen mode."
+              >
                 <Checkbox
-                  label="Border Simulation"
-                  checked={!!(element as { borderSimulation?: unknown }).borderSimulation}
+                  label="Fullscreen Screenshot"
+                  checked={isFullscreen}
+                  onChange={(checked) =>
+                    update({ fullscreenScreenshot: checked } as Partial<PanoramicElement>)
+                  }
+                />
+                {!isFullscreen && (
+                  <>
+                    <RangeSlider
+                      label="Device Size"
+                      value={element.width}
+                      min={5}
+                      max={60}
+                      step={0.5}
+                      formatValue={(v) => `${v}%`}
+                      onChange={(v) => update({ width: v })}
+                      onInstant={(v) => instant({ width: v })}
+                    />
+                    <RangeSlider
+                      label="Device Rotation"
+                      value={element.rotation}
+                      min={-180}
+                      max={180}
+                      formatValue={(v) => `${v}\u00B0`}
+                      onChange={(v) => update({ rotation: v })}
+                      onInstant={(v) => instant({ rotation: v })}
+                    />
+                    <RangeSlider
+                      label="3D Tilt"
+                      value={element.deviceTilt ?? 0}
+                      min={0}
+                      max={40}
+                      formatValue={(v) => `${v}\u00B0`}
+                      onChange={(v) => update({ deviceTilt: v } as Partial<PanoramicElement>)}
+                    />
+                    {isFrameNone && (
+                      <RangeSlider
+                        label="Corner Radius"
+                        value={element.cornerRadius ?? 0}
+                        min={0}
+                        max={50}
+                        formatValue={(v) => `${v}%`}
+                        onChange={(v) => update({ cornerRadius: v } as Partial<PanoramicElement>)}
+                      />
+                    )}
+                  </>
+                )}
+              </Section>
+
+              <Section
+                title="Device Shadow"
+                tooltip="Add a custom shadow beneath the device frame."
+                defaultCollapsed
+              >
+                <Checkbox
+                  label="Custom Shadow"
+                  checked={!!element.shadow}
                   onChange={(checked) =>
                     update({
-                      borderSimulation: checked
-                        ? { enabled: true, thickness: 4, color: '#1a1a1a', radius: 40 }
+                      shadow: checked
+                        ? { opacity: 0.25, blur: 20, color: '#000000', offsetY: 10 }
                         : undefined,
                     } as Partial<PanoramicElement>)
                   }
                 />
-                {(element as { borderSimulation?: { thickness: number; color: string; radius: number } }).borderSimulation && (() => {
-                  const bs = (element as { borderSimulation: { thickness: number; color: string; radius: number } }).borderSimulation;
-                  return (
-                    <>
-                      <RangeSlider label="Thickness" value={bs.thickness} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => update({ borderSimulation: { ...bs, thickness: v } } as Partial<PanoramicElement>)} />
-                      <ColorPicker label="Color" value={bs.color} onChange={(v) => update({ borderSimulation: { ...bs, color: v } } as Partial<PanoramicElement>)} />
-                      <RangeSlider label="Radius" value={bs.radius} min={0} max={60} formatValue={(v) => `${v}px`} onChange={(v) => update({ borderSimulation: { ...bs, radius: v } } as Partial<PanoramicElement>)} />
-                    </>
-                  );
-                })()}
-              </>
-            )}
-          </Section>
-
-          <Section title="Device Layout" tooltip="Control device scale, position, and fullscreen mode.">
-            <Checkbox
-              label="Fullscreen Screenshot"
-              checked={isFullscreen}
-              onChange={(checked) => update({ fullscreenScreenshot: checked } as Partial<PanoramicElement>)}
-            />
-            {!isFullscreen && (
-              <>
-                <RangeSlider
-                  label="Device Size"
-                  value={element.width}
-                  min={5}
-                  max={60}
-                  step={0.5}
-                  formatValue={(v) => `${v}%`}
-                  onChange={(v) => update({ width: v })}
-                  onInstant={(v) => instant({ width: v })}
-                />
-                <RangeSlider
-                  label="Device Rotation"
-                  value={element.rotation}
-                  min={-180}
-                  max={180}
-                  formatValue={(v) => `${v}\u00B0`}
-                  onChange={(v) => update({ rotation: v })}
-                  onInstant={(v) => instant({ rotation: v })}
-                />
-                <RangeSlider
-                  label="3D Tilt"
-                  value={element.deviceTilt ?? 0}
-                  min={0}
-                  max={40}
-                  formatValue={(v) => `${v}\u00B0`}
-                  onChange={(v) => update({ deviceTilt: v } as Partial<PanoramicElement>)}
-                />
-                {isFrameNone && (
-                  <RangeSlider
-                    label="Corner Radius"
-                    value={element.cornerRadius ?? 0}
-                    min={0}
-                    max={50}
-                    formatValue={(v) => `${v}%`}
-                    onChange={(v) => update({ cornerRadius: v } as Partial<PanoramicElement>)}
-                  />
+                {element.shadow && (
+                  <>
+                    <RangeSlider
+                      label="Opacity"
+                      value={Math.round(element.shadow.opacity * 100)}
+                      min={0}
+                      max={100}
+                      formatValue={(v) => `${v}%`}
+                      onChange={(v) => update({ shadow: { ...element.shadow!, opacity: v / 100 } })}
+                    />
+                    <RangeSlider
+                      label="Blur"
+                      value={element.shadow.blur}
+                      min={0}
+                      max={50}
+                      formatValue={(v) => `${v}px`}
+                      onChange={(v) => update({ shadow: { ...element.shadow!, blur: v } })}
+                    />
+                    <ColorPicker
+                      label="Color"
+                      value={element.shadow.color}
+                      onChange={(v) => update({ shadow: { ...element.shadow!, color: v } })}
+                    />
+                    <RangeSlider
+                      label="Y Offset"
+                      value={element.shadow.offsetY}
+                      min={0}
+                      max={30}
+                      formatValue={(v) => `${v}px`}
+                      onChange={(v) => update({ shadow: { ...element.shadow!, offsetY: v } })}
+                    />
+                  </>
                 )}
-              </>
-            )}
-          </Section>
-
-          <Section title="Device Shadow" tooltip="Add a custom shadow beneath the device frame." defaultCollapsed>
-            <Checkbox
-              label="Custom Shadow"
-              checked={!!element.shadow}
-              onChange={(checked) =>
-                update({
-                  shadow: checked
-                    ? { opacity: 0.25, blur: 20, color: '#000000', offsetY: 10 }
-                    : undefined,
-                } as Partial<PanoramicElement>)
-              }
-            />
-            {element.shadow && (
-              <>
-                <RangeSlider label="Opacity" value={Math.round(element.shadow.opacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ shadow: { ...element.shadow!, opacity: v / 100 } })} />
-                <RangeSlider label="Blur" value={element.shadow.blur} min={0} max={50} formatValue={(v) => `${v}px`} onChange={(v) => update({ shadow: { ...element.shadow!, blur: v } })} />
-                <ColorPicker label="Color" value={element.shadow.color} onChange={(v) => update({ shadow: { ...element.shadow!, color: v } })} />
-                <RangeSlider label="Y Offset" value={element.shadow.offsetY} min={0} max={30} formatValue={(v) => `${v}px`} onChange={(v) => update({ shadow: { ...element.shadow!, offsetY: v } })} />
-              </>
-            )}
-          </Section>
-        </>
-        );
-      })()}
+              </Section>
+            </>
+          );
+        })()}
 
       {/* ========== TEXT ========== */}
       {element.type === 'text' && (
@@ -398,7 +487,10 @@ function ElementInspector({ index }: { index: number }) {
             />
           </Section>
 
-          <Section title="Typography" tooltip="Control font family, weight, size, and styling for this element.">
+          <Section
+            title="Typography"
+            tooltip="Control font family, weight, size, and styling for this element."
+          >
             <Select
               label="Font"
               value={(element as { font?: string }).font ?? config?.theme.font ?? 'inter'}
@@ -489,70 +581,98 @@ function ElementInspector({ index }: { index: number }) {
             />
           </Section>
 
-          <Section title="Text Gradient" tooltip="Apply a gradient color effect to the text." defaultCollapsed>
+          <Section
+            title="Text Gradient"
+            tooltip="Apply a gradient color effect to the text."
+            defaultCollapsed
+          >
             <Checkbox
               label="Enable Gradient"
               checked={!!(element as { gradient?: unknown }).gradient}
               onChange={(checked) =>
                 update({
                   gradient: checked
-                    ? { type: 'linear', colors: ['#6366f1', '#ec4899'], direction: 135, radialPosition: 'center' }
+                    ? {
+                        type: 'linear',
+                        colors: ['#6366f1', '#ec4899'],
+                        direction: 135,
+                        radialPosition: 'center',
+                      }
                     : undefined,
                 } as Partial<PanoramicElement>)
               }
             />
-            {(element as { gradient?: { type: string; colors: string[]; direction: number; radialPosition: string } }).gradient && (() => {
-              const g = (element as { gradient: { type: string; colors: string[]; direction: number; radialPosition: string } }).gradient;
-              return (
-                <>
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {GRADIENT_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        className="w-8 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent focus:outline-none"
-                        style={{
-                          background: `linear-gradient(${preset.direction}deg, ${preset.colors.join(', ')})`,
+            {(
+              element as {
+                gradient?: {
+                  type: string;
+                  colors: string[];
+                  direction: number;
+                  radialPosition: string;
+                };
+              }
+            ).gradient &&
+              (() => {
+                const g = (
+                  element as {
+                    gradient: {
+                      type: string;
+                      colors: string[];
+                      direction: number;
+                      radialPosition: string;
+                    };
+                  }
+                ).gradient;
+                return (
+                  <>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {GRADIENT_PRESETS.map((preset) => (
+                        <button
+                          key={preset.name}
+                          className="w-8 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent focus:outline-none"
+                          style={{
+                            background: `linear-gradient(${preset.direction}deg, ${preset.colors.join(', ')})`,
+                          }}
+                          title={preset.name}
+                          aria-label={`Apply ${preset.name} gradient`}
+                          onClick={() =>
+                            update({
+                              gradient: {
+                                type: 'linear',
+                                colors: [...preset.colors],
+                                direction: preset.direction,
+                                radialPosition: 'center',
+                              },
+                            } as Partial<PanoramicElement>)
+                          }
+                        />
+                      ))}
+                    </div>
+                    <RangeSlider
+                      label="Direction"
+                      value={g.direction}
+                      min={0}
+                      max={360}
+                      formatValue={(v) => `${v}\u00B0`}
+                      onChange={(v) =>
+                        update({ gradient: { ...g, direction: v } } as Partial<PanoramicElement>)
+                      }
+                    />
+                    {g.colors.map((color, i) => (
+                      <ColorPicker
+                        key={i}
+                        label={`Stop ${i + 1}`}
+                        value={color}
+                        onChange={(v) => {
+                          const colors = [...g.colors];
+                          colors[i] = v;
+                          update({ gradient: { ...g, colors } } as Partial<PanoramicElement>);
                         }}
-                        title={preset.name}
-                        aria-label={`Apply ${preset.name} gradient`}
-                        onClick={() =>
-                          update({
-                            gradient: {
-                              type: 'linear',
-                              colors: [...preset.colors],
-                              direction: preset.direction,
-                              radialPosition: 'center',
-                            },
-                          } as Partial<PanoramicElement>)
-                        }
                       />
                     ))}
-                  </div>
-                  <RangeSlider
-                    label="Direction"
-                    value={g.direction}
-                    min={0}
-                    max={360}
-                    formatValue={(v) => `${v}\u00B0`}
-                    onChange={(v) =>
-                      update({ gradient: { ...g, direction: v } } as Partial<PanoramicElement>)
-                    }
-                  />
-                  {g.colors.map((color, i) => (
-                    <ColorPicker
-                      key={i}
-                      label={`Stop ${i + 1}`}
-                      value={color}
-                      onChange={(v) => {
-                        const colors = [...g.colors];
-                        colors[i] = v;
-                        update({ gradient: { ...g, colors } } as Partial<PanoramicElement>);
-                      }}
-                    />
-                  ))}
-                </>
-              );
-            })()}
+                  </>
+                );
+              })()}
           </Section>
 
           <Section title="Layout">
@@ -575,6 +695,160 @@ function ElementInspector({ index }: { index: number }) {
                 formatValue={(v) => `${v}%`}
                 onChange={(v) => update({ maxWidth: v })}
               />
+            )}
+          </Section>
+        </>
+      )}
+
+      {/* ========== IMAGE ========== */}
+      {element.type === 'image' && (
+        <>
+          <Section title="Image Asset">
+            {element.src.startsWith('data:') ? (
+              <div className="flex items-center gap-2 mb-2">
+                <img
+                  src={element.src}
+                  alt=""
+                  className="w-10 h-10 rounded object-cover border border-border"
+                />
+                <span className="text-xs text-text-dim truncate flex-1">Custom upload</span>
+              </div>
+            ) : (
+              <div className="text-xs text-text-dim mb-2 truncate">{element.src}</div>
+            )}
+            <button
+              className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+              onClick={() => imageInputRef.current?.click()}
+            >
+              Upload Image
+            </button>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              className="hidden"
+              aria-label="Upload panoramic image"
+              onChange={handleImageUpload}
+            />
+          </Section>
+
+          <Section title="Layout">
+            <RangeSlider
+              label="Width"
+              value={element.width}
+              min={0.5}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ width: v })}
+              onInstant={(v) => instant({ width: v })}
+            />
+            <RangeSlider
+              label="Height"
+              value={element.height}
+              min={0.5}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ height: v })}
+              onInstant={(v) => instant({ height: v })}
+            />
+            <Select
+              label="Fit"
+              value={element.fit}
+              onChange={(v) => update({ fit: v as 'contain' | 'cover' })}
+              options={[
+                { value: 'contain', label: 'Contain' },
+                { value: 'cover', label: 'Cover' },
+              ]}
+            />
+            <RangeSlider
+              label="Opacity"
+              value={element.opacity}
+              min={0}
+              max={1}
+              step={0.05}
+              formatValue={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => update({ opacity: v })}
+              onInstant={(v) => instant({ opacity: v })}
+            />
+            <RangeSlider
+              label="Rotation"
+              value={element.rotation}
+              min={-180}
+              max={180}
+              formatValue={(v) => `${v}\u00B0`}
+              onChange={(v) => update({ rotation: v })}
+              onInstant={(v) => instant({ rotation: v })}
+            />
+            <RangeSlider
+              label="Border Radius"
+              value={element.borderRadius}
+              min={0}
+              max={100}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => update({ borderRadius: v })}
+            />
+          </Section>
+
+          <Section title="Shadow" defaultCollapsed>
+            <Checkbox
+              label="Custom Shadow"
+              checked={!!element.shadow}
+              onChange={(checked) =>
+                update({
+                  shadow: checked
+                    ? { opacity: 0.2, blur: 24, color: '#000000', offsetY: 8 }
+                    : undefined,
+                } as Partial<PanoramicElement>)
+              }
+            />
+            {element.shadow && (
+              <>
+                <RangeSlider
+                  label="Opacity"
+                  value={Math.round(element.shadow.opacity * 100)}
+                  min={0}
+                  max={100}
+                  formatValue={(v) => `${v}%`}
+                  onChange={(v) =>
+                    update({
+                      shadow: { ...element.shadow!, opacity: v / 100 },
+                    } as Partial<PanoramicElement>)
+                  }
+                />
+                <RangeSlider
+                  label="Blur"
+                  value={element.shadow.blur}
+                  min={0}
+                  max={50}
+                  formatValue={(v) => `${v}px`}
+                  onChange={(v) =>
+                    update({ shadow: { ...element.shadow!, blur: v } } as Partial<PanoramicElement>)
+                  }
+                />
+                <ColorPicker
+                  label="Color"
+                  value={element.shadow.color}
+                  onChange={(v) =>
+                    update({
+                      shadow: { ...element.shadow!, color: v },
+                    } as Partial<PanoramicElement>)
+                  }
+                />
+                <RangeSlider
+                  label="Y Offset"
+                  value={element.shadow.offsetY}
+                  min={0}
+                  max={30}
+                  formatValue={(v) => `${v}px`}
+                  onChange={(v) =>
+                    update({
+                      shadow: { ...element.shadow!, offsetY: v },
+                    } as Partial<PanoramicElement>)
+                  }
+                />
+              </>
             )}
           </Section>
         </>
@@ -687,11 +961,7 @@ function ElementInspector({ index }: { index: number }) {
             onChange={(v) => update({ rotation: v })}
             onInstant={(v) => instant({ rotation: v })}
           />
-          <ColorPicker
-            label="Color"
-            value={element.color}
-            onChange={(v) => update({ color: v })}
-          />
+          <ColorPicker label="Color" value={element.color} onChange={(v) => update({ color: v })} />
         </Section>
       )}
     </div>
@@ -778,10 +1048,18 @@ function ScreenshotUploader() {
           addElement({
             type: 'device',
             screenshot: dataUrl,
+            frameStyle: 'flat',
             x: 10 + deviceCount * 20,
             y: 15,
             width: 12,
             rotation: 0,
+            deviceScale: 92,
+            deviceTop: 15,
+            deviceOffsetX: 0,
+            deviceAngle: 8,
+            deviceTilt: 0,
+            cornerRadius: 0,
+            fullscreenScreenshot: false,
             z: 5,
           });
         }
@@ -812,7 +1090,9 @@ function ScreenshotUploader() {
         <div className="mt-2 space-y-1">
           {deviceElements.map(({ el, i }) => (
             <div key={i} className="flex items-center gap-2 text-[11px] text-text-dim">
-              <span className="w-4 text-center">{deviceElements.indexOf(deviceElements.find(d => d.i === i)!) + 1}</span>
+              <span className="w-4 text-center">
+                {deviceElements.indexOf(deviceElements.find((d) => d.i === i)!) + 1}
+              </span>
               {(el as { screenshot: string }).screenshot.startsWith('data:') ? (
                 <img
                   src={(el as { screenshot: string }).screenshot}
@@ -879,7 +1159,12 @@ export function PanoramicTab() {
 
   const instantGradient = useCallback(
     (overrides?: { direction?: number; colors?: string[] }) => {
-      const g = background.gradient ?? { type: 'linear' as const, colors: ['#6366f1', '#ec4899'], direction: 135, radialPosition: 'center' as const };
+      const g = background.gradient ?? {
+        type: 'linear' as const,
+        colors: ['#6366f1', '#ec4899'],
+        direction: 135,
+        radialPosition: 'center' as const,
+      };
       patchBackground({
         type: 'gradient',
         gradientType: g.type,
@@ -894,19 +1179,28 @@ export function PanoramicTab() {
   const addDevice = () => {
     // Use the next available screenshot from config
     const deviceCount = elements.filter((e) => e.type === 'device').length;
-    const screenshot = config?.screens[deviceCount]?.screenshot
-      ?? config?.screens[0]?.screenshot
-      ?? 'screenshots/screen-1.png';
+    const screenshot =
+      config?.screens[deviceCount]?.screenshot ??
+      config?.screens[0]?.screenshot ??
+      'screenshots/screen-1.png';
     const defaultFrame = getDefaultFrameForPlatform(platform, deviceFamilies);
     addElement({
       type: 'device',
       screenshot,
       frame: defaultFrame,
       deviceColor: '',
+      frameStyle: 'flat',
       x: 10 + deviceCount * 20,
       y: 15,
       width: 12,
       rotation: 0,
+      deviceScale: 92,
+      deviceTop: 15,
+      deviceOffsetX: 0,
+      deviceAngle: 8,
+      deviceTilt: 0,
+      cornerRadius: 0,
+      fullscreenScreenshot: false,
       z: 5,
     });
   };
@@ -924,6 +1218,9 @@ export function PanoramicTab() {
       fontStyle: 'normal',
       textAlign: 'left',
       lineHeight: 1.15,
+      letterSpacing: 0,
+      textTransform: '',
+      rotation: 0,
       maxWidth: 25,
       z: 10,
     });
@@ -959,6 +1256,23 @@ export function PanoramicTab() {
     });
   };
 
+  const addImage = () => {
+    const imageCount = elements.filter((e) => e.type === 'image').length;
+    addElement({
+      type: 'image',
+      src: config?.screens[0]?.screenshot ?? 'screenshots/screen-1.png',
+      x: 8 + imageCount * 12,
+      y: 58,
+      width: 12,
+      height: 12,
+      fit: 'contain',
+      opacity: 1,
+      rotation: 0,
+      borderRadius: 0,
+      z: 6,
+    });
+  };
+
   // Background state
   const bgType = background.type;
   const bgColor = background.color ?? '#000000';
@@ -979,7 +1293,13 @@ export function PanoramicTab() {
           onChange={handlePlatformChange}
           options={PLATFORM_OPTIONS}
         />
-        <RangeSlider label="Frame Count" value={frameCount} min={2} max={10} onChange={setFrameCount} />
+        <RangeSlider
+          label="Frame Count"
+          value={frameCount}
+          min={2}
+          max={10}
+          onChange={setFrameCount}
+        />
       </Section>
 
       {/* Background */}
@@ -1062,13 +1382,14 @@ export function PanoramicTab() {
             {/* Linear / Radial */}
             <div className="flex gap-3 mb-2">
               {(['linear', 'radial'] as const).map((t) => (
-                <label key={t} className="text-xs text-text-dim cursor-pointer flex items-center gap-1">
+                <label
+                  key={t}
+                  className="text-xs text-text-dim cursor-pointer flex items-center gap-1"
+                >
                   <input
                     type="radio"
                     checked={bgGradient.type === t}
-                    onChange={() =>
-                      updateBackground({ gradient: { ...bgGradient, type: t } })
-                    }
+                    onChange={() => updateBackground({ gradient: { ...bgGradient, type: t } })}
                     className="accent-accent"
                   />
                   {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -1083,9 +1404,7 @@ export function PanoramicTab() {
                 min={0}
                 max={360}
                 formatValue={(v) => `${v}\u00B0`}
-                onChange={(v) =>
-                  updateBackground({ gradient: { ...bgGradient, direction: v } })
-                }
+                onChange={(v) => updateBackground({ gradient: { ...bgGradient, direction: v } })}
                 onInstant={(v) => instantGradient({ direction: v })}
               />
             )}
@@ -1096,7 +1415,10 @@ export function PanoramicTab() {
                 value={bgGradient.radialPosition ?? 'center'}
                 onChange={(v) =>
                   updateBackground({
-                    gradient: { ...bgGradient, radialPosition: v as 'center' | 'top' | 'bottom' | 'left' | 'right' },
+                    gradient: {
+                      ...bgGradient,
+                      radialPosition: v as 'center' | 'top' | 'bottom' | 'left' | 'right',
+                    },
                   })
                 }
                 options={[
@@ -1151,9 +1473,7 @@ export function PanoramicTab() {
                 checked={!!background.overlay}
                 onChange={(checked) =>
                   updateBackground({
-                    overlay: checked
-                      ? { color: '#000000', opacity: 0.3 }
-                      : undefined,
+                    overlay: checked ? { color: '#000000', opacity: 0.3 } : undefined,
                   })
                 }
               />
@@ -1195,7 +1515,7 @@ export function PanoramicTab() {
       {/* Elements */}
       <Section title={`Elements (${elements.length})`}>
         {/* Add buttons */}
-        <div className="grid grid-cols-4 gap-1 mb-3">
+        <div className="grid grid-cols-5 gap-1 mb-3">
           <button
             className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
             onClick={addDevice}
@@ -1220,51 +1540,63 @@ export function PanoramicTab() {
           >
             + Decoration
           </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addImage}
+          >
+            + Image
+          </button>
         </div>
 
         {/* Element list */}
         {elements.length === 0 && (
           <p className="text-xs text-text-dim text-center py-4">
-            Add devices, text, or decorations to build your panoramic layout.
+            Add devices, text, images, or decorations to build your panoramic layout.
           </p>
         )}
         <div className="space-y-1">
           {elements.map((el, i) => {
             const typeNum = elements.slice(0, i).filter((e) => e.type === el.type).length + 1;
             return (
-            <button
-              key={i}
-              className={`w-full text-left text-xs px-2.5 py-2 rounded-md transition-colors ${
-                i === selectedElementIndex
-                  ? 'bg-accent/15 text-accent border border-accent/30'
-                  : 'bg-surface-2 border border-border hover:border-accent/30'
-              }`}
-              onClick={() => setSelectedElement(i === selectedElementIndex ? null : i)}
-            >
-              <span className="font-medium">{ELEMENT_TYPE_LABELS[el.type]} #{typeNum}</span>
-              <span className="text-text-dim ml-1">
-                ({Math.round(el.x)}%, {Math.round(el.y)}%)
-              </span>
-              {el.type === 'text' && (
-                <span className="text-text-dim ml-1 truncate" title={(el as { content: string }).content}>
-                  &mdash; {(el as { content: string }).content.slice(0, 20)}
+              <button
+                key={i}
+                className={`w-full text-left text-xs px-2.5 py-2 rounded-md transition-colors ${
+                  i === selectedElementIndex
+                    ? 'bg-accent/15 text-accent border border-accent/30'
+                    : 'bg-surface-2 border border-border hover:border-accent/30'
+                }`}
+                onClick={() => setSelectedElement(i === selectedElementIndex ? null : i)}
+              >
+                <span className="font-medium">
+                  {ELEMENT_TYPE_LABELS[el.type]} #{typeNum}
                 </span>
-              )}
-              {el.type === 'label' && (
-                <span className="text-text-dim ml-1 truncate" title={(el as { content: string }).content}>
-                  &mdash; {(el as { content: string }).content.slice(0, 20)}
+                <span className="text-text-dim ml-1">
+                  ({Math.round(el.x)}%, {Math.round(el.y)}%)
                 </span>
-              )}
-            </button>
+                {el.type === 'text' && (
+                  <span
+                    className="text-text-dim ml-1 truncate"
+                    title={(el as { content: string }).content}
+                  >
+                    &mdash; {(el as { content: string }).content.slice(0, 20)}
+                  </span>
+                )}
+                {el.type === 'label' && (
+                  <span
+                    className="text-text-dim ml-1 truncate"
+                    title={(el as { content: string }).content}
+                  >
+                    &mdash; {(el as { content: string }).content.slice(0, 20)}
+                  </span>
+                )}
+              </button>
             );
           })}
         </div>
       </Section>
 
       {/* Element Inspector */}
-      {selectedElementIndex !== null && (
-        <ElementInspector index={selectedElementIndex} />
-      )}
+      {selectedElementIndex !== null && <ElementInspector index={selectedElementIndex} />}
 
       {/* Info note about effects */}
       <div className="px-5 py-3 text-[10px] text-text-dim">
@@ -1308,7 +1640,12 @@ export function PanoramicBackgroundContent() {
 
   const instantGradient = useCallback(
     (overrides?: { direction?: number; colors?: string[] }) => {
-      const g = background.gradient ?? { type: 'linear' as const, colors: ['#6366f1', '#ec4899'], direction: 135, radialPosition: 'center' as const };
+      const g = background.gradient ?? {
+        type: 'linear' as const,
+        colors: ['#6366f1', '#ec4899'],
+        direction: 135,
+        radialPosition: 'center' as const,
+      };
       patchBackground({
         type: 'gradient',
         gradientType: g.type,
@@ -1338,7 +1675,13 @@ export function PanoramicBackgroundContent() {
           onChange={handlePlatformChange}
           options={PLATFORM_OPTIONS}
         />
-        <RangeSlider label="Frame Count" value={frameCount} min={2} max={10} onChange={setFrameCount} />
+        <RangeSlider
+          label="Frame Count"
+          value={frameCount}
+          min={2}
+          max={10}
+          onChange={setFrameCount}
+        />
       </Section>
 
       <Section title="Background">
@@ -1414,13 +1757,14 @@ export function PanoramicBackgroundContent() {
 
             <div className="flex gap-3 mb-2">
               {(['linear', 'radial'] as const).map((t) => (
-                <label key={t} className="text-xs text-text-dim cursor-pointer flex items-center gap-1">
+                <label
+                  key={t}
+                  className="text-xs text-text-dim cursor-pointer flex items-center gap-1"
+                >
                   <input
                     type="radio"
                     checked={bgGradient.type === t}
-                    onChange={() =>
-                      updateBackground({ gradient: { ...bgGradient, type: t } })
-                    }
+                    onChange={() => updateBackground({ gradient: { ...bgGradient, type: t } })}
                     className="accent-accent"
                   />
                   {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -1435,9 +1779,7 @@ export function PanoramicBackgroundContent() {
                 min={0}
                 max={360}
                 formatValue={(v) => `${v}\u00B0`}
-                onChange={(v) =>
-                  updateBackground({ gradient: { ...bgGradient, direction: v } })
-                }
+                onChange={(v) => updateBackground({ gradient: { ...bgGradient, direction: v } })}
                 onInstant={(v) => instantGradient({ direction: v })}
               />
             )}
@@ -1448,7 +1790,10 @@ export function PanoramicBackgroundContent() {
                 value={bgGradient.radialPosition ?? 'center'}
                 onChange={(v) =>
                   updateBackground({
-                    gradient: { ...bgGradient, radialPosition: v as 'center' | 'top' | 'bottom' | 'left' | 'right' },
+                    gradient: {
+                      ...bgGradient,
+                      radialPosition: v as 'center' | 'top' | 'bottom' | 'left' | 'right',
+                    },
                   })
                 }
                 options={[
@@ -1501,9 +1846,7 @@ export function PanoramicBackgroundContent() {
                 checked={!!background.overlay}
                 onChange={(checked) =>
                   updateBackground({
-                    overlay: checked
-                      ? { color: '#000000', opacity: 0.3 }
-                      : undefined,
+                    overlay: checked ? { color: '#000000', opacity: 0.3 } : undefined,
                   })
                 }
               />
@@ -1549,20 +1892,29 @@ export function PanoramicDeviceContent() {
 
   const filtered = elements
     .map((el, i) => ({ el, i }))
-    .filter(({ el }) => el.type === 'device' || el.type === 'decoration');
+    .filter(({ el }) => el.type === 'device' || el.type === 'decoration' || el.type === 'image');
 
   const addDevice = () => {
     const deviceCount = elements.filter((e) => e.type === 'device').length;
-    const screenshot = config?.screens[deviceCount]?.screenshot
-      ?? config?.screens[0]?.screenshot
-      ?? 'screenshots/screen-1.png';
+    const screenshot =
+      config?.screens[deviceCount]?.screenshot ??
+      config?.screens[0]?.screenshot ??
+      'screenshots/screen-1.png';
     addElement({
       type: 'device',
       screenshot,
+      frameStyle: 'flat',
       x: 10 + deviceCount * 20,
       y: 15,
       width: 12,
       rotation: 0,
+      deviceScale: 92,
+      deviceTop: 15,
+      deviceOffsetX: 0,
+      deviceAngle: 8,
+      deviceTilt: 0,
+      cornerRadius: 0,
+      fullscreenScreenshot: false,
       z: 5,
     });
   };
@@ -1582,9 +1934,29 @@ export function PanoramicDeviceContent() {
     });
   };
 
-  const showInspector = selectedElementIndex !== null &&
+  const addImage = () => {
+    const imageCount = elements.filter((e) => e.type === 'image').length;
+    addElement({
+      type: 'image',
+      src: config?.screens[0]?.screenshot ?? 'screenshots/screen-1.png',
+      x: 8 + imageCount * 12,
+      y: 58,
+      width: 12,
+      height: 12,
+      fit: 'contain',
+      opacity: 1,
+      rotation: 0,
+      borderRadius: 0,
+      z: 6,
+    });
+  };
+
+  const showInspector =
+    selectedElementIndex !== null &&
     elements[selectedElementIndex] &&
-    (elements[selectedElementIndex]!.type === 'device' || elements[selectedElementIndex]!.type === 'decoration');
+    (elements[selectedElementIndex]!.type === 'device' ||
+      elements[selectedElementIndex]!.type === 'decoration' ||
+      elements[selectedElementIndex]!.type === 'image');
 
   return (
     <div>
@@ -1593,7 +1965,7 @@ export function PanoramicDeviceContent() {
       </Section>
 
       <Section title={`Devices & Decorations (${filtered.length})`} defaultCollapsed={false}>
-        <div className="grid grid-cols-2 gap-1 mb-3">
+        <div className="grid grid-cols-3 gap-1 mb-3">
           <button
             className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
             onClick={addDevice}
@@ -1605,6 +1977,12 @@ export function PanoramicDeviceContent() {
             onClick={addDecoration}
           >
             + Decoration
+          </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addImage}
+          >
+            + Image
           </button>
         </div>
 
@@ -1626,7 +2004,9 @@ export function PanoramicDeviceContent() {
                 }`}
                 onClick={() => setSelectedElement(i === selectedElementIndex ? null : i)}
               >
-                <span className="font-medium">{ELEMENT_TYPE_LABELS[el.type]} #{typeNum}</span>
+                <span className="font-medium">
+                  {ELEMENT_TYPE_LABELS[el.type]} #{typeNum}
+                </span>
                 <span className="text-text-dim ml-1">
                   ({Math.round(el.x)}%, {Math.round(el.y)}%)
                 </span>
@@ -1664,6 +2044,9 @@ export function PanoramicTextContent() {
       fontStyle: 'normal',
       textAlign: 'left',
       lineHeight: 1.15,
+      letterSpacing: 0,
+      textTransform: '',
+      rotation: 0,
       maxWidth: 25,
       z: 10,
     });
@@ -1684,9 +2067,11 @@ export function PanoramicTextContent() {
     });
   };
 
-  const showInspector = selectedElementIndex !== null &&
+  const showInspector =
+    selectedElementIndex !== null &&
     elements[selectedElementIndex] &&
-    (elements[selectedElementIndex]!.type === 'text' || elements[selectedElementIndex]!.type === 'label');
+    (elements[selectedElementIndex]!.type === 'text' ||
+      elements[selectedElementIndex]!.type === 'label');
 
   return (
     <div>
@@ -1724,12 +2109,17 @@ export function PanoramicTextContent() {
                 }`}
                 onClick={() => setSelectedElement(i === selectedElementIndex ? null : i)}
               >
-                <span className="font-medium">{ELEMENT_TYPE_LABELS[el.type]} #{typeNum}</span>
+                <span className="font-medium">
+                  {ELEMENT_TYPE_LABELS[el.type]} #{typeNum}
+                </span>
                 <span className="text-text-dim ml-1">
                   ({Math.round(el.x)}%, {Math.round(el.y)}%)
                 </span>
                 {(el.type === 'text' || el.type === 'label') && (
-                  <span className="text-text-dim ml-1 truncate" title={(el as { content: string }).content}>
+                  <span
+                    className="text-text-dim ml-1 truncate"
+                    title={(el as { content: string }).content}
+                  >
                     &mdash; {(el as { content: string }).content.slice(0, 20)}
                   </span>
                 )}

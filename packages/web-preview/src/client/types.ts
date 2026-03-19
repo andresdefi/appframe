@@ -15,6 +15,7 @@ import type {
   CompositionPreset,
   TextGradient,
   AppframeConfig,
+  LocaleConfig,
   PanoramicElement,
   PanoramicBackground,
 } from '@appframe/core';
@@ -36,6 +37,7 @@ export type {
   CompositionPreset,
   TextGradient,
   AppframeConfig,
+  LocaleConfig,
   PanoramicElement,
   PanoramicBackground,
 };

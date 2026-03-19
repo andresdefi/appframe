@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DeviceFamily } from '../store';
 import type { PanoramicElement } from '../types';
-import {
-  getDefaultFrameForPlatform,
-  syncPanoramicDevicesToPlatform,
-} from './deviceFrames';
+import { getDefaultFrameForPlatform, syncPanoramicDevicesToPlatform } from './deviceFrames';
 
 const deviceFamilies: DeviceFamily[] = [
   {
@@ -47,10 +44,18 @@ describe('device frame helpers', () => {
         screenshot: 'screenshots/screen-1.png',
         frame: 'iphone-15-pro',
         deviceColor: 'Blue',
+        frameStyle: 'flat',
         x: 10,
         y: 15,
         width: 12,
         rotation: 0,
+        deviceScale: 92,
+        deviceTop: 15,
+        deviceOffsetX: 0,
+        deviceAngle: 8,
+        deviceTilt: 0,
+        cornerRadius: 0,
+        fullscreenScreenshot: false,
         z: 5,
       },
       {
@@ -64,6 +69,9 @@ describe('device frame helpers', () => {
         fontStyle: 'normal',
         textAlign: 'left',
         lineHeight: 1.1,
+        letterSpacing: 0,
+        textTransform: '',
+        rotation: 0,
         z: 10,
       },
     ];
@@ -74,10 +82,18 @@ describe('device frame helpers', () => {
         screenshot: 'screenshots/screen-1.png',
         frame: 'generic-phone',
         deviceColor: '',
+        frameStyle: 'flat',
         x: 10,
         y: 15,
         width: 12,
         rotation: 0,
+        deviceScale: 92,
+        deviceTop: 15,
+        deviceOffsetX: 0,
+        deviceAngle: 8,
+        deviceTilt: 0,
+        cornerRadius: 0,
+        fullscreenScreenshot: false,
         z: 5,
       },
       elements[1],

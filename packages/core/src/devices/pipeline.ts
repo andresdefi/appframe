@@ -130,7 +130,7 @@ async function generateWithKoubouInlineLocales(ctx: KoubouPipelineContext): Prom
       let koubouConfig: KoubouConfig;
 
       if (locale !== 'default' && config.locales?.[locale]) {
-        const localeOverrides = config.locales[locale]!.screens.map(s => ({
+        const localeOverrides = (config.locales[locale]?.screens ?? []).map((s) => ({
           headline: s.headline,
           subtitle: s.subtitle,
           screenshot: s.screenshot,

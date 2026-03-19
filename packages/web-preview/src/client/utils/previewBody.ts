@@ -1,15 +1,20 @@
-import type { ScreenState } from '../types';
+import type { LocaleConfig, ScreenState } from '../types';
 
 export function buildScreenRenderBody(
   screen: ScreenState,
   previewW: number,
   previewH: number,
   locale: string,
+  localeConfig?: LocaleConfig,
 ): Record<string, unknown> {
+  const preferLocaleText = locale !== 'default';
+
   return {
     screenIndex: screen.screenIndex,
     screenshotDataUrl: screen.screenshotDataUrl || undefined,
-    locale: locale !== 'default' ? locale : undefined,
+    locale: preferLocaleText ? locale : undefined,
+    preferLocaleText: preferLocaleText || undefined,
+    localeConfig: preferLocaleText ? localeConfig : undefined,
     style: screen.style,
     layout: screen.layout,
     headline: screen.headline,
@@ -79,9 +84,10 @@ export function buildPreviewBody(
   previewW: number,
   previewH: number,
   locale: string,
+  localeConfig: LocaleConfig | undefined,
   _deviceFamilies: unknown[],
 ): Record<string, unknown> {
-  return buildScreenRenderBody(screen, previewW, previewH, locale);
+  return buildScreenRenderBody(screen, previewW, previewH, locale, localeConfig);
 }
 
 export function buildExportBody(
@@ -90,12 +96,19 @@ export function buildExportBody(
     previewW: number;
     previewH: number;
     locale: string;
+    localeConfig?: LocaleConfig;
     sizeKey: string;
     renderer: string;
   },
 ): Record<string, unknown> {
   return {
-    ...buildScreenRenderBody(screen, options.previewW, options.previewH, options.locale),
+    ...buildScreenRenderBody(
+      screen,
+      options.previewW,
+      options.previewH,
+      options.locale,
+      options.localeConfig,
+    ),
     sizeKey: options.sizeKey,
     renderer: options.renderer,
   };

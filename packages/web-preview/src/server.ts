@@ -23,25 +23,141 @@ import {
   injectOverlaysHTML,
   detectKoubou,
   renderSingleScreenWithKoubou,
+  resolveLocalizedAsset,
 } from '@appframe/core';
-import type { AppframeConfig, TemplateStyle, LayoutVariant, FrameStyle, CompositionPreset, FrameDefinition, KoubouSingleScreenOptions, PanoramicElement, PanoramicBackground, Loupe } from '@appframe/core';
-import type { TemplateContext, DeviceContext, PanoramicTemplateContext, PanoramicRenderedElement } from '@appframe/core';
+import type {
+  AppframeConfig,
+  TemplateStyle,
+  LayoutVariant,
+  FrameStyle,
+  CompositionPreset,
+  FrameDefinition,
+  KoubouSingleScreenOptions,
+  PanoramicElement,
+  PanoramicBackground,
+  Loupe,
+  LocaleConfig,
+} from '@appframe/core';
+import type {
+  TemplateContext,
+  DeviceContext,
+  PanoramicTemplateContext,
+  PanoramicRenderedElement,
+} from '@appframe/core';
+import { autoTranslateLocale } from './translation.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const AGENTATION_PORT = 4747;
 
 export interface PreviewServerOptions {
-  configPath: string;
+  configPath?: string;
+  sessionPath?: string;
   port?: number;
 }
 
-export async function startPreviewServer(options: PreviewServerOptions): Promise<void> {
-  const { configPath, port = 4400 } = options;
-  const resolvedConfigPath = resolve(configPath);
-  const configDir = dirname(resolvedConfigPath);
+function createDefaultConfig(): AppframeConfig {
+  return {
+    mode: 'individual',
+    app: {
+      name: 'My App',
+      description: 'App Store screenshot preview',
+      platforms: ['ios'],
+      features: [],
+    },
+    theme: {
+      style: 'minimal',
+      colors: {
+        primary: '#2563EB',
+        secondary: '#7C3AED',
+        background: '#F8FAFC',
+        text: '#0F172A',
+        subtitle: '#64748B',
+      },
+      font: 'inter',
+      fontWeight: 600,
+    },
+    frames: { style: 'flat' },
+    screens: [
+      {
+        screenshot: '__placeholder__',
+        headline: 'Your headline here',
+        subtitle: 'Add a subtitle for extra context',
+        layout: 'center',
+        composition: 'single',
+        autoSizeHeadline: true,
+        autoSizeSubtitle: false,
+        annotations: [],
+      },
+      {
+        screenshot: '__placeholder__',
+        headline: 'Highlight a key feature',
+        subtitle: 'Describe what makes it special',
+        layout: 'angled-right',
+        composition: 'single',
+        autoSizeHeadline: true,
+        autoSizeSubtitle: false,
+        annotations: [],
+      },
+      {
+        screenshot: '__placeholder__',
+        headline: 'Show your app in action',
+        subtitle: '',
+        layout: 'center',
+        composition: 'single',
+        autoSizeHeadline: true,
+        autoSizeSubtitle: false,
+        annotations: [],
+      },
+      {
+        screenshot: '__placeholder__',
+        headline: 'Another great feature',
+        subtitle: 'Users will love this',
+        layout: 'angled-left',
+        composition: 'single',
+        autoSizeHeadline: true,
+        autoSizeSubtitle: false,
+        annotations: [],
+      },
+      {
+        screenshot: '__placeholder__',
+        headline: 'Ready to download',
+        subtitle: 'Available on the App Store',
+        layout: 'center',
+        composition: 'single',
+        autoSizeHeadline: true,
+        autoSizeSubtitle: false,
+        annotations: [],
+      },
+    ],
+    output: {
+      platforms: ['ios'],
+      directory: './output',
+    },
+  };
+}
 
-  let config = await loadConfig(resolvedConfigPath);
+export async function startPreviewServer(options: PreviewServerOptions): Promise<void> {
+  const { configPath, sessionPath, port = 4400 } = options;
+
+  const resolvedConfigPath = configPath ? resolve(configPath) : undefined;
+  const configDir = resolvedConfigPath ? dirname(resolvedConfigPath) : process.cwd();
+
+  let config: AppframeConfig = resolvedConfigPath
+    ? await loadConfig(resolvedConfigPath)
+    : createDefaultConfig();
+
+  // Load variant session file if provided
+  const resolvedSessionPath = sessionPath ? resolve(sessionPath) : undefined;
+  let sessionData: unknown = null;
+  if (resolvedSessionPath) {
+    try {
+      const raw = await readFile(resolvedSessionPath, 'utf-8');
+      sessionData = JSON.parse(raw);
+    } catch {
+      console.log(`Warning: Could not load session file: ${resolvedSessionPath}`);
+    }
+  }
 
   const app = express();
   app.use(cors());
@@ -54,14 +170,71 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.use(express.static(clientDistDir, { etag: false, lastModified: false }));
   // Legacy UI accessible at /legacy/ during migration
   app.use('/legacy', express.static(publicDir, { etag: false, lastModified: false }));
-  app.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+  app.use((_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
 
   // API: Health check
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
+  // API: Get variant session data (from --session flag)
+  app.get('/api/session', (_req, res) => {
+    res.json(sessionData);
+  });
+
   // API: Get current config
   app.get('/api/config', (_req, res) => {
     res.json(config);
+  });
+  app.get('/api/project', (_req, res) => {
+    res.json(config);
+  });
+
+  app.post('/api/translate-locale', async (req, res) => {
+    try {
+      const body = req.body as Record<string, unknown>;
+      const locale = expectString(body.locale);
+
+      if (!locale || locale === 'default') {
+        res.status(400).json({ error: 'A non-default locale is required' });
+        return;
+      }
+      if (config.localization) {
+        res.status(400).json({
+          error: 'Automatic translation is not available when using native localization mode',
+        });
+        return;
+      }
+
+      const existingLocale = config.locales?.[locale];
+      if (existingLocale) {
+        res.json({ locale, localeConfig: existingLocale });
+        return;
+      }
+
+      const sourceScreens = expectArray(body.screens)
+        ?.map((screen) => expectObject(screen))
+        .filter((screen): screen is Record<string, unknown> => screen !== undefined)
+        .map((screen) => ({
+          headline: expectString(screen.headline) ?? '',
+          subtitle: expectString(screen.subtitle) ?? null,
+        }));
+      const sourcePanoramicElements = expectArray(body.panoramicElements) as
+        | PanoramicElement[]
+        | undefined;
+
+      const localeConfig = await autoTranslateLocale(config, locale, {
+        screens: sourceScreens && sourceScreens.length > 0 ? sourceScreens : undefined,
+        panoramicElements: sourcePanoramicElements,
+      });
+
+      res.json({ locale, localeConfig });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const status = message.includes('OPENAI_API_KEY') ? 503 : 500;
+      res.status(status).json({ error: message });
+    }
   });
 
   // API: List available frames
@@ -92,9 +265,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   // API: List store sizes grouped by platform category
   app.get('/api/sizes', (_req, res) => {
-    const grouped: Record<string, Array<{ key: string; name: string; width: number; height: number }>> = {};
+    const grouped: Record<
+      string,
+      Array<{ key: string; name: string; width: number; height: number }>
+    > = {};
     const categoryMap: Record<string, string> = {
-      ios: 'iphone', mac: 'mac', watch: 'watch', android: 'android',
+      ios: 'iphone',
+      mac: 'mac',
+      watch: 'watch',
+      android: 'android',
     };
     for (const [key, size] of Object.entries(STORE_SIZES)) {
       let category = categoryMap[size.platform] ?? size.platform;
@@ -154,14 +333,19 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   // API: Koubou availability status (cached with 5-minute TTL)
   const KOUBOU_CACHE_TTL = 300_000; // 5 minutes
-  let koubouStatusCache: { available: boolean; version: string | null; timestamp: number } | null = null;
+  let koubouStatusCache: { available: boolean; version: string | null; timestamp: number } | null =
+    null;
 
   app.get('/api/koubou-status', async (_req, res) => {
     try {
       const now = Date.now();
-      if (!koubouStatusCache || (now - koubouStatusCache.timestamp) > KOUBOU_CACHE_TTL) {
+      if (!koubouStatusCache || now - koubouStatusCache.timestamp > KOUBOU_CACHE_TTL) {
         const detection = await detectKoubou();
-        koubouStatusCache = { available: detection.available, version: detection.version, timestamp: now };
+        koubouStatusCache = {
+          available: detection.available,
+          version: detection.version,
+          timestamp: now,
+        };
       }
       res.json({ available: koubouStatusCache.available, version: koubouStatusCache.version });
     } catch (err) {
@@ -187,21 +371,73 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   };
 
   const KoubouPreviewAdjustments: Record<string, KoubouPreviewAdjustment> = {
-    'ipad-pro-11-m4': { bleedLeft: 20, bleedTop: 20, bleedRight: 20, bleedBottom: 20, radiusBleed: 36 },
-    'ipad-pro-13-m4': { bleedLeft: 20, bleedTop: 20, bleedRight: 20, bleedBottom: 20, radiusBleed: 36 },
-    'macbook-air-2020': { bleedLeft: 4, bleedTop: 4, bleedRight: 4, bleedBottom: 12, radiusBleed: -18 },
-    'macbook-air-2022': { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: -57 },
-    'macbook-pro-2021-14': { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: -47 },
-    'macbook-pro-2021-16': { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: -46 },
+    'ipad-pro-11-m4': {
+      bleedLeft: 20,
+      bleedTop: 20,
+      bleedRight: 20,
+      bleedBottom: 20,
+      radiusBleed: 36,
+    },
+    'ipad-pro-13-m4': {
+      bleedLeft: 20,
+      bleedTop: 20,
+      bleedRight: 20,
+      bleedBottom: 20,
+      radiusBleed: 36,
+    },
+    'macbook-air-2020': {
+      bleedLeft: 4,
+      bleedTop: 4,
+      bleedRight: 4,
+      bleedBottom: 12,
+      radiusBleed: -18,
+    },
+    'macbook-air-2022': {
+      bleedLeft: 6,
+      bleedTop: 6,
+      bleedRight: 6,
+      bleedBottom: 6,
+      radiusBleed: -57,
+    },
+    'macbook-pro-2021-14': {
+      bleedLeft: 6,
+      bleedTop: 6,
+      bleedRight: 6,
+      bleedBottom: 6,
+      radiusBleed: -47,
+    },
+    'macbook-pro-2021-16': {
+      bleedLeft: 6,
+      bleedTop: 6,
+      bleedRight: 6,
+      bleedBottom: 6,
+      radiusBleed: -46,
+    },
     'watch-ultra': { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: -44 },
-    'watch-series-7-45': { bleedLeft: 8, bleedTop: 20, bleedRight: 8, bleedBottom: 8, radiusBleed: 0 },
-    'watch-series-4-44': { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: -18 },
-    'watch-series-4-40': { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: -18 },
+    'watch-series-7-45': {
+      bleedLeft: 8,
+      bleedTop: 20,
+      bleedRight: 8,
+      bleedBottom: 8,
+      radiusBleed: 0,
+    },
+    'watch-series-4-44': {
+      bleedLeft: 8,
+      bleedTop: 8,
+      bleedRight: 8,
+      bleedBottom: 8,
+      radiusBleed: -18,
+    },
+    'watch-series-4-40': {
+      bleedLeft: 8,
+      bleedTop: 8,
+      bleedRight: 8,
+      bleedBottom: 8,
+      radiusBleed: -18,
+    },
   };
 
-  function getKoubouPreviewAdjustment(
-    family: KoubouFamily,
-  ): KoubouPreviewAdjustment {
+  function getKoubouPreviewAdjustment(family: KoubouFamily): KoubouPreviewAdjustment {
     const explicit = KoubouPreviewAdjustments[family.id];
     if (explicit) return explicit;
 
@@ -220,7 +456,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   }
 
   function buildKoubouPreviewFrame(family: KoubouFamily): FrameDefinition {
-    const { bleedLeft, bleedTop, bleedRight, bleedBottom, radiusBleed } = getKoubouPreviewAdjustment(family);
+    const { bleedLeft, bleedTop, bleedRight, bleedBottom, radiusBleed } =
+      getKoubouPreviewAdjustment(family);
     const left = Math.max(0, family.screenRect!.x - bleedLeft);
     const top = Math.max(0, family.screenRect!.y - bleedTop);
     const right = Math.min(
@@ -265,6 +502,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   interface PreviewParams {
     screenIndex: number;
     locale: string;
+    localeConfig?: LocaleConfig;
+    preferLocaleText?: boolean;
     style?: TemplateStyle;
     layout?: LayoutVariant;
     headline?: string;
@@ -301,8 +540,26 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     subtitleGradient?: { colors: string[]; direction: number };
     autoSizeHeadline?: boolean;
     autoSizeSubtitle?: boolean;
-    spotlight?: { x: number; y: number; w: number; h: number; shape: 'circle' | 'rectangle'; dimOpacity: number; blur: number };
-    annotations?: Array<{ id: string; shape: string; x: number; y: number; w: number; h: number; strokeColor: string; strokeWidth: number; fillColor?: string }>;
+    spotlight?: {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      shape: 'circle' | 'rectangle';
+      dimOpacity: number;
+      blur: number;
+    };
+    annotations?: Array<{
+      id: string;
+      shape: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      strokeColor: string;
+      strokeWidth: number;
+      fillColor?: string;
+    }>;
     headlineLineHeight?: number;
     headlineLetterSpacing?: string;
     headlineTextTransform?: string;
@@ -315,7 +572,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     // Background overrides
     backgroundType?: 'preset' | 'solid' | 'gradient' | 'image';
     backgroundColor?: string;
-    backgroundGradient?: { type: 'linear' | 'radial'; colors: string[]; direction: number; radialPosition?: 'center' | 'top' | 'bottom' | 'left' | 'right' };
+    backgroundGradient?: {
+      type: 'linear' | 'radial';
+      colors: string[];
+      direction: number;
+      radialPosition?: 'center' | 'top' | 'bottom' | 'left' | 'right';
+    };
     backgroundImageDataUrl?: string;
     backgroundOverlay?: { color: string; opacity: number };
     // Device enhancements
@@ -324,8 +586,35 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     cornerRadius?: number;
     // Effects
     loupe?: Loupe;
-    callouts?: Array<{ id: string; sourceX: number; sourceY: number; sourceW: number; sourceH: number; displayX: number; displayY: number; displayScale: number; rotation: number; borderRadius: number; shadow: boolean; borderWidth: number; borderColor?: string }>;
-    overlays?: Array<{ id: string; type: 'icon' | 'badge' | 'star-rating' | 'custom' | 'shape'; imageDataUrl?: string; x: number; y: number; size: number; rotation: number; opacity: number; shapeType?: 'circle' | 'rectangle' | 'line'; shapeColor?: string; shapeOpacity?: number; shapeBlur?: number }>;
+    callouts?: Array<{
+      id: string;
+      sourceX: number;
+      sourceY: number;
+      sourceW: number;
+      sourceH: number;
+      displayX: number;
+      displayY: number;
+      displayScale: number;
+      rotation: number;
+      borderRadius: number;
+      shadow: boolean;
+      borderWidth: number;
+      borderColor?: string;
+    }>;
+    overlays?: Array<{
+      id: string;
+      type: 'icon' | 'badge' | 'star-rating' | 'custom' | 'shape';
+      imageDataUrl?: string;
+      x: number;
+      y: number;
+      size: number;
+      rotation: number;
+      opacity: number;
+      shapeType?: 'circle' | 'rectangle' | 'line';
+      shapeColor?: string;
+      shapeOpacity?: number;
+      shapeBlur?: number;
+    }>;
   }
 
   // Input validation helpers
@@ -355,7 +644,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     return undefined;
   }
 
-  function parseBody(body: Record<string, unknown>, defaultWidth = 400, defaultHeight = 868): PreviewParams {
+  function parseBody(
+    body: Record<string, unknown>,
+    defaultWidth = 400,
+    defaultHeight = 868,
+  ): PreviewParams {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       throw new Error('Request body must be a JSON object');
     }
@@ -374,6 +667,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     return {
       screenIndex,
       locale: expectString(body.locale) ?? 'default',
+      localeConfig: expectObject(body.localeConfig) as LocaleConfig | undefined,
+      preferLocaleText: expectBoolean(body.preferLocaleText),
       style: expectString(body.style) as TemplateStyle | undefined,
       layout: expectString(body.layout) as LayoutVariant | undefined,
       headline: expectString(body.headline),
@@ -405,9 +700,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       platform: expectString(body.platform),
       sizeKey: expectString(body.sizeKey),
       composition: expectString(body.composition) as CompositionPreset | undefined,
-      extraScreenshots: expectArray(body.extraScreenshots) as Array<{ screenshotDataUrl?: string; frameId?: string }> | undefined,
-      headlineGradient: expectObject(body.headlineGradient) as { colors: string[]; direction: number } | undefined,
-      subtitleGradient: expectObject(body.subtitleGradient) as { colors: string[]; direction: number } | undefined,
+      extraScreenshots: expectArray(body.extraScreenshots) as
+        | Array<{ screenshotDataUrl?: string; frameId?: string }>
+        | undefined,
+      headlineGradient: expectObject(body.headlineGradient) as
+        | { colors: string[]; direction: number }
+        | undefined,
+      subtitleGradient: expectObject(body.subtitleGradient) as
+        | { colors: string[]; direction: number }
+        | undefined,
       autoSizeHeadline: expectBoolean(body.autoSizeHeadline),
       autoSizeSubtitle: expectBoolean(body.autoSizeSubtitle),
       spotlight: expectObject(body.spotlight) as PreviewParams['spotlight'] | undefined,
@@ -424,7 +725,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       // Background overrides
       backgroundType: expectString(body.backgroundType) as PreviewParams['backgroundType'],
       backgroundColor: expectString(body.backgroundColor),
-      backgroundGradient: expectObject(body.backgroundGradient) as PreviewParams['backgroundGradient'],
+      backgroundGradient: expectObject(
+        body.backgroundGradient,
+      ) as PreviewParams['backgroundGradient'],
       backgroundImageDataUrl: expectString(body.backgroundImageDataUrl),
       backgroundOverlay: expectObject(body.backgroundOverlay) as PreviewParams['backgroundOverlay'],
       // Device enhancements
@@ -450,17 +753,46 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     return p;
   }
 
-  async function resolveContext(p: PreviewParams): Promise<{ context: TemplateContext; html?: undefined } | { context: TemplateContext }> {
+  async function resolveContext(
+    p: PreviewParams,
+  ): Promise<{ context: TemplateContext; html?: undefined } | { context: TemplateContext }> {
     const screen = config.screens[p.screenIndex] ?? null;
-
-    const resolvedHeadline = p.headline ?? getLocaleText(config, p.screenIndex, p.locale, 'headline') ?? screen?.headline ?? 'New Screen';
-    const resolvedSubtitle = p.subtitle ?? getLocaleText(config, p.screenIndex, p.locale, 'subtitle') ?? screen?.subtitle;
+    const resolvedHeadline =
+      resolveLocalizedScreenText(
+        config,
+        p.screenIndex,
+        p.locale,
+        p.localeConfig,
+        'headline',
+        p.headline,
+        screen?.headline ?? 'New Screen',
+        p.preferLocaleText ?? false,
+      ) ?? 'New Screen';
+    const resolvedSubtitle = resolveLocalizedScreenText(
+      config,
+      p.screenIndex,
+      p.locale,
+      p.localeConfig,
+      'subtitle',
+      p.subtitle,
+      screen?.subtitle,
+      p.preferLocaleText ?? false,
+    );
 
     let screenshotDataUrl: string;
     if (p.clientScreenshot) {
       screenshotDataUrl = p.clientScreenshot;
     } else {
-      const screenshotPath = screen ? resolve(configDir, screen.screenshot) : '';
+      const screenshotPath = screen
+        ? getLocalizedScreenshotPath(
+            config,
+            configDir,
+            p.screenIndex,
+            p.locale,
+            screen.screenshot,
+            p.localeConfig,
+          )
+        : '';
       if (screenshotPath && !screenshotPath.startsWith(resolve(configDir))) {
         screenshotDataUrl = placeholderSvgDataUrl();
       } else {
@@ -539,7 +871,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       backgroundType: p.backgroundType ?? config.theme.backgroundType,
       backgroundColor: p.backgroundColor ?? config.theme.backgroundColor,
       backgroundGradient: p.backgroundGradient
-        ? { ...p.backgroundGradient, radialPosition: p.backgroundGradient.radialPosition ?? 'center' }
+        ? {
+            ...p.backgroundGradient,
+            radialPosition: p.backgroundGradient.radialPosition ?? 'center',
+          }
         : config.theme.backgroundGradient,
       backgroundImageDataUrl: p.backgroundImageDataUrl,
       backgroundOverlay: p.backgroundOverlay ?? config.theme.backgroundOverlay,
@@ -584,15 +919,18 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
             const extraFrame = await getFrame(extra.frameId);
             if (extraFrame) {
               slotFrame = extraFrame;
-              slotFrameSvg = (p.fStyle ?? config.frames.style) !== 'none'
-                ? await readFile(extraFrame.framePath, 'utf-8')
-                : null;
+              slotFrameSvg =
+                (p.fStyle ?? config.frames.style) !== 'none'
+                  ? await readFile(extraFrame.framePath, 'utf-8')
+                  : null;
               slotFramePngUrl = undefined;
             } else {
               const extraKoubou = getDeviceFamily(extra.frameId);
               if (extraKoubou?.screenRect && extraKoubou.framePngSize) {
                 const extraKoubouId = getDeviceId(extraKoubou.id);
-                const extraPngExists = extraKoubouId ? await getDeviceFramePath(extraKoubouId) : null;
+                const extraPngExists = extraKoubouId
+                  ? await getDeviceFramePath(extraKoubouId)
+                  : null;
                 if (extraPngExists) {
                   const extraPngBuffer = await readFile(extraPngExists);
                   slotFramePngUrl = `data:image/png;base64,${extraPngBuffer.toString('base64')}`;
@@ -603,8 +941,17 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
                     year: extraKoubou.year,
                     platform: 'ios' as const,
                     framePath: '',
-                    screenArea: { x: extraKoubou.screenRect.x, y: extraKoubou.screenRect.y, width: extraKoubou.screenRect.width, height: extraKoubou.screenRect.height, borderRadius: extraKoubou.screenBorderRadius ?? 0 },
-                    frameSize: { width: extraKoubou.framePngSize.width, height: extraKoubou.framePngSize.height },
+                    screenArea: {
+                      x: extraKoubou.screenRect.x,
+                      y: extraKoubou.screenRect.y,
+                      width: extraKoubou.screenRect.width,
+                      height: extraKoubou.screenRect.height,
+                      borderRadius: extraKoubou.screenBorderRadius ?? 0,
+                    },
+                    frameSize: {
+                      width: extraKoubou.framePngSize.width,
+                      height: extraKoubou.framePngSize.height,
+                    },
                     screenResolution: extraKoubou.screenResolution,
                     tags: [extraKoubou.category],
                   } satisfies FrameDefinition;
@@ -644,9 +991,18 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const { context } = await resolveContext(p);
 
       let html = await templateEngine.render(context);
-      html = injectTextPositionCSS(html, p.headlineTop, p.headlineLeft, p.headlineWidth, p.subtitleTop, p.subtitleLeft, p.subtitleWidth);
+      html = injectTextPositionCSS(
+        html,
+        p.headlineTop,
+        p.headlineLeft,
+        p.headlineWidth,
+        p.subtitleTop,
+        p.subtitleLeft,
+        p.subtitleWidth,
+      );
       if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
-      if (p.annotations && p.annotations.length > 0) html = injectAnnotationsHTML(html, p.annotations, p.width);
+      if (p.annotations && p.annotations.length > 0)
+        html = injectAnnotationsHTML(html, p.annotations, p.width);
       res.set('Content-Type', 'text/html');
       res.send(html);
     } catch (err) {
@@ -659,11 +1015,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.post('/api/panoramic-preview-html', async (req, res) => {
     try {
       const body = req.body as Record<string, unknown>;
+      const locale = expectString(body.locale) ?? 'default';
+      const localeConfig = expectObject(body.localeConfig) as LocaleConfig | undefined;
       const frameCount = body.frameCount as number;
       const frameWidth = body.frameWidth as number;
       const frameHeight = body.frameHeight as number;
       const background = body.background as PanoramicBackground;
-      const elements = body.elements as PanoramicElement[];
+      const elements = (body.elements as PanoramicElement[]).map((element, index) =>
+        localizePanoramicElement(config, configDir, element, locale, localeConfig, index),
+      );
       const font = (body.font as string) ?? config.theme.font;
       const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
       const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
@@ -679,18 +1039,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         if (el.type === 'device') {
           const widthPx = (el.width / 100) * totalWidth;
 
-          // Resolve screenshot — support both file paths and inline data URLs
-          let screenshotDataUrl: string;
-          if (el.screenshot.startsWith('data:')) {
-            screenshotDataUrl = el.screenshot;
-          } else {
-            const screenshotPath = resolve(configDir, el.screenshot);
-            if (!screenshotPath.startsWith(resolve(configDir))) {
-              screenshotDataUrl = placeholderSvgDataUrl();
-            } else {
-              screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
-            }
-          }
+          const screenshotDataUrl = await resolveCanvasAssetDataUrl(
+            el.screenshot,
+            configDir,
+            'Screenshot',
+          );
 
           // Resolve frame — supports both SVG manifest frames and Koubou PNG frames
           const frameId = el.frame ?? config.frames.ios ?? undefined;
@@ -726,7 +1079,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
             frame = await getDefaultFrame('ios');
           }
 
-          let clipLeft = 0, clipTop = 0, clipWidth = widthPx, clipHeight = widthPx * 2, clipRadius = 0;
+          let clipLeft = 0,
+            clipTop = 0,
+            clipWidth = widthPx,
+            clipHeight = widthPx * 2,
+            clipRadius = 0;
 
           if (frame && frameStyle !== 'none') {
             // Use PNG frame if available, otherwise SVG
@@ -742,46 +1099,109 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           }
 
           const shadowCss = el.shadow
-            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(el.shadow.opacity * 255).toString(16).padStart(2, '0')});`
+            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
+                el.shadow.opacity * 255,
+              )
+                .toString(16)
+                .padStart(2, '0')});`
             : '';
 
           renderedElements.push({
-            type: 'device', z: el.z, xPx, yPx, widthPx,
-            rotation: el.rotation, screenshotDataUrl, frameSvg, framePngUrl, shadowCss,
-            clipLeft, clipTop, clipWidth, clipHeight, clipRadius,
+            type: 'device',
+            z: el.z,
+            xPx,
+            yPx,
+            widthPx,
+            rotation: el.rotation,
+            screenshotDataUrl,
+            frameSvg,
+            framePngUrl,
+            shadowCss,
+            clipLeft,
+            clipTop,
+            clipWidth,
+            clipHeight,
+            clipRadius,
             borderSimulation: el.borderSimulation
-              ? { thickness: el.borderSimulation.thickness, color: el.borderSimulation.color, radius: el.borderSimulation.radius }
+              ? {
+                  thickness: el.borderSimulation.thickness,
+                  color: el.borderSimulation.color,
+                  radius: el.borderSimulation.radius,
+                }
               : undefined,
           });
         } else if (el.type === 'text') {
           let gradientCss: string | undefined;
           if (el.gradient) {
             const colors = el.gradient.colors.join(', ');
-            gradientCss = el.gradient.type === 'radial'
-              ? `radial-gradient(circle at ${el.gradient.radialPosition ?? 'center'}, ${colors})`
-              : `linear-gradient(${el.gradient.direction ?? 135}deg, ${colors})`;
+            gradientCss =
+              el.gradient.type === 'radial'
+                ? `radial-gradient(circle at ${el.gradient.radialPosition ?? 'center'}, ${colors})`
+                : `linear-gradient(${el.gradient.direction ?? 135}deg, ${colors})`;
           }
           renderedElements.push({
-            type: 'text', z: el.z, xPx, yPx,
-            content: el.content, fontSizePx: (el.fontSize / 100) * frameHeight,
-            color: el.color, font: el.font, fontWeight: el.fontWeight, fontStyle: el.fontStyle,
-            textAlign: el.textAlign, lineHeight: el.lineHeight,
+            type: 'text',
+            z: el.z,
+            xPx,
+            yPx,
+            content: el.content,
+            fontSizePx: (el.fontSize / 100) * frameHeight,
+            color: el.color,
+            font: el.font,
+            fontWeight: el.fontWeight,
+            fontStyle: el.fontStyle,
+            textAlign: el.textAlign,
+            lineHeight: el.lineHeight,
             maxWidthPx: el.maxWidth ? (el.maxWidth / 100) * totalWidth : undefined,
             gradientCss,
           });
         } else if (el.type === 'label') {
           renderedElements.push({
-            type: 'label', z: el.z, xPx, yPx,
-            content: el.content, fontSizePx: (el.fontSize / 100) * frameHeight,
-            color: el.color, backgroundColor: el.backgroundColor,
-            paddingPx: (el.padding / 100) * frameHeight, borderRadius: el.borderRadius,
+            type: 'label',
+            z: el.z,
+            xPx,
+            yPx,
+            content: el.content,
+            fontSizePx: (el.fontSize / 100) * frameHeight,
+            color: el.color,
+            backgroundColor: el.backgroundColor,
+            paddingPx: (el.padding / 100) * frameHeight,
+            borderRadius: el.borderRadius,
           });
         } else if (el.type === 'decoration') {
           renderedElements.push({
-            type: 'decoration', z: el.z, xPx, yPx,
+            type: 'decoration',
+            z: el.z,
+            xPx,
+            yPx,
             widthPx: (el.width / 100) * totalWidth,
             heightPx: el.height ? (el.height / 100) * frameHeight : (el.width / 100) * totalWidth,
-            shape: el.shape, color: el.color, opacity: el.opacity, rotation: el.rotation,
+            shape: el.shape,
+            color: el.color,
+            opacity: el.opacity,
+            rotation: el.rotation,
+          });
+        } else if (el.type === 'image') {
+          const shadowCss = el.shadow
+            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
+                el.shadow.opacity * 255,
+              )
+                .toString(16)
+                .padStart(2, '0')});`
+            : '';
+          renderedElements.push({
+            type: 'image',
+            z: el.z,
+            xPx,
+            yPx,
+            widthPx: (el.width / 100) * totalWidth,
+            heightPx: (el.height / 100) * frameHeight,
+            rotation: el.rotation,
+            opacity: el.opacity,
+            borderRadius: el.borderRadius,
+            srcDataUrl: await resolveCanvasAssetDataUrl(el.src, configDir, 'Image'),
+            fit: el.fit,
+            shadowCss,
           });
         }
       }
@@ -790,9 +1210,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       let backgroundCss = '#000000';
       if (background.type === 'gradient' && background.gradient) {
         const colors = background.gradient.colors.join(', ');
-        backgroundCss = background.gradient.type === 'radial'
-          ? `radial-gradient(circle at ${background.gradient.radialPosition}, ${colors})`
-          : `linear-gradient(${background.gradient.direction}deg, ${colors})`;
+        backgroundCss =
+          background.gradient.type === 'radial'
+            ? `radial-gradient(circle at ${background.gradient.radialPosition}, ${colors})`
+            : `linear-gradient(${background.gradient.direction}deg, ${colors})`;
       } else if (background.type === 'image' && background.image) {
         backgroundCss = `url('${background.image}') center/cover no-repeat`;
       } else if (background.type === 'solid' && background.color) {
@@ -836,16 +1257,30 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       let html = await templateEngine.renderPanoramic(panoramicContext);
 
       // Inject effects (spotlight, annotations, overlays)
-      const effects = body.effects as { spotlight?: unknown; annotations?: unknown[]; overlays?: unknown[] } | undefined;
+      const effects = body.effects as
+        | { spotlight?: unknown; annotations?: unknown[]; overlays?: unknown[] }
+        | undefined;
       if (effects) {
         if (effects.spotlight) {
-          html = injectSpotlightHTML(html, effects.spotlight as Parameters<typeof injectSpotlightHTML>[1]);
+          html = injectSpotlightHTML(
+            html,
+            effects.spotlight as Parameters<typeof injectSpotlightHTML>[1],
+          );
         }
         if (effects.annotations && effects.annotations.length > 0) {
-          html = injectAnnotationsHTML(html, effects.annotations as Parameters<typeof injectAnnotationsHTML>[1], totalWidth);
+          html = injectAnnotationsHTML(
+            html,
+            effects.annotations as Parameters<typeof injectAnnotationsHTML>[1],
+            totalWidth,
+          );
         }
         if (effects.overlays && effects.overlays.length > 0) {
-          html = injectOverlaysHTML(html, effects.overlays as Parameters<typeof injectOverlaysHTML>[1], totalWidth, frameHeight);
+          html = injectOverlaysHTML(
+            html,
+            effects.overlays as Parameters<typeof injectOverlaysHTML>[1],
+            totalWidth,
+            frameHeight,
+          );
         }
       }
 
@@ -863,9 +1298,18 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const { context } = await resolveContext(p);
 
       let html = await templateEngine.render(context);
-      html = injectTextPositionCSS(html, p.headlineTop, p.headlineLeft, p.headlineWidth, p.subtitleTop, p.subtitleLeft, p.subtitleWidth);
+      html = injectTextPositionCSS(
+        html,
+        p.headlineTop,
+        p.headlineLeft,
+        p.headlineWidth,
+        p.subtitleTop,
+        p.subtitleLeft,
+        p.subtitleWidth,
+      );
       if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
-      if (p.annotations && p.annotations.length > 0) html = injectAnnotationsHTML(html, p.annotations, p.width);
+      if (p.annotations && p.annotations.length > 0)
+        html = injectAnnotationsHTML(html, p.annotations, p.width);
 
       const tmpPath = join(configDir, `.appframe-preview-${Date.now()}.png`);
       const { unlink } = await import('node:fs/promises');
@@ -913,10 +1357,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   function getRequestPayload(body: unknown): Record<string, unknown> {
     if (
-      body
-      && typeof body === 'object'
-      && 'payload' in body
-      && typeof (body as { payload?: unknown }).payload === 'string'
+      body &&
+      typeof body === 'object' &&
+      'payload' in body &&
+      typeof (body as { payload?: unknown }).payload === 'string'
     ) {
       const raw = (body as { payload: string }).payload;
       return JSON.parse(raw) as Record<string, unknown>;
@@ -942,14 +1386,23 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         // --- Koubou rendering path ---
         const koubouOutputSize = sizeKeyToKoubouOutput(sizeKey);
         if (!koubouOutputSize) {
-          res.status(400).json({ error: `Koubou does not support size: ${sizeKey}. Use Playwright for Android sizes.` });
+          res.status(400).json({
+            error: `Koubou does not support size: ${sizeKey}. Use Playwright for Android sizes.`,
+          });
           return;
         }
 
         const screen = config.screens[p.screenIndex] ?? null;
         let screenshotData = p.clientScreenshot;
         if (!screenshotData && screen) {
-          const screenshotPath = resolve(configDir, screen.screenshot);
+          const screenshotPath = getLocalizedScreenshotPath(
+            config,
+            configDir,
+            p.screenIndex,
+            p.locale,
+            screen.screenshot,
+            p.localeConfig,
+          );
           if (!screenshotPath.startsWith(resolve(configDir))) {
             res.status(400).json({ error: 'Screenshot path escapes project directory' });
             return;
@@ -961,27 +1414,41 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           return;
         }
 
-        const resolvedHeadline = p.headline
-          ?? getLocaleText(config, p.screenIndex, p.locale, 'headline')
-          ?? screen?.headline
-          ?? 'New Screen';
-        const resolvedSubtitle = p.subtitle
-          ?? getLocaleText(config, p.screenIndex, p.locale, 'subtitle')
-          ?? screen?.subtitle;
+        const resolvedHeadline =
+          resolveLocalizedScreenText(
+            config,
+            p.screenIndex,
+            p.locale,
+            p.localeConfig,
+            'headline',
+            p.headline,
+            screen?.headline ?? 'New Screen',
+            p.preferLocaleText ?? false,
+          ) ?? 'New Screen';
+        const resolvedSubtitle = resolveLocalizedScreenText(
+          config,
+          p.screenIndex,
+          p.locale,
+          p.localeConfig,
+          'subtitle',
+          p.subtitle,
+          screen?.subtitle,
+          p.preferLocaleText ?? false,
+        );
 
         const imageBuffer = await renderSingleScreenWithKoubou({
           screenshotData,
           headline: resolvedHeadline,
           subtitle: resolvedSubtitle,
-          style: (p.style ?? config.theme.style),
+          style: p.style ?? config.theme.style,
           colors: p.colors ? { ...config.theme.colors, ...p.colors } : config.theme.colors,
           font: p.font ?? config.theme.font,
           fontWeight: p.fontWeight ?? config.theme.fontWeight,
           headlineSize: p.headlineSize ?? config.theme.headlineSize,
           subtitleSize: p.subtitleSize ?? config.theme.subtitleSize,
-          layout: (p.layout ?? screen?.layout ?? 'center'),
+          layout: p.layout ?? screen?.layout ?? 'center',
           frameId: p.frameId ?? config.frames.ios,
-          frameStyle: (p.fStyle ?? config.frames.style),
+          frameStyle: p.fStyle ?? config.frames.style,
           deviceColor: p.deviceColor ?? config.frames.deviceColor,
           outputSize: koubouOutputSize,
           headlineGradient: p.headlineGradient ?? config.theme.headlineGradient,
@@ -1002,9 +1469,18 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         const { context } = await resolveContext(p);
 
         let html = await templateEngine.render(context);
-        html = injectTextPositionCSS(html, p.headlineTop, p.headlineLeft, p.headlineWidth, p.subtitleTop, p.subtitleLeft, p.subtitleWidth);
+        html = injectTextPositionCSS(
+          html,
+          p.headlineTop,
+          p.headlineLeft,
+          p.headlineWidth,
+          p.subtitleTop,
+          p.subtitleLeft,
+          p.subtitleWidth,
+        );
         if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
-        if (p.annotations && p.annotations.length > 0) html = injectAnnotationsHTML(html, p.annotations, p.width);
+        if (p.annotations && p.annotations.length > 0)
+          html = injectAnnotationsHTML(html, p.annotations, p.width);
 
         const tmpPath = join(configDir, `.appframe-export-${Date.now()}.png`);
         const { unlink } = await import('node:fs/promises');
@@ -1035,9 +1511,13 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.post('/api/panoramic-export', async (req, res) => {
     try {
       const body = getRequestPayload(req.body);
+      const locale = expectString(body.locale) ?? 'default';
+      const localeConfig = expectObject(body.localeConfig) as LocaleConfig | undefined;
       const frameCount = body.frameCount as number;
       const background = body.background as PanoramicBackground;
-      const elements = body.elements as PanoramicElement[];
+      const elements = (body.elements as PanoramicElement[]).map((element, index) =>
+        localizePanoramicElement(config, configDir, element, locale, localeConfig, index),
+      );
       const font = (body.font as string) ?? config.theme.font;
       const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
       const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
@@ -1065,17 +1545,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         if (el.type === 'device') {
           const widthPx = (el.width / 100) * exportTotalW;
 
-          let screenshotDataUrl: string;
-          if (el.screenshot.startsWith('data:')) {
-            screenshotDataUrl = el.screenshot;
-          } else {
-            const screenshotPath = resolve(configDir, el.screenshot);
-            if (!screenshotPath.startsWith(resolve(configDir))) {
-              screenshotDataUrl = placeholderSvgDataUrl();
-            } else {
-              screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
-            }
-          }
+          const screenshotDataUrl = await resolveCanvasAssetDataUrl(
+            el.screenshot,
+            configDir,
+            'Screenshot',
+          );
 
           const frameId = el.frame ?? config.frames.ios ?? undefined;
           let frame: FrameDefinition | undefined;
@@ -1106,7 +1580,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
             frame = await getDefaultFrame('ios');
           }
 
-          let clipLeft = 0, clipTop = 0, clipWidth = widthPx, clipHeight = widthPx * 2, clipRadius = 0;
+          let clipLeft = 0,
+            clipTop = 0,
+            clipWidth = widthPx,
+            clipHeight = widthPx * 2,
+            clipRadius = 0;
 
           if (frame && frameStyle !== 'none') {
             if (!framePngUrl && frame.framePath) {
@@ -1121,46 +1599,111 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           }
 
           const shadowCss = el.shadow
-            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(el.shadow.opacity * 255).toString(16).padStart(2, '0')});`
+            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
+                el.shadow.opacity * 255,
+              )
+                .toString(16)
+                .padStart(2, '0')});`
             : '';
 
           renderedElements.push({
-            type: 'device', z: el.z, xPx, yPx, widthPx,
-            rotation: el.rotation, screenshotDataUrl, frameSvg, framePngUrl, shadowCss,
-            clipLeft, clipTop, clipWidth, clipHeight, clipRadius,
+            type: 'device',
+            z: el.z,
+            xPx,
+            yPx,
+            widthPx,
+            rotation: el.rotation,
+            screenshotDataUrl,
+            frameSvg,
+            framePngUrl,
+            shadowCss,
+            clipLeft,
+            clipTop,
+            clipWidth,
+            clipHeight,
+            clipRadius,
             borderSimulation: el.borderSimulation
-              ? { thickness: el.borderSimulation.thickness, color: el.borderSimulation.color, radius: el.borderSimulation.radius }
+              ? {
+                  thickness: el.borderSimulation.thickness,
+                  color: el.borderSimulation.color,
+                  radius: el.borderSimulation.radius,
+                }
               : undefined,
           });
         } else if (el.type === 'text') {
           let gradientCss: string | undefined;
           if (el.gradient) {
             const colors = el.gradient.colors.join(', ');
-            gradientCss = el.gradient.type === 'radial'
-              ? `radial-gradient(circle at ${el.gradient.radialPosition ?? 'center'}, ${colors})`
-              : `linear-gradient(${el.gradient.direction ?? 135}deg, ${colors})`;
+            gradientCss =
+              el.gradient.type === 'radial'
+                ? `radial-gradient(circle at ${el.gradient.radialPosition ?? 'center'}, ${colors})`
+                : `linear-gradient(${el.gradient.direction ?? 135}deg, ${colors})`;
           }
           renderedElements.push({
-            type: 'text', z: el.z, xPx, yPx,
-            content: el.content, fontSizePx: (el.fontSize / 100) * exportFrameH,
-            color: el.color, font: el.font, fontWeight: el.fontWeight, fontStyle: el.fontStyle,
-            textAlign: el.textAlign, lineHeight: el.lineHeight,
+            type: 'text',
+            z: el.z,
+            xPx,
+            yPx,
+            content: el.content,
+            fontSizePx: (el.fontSize / 100) * exportFrameH,
+            color: el.color,
+            font: el.font,
+            fontWeight: el.fontWeight,
+            fontStyle: el.fontStyle,
+            textAlign: el.textAlign,
+            lineHeight: el.lineHeight,
             maxWidthPx: el.maxWidth ? (el.maxWidth / 100) * exportTotalW : undefined,
             gradientCss,
           });
         } else if (el.type === 'label') {
           renderedElements.push({
-            type: 'label', z: el.z, xPx, yPx,
-            content: el.content, fontSizePx: (el.fontSize / 100) * exportFrameH,
-            color: el.color, backgroundColor: el.backgroundColor,
-            paddingPx: (el.padding / 100) * exportFrameH, borderRadius: el.borderRadius,
+            type: 'label',
+            z: el.z,
+            xPx,
+            yPx,
+            content: el.content,
+            fontSizePx: (el.fontSize / 100) * exportFrameH,
+            color: el.color,
+            backgroundColor: el.backgroundColor,
+            paddingPx: (el.padding / 100) * exportFrameH,
+            borderRadius: el.borderRadius,
           });
         } else if (el.type === 'decoration') {
           renderedElements.push({
-            type: 'decoration', z: el.z, xPx, yPx,
+            type: 'decoration',
+            z: el.z,
+            xPx,
+            yPx,
             widthPx: (el.width / 100) * exportTotalW,
-            heightPx: el.height ? (el.height / 100) * exportFrameH : (el.width / 100) * exportTotalW,
-            shape: el.shape, color: el.color, opacity: el.opacity, rotation: el.rotation,
+            heightPx: el.height
+              ? (el.height / 100) * exportFrameH
+              : (el.width / 100) * exportTotalW,
+            shape: el.shape,
+            color: el.color,
+            opacity: el.opacity,
+            rotation: el.rotation,
+          });
+        } else if (el.type === 'image') {
+          const shadowCss = el.shadow
+            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
+                el.shadow.opacity * 255,
+              )
+                .toString(16)
+                .padStart(2, '0')});`
+            : '';
+          renderedElements.push({
+            type: 'image',
+            z: el.z,
+            xPx,
+            yPx,
+            widthPx: (el.width / 100) * exportTotalW,
+            heightPx: (el.height / 100) * exportFrameH,
+            rotation: el.rotation,
+            opacity: el.opacity,
+            borderRadius: el.borderRadius,
+            srcDataUrl: await resolveCanvasAssetDataUrl(el.src, configDir, 'Image'),
+            fit: el.fit,
+            shadowCss,
           });
         }
       }
@@ -1169,9 +1712,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       let backgroundCss = '#000000';
       if (background.type === 'gradient' && background.gradient) {
         const colors = background.gradient.colors.join(', ');
-        backgroundCss = background.gradient.type === 'radial'
-          ? `radial-gradient(circle at ${background.gradient.radialPosition}, ${colors})`
-          : `linear-gradient(${background.gradient.direction}deg, ${colors})`;
+        backgroundCss =
+          background.gradient.type === 'radial'
+            ? `radial-gradient(circle at ${background.gradient.radialPosition}, ${colors})`
+            : `linear-gradient(${background.gradient.direction}deg, ${colors})`;
       } else if (background.type === 'image' && background.image) {
         backgroundCss = `url('${background.image}') center/cover no-repeat`;
       } else if (background.type === 'solid' && background.color) {
@@ -1194,16 +1738,30 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       let html = await templateEngine.renderPanoramic(panoramicContext);
 
       // Inject effects for export too
-      const effects = body.effects as { spotlight?: unknown; annotations?: unknown[]; overlays?: unknown[] } | undefined;
+      const effects = body.effects as
+        | { spotlight?: unknown; annotations?: unknown[]; overlays?: unknown[] }
+        | undefined;
       if (effects) {
         if (effects.spotlight) {
-          html = injectSpotlightHTML(html, effects.spotlight as Parameters<typeof injectSpotlightHTML>[1]);
+          html = injectSpotlightHTML(
+            html,
+            effects.spotlight as Parameters<typeof injectSpotlightHTML>[1],
+          );
         }
         if (effects.annotations && effects.annotations.length > 0) {
-          html = injectAnnotationsHTML(html, effects.annotations as Parameters<typeof injectAnnotationsHTML>[1], exportTotalW);
+          html = injectAnnotationsHTML(
+            html,
+            effects.annotations as Parameters<typeof injectAnnotationsHTML>[1],
+            exportTotalW,
+          );
         }
         if (effects.overlays && effects.overlays.length > 0) {
-          html = injectOverlaysHTML(html, effects.overlays as Parameters<typeof injectOverlaysHTML>[1], exportTotalW, exportFrameH);
+          html = injectOverlaysHTML(
+            html,
+            effects.overlays as Parameters<typeof injectOverlaysHTML>[1],
+            exportTotalW,
+            exportFrameH,
+          );
         }
       }
 
@@ -1252,6 +1810,24 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // API: Reload config
   app.post('/api/reload', async (_req, res) => {
     try {
+      if (!resolvedConfigPath) {
+        res.json({ success: true, note: 'No config file — using defaults' });
+        return;
+      }
+      config = await loadConfig(resolvedConfigPath);
+      koubouStatusCache = null;
+      res.json({ success: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+  app.post('/api/project/reload', async (_req, res) => {
+    try {
+      if (!resolvedConfigPath) {
+        res.json({ success: true, note: 'No config file — using defaults' });
+        return;
+      }
       config = await loadConfig(resolvedConfigPath);
       koubouStatusCache = null;
       res.json({ success: true });
@@ -1290,10 +1866,129 @@ function getLocaleText(
   config: AppframeConfig,
   index: number,
   locale: string,
+  localeConfig: LocaleConfig | undefined,
   field: 'headline' | 'subtitle',
 ): string | undefined {
-  if (locale === 'default' || !config.locales) return undefined;
-  return config.locales[locale]?.screens[index]?.[field];
+  if (locale === 'default') return undefined;
+  const sessionValue = localeConfig?.screens?.[index]?.[field];
+  if (sessionValue !== undefined) return sessionValue;
+  return config.locales?.[locale]?.screens?.[index]?.[field];
+}
+
+function resolveLocalizedScreenText(
+  config: AppframeConfig,
+  index: number,
+  locale: string,
+  localeConfig: LocaleConfig | undefined,
+  field: 'headline' | 'subtitle',
+  requestedValue: string | undefined,
+  fallbackValue: string | undefined,
+  preferLocaleText: boolean,
+): string | undefined {
+  const localizedValue = getLocaleText(config, index, locale, localeConfig, field);
+  if (preferLocaleText && localizedValue !== undefined) return localizedValue;
+  return requestedValue ?? localizedValue ?? fallbackValue;
+}
+
+function getLocalizedScreenshotPath(
+  config: AppframeConfig,
+  configDir: string,
+  index: number,
+  locale: string,
+  defaultScreenshot: string,
+  localeConfig?: LocaleConfig,
+): string {
+  if (locale !== 'default') {
+    const sessionScreen = localeConfig?.screens?.[index];
+    if (sessionScreen?.screenshot) return resolve(configDir, sessionScreen.screenshot);
+
+    const localeScreen = config.locales?.[locale]?.screens?.[index];
+    if (localeScreen?.screenshot) return resolve(configDir, localeScreen.screenshot);
+  }
+
+  if (locale !== 'default' && config.localization) {
+    return resolveLocalizedAsset(
+      defaultScreenshot,
+      locale,
+      config.localization.baseLanguage,
+      configDir,
+    );
+  }
+
+  return resolve(configDir, defaultScreenshot);
+}
+
+function localizePanoramicElement(
+  config: AppframeConfig,
+  configDir: string,
+  element: PanoramicElement,
+  locale: string,
+  localeConfig: LocaleConfig | undefined,
+  elementIndex?: number,
+): PanoramicElement {
+  if (locale === 'default') return element;
+
+  const localePanoramicOverride =
+    elementIndex !== undefined
+      ? (localeConfig?.panoramic?.elements?.[elementIndex] ??
+        config.locales?.[locale]?.panoramic?.elements?.[elementIndex])
+      : undefined;
+
+  if (localePanoramicOverride) {
+    if (element.type === 'device' && localePanoramicOverride.screenshot) {
+      return {
+        ...element,
+        screenshot: resolve(configDir, localePanoramicOverride.screenshot),
+      };
+    }
+
+    if ((element.type === 'text' || element.type === 'label') && localePanoramicOverride.content) {
+      return {
+        ...element,
+        content: localePanoramicOverride.content,
+      };
+    }
+  }
+
+  if (
+    element.type === 'device' &&
+    element.localeSourceScreen !== undefined &&
+    !element.screenshot.startsWith('data:')
+  ) {
+    return {
+      ...element,
+      screenshot: getLocalizedScreenshotPath(
+        config,
+        configDir,
+        element.localeSourceScreen,
+        locale,
+        element.screenshot,
+        localeConfig,
+      ),
+    };
+  }
+
+  if (
+    (element.type === 'text' || element.type === 'label') &&
+    element.localeSourceScreen !== undefined &&
+    element.localeSourceField
+  ) {
+    const localizedContent = getLocaleText(
+      config,
+      element.localeSourceScreen,
+      locale,
+      localeConfig,
+      element.localeSourceField,
+    );
+    if (localizedContent !== undefined) {
+      return {
+        ...element,
+        content: localizedContent,
+      };
+    }
+  }
+
+  return element;
 }
 
 function injectTextPositionCSS(
@@ -1308,42 +2003,80 @@ function injectTextPositionCSS(
   const rules: string[] = [];
   if (headlineTop !== undefined && headlineLeft !== undefined) {
     const w = headlineWidth !== undefined ? `width: ${headlineWidth}%;` : '';
-    rules.push(`.headline { position: fixed; top: ${headlineTop}%; left: ${headlineLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`);
+    rules.push(
+      `.headline { position: fixed; top: ${headlineTop}%; left: ${headlineLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`,
+    );
   }
   if (subtitleTop !== undefined && subtitleLeft !== undefined) {
     const w = subtitleWidth !== undefined ? `width: ${subtitleWidth}%;` : '';
-    rules.push(`.subtitle { position: fixed; top: ${subtitleTop}%; left: ${subtitleLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`);
+    rules.push(
+      `.subtitle { position: fixed; top: ${subtitleTop}%; left: ${subtitleLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`,
+    );
   }
   if (rules.length === 0) return html;
   return html.replace('</head>', `<style>${rules.join('\n')}</style>\n</head>`);
 }
 
 function placeholderSvgDataUrl(): string {
-  return 'data:image/svg+xml;base64,' + Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800">
+  return (
+    'data:image/svg+xml;base64,' +
+    Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800">
       <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" style="stop-color:#667eea"/><stop offset="100%" style="stop-color:#764ba2"/>
       </linearGradient></defs>
       <rect width="400" height="800" fill="url(#g)"/>
       <text x="200" y="400" text-anchor="middle" fill="white" font-family="sans-serif" font-size="14">Screenshot placeholder</text>
-    </svg>`
-  ).toString('base64');
+    </svg>`,
+    ).toString('base64')
+  );
 }
 
-async function screenshotToDataUrl(path: string): Promise<string> {
+async function resolveCanvasAssetDataUrl(
+  value: string,
+  baseDir: string,
+  fallbackLabel: string,
+): Promise<string> {
+  if (value.startsWith('data:')) {
+    return value;
+  }
+
+  const assetPath = resolve(baseDir, value);
+  if (!assetPath.startsWith(resolve(baseDir))) {
+    return placeholderSvgDataUrlWithLabel(fallbackLabel);
+  }
+  return screenshotToDataUrl(assetPath, fallbackLabel);
+}
+
+function placeholderSvgDataUrlWithLabel(label: string): string {
+  return (
+    'data:image/svg+xml;base64,' +
+    Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800">
+      <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#667eea"/><stop offset="100%" style="stop-color:#764ba2"/>
+      </linearGradient></defs>
+      <rect width="400" height="800" fill="url(#g)"/>
+      <text x="200" y="400" text-anchor="middle" fill="white" font-family="sans-serif" font-size="14">${label} placeholder</text>
+    </svg>`,
+    ).toString('base64')
+  );
+}
+
+async function screenshotToDataUrl(path: string, fallbackLabel = 'Screenshot'): Promise<string> {
   try {
     const buffer = await readFile(path);
-    const ext = path.toLowerCase().endsWith('.jpg') || path.toLowerCase().endsWith('.jpeg') ? 'jpeg' : 'png';
+    const lower = path.toLowerCase();
+    const ext =
+      lower.endsWith('.jpg') || lower.endsWith('.jpeg')
+        ? 'jpeg'
+        : lower.endsWith('.webp')
+          ? 'webp'
+          : lower.endsWith('.svg')
+            ? 'svg+xml'
+            : 'png';
     return `data:image/${ext};base64,${buffer.toString('base64')}`;
   } catch {
-    return 'data:image/svg+xml;base64,' + Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800">
-        <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#667eea"/><stop offset="100%" style="stop-color:#764ba2"/>
-        </linearGradient></defs>
-        <rect width="400" height="800" fill="url(#g)"/>
-        <text x="200" y="400" text-anchor="middle" fill="white" font-family="sans-serif" font-size="14">Screenshot placeholder</text>
-      </svg>`
-    ).toString('base64');
+    return placeholderSvgDataUrlWithLabel(fallbackLabel);
   }
 }

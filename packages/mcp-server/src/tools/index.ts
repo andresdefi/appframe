@@ -4,6 +4,7 @@ import { registerGenerateTools } from './generate-tools.js';
 import { registerFrameTools } from './frame-tools.js';
 import { registerSuggestionTools } from './suggestion-tools.js';
 import { registerUploadTools } from './upload-tools.js';
+import { registerVariantSessionTools } from './variant-session-tools.js';
 
 export function registerTools(server: McpServer): void {
   registerConfigTools(server);
@@ -11,4 +12,5 @@ export function registerTools(server: McpServer): void {
   registerFrameTools(server);
   registerSuggestionTools(server);
   registerUploadTools(server);
+  registerVariantSessionTools(server);
 }

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type {
   ScreenState,
   AppframeConfig,
+  LocaleConfig,
   TemplateStyle,
   FrameStyle,
   PanoramicElement,
@@ -10,6 +11,16 @@ import type {
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
+
+function getConfiguredLocaleText(
+  locales: Record<string, LocaleConfig>,
+  index: number,
+  locale: string,
+  field: 'headline' | 'subtitle',
+): string | undefined {
+  if (locale === 'default') return undefined;
+  return locales[locale]?.screens?.[index]?.[field];
+}
 
 export function createScreenState(
   index: number,
@@ -21,7 +32,7 @@ export function createScreenState(
 
   return {
     screenIndex: index,
-    headline: screen ? screen.headline : 'New Screen',
+    headline: screen ? screen.headline : 'New Frame',
     subtitle: screen ? (screen.subtitle ?? '') : '',
     style: 'minimal' as TemplateStyle,
     layout: 'center',
@@ -125,9 +136,54 @@ export interface SizeEntry {
   height: number;
 }
 
+export type VariantStatus = 'draft' | 'approved';
+
+export interface VariantArtifact {
+  id: string;
+  kind: 'screens' | 'frames';
+  exportedAt: string;
+  locale: string;
+  mode: 'individual' | 'panoramic';
+  sizeKey: string;
+  renderer: string;
+  fileNames: string[];
+  manifestName: string;
+}
+
+export interface VariantSnapshot {
+  platform: string;
+  previewW: number;
+  previewH: number;
+  locale: string;
+  sessionLocales: Record<string, LocaleConfig>;
+  isPanoramic: boolean;
+  screens: ScreenState[];
+  selectedScreen: number;
+  panoramicFrameCount: number;
+  panoramicBackground: PanoramicBackground;
+  panoramicElements: PanoramicElement[];
+  panoramicEffects: PanoramicEffects;
+  selectedElementIndex: number | null;
+  exportSize: string;
+  exportRenderer: string;
+}
+
+export interface VariantRecord {
+  id: string;
+  name: string;
+  status: VariantStatus;
+  createdAt: string;
+  updatedAt: string;
+  snapshot: VariantSnapshot;
+  artifacts: VariantArtifact[];
+}
+
 export interface PreviewStore {
   // App-level state
   config: AppframeConfig | null;
+  sessionLocales: Record<string, LocaleConfig>;
+  variants: VariantRecord[];
+  activeVariantId: string | null;
   platform: string;
   previewW: number;
   previewH: number;
@@ -164,6 +220,15 @@ export interface PreviewStore {
   setSelectedScreen: (index: number) => void;
   setActiveTab: (tab: string) => void;
   setLocale: (locale: string) => void;
+  upsertLocaleConfig: (locale: string, localeConfig: LocaleConfig) => void;
+  createVariant: (name?: string) => void;
+  duplicateActiveVariant: () => void;
+  createVariantSet: () => void;
+  selectVariant: (id: string) => void;
+  renameVariant: (id: string, name: string) => void;
+  deleteVariant: (id: string) => void;
+  setVariantStatus: (id: string, status: VariantStatus) => void;
+  recordVariantArtifact: (artifact: Omit<VariantArtifact, 'id' | 'exportedAt'>) => void;
   setPreviewBg: (bg: 'dark' | 'light') => void;
   setExportSize: (size: string) => void;
   setExportRenderer: (renderer: string) => void;
@@ -175,6 +240,7 @@ export interface PreviewStore {
   updateScreen: (index: number, partial: Partial<ScreenState>) => void;
   triggerRender: () => void;
   initScreens: (config: AppframeConfig, platform: string) => void;
+  hydrateSession: (session: { activeVariantId: string; variants: Array<{ id: string; name: string; status: string; config: AppframeConfig }> }) => void;
   addScreen: () => void;
   removeScreen: (index: number) => void;
   moveScreen: (from: number, to: number) => void;
@@ -214,7 +280,171 @@ function deepCopy<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
-function pushSnapshot(state: { screens: ScreenState[]; panoramicElements: PanoramicElement[]; panoramicBackground: PanoramicBackground; panoramicEffects: PanoramicEffects; selectedScreen: number; selectedElementIndex: number | null }) {
+function makeId(prefix: string): string {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function variantSnapshotFromState(
+  state: Pick<
+    PreviewStore,
+    | 'platform'
+    | 'previewW'
+    | 'previewH'
+    | 'locale'
+    | 'sessionLocales'
+    | 'isPanoramic'
+    | 'screens'
+    | 'selectedScreen'
+    | 'panoramicFrameCount'
+    | 'panoramicBackground'
+    | 'panoramicElements'
+    | 'panoramicEffects'
+    | 'selectedElementIndex'
+    | 'exportSize'
+    | 'exportRenderer'
+  >,
+): VariantSnapshot {
+  return {
+    platform: state.platform,
+    previewW: state.previewW,
+    previewH: state.previewH,
+    locale: state.locale,
+    sessionLocales: deepCopy(state.sessionLocales),
+    isPanoramic: state.isPanoramic,
+    screens: deepCopy(state.screens),
+    selectedScreen: state.selectedScreen,
+    panoramicFrameCount: state.panoramicFrameCount,
+    panoramicBackground: deepCopy(state.panoramicBackground),
+    panoramicElements: deepCopy(state.panoramicElements),
+    panoramicEffects: deepCopy(state.panoramicEffects),
+    selectedElementIndex: state.selectedElementIndex,
+    exportSize: state.exportSize,
+    exportRenderer: state.exportRenderer,
+  };
+}
+
+function applyVariantSnapshot(
+  snapshot: VariantSnapshot,
+): Pick<
+  PreviewStore,
+  | 'platform'
+  | 'previewW'
+  | 'previewH'
+  | 'locale'
+  | 'sessionLocales'
+  | 'isPanoramic'
+  | 'screens'
+  | 'selectedScreen'
+  | 'panoramicFrameCount'
+  | 'panoramicBackground'
+  | 'panoramicElements'
+  | 'panoramicEffects'
+  | 'selectedElementIndex'
+  | 'exportSize'
+  | 'exportRenderer'
+> {
+  return {
+    platform: snapshot.platform,
+    previewW: snapshot.previewW,
+    previewH: snapshot.previewH,
+    locale: snapshot.locale,
+    sessionLocales: deepCopy(snapshot.sessionLocales),
+    isPanoramic: snapshot.isPanoramic,
+    screens: deepCopy(snapshot.screens),
+    selectedScreen: snapshot.selectedScreen,
+    panoramicFrameCount: snapshot.panoramicFrameCount,
+    panoramicBackground: deepCopy(snapshot.panoramicBackground),
+    panoramicElements: deepCopy(snapshot.panoramicElements),
+    panoramicEffects: deepCopy(snapshot.panoramicEffects),
+    selectedElementIndex: snapshot.selectedElementIndex,
+    exportSize: snapshot.exportSize,
+    exportRenderer: snapshot.exportRenderer,
+  };
+}
+
+function syncActiveVariantRecord(
+  variants: VariantRecord[],
+  activeVariantId: string | null,
+  state: Pick<
+    PreviewStore,
+    | 'platform'
+    | 'previewW'
+    | 'previewH'
+    | 'locale'
+    | 'sessionLocales'
+    | 'isPanoramic'
+    | 'screens'
+    | 'selectedScreen'
+    | 'panoramicFrameCount'
+    | 'panoramicBackground'
+    | 'panoramicElements'
+    | 'panoramicEffects'
+    | 'selectedElementIndex'
+    | 'exportSize'
+    | 'exportRenderer'
+  >,
+): VariantRecord[] {
+  if (!activeVariantId) return variants;
+
+  const snapshot = variantSnapshotFromState(state);
+  const updatedAt = new Date().toISOString();
+  return variants.map((variant) =>
+    variant.id === activeVariantId ? { ...variant, snapshot, updatedAt } : variant,
+  );
+}
+
+function buildVariantRecord(
+  name: string,
+  state: Pick<
+    PreviewStore,
+    | 'platform'
+    | 'previewW'
+    | 'previewH'
+    | 'locale'
+    | 'sessionLocales'
+    | 'isPanoramic'
+    | 'screens'
+    | 'selectedScreen'
+    | 'panoramicFrameCount'
+    | 'panoramicBackground'
+    | 'panoramicElements'
+    | 'panoramicEffects'
+    | 'selectedElementIndex'
+    | 'exportSize'
+    | 'exportRenderer'
+  >,
+): VariantRecord {
+  const timestamp = new Date().toISOString();
+  return {
+    id: makeId('variant'),
+    name,
+    status: 'draft',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    snapshot: variantSnapshotFromState(state),
+    artifacts: [],
+  };
+}
+
+function nextVariantName(variants: VariantRecord[], prefix = 'Variant'): string {
+  let index = variants.length + 1;
+  let candidate = `${prefix} ${index}`;
+  const taken = new Set(variants.map((variant) => variant.name));
+  while (taken.has(candidate)) {
+    index += 1;
+    candidate = `${prefix} ${index}`;
+  }
+  return candidate;
+}
+
+function pushSnapshot(state: {
+  screens: ScreenState[];
+  panoramicElements: PanoramicElement[];
+  panoramicBackground: PanoramicBackground;
+  panoramicEffects: PanoramicEffects;
+  selectedScreen: number;
+  selectedElementIndex: number | null;
+}) {
   if (_skipSnapshot) return;
   _undoStack.push({
     screens: deepCopy(state.screens),
@@ -230,6 +460,8 @@ function pushSnapshot(state: { screens: ScreenState[]; panoramicElements: Panora
 
 export const usePreviewStore = create<PreviewStore>((set, get) => ({
   config: null,
+  variants: [],
+  activeVariantId: null,
   platform: 'iphone',
   previewW: 400,
   previewH: 868,
@@ -252,6 +484,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   exportSize: '',
   exportRenderer: 'playwright',
   screens: [],
+  sessionLocales: {},
 
   setConfig: (config) => set({ config }),
   setPlatform: (platform) => set({ platform }),
@@ -259,6 +492,141 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   setSelectedScreen: (index) => set({ selectedScreen: index }),
   setActiveTab: (tab) => set({ activeTab: tab }),
   setLocale: (locale) => set({ locale }),
+  upsertLocaleConfig: (locale, localeConfig) =>
+    set((state) => ({
+      sessionLocales: {
+        ...state.sessionLocales,
+        [locale]: localeConfig,
+      },
+    })),
+  createVariant: (name) =>
+    set((state) => {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const variant = buildVariantRecord(name ?? nextVariantName(variants), state);
+      return {
+        variants: [...variants, variant],
+        activeVariantId: variant.id,
+        ...applyVariantSnapshot(variant.snapshot),
+      };
+    }),
+  duplicateActiveVariant: () =>
+    set((state) => {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const activeVariant = variants.find((variant) => variant.id === state.activeVariantId);
+      const variant = buildVariantRecord(
+        activeVariant ? `${activeVariant.name} Copy` : nextVariantName(variants),
+        state,
+      );
+      return {
+        variants: [...variants, variant],
+        activeVariantId: variant.id,
+        ...applyVariantSnapshot(variant.snapshot),
+      };
+    }),
+  createVariantSet: () =>
+    set((state) => {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const baseState = variantSnapshotFromState(state);
+
+      if (variants.length === 1 && state.activeVariantId) {
+        const conceptA = variants[0];
+        if (!conceptA) return state;
+        const renamed = {
+          ...conceptA,
+          name: 'Concept A',
+          snapshot: baseState,
+          updatedAt: new Date().toISOString(),
+        };
+        const conceptB = buildVariantRecord('Concept B', state);
+        const conceptC = buildVariantRecord('Concept C', state);
+        return {
+          variants: [renamed, conceptB, conceptC],
+          activeVariantId: renamed.id,
+          ...applyVariantSnapshot(renamed.snapshot),
+        };
+      }
+
+      const conceptA = buildVariantRecord(nextVariantName(variants, 'Concept'), state);
+      const conceptB = buildVariantRecord(
+        nextVariantName([...variants, conceptA], 'Concept'),
+        state,
+      );
+      const conceptC = buildVariantRecord(
+        nextVariantName([...variants, conceptA, conceptB], 'Concept'),
+        state,
+      );
+      return {
+        variants: [...variants, conceptA, conceptB, conceptC],
+        activeVariantId: conceptA.id,
+        ...applyVariantSnapshot(conceptA.snapshot),
+      };
+    }),
+  selectVariant: (id) =>
+    set((state) => {
+      if (id === state.activeVariantId) return state;
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const nextVariant = variants.find((variant) => variant.id === id);
+      if (!nextVariant) return state;
+      return {
+        variants,
+        activeVariantId: id,
+        ...applyVariantSnapshot(nextVariant.snapshot),
+      };
+    }),
+  renameVariant: (id, name) =>
+    set((state) => ({
+      variants: state.variants.map((variant) =>
+        variant.id === id
+          ? { ...variant, name: name.trim() || variant.name, updatedAt: new Date().toISOString() }
+          : variant,
+      ),
+    })),
+  deleteVariant: (id) =>
+    set((state) => {
+      if (state.variants.length <= 1) return state;
+
+      if (id !== state.activeVariantId) {
+        return { variants: state.variants.filter((variant) => variant.id !== id) };
+      }
+
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state).filter(
+        (variant) => variant.id !== id,
+      );
+      const nextVariant = variants[0];
+      if (!nextVariant) return state;
+      return {
+        variants,
+        activeVariantId: nextVariant.id,
+        ...applyVariantSnapshot(nextVariant.snapshot),
+      };
+    }),
+  setVariantStatus: (id, status) =>
+    set((state) => ({
+      variants: state.variants.map((variant) =>
+        variant.id === id ? { ...variant, status, updatedAt: new Date().toISOString() } : variant,
+      ),
+    })),
+  recordVariantArtifact: (artifact) =>
+    set((state) => {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      if (!state.activeVariantId) return { variants };
+      const nextArtifact: VariantArtifact = {
+        ...artifact,
+        id: makeId('artifact'),
+        exportedAt: new Date().toISOString(),
+      };
+      return {
+        variants: variants.map((variant) =>
+          variant.id === state.activeVariantId
+            ? {
+                ...variant,
+                updatedAt: nextArtifact.exportedAt,
+                artifacts: [nextArtifact, ...variant.artifacts],
+              }
+            : variant,
+        ),
+      };
+    }),
   setPreviewBg: (bg) => set({ previewBg: bg }),
   setExportSize: (size) => set({ exportSize: size }),
   setExportRenderer: (renderer) => set({ exportRenderer: renderer }),
@@ -278,16 +646,21 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       return { screens };
     }),
 
-  triggerRender: () =>
-    set((state) => ({ renderVersion: state.renderVersion + 1 })),
+  triggerRender: () => set((state) => ({ renderVersion: state.renderVersion + 1 })),
 
   initScreens: (config, platform) => {
     const isPanoramic = config.mode === 'panoramic';
+    const currentState = get();
+    const currentLocale = currentState.locale;
+    const nextLocale =
+      currentLocale !== 'default' && config.locales?.[currentLocale] ? currentLocale : 'default';
+    const sessionLocales = deepCopy(config.locales ?? {});
 
     // Always build individual screens if the config has them
-    const screens = config.screens.length > 0
-      ? config.screens.map((_screen, i) => createScreenState(i, config, platform))
-      : [];
+    const screens =
+      config.screens.length > 0
+        ? config.screens.map((_screen, i) => createScreenState(i, config, platform))
+        : [];
 
     // Always populate panoramic state if the config has it
     const panoramicUpdate = config.panoramic
@@ -296,15 +669,104 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
           panoramicBackground: config.panoramic.background,
           panoramicElements: config.panoramic.elements,
         }
-      : {};
+      : {
+          panoramicFrameCount: currentState.panoramicFrameCount,
+          panoramicBackground: currentState.panoramicBackground,
+          panoramicElements: currentState.panoramicElements,
+        };
+
+    const baseVariant = buildVariantRecord('Concept A', {
+      platform,
+      previewW: currentState.previewW,
+      previewH: currentState.previewH,
+      locale: nextLocale,
+      sessionLocales,
+      isPanoramic,
+      screens,
+      selectedScreen: 0,
+      panoramicFrameCount: panoramicUpdate.panoramicFrameCount,
+      panoramicBackground: panoramicUpdate.panoramicBackground,
+      panoramicElements: panoramicUpdate.panoramicElements,
+      panoramicEffects: currentState.panoramicEffects,
+      selectedElementIndex: null,
+      exportSize: currentState.exportSize,
+      exportRenderer: currentState.exportRenderer,
+    });
 
     set({
       config,
+      sessionLocales,
+      variants: [baseVariant],
+      activeVariantId: baseVariant.id,
       isPanoramic,
+      locale: nextLocale,
       screens,
       selectedScreen: 0,
       selectedElementIndex: null,
       ...panoramicUpdate,
+    });
+  },
+
+  hydrateSession: (session) => {
+    const state = get();
+    const { platform } = state;
+
+    const variants: VariantRecord[] = session.variants.map((sv) => {
+      const variantConfig = sv.config;
+      const isPanoramic = variantConfig.mode === 'panoramic';
+      const sessionLocales = deepCopy(variantConfig.locales ?? {});
+      const screens = variantConfig.screens.length > 0
+        ? variantConfig.screens.map((_s, i) => createScreenState(i, variantConfig, platform))
+        : [];
+      const panoramicState = variantConfig.panoramic
+        ? {
+            panoramicFrameCount: variantConfig.frameCount ?? 5,
+            panoramicBackground: variantConfig.panoramic.background,
+            panoramicElements: variantConfig.panoramic.elements,
+          }
+        : {
+            panoramicFrameCount: state.panoramicFrameCount,
+            panoramicBackground: state.panoramicBackground,
+            panoramicElements: state.panoramicElements,
+          };
+
+      const timestamp = new Date().toISOString();
+      return {
+        id: sv.id,
+        name: sv.name,
+        status: (sv.status === 'approved' ? 'approved' : 'draft') as VariantStatus,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        snapshot: {
+          platform,
+          previewW: state.previewW,
+          previewH: state.previewH,
+          locale: 'default',
+          sessionLocales,
+          isPanoramic,
+          screens,
+          selectedScreen: 0,
+          ...panoramicState,
+          panoramicEffects: state.panoramicEffects,
+          selectedElementIndex: null,
+          exportSize: state.exportSize,
+          exportRenderer: state.exportRenderer,
+        },
+        artifacts: [],
+      };
+    });
+
+    if (variants.length === 0) return;
+
+    const activeId = session.activeVariantId && variants.some((v) => v.id === session.activeVariantId)
+      ? session.activeVariantId
+      : variants[0]!.id;
+    const active = variants.find((v) => v.id === activeId)!;
+
+    set({
+      variants,
+      activeVariantId: activeId,
+      ...applyVariantSnapshot(active.snapshot),
     });
   },
 
@@ -317,7 +779,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       const last = screens[screens.length - 1];
       const newState = createScreenState(0, config, platform);
       newState.screenIndex = screens.length;
-      newState.headline = `Screen ${screens.length + 1}`;
+      newState.headline = `Frame ${screens.length + 1}`;
       newState.subtitle = '';
 
       if (last) {
@@ -401,6 +863,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       if (state.panoramicElements.length === 0 && state.config && state.screens.length > 0) {
         const c = state.config.theme.colors;
         const screenCount = state.screens.length;
+        const locale = state.locale;
+        const sessionLocales = state.sessionLocales;
 
         // Set frame count to match screen count
         updates.panoramicFrameCount = screenCount;
@@ -416,12 +880,13 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         for (let i = 0; i < screenCount; i++) {
           const screen = state.screens[i]!;
           const frameSliceStart = (i / screenCount) * 100;
-          const frameCenter = frameSliceStart + (100 / screenCount) / 2;
+          const frameCenter = frameSliceStart + 100 / screenCount / 2;
 
           // Device element — centered in this frame's slice
           elements.push({
             type: 'device',
             screenshot: state.config.screens[i]?.screenshot ?? `screenshots/screen-${i + 1}.png`,
+            localeSourceScreen: i,
             frame: screen.frameId || undefined,
             x: frameCenter - 6,
             y: 20,
@@ -434,7 +899,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
           if (screen.headline) {
             elements.push({
               type: 'text',
-              content: screen.headline,
+              content:
+                getConfiguredLocaleText(sessionLocales, i, locale, 'headline') ?? screen.headline,
+              localeSourceScreen: i,
+              localeSourceField: 'headline',
               x: frameSliceStart + 2,
               y: 3,
               fontSize: 3,
@@ -536,6 +1004,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       const elements = state.panoramicElements.map((el) => {
         const base = { ...el, x: el.x * scale };
         if (el.type === 'device') {
+          return { ...base, width: el.width * scale };
+        }
+        if (el.type === 'image') {
           return { ...base, width: el.width * scale };
         }
         if (el.type === 'text' && el.maxWidth) {

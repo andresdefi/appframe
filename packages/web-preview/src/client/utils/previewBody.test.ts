@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { ScreenState } from '../types';
+import type { LocaleConfig, ScreenState } from '../types';
 import { buildExportBody, buildPreviewBody } from './previewBody';
 
 function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
@@ -125,12 +125,20 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
 describe('preview/export payload builders', () => {
   it('keeps export payload aligned with preview payload and adds export-only fields', () => {
     const screen = createScreen();
+    const localeConfig: LocaleConfig = {
+      screens: [
+        {},
+        {},
+        { headline: 'Sigue mejor', subtitle: 'Ve cada gasto con claridad' },
+      ],
+    };
 
-    const previewBody = buildPreviewBody(screen, 'iphone', 400, 868, 'es', []);
+    const previewBody = buildPreviewBody(screen, 'iphone', 400, 868, 'es', localeConfig, []);
     const exportBody = buildExportBody(screen, {
       previewW: 400,
       previewH: 868,
       locale: 'es',
+      localeConfig,
       sizeKey: 'ios-6.9',
       renderer: 'playwright',
     });
@@ -139,6 +147,7 @@ describe('preview/export payload builders', () => {
     expect(exportBody).toMatchObject({
       sizeKey: 'ios-6.9',
       renderer: 'playwright',
+      preferLocaleText: true,
       headlineTop: 12,
       subtitleLeft: 14,
       backgroundType: 'image',
@@ -150,6 +159,7 @@ describe('preview/export payload builders', () => {
       callouts: screen.callouts,
       overlays: screen.overlays,
       locale: 'es',
+      localeConfig,
     });
   });
 
@@ -160,17 +170,22 @@ describe('preview/export payload builders', () => {
       backgroundOverlay: null,
     });
 
-    const previewBody = buildPreviewBody(screen, 'iphone', 400, 868, 'default', []);
+    const previewBody = buildPreviewBody(screen, 'iphone', 400, 868, 'default', undefined, []);
     const exportBody = buildExportBody(screen, {
       previewW: 400,
       previewH: 868,
       locale: 'default',
+      localeConfig: undefined,
       sizeKey: 'ios-6.9',
       renderer: 'koubou',
     });
 
     expect(previewBody.locale).toBeUndefined();
     expect(exportBody.locale).toBeUndefined();
+    expect(previewBody.localeConfig).toBeUndefined();
+    expect(exportBody.localeConfig).toBeUndefined();
+    expect(previewBody.preferLocaleText).toBeUndefined();
+    expect(exportBody.preferLocaleText).toBeUndefined();
     expect(previewBody.backgroundType).toBeUndefined();
     expect(exportBody.backgroundType).toBeUndefined();
     expect(exportBody.renderer).toBe('koubou');

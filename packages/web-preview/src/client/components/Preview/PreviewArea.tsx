@@ -93,9 +93,9 @@ export function PreviewArea() {
               height: Math.round(previewH * effectiveScale),
             }}
             onClick={addScreen}
-            aria-label="Add a new screen"
+            aria-label="Add a new frame"
           >
-            + Add Screen
+            + Add Frame
           </button>
         </div>
       </div>
@@ -175,6 +175,7 @@ function ScreenCard({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const screen = usePreviewStore((s) => s.screens[index]);
+  const localeConfig = usePreviewStore((s) => s.sessionLocales[s.locale]);
   const updateScreen = usePreviewStore((s) => s.updateScreen);
 
   // Register iframe in the shared registry for instant patching
@@ -230,7 +231,15 @@ function ScreenCard({
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const body = buildPreviewBody(screen, platform, previewW, previewH, locale, deviceFamilies);
+      const body = buildPreviewBody(
+        screen,
+        platform,
+        previewW,
+        previewH,
+        locale,
+        localeConfig,
+        deviceFamilies,
+      );
 
       fetchPreviewHtml(body, controller.signal)
         .then((html) => {
@@ -259,7 +268,7 @@ function ScreenCard({
     };
     // renderVersion forces re-render when triggerRender() is called
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, renderVersion, platform, previewW, previewH, locale]);
+  }, [screen, renderVersion, platform, previewW, previewH, locale, localeConfig, deviceFamilies]);
 
   return (
     <>
@@ -277,19 +286,19 @@ function ScreenCard({
             className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
             onClick={(e) => { e.stopPropagation(); onMoveLeft(); }}
             title="Move left"
-            aria-label={`Move screen ${index + 1} left`}
+            aria-label={`Move frame ${index + 1} left`}
           >
             &lsaquo;
           </button>
         ) : <span className="w-4" />}
-        <span className="text-text-dim font-medium">Screen {index + 1}</span>
+        <span className="text-text-dim font-medium">Frame {index + 1}</span>
         <div className="flex items-center gap-0.5">
           {canMoveRight && (
             <button
               className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
               onClick={(e) => { e.stopPropagation(); onMoveRight(); }}
               title="Move right"
-              aria-label={`Move screen ${index + 1} right`}
+              aria-label={`Move frame ${index + 1} right`}
             >
               &rsaquo;
             </button>
@@ -299,11 +308,11 @@ function ScreenCard({
               className="text-text-dim hover:text-red-400 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
               onClick={async (e) => {
                 e.stopPropagation();
-                const ok = await confirm({ title: 'Remove Screen', message: `Remove Screen ${index + 1}? This cannot be undone.` });
+                const ok = await confirm({ title: 'Remove Frame', message: `Remove Frame ${index + 1}? This cannot be undone.` });
                 if (ok) onRemove();
               }}
-              title="Remove screen"
-              aria-label={`Remove screen ${index + 1}`}
+              title="Remove frame"
+              aria-label={`Remove frame ${index + 1}`}
             >
               &times;
             </button>
@@ -333,7 +342,7 @@ function ScreenCard({
             height: previewH,
             transform: `scale(${scale})`,
           }}
-          title={`Screen ${index + 1}`}
+          title={`Frame ${index + 1}`}
         />
         {/* Drag overlay — sits above iframe to capture pointer events */}
         <div

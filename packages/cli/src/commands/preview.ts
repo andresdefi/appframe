@@ -4,7 +4,8 @@ import { createServer } from 'node:net';
 import chalk from 'chalk';
 
 interface PreviewOptions {
-  config: string;
+  config?: string;
+  session?: string;
   port: string;
 }
 
@@ -28,10 +29,12 @@ async function probePort(port: number): Promise<PortProbeResult> {
 
 export const previewCommand = new Command('preview')
   .description('Open web preview for tweaking screenshots')
-  .option('-c, --config <path>', 'Path to config file', 'appframe.yml')
+  .option('-c, --config <path>', 'Path to config file')
+  .option('-s, --session <path>', 'Path to variant session file (.variants.session.json)')
   .option('--port <port>', 'Port for preview server', '4400')
   .action(async (options: PreviewOptions) => {
-    const configPath = resolve(options.config);
+    const configPath = options.config ? resolve(options.config) : undefined;
+    const sessionPath = options.session ? resolve(options.session) : undefined;
     const port = parseInt(options.port, 10);
 
     if (Number.isNaN(port) || port < 1 || port > 65535) {
@@ -39,7 +42,11 @@ export const previewCommand = new Command('preview')
       process.exit(1);
     }
 
-    console.log(chalk.blue('Starting appframe preview server...\n'));
+    if (configPath) {
+      console.log(chalk.blue('Starting appframe preview server...\n'));
+    } else {
+      console.log(chalk.blue('Starting appframe preview server with default config...\n'));
+    }
 
     const portProbe = await probePort(port);
 
@@ -57,7 +64,7 @@ export const previewCommand = new Command('preview')
 
     try {
       const { startPreviewServer } = await import('@appframe/web-preview');
-      await startPreviewServer({ configPath, port });
+      await startPreviewServer({ configPath, sessionPath, port });
 
       console.log();
       console.log(chalk.green(`  Preview: http://localhost:${port}`));

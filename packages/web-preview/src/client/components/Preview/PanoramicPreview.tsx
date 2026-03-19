@@ -14,6 +14,8 @@ export function PanoramicPreview() {
   const previewW = usePreviewStore((s) => s.previewW);
   const previewH = usePreviewStore((s) => s.previewH);
   const previewBg = usePreviewStore((s) => s.previewBg);
+  const locale = usePreviewStore((s) => s.locale);
+  const localeConfig = usePreviewStore((s) => s.sessionLocales[s.locale]);
   const renderVersion = usePreviewStore((s) => s.renderVersion);
   const frameCount = usePreviewStore((s) => s.panoramicFrameCount);
   const background = usePreviewStore((s) => s.panoramicBackground);
@@ -70,48 +72,64 @@ export function PanoramicPreview() {
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    debounceRef.current = setTimeout(() => {
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
+    debounceRef.current = setTimeout(
+      () => {
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
 
-      const body = {
-        frameCount,
-        frameWidth: previewW,
-        frameHeight: previewH,
-        background,
-        elements,
-        font: config.theme.font,
-        fontWeight: config.theme.fontWeight,
-        frameStyle: config.frames.style,
-        effects: panoramicEffects,
-      };
+        const body = {
+          locale,
+          localeConfig,
+          frameCount,
+          frameWidth: previewW,
+          frameHeight: previewH,
+          background,
+          elements,
+          font: config.theme.font,
+          fontWeight: config.theme.fontWeight,
+          frameStyle: config.frames.style,
+          effects: panoramicEffects,
+        };
 
-      fetchPanoramicPreviewHtml(body as Record<string, unknown>, controller.signal)
-        .then((html) => {
-          const iframe = iframeRef.current;
-          if (!iframe) return;
-          const doc = iframe.contentDocument;
-          if (doc) {
-            doc.open();
-            doc.write(html);
-            doc.close();
-          }
-          setLoading(false);
-        })
-        .catch((err) => {
-          if (err instanceof DOMException && err.name === 'AbortError') return;
-          console.error('[PanoramicPreview] fetch failed:', err);
-          setLoading(false);
-        });
-    }, loading ? 0 : 200);
+        fetchPanoramicPreviewHtml(body as Record<string, unknown>, controller.signal)
+          .then((html) => {
+            const iframe = iframeRef.current;
+            if (!iframe) return;
+            const doc = iframe.contentDocument;
+            if (doc) {
+              doc.open();
+              doc.write(html);
+              doc.close();
+            }
+            setLoading(false);
+          })
+          .catch((err) => {
+            if (err instanceof DOMException && err.name === 'AbortError') return;
+            console.error('[PanoramicPreview] fetch failed:', err);
+            setLoading(false);
+          });
+      },
+      loading ? 0 : 200,
+    );
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       abortRef.current?.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, frameCount, previewW, previewH, background, elements, panoramicEffects, renderVersion]);
+  }, [
+    config,
+    locale,
+    localeConfig,
+    frameCount,
+    previewW,
+    previewH,
+    background,
+    elements,
+    panoramicEffects,
+    renderVersion,
+  ]);
 
   // --- Drag-to-reposition ---
   // Convert mouse event coords to canvas % position
@@ -147,13 +165,18 @@ export function PanoramicPreview() {
         if (el.type === 'device') {
           hitW = el.width;
           // Estimate device height: typical phone frame ~2.1:1 aspect ratio
-          hitH = (el.width / 100 * totalCanvasWidth * 2.1 / previewH) * 100;
+          hitH = (((el.width / 100) * totalCanvasWidth * 2.1) / previewH) * 100;
+        } else if (el.type === 'image') {
+          hitW = el.width;
+          hitH = el.height;
         } else if (el.type === 'text') {
           hitW = el.maxWidth || 15;
-          hitH = (el.fontSize / 100 * previewH * 2 / previewH) * 100; // ~2 lines of text
+          hitH = (((el.fontSize / 100) * previewH * 2) / previewH) * 100; // ~2 lines of text
         } else if (el.type === 'decoration') {
           hitW = el.width;
-          hitH = el.height ? (el.height / 100 * previewH / previewH) * 100 : hitW * totalCanvasWidth / previewH;
+          hitH = el.height
+            ? (((el.height / 100) * previewH) / previewH) * 100
+            : (hitW * totalCanvasWidth) / previewH;
         } else {
           // label
           hitW = 10;
@@ -161,8 +184,10 @@ export function PanoramicPreview() {
         }
 
         if (
-          pos.x >= el.x && pos.x <= el.x + hitW &&
-          pos.y >= el.y && pos.y <= el.y + hitH &&
+          pos.x >= el.x &&
+          pos.x <= el.x + hitW &&
+          pos.y >= el.y &&
+          pos.y <= el.y + hitH &&
           el.z > bestZ
         ) {
           bestZ = el.z;
@@ -213,14 +238,12 @@ export function PanoramicPreview() {
       const iframe = iframeRef.current;
       const doc = iframe?.contentDocument;
       if (doc) {
-        const sorted = [...elements]
-          .map((el, i) => ({ z: el.z, i }))
-          .sort((a, b) => a.z - b.z);
+        const sorted = [...elements].map((el, i) => ({ z: el.z, i })).sort((a, b) => a.z - b.z);
         const sortedIdx = sorted.findIndex((s) => s.i === drag.elementIndex);
         const domEl = doc.querySelector(`[data-index="${sortedIdx}"]`) as HTMLElement | null;
         if (domEl) {
           const el = elements[drag.elementIndex]!;
-          const rotation = ('rotation' in el && el.rotation) ? el.rotation : 0;
+          const rotation = 'rotation' in el && el.rotation ? el.rotation : 0;
           // Strip filter (drop-shadow) during drag to eliminate ghost artifacts
           domEl.style.filter = 'none';
           domEl.style.transform = `translate(${dxPx}px, ${dyPx}px) rotate(${rotation}deg)`;
@@ -298,49 +321,48 @@ export function PanoramicPreview() {
       <div className="flex-1 overflow-auto">
         <div className="flex items-center justify-center p-6 min-h-full min-w-min">
           <div className="relative w-fit">
-          {loading && (
-            <div className="absolute inset-0 flex items-center justify-center z-20">
-              <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
-
-          {/* Frame boundary labels */}
-          <div className="flex mb-1" style={{ width: totalCanvasWidth * scale }}>
-            {Array.from({ length: frameCount }, (_, i) => (
-              <div
-                key={i}
-                className="text-[9px] text-text-dim text-center border-x border-border/30"
-                style={{ width: previewW * scale }}
-              >
-                Frame {i + 1}
+            {loading && (
+              <div className="absolute inset-0 flex items-center justify-center z-20">
+                <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
               </div>
-            ))}
-          </div>
+            )}
 
-          <div
-            ref={canvasRef}
-            className="relative overflow-hidden rounded border border-border/30"
-            style={{ width: totalCanvasWidth * scale, height: previewH * scale }}
-          >
-            <iframe
-              ref={iframeRef}
-              className="border-none block origin-top-left"
-              style={{
-                width: totalCanvasWidth,
-                height: previewH,
-                transform: `scale(${scale})`,
-              }}
-              title="Panoramic Preview"
-            />
-            {/* Drag overlay — captures mouse events above the iframe */}
+            {/* Frame boundary labels */}
+            <div className="flex mb-1" style={{ width: totalCanvasWidth * scale }}>
+              {Array.from({ length: frameCount }, (_, i) => (
+                <div
+                  key={i}
+                  className="text-[9px] text-text-dim text-center border-x border-border/30"
+                  style={{ width: previewW * scale }}
+                >
+                  Frame {i + 1}
+                </div>
+              ))}
+            </div>
+
             <div
-              className="absolute inset-0 z-10"
-              style={{ cursor: isDragging ? 'grabbing' : hoverCursor }}
-              onMouseDown={handleOverlayMouseDown}
-              onMouseMove={handleOverlayMouseMove}
-            />
-          </div>
-
+              ref={canvasRef}
+              className="relative overflow-hidden rounded border border-border/30"
+              style={{ width: totalCanvasWidth * scale, height: previewH * scale }}
+            >
+              <iframe
+                ref={iframeRef}
+                className="border-none block origin-top-left"
+                style={{
+                  width: totalCanvasWidth,
+                  height: previewH,
+                  transform: `scale(${scale})`,
+                }}
+                title="Panoramic Preview"
+              />
+              {/* Drag overlay — captures mouse events above the iframe */}
+              <div
+                className="absolute inset-0 z-10"
+                style={{ cursor: isDragging ? 'grabbing' : hoverCursor }}
+                onMouseDown={handleOverlayMouseDown}
+                onMouseMove={handleOverlayMouseMove}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -369,7 +391,10 @@ export function PanoramicPreview() {
           Fit
         </button>
         {selectedElementIndex !== null && (
-          <span className="ml-auto text-[9px] text-text-dim border-l border-border pl-2" title="Use arrow keys to nudge selected element. Hold Shift for larger steps.">
+          <span
+            className="ml-auto text-[9px] text-text-dim border-l border-border pl-2"
+            title="Use arrow keys to nudge selected element. Hold Shift for larger steps."
+          >
             Arrow keys to nudge
           </span>
         )}

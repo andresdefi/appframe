@@ -7,13 +7,18 @@ const hexColor = z
   .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Must be a valid hex color');
 
 export const platformSchema = z.enum(['ios', 'android', 'mac', 'watch']);
-export const templateStyleSchema = z.enum(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial', 'fullscreen']);
-export const frameStyleSchema = z.enum(['flat', '3d', 'none']);
-export const layoutVariantSchema = z.enum([
-  'center',
-  'angled-left',
-  'angled-right',
+export const templateStyleSchema = z.enum([
+  'minimal',
+  'bold',
+  'glow',
+  'playful',
+  'clean',
+  'branded',
+  'editorial',
+  'fullscreen',
 ]);
+export const frameStyleSchema = z.enum(['flat', '3d', 'none']);
+export const layoutVariantSchema = z.enum(['center', 'angled-left', 'angled-right']);
 
 // --- App section ---
 
@@ -252,8 +257,18 @@ export const localeScreenConfigSchema = z.object({
   screenshot: z.string().min(1).optional(),
 });
 
+export const localePanoramicElementConfigSchema = z.object({
+  content: z.string().min(1).optional(),
+  screenshot: z.string().min(1).optional(),
+});
+
+export const localePanoramicConfigSchema = z.object({
+  elements: z.array(localePanoramicElementConfigSchema),
+});
+
 export const localeConfigSchema = z.object({
-  screens: z.array(localeScreenConfigSchema),
+  screens: z.array(localeScreenConfigSchema).optional(),
+  panoramic: localePanoramicConfigSchema.optional(),
 });
 
 // --- Localization section (xcstrings mode) ---
@@ -307,16 +322,19 @@ export const panoramicBackgroundSchema = z.object({
   color: hexColor.optional(),
   gradient: backgroundGradientSchema.optional(),
   image: z.string().optional(),
-  overlay: z.object({
-    color: hexColor.default('#000000'),
-    opacity: z.number().min(0).max(1).default(0.3),
-  }).optional(),
+  overlay: z
+    .object({
+      color: hexColor.default('#000000'),
+      opacity: z.number().min(0).max(1).default(0.3),
+    })
+    .optional(),
   preset: z.string().optional(),
 });
 
 const panoramicDeviceElementSchema = z.object({
   type: z.literal('device'),
   screenshot: z.string().min(1),
+  localeSourceScreen: z.number().int().min(0).optional(),
   frame: z.string().optional(),
   deviceColor: z.string().optional(),
   frameStyle: frameStyleSchema.default('flat'),
@@ -339,6 +357,8 @@ const panoramicDeviceElementSchema = z.object({
 const panoramicTextElementSchema = z.object({
   type: z.literal('text'),
   content: z.string().min(1),
+  localeSourceScreen: z.number().int().min(0).optional(),
+  localeSourceField: z.enum(['headline', 'subtitle']).optional(),
   x: z.number().min(-50).max(150),
   y: z.number().min(-50).max(150),
   fontSize: z.number().min(0.5).max(20).describe('Font size as % of canvas height'),
@@ -359,6 +379,8 @@ const panoramicTextElementSchema = z.object({
 const panoramicLabelElementSchema = z.object({
   type: z.literal('label'),
   content: z.string().min(1),
+  localeSourceScreen: z.number().int().min(0).optional(),
+  localeSourceField: z.enum(['headline', 'subtitle']).optional(),
   x: z.number().min(-50).max(150),
   y: z.number().min(-50).max(150),
   fontSize: z.number().min(0.5).max(10).default(1.5),
@@ -382,11 +404,27 @@ const panoramicDecorationElementSchema = z.object({
   z: z.number().int().min(0).max(100).default(0),
 });
 
+const panoramicImageElementSchema = z.object({
+  type: z.literal('image'),
+  src: z.string().min(1),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  width: z.number().min(0.5).max(100),
+  height: z.number().min(0.5).max(100),
+  fit: z.enum(['contain', 'cover']).default('contain'),
+  opacity: z.number().min(0).max(1).default(1),
+  rotation: z.number().min(-180).max(180).default(0),
+  borderRadius: z.number().min(0).max(100).default(0),
+  shadow: deviceShadowSchema.optional(),
+  z: z.number().int().min(0).max(100).default(4),
+});
+
 export const panoramicElementSchema = z.discriminatedUnion('type', [
   panoramicDeviceElementSchema,
   panoramicTextElementSchema,
   panoramicLabelElementSchema,
   panoramicDecorationElementSchema,
+  panoramicImageElementSchema,
 ]);
 
 export const panoramicConfigSchema = z.object({
@@ -443,7 +481,8 @@ export const appframeConfigSchema = z
     (config) => {
       if (!config.locales) return true;
       return Object.values(config.locales).every(
-        (locale) => locale.screens.length === config.screens.length,
+        (locale) =>
+          config.mode !== 'individual' || locale.screens?.length === config.screens.length,
       );
     },
     {
@@ -452,12 +491,25 @@ export const appframeConfigSchema = z
     },
   )
   .refine(
-    (config) => !(config.locales && config.localization),
+    (config) => {
+      if (!config.locales || config.mode !== 'panoramic' || !config.panoramic) return true;
+      return Object.values(config.locales).every(
+        (locale) =>
+          locale.panoramic?.elements === undefined ||
+          locale.panoramic.elements.length === config.panoramic!.elements.length,
+      );
+    },
     {
-      message: 'Cannot use both "locales" (inline mode) and "localization" (xcstrings mode) — choose one',
-      path: ['localization'],
+      message:
+        'Each locale panoramic override must have the same number of elements as the main panoramic elements array',
+      path: ['locales'],
     },
   )
+  .refine((config) => !(config.locales && config.localization), {
+    message:
+      'Cannot use both "locales" (inline mode) and "localization" (xcstrings mode) — choose one',
+    path: ['localization'],
+  })
   .refine(
     (config) => {
       if (!config.localization) return true;

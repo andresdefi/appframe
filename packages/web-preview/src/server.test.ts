@@ -48,6 +48,7 @@ beforeEach(() => {
   let koubouStatusCache: { available: boolean; version: string | null } | null = null;
 
   app.get('/api/config', (_req, res) => { res.json(config); });
+  app.get('/api/project', (_req, res) => { res.json(config); });
   app.get('/api/frames', async (_req, res) => {
     try { res.json(await listFrames()); }
     catch (err) { res.status(500).json({ error: (err as Error).message }); }
@@ -80,11 +81,23 @@ beforeEach(() => {
     koubouStatusCache = null;
     res.json({ success: true });
   });
+  app.post('/api/project/reload', async (_req, res) => {
+    koubouStatusCache = null;
+    res.json({ success: true });
+  });
 });
 
 describe('GET /api/config', () => {
   it('returns 200 with JSON config', async () => {
     const res = await request(app).get('/api/config');
+    expect(res.status).toBe(200);
+    expect(res.body.app.name).toBe('TestApp');
+  });
+});
+
+describe('GET /api/project', () => {
+  it('returns 200 with JSON project payload', async () => {
+    const res = await request(app).get('/api/project');
     expect(res.status).toBe(200);
     expect(res.body.app.name).toBe('TestApp');
   });
@@ -153,6 +166,20 @@ describe('POST /api/reload', () => {
     expect(detectKoubou).toHaveBeenCalledTimes(1);
 
     const res = await request(app).post('/api/reload');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    await request(app).get('/api/koubou-status');
+    expect(detectKoubou).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('POST /api/project/reload', () => {
+  it('returns success and resets caches', async () => {
+    await request(app).get('/api/koubou-status');
+    expect(detectKoubou).toHaveBeenCalledTimes(1);
+
+    const res = await request(app).post('/api/project/reload');
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 

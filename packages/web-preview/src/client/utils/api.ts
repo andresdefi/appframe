@@ -2,15 +2,31 @@ import type { AppframeConfig } from '../types';
 
 const API = '';
 
+async function fetchJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${API}${path}`);
+  if (!res.ok) throw new Error(`Request failed: ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
+export async function fetchProject(): Promise<AppframeConfig> {
+  return fetchJson<AppframeConfig>('/api/project');
+}
+
+export async function fetchSession(): Promise<unknown> {
+  return fetchJson<unknown>('/api/session');
+}
+
 export async function fetchConfig(): Promise<AppframeConfig> {
-  const res = await fetch(`${API}/api/config`);
-  if (!res.ok) throw new Error(`Failed to fetch config: ${res.statusText}`);
-  return res.json();
+  return fetchProject();
+}
+
+export async function reloadProject(): Promise<AppframeConfig> {
+  await fetch(`${API}/api/project/reload`, { method: 'POST' });
+  return fetchProject();
 }
 
 export async function reloadConfig(): Promise<AppframeConfig> {
-  await fetch(`${API}/api/reload`, { method: 'POST' });
-  return fetchConfig();
+  return reloadProject();
 }
 
 export async function fetchPreviewHtml(body: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
@@ -77,4 +93,26 @@ export async function fetchPanoramicExport(body: Record<string, unknown>): Promi
   });
   if (!res.ok) throw new Error(`Panoramic export failed: ${res.statusText}`);
   return res.blob();
+}
+
+export async function fetchAutoTranslateLocale(
+  locale: string,
+  body: Record<string, unknown> = {},
+): Promise<{ locale: string; localeConfig: unknown }> {
+  const res = await fetch(`${API}/api/translate-locale`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ locale, ...body }),
+  });
+  if (!res.ok) {
+    let message = `Automatic translation failed: ${res.statusText}`;
+    try {
+      const data = await res.json() as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // Keep the default status text.
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<{ locale: string; localeConfig: unknown }>;
 }

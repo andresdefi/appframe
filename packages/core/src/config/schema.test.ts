@@ -19,19 +19,47 @@ import {
 
 describe('hex color validation', () => {
   it('accepts 3-digit hex', () => {
-    expect(colorConfigSchema.safeParse({ primary: '#FFF', secondary: '#000', background: '#ABC', text: '#123' }).success).toBe(true);
+    expect(
+      colorConfigSchema.safeParse({
+        primary: '#FFF',
+        secondary: '#000',
+        background: '#ABC',
+        text: '#123',
+      }).success,
+    ).toBe(true);
   });
 
   it('accepts 6-digit hex', () => {
-    expect(colorConfigSchema.safeParse({ primary: '#FF0000', secondary: '#00FF00', background: '#0000FF', text: '#ABCDEF' }).success).toBe(true);
+    expect(
+      colorConfigSchema.safeParse({
+        primary: '#FF0000',
+        secondary: '#00FF00',
+        background: '#0000FF',
+        text: '#ABCDEF',
+      }).success,
+    ).toBe(true);
   });
 
   it('accepts 8-digit hex (with alpha)', () => {
-    expect(colorConfigSchema.safeParse({ primary: '#FF0000FF', secondary: '#00FF0080', background: '#0000FF00', text: '#ABCDEFCC' }).success).toBe(true);
+    expect(
+      colorConfigSchema.safeParse({
+        primary: '#FF0000FF',
+        secondary: '#00FF0080',
+        background: '#0000FF00',
+        text: '#ABCDEFCC',
+      }).success,
+    ).toBe(true);
   });
 
   it('rejects invalid hex', () => {
-    expect(colorConfigSchema.safeParse({ primary: 'red', secondary: '#00', background: '#GGGGGG', text: '#12345' }).success).toBe(false);
+    expect(
+      colorConfigSchema.safeParse({
+        primary: 'red',
+        secondary: '#00',
+        background: '#GGGGGG',
+        text: '#12345',
+      }).success,
+    ).toBe(false);
   });
 });
 
@@ -48,7 +76,16 @@ describe('platformSchema', () => {
 
 describe('templateStyleSchema', () => {
   it('accepts all valid styles', () => {
-    for (const s of ['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial', 'fullscreen']) {
+    for (const s of [
+      'minimal',
+      'bold',
+      'glow',
+      'playful',
+      'clean',
+      'branded',
+      'editorial',
+      'fullscreen',
+    ]) {
       expect(templateStyleSchema.safeParse(s).success).toBe(true);
     }
   });
@@ -96,22 +133,34 @@ describe('compositionPresetSchema', () => {
 
 describe('appConfigSchema', () => {
   it('accepts valid input', () => {
-    const result = appConfigSchema.safeParse({ name: 'App', description: 'Desc', platforms: ['ios'] });
+    const result = appConfigSchema.safeParse({
+      name: 'App',
+      description: 'Desc',
+      platforms: ['ios'],
+    });
     expect(result.success).toBe(true);
   });
 
   it('fills features default', () => {
-    const result = appConfigSchema.safeParse({ name: 'App', description: 'Desc', platforms: ['ios'] });
+    const result = appConfigSchema.safeParse({
+      name: 'App',
+      description: 'Desc',
+      platforms: ['ios'],
+    });
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.features).toEqual([]);
   });
 
   it('rejects empty name', () => {
-    expect(appConfigSchema.safeParse({ name: '', description: 'Desc', platforms: ['ios'] }).success).toBe(false);
+    expect(
+      appConfigSchema.safeParse({ name: '', description: 'Desc', platforms: ['ios'] }).success,
+    ).toBe(false);
   });
 
   it('rejects empty platforms', () => {
-    expect(appConfigSchema.safeParse({ name: 'App', description: 'Desc', platforms: [] }).success).toBe(false);
+    expect(
+      appConfigSchema.safeParse({ name: 'App', description: 'Desc', platforms: [] }).success,
+    ).toBe(false);
   });
 });
 
@@ -129,11 +178,13 @@ describe('themeConfigSchema', () => {
   });
 
   it('rejects fontWeight outside range', () => {
-    expect(themeConfigSchema.safeParse({
-      style: 'minimal',
-      colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' },
-      fontWeight: 1000,
-    }).success).toBe(false);
+    expect(
+      themeConfigSchema.safeParse({
+        style: 'minimal',
+        colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' },
+        fontWeight: 1000,
+      }).success,
+    ).toBe(false);
   });
 });
 
@@ -161,7 +212,9 @@ describe('screenConfigSchema', () => {
   });
 
   it('rejects empty headline', () => {
-    expect(screenConfigSchema.safeParse({ screenshot: 'test.png', headline: '' }).success).toBe(false);
+    expect(screenConfigSchema.safeParse({ screenshot: 'test.png', headline: '' }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -198,13 +251,18 @@ describe('annotationSchema', () => {
 
 describe('localizationConfigSchema', () => {
   it('accepts valid input', () => {
-    const result = localizationConfigSchema.safeParse({ baseLanguage: 'en', languages: ['en', 'es'] });
+    const result = localizationConfigSchema.safeParse({
+      baseLanguage: 'en',
+      languages: ['en', 'es'],
+    });
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.xcstringsPath).toBe('Localizable.xcstrings');
   });
 
   it('rejects empty languages', () => {
-    expect(localizationConfigSchema.safeParse({ baseLanguage: 'en', languages: [] }).success).toBe(false);
+    expect(localizationConfigSchema.safeParse({ baseLanguage: 'en', languages: [] }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -223,7 +281,10 @@ describe('outputConfigSchema', () => {
 describe('appframeConfigSchema refinements', () => {
   const validBase = {
     app: { name: 'App', description: 'D', platforms: ['ios'] },
-    theme: { style: 'minimal', colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' } },
+    theme: {
+      style: 'minimal',
+      colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' },
+    },
     screens: [{ screenshot: 'test.png', headline: 'Hi' }],
     output: { platforms: ['ios'] },
   };
@@ -232,6 +293,62 @@ describe('appframeConfigSchema refinements', () => {
     const result = appframeConfigSchema.safeParse({
       ...validBase,
       locales: { es: { screens: [{ headline: 'Hola' }, { headline: 'Extra' }] } },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects individual locale configs without matching screen entries', () => {
+    const result = appframeConfigSchema.safeParse({
+      ...validBase,
+      locales: { es: {} },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts panoramic locale overrides with matching element counts', () => {
+    const result = appframeConfigSchema.safeParse({
+      ...validBase,
+      mode: 'panoramic',
+      screens: [],
+      frameCount: 2,
+      panoramic: {
+        background: { type: 'solid', color: '#ffffff' },
+        elements: [
+          { type: 'text', content: 'Hello', x: 5, y: 5, fontSize: 3 },
+          { type: 'device', screenshot: 'screen.png', x: 20, y: 20, width: 15 },
+        ],
+      },
+      locales: {
+        es: {
+          panoramic: {
+            elements: [{ content: 'Hola' }, { screenshot: 'screen-es.png' }],
+          },
+        },
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects panoramic locale overrides with mismatched element counts', () => {
+    const result = appframeConfigSchema.safeParse({
+      ...validBase,
+      mode: 'panoramic',
+      screens: [],
+      frameCount: 2,
+      panoramic: {
+        background: { type: 'solid', color: '#ffffff' },
+        elements: [
+          { type: 'text', content: 'Hello', x: 5, y: 5, fontSize: 3 },
+          { type: 'device', screenshot: 'screen.png', x: 20, y: 20, width: 15 },
+        ],
+      },
+      locales: {
+        es: {
+          panoramic: {
+            elements: [{ content: 'Hola' }],
+          },
+        },
+      },
     });
     expect(result.success).toBe(false);
   });
@@ -257,6 +374,31 @@ describe('appframeConfigSchema refinements', () => {
     const result = appframeConfigSchema.safeParse({
       ...validBase,
       localization: { baseLanguage: 'en', languages: ['en', 'es'] },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts panoramic image elements', () => {
+    const result = appframeConfigSchema.safeParse({
+      ...validBase,
+      mode: 'panoramic',
+      screens: [],
+      frameCount: 3,
+      panoramic: {
+        background: { type: 'solid', color: '#ffffff' },
+        elements: [
+          {
+            type: 'image',
+            src: 'assets/logo.png',
+            x: 5,
+            y: 10,
+            width: 12,
+            height: 8,
+            fit: 'contain',
+          },
+          { type: 'text', content: 'Hello', x: 20, y: 20, fontSize: 3 },
+        ],
+      },
     });
     expect(result.success).toBe(true);
   });

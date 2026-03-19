@@ -10,27 +10,40 @@ import type { GenerateOptions, GenerateResult, RenderResult } from './types.js';
 import type { AppframeConfig, PanoramicElement, PanoramicBackground } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
 
-async function screenshotToDataUrl(screenshotPath: string): Promise<string> {
+function placeholderDataUrl(label: string): string {
+  return (
+    'data:image/svg+xml;base64,' +
+    Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#667eea"/>
+          <stop offset="100%" style="stop-color:#764ba2"/>
+        </linearGradient>
+      </defs>
+      <rect width="400" height="800" fill="url(#g)"/>
+      <text x="200" y="400" text-anchor="middle" fill="white" font-family="sans-serif" font-size="16">${label}</text>
+    </svg>`,
+    ).toString('base64')
+  );
+}
+
+async function assetToDataUrl(assetPath: string, fallbackLabel: string): Promise<string> {
   try {
-    const buffer = await readFile(screenshotPath);
+    const buffer = await readFile(assetPath);
     const base64 = buffer.toString('base64');
-    const ext = screenshotPath.toLowerCase().endsWith('.jpg') || screenshotPath.toLowerCase().endsWith('.jpeg')
-      ? 'jpeg'
-      : 'png';
+    const lower = assetPath.toLowerCase();
+    const ext =
+      lower.endsWith('.jpg') || lower.endsWith('.jpeg')
+        ? 'jpeg'
+        : lower.endsWith('.webp')
+          ? 'webp'
+          : lower.endsWith('.svg')
+            ? 'svg+xml'
+            : 'png';
     return `data:image/${ext};base64,${base64}`;
   } catch {
-    return 'data:image/svg+xml;base64,' + Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800">
-        <defs>
-          <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#667eea"/>
-            <stop offset="100%" style="stop-color:#764ba2"/>
-          </linearGradient>
-        </defs>
-        <rect width="400" height="800" fill="url(#g)"/>
-        <text x="200" y="400" text-anchor="middle" fill="white" font-family="sans-serif" font-size="16">Screenshot</text>
-      </svg>`
-    ).toString('base64');
+    return placeholderDataUrl(fallbackLabel);
   }
 }
 
@@ -70,7 +83,7 @@ async function buildRenderedElement(
   if (el.type === 'device') {
     const widthPx = (el.width / 100) * canvasWidth;
     const screenshotPath = join(configDir, el.screenshot);
-    const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+    const screenshotDataUrl = await assetToDataUrl(screenshotPath, 'Screenshot');
 
     // Resolve frame
     const frameId = el.frame ?? config.frames.ios ?? undefined;
@@ -101,7 +114,9 @@ async function buildRenderedElement(
     // Build shadow CSS
     let shadowCss = '';
     if (el.shadow) {
-      const alphaHex = Math.round(el.shadow.opacity * 255).toString(16).padStart(2, '0');
+      const alphaHex = Math.round(el.shadow.opacity * 255)
+        .toString(16)
+        .padStart(2, '0');
       shadowCss = `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${alphaHex});`;
     } else {
       // Default subtle shadow
@@ -123,6 +138,36 @@ async function buildRenderedElement(
       clipWidth,
       clipHeight,
       clipRadius,
+    };
+  }
+
+  if (el.type === 'image') {
+    const widthPx = (el.width / 100) * canvasWidth;
+    const heightPx = (el.height / 100) * canvasHeight;
+    const assetPath = join(configDir, el.src);
+    const srcDataUrl = await assetToDataUrl(assetPath, 'Image');
+
+    const shadowCss = el.shadow
+      ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
+          el.shadow.opacity * 255,
+        )
+          .toString(16)
+          .padStart(2, '0')});`
+      : '';
+
+    return {
+      type: 'image',
+      z: el.z,
+      xPx,
+      yPx,
+      widthPx,
+      heightPx,
+      rotation: el.rotation,
+      opacity: el.opacity,
+      borderRadius: el.borderRadius,
+      srcDataUrl,
+      fit: el.fit,
+      shadowCss,
     };
   }
 
@@ -196,17 +241,16 @@ async function runWithConcurrency<T>(
     }
   }
 
-  const workers = Array.from(
-    { length: Math.min(concurrency, tasks.length) },
-    () => worker(),
-  );
+  const workers = Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker());
   await Promise.all(workers);
   return results;
 }
 
 const DEFAULT_RENDER_CONCURRENCY = 3;
 
-export async function generatePanoramicScreenshots(options: GenerateOptions): Promise<GenerateResult> {
+export async function generatePanoramicScreenshots(
+  options: GenerateOptions,
+): Promise<GenerateResult> {
   const startTime = Date.now();
   const config = await loadConfig(options.configPath);
   const configDir = dirname(resolve(options.configPath));
@@ -233,9 +277,10 @@ export async function generatePanoramicScreenshots(options: GenerateOptions): Pr
     );
 
     // Filter by platform
-    const filteredSizes = options.platform && options.platform !== 'all'
-      ? sizes.filter(s => s.platform === options.platform)
-      : sizes;
+    const filteredSizes =
+      options.platform && options.platform !== 'all'
+        ? sizes.filter((s) => s.platform === options.platform)
+        : sizes;
 
     const frameCount = config.frameCount;
     const totalSteps = filteredSizes.length * frameCount;

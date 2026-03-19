@@ -2,7 +2,20 @@ import nunjucks from 'nunjucks';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { TemplateStyle, LayoutVariant, ColorConfig, FrameStyle, CompositionPreset, BackgroundType, BackgroundGradient, DeviceShadow, BorderSimulation, Loupe, Callout, Overlay } from '../config/schema.js';
+import type {
+  TemplateStyle,
+  LayoutVariant,
+  ColorConfig,
+  FrameStyle,
+  CompositionPreset,
+  BackgroundType,
+  BackgroundGradient,
+  DeviceShadow,
+  BorderSimulation,
+  Loupe,
+  Callout,
+  Overlay,
+} from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
 import { loadFontFaces, getFontName } from '../fonts/loader.js';
 import { STYLE_PRESETS } from '../config/presets.js';
@@ -48,12 +61,12 @@ export interface TemplateContext {
   subtitleGradient?: { colors: string[]; direction: number };
 
   // Device positioning (optional overrides)
-  deviceTop?: number;      // Device Y position as % of canvas height (default: 15)
-  deviceScale?: number;    // Device width as % of canvas width (default: 92)
+  deviceTop?: number; // Device Y position as % of canvas height (default: 15)
+  deviceScale?: number; // Device width as % of canvas width (default: 92)
   deviceRotation?: number; // Device rotation in degrees (default: 0)
-  deviceOffsetX?: number;  // Horizontal offset from center as % of canvas width (default: 0)
-  deviceAngle?: number;    // Perspective angle in degrees for angled layouts (default: 8)
-  deviceTilt?: number;     // 3D tilt angle in degrees via rotateX (default: 0)
+  deviceOffsetX?: number; // Horizontal offset from center as % of canvas width (default: 0)
+  deviceAngle?: number; // Perspective angle in degrees for angled layouts (default: 8)
+  deviceTilt?: number; // 3D tilt angle in degrees via rotateX (default: 0)
 
   // Composition
   composition?: CompositionPreset;
@@ -64,10 +77,28 @@ export interface TemplateContext {
   autoSizeSubtitle?: boolean;
 
   // Spotlight/dimming overlay
-  spotlight?: { x: number; y: number; w: number; h: number; shape: 'circle' | 'rectangle'; dimOpacity: number; blur: number };
+  spotlight?: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    shape: 'circle' | 'rectangle';
+    dimOpacity: number;
+    blur: number;
+  };
 
   // Annotation highlight shapes
-  annotations?: Array<{ id: string; shape: string; x: number; y: number; w: number; h: number; strokeColor: string; strokeWidth: number; fillColor?: string }>;
+  annotations?: Array<{
+    id: string;
+    shape: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    strokeColor: string;
+    strokeWidth: number;
+    fillColor?: string;
+  }>;
 
   // Typography overrides (from theme config — override preset defaults)
   headlineLineHeight?: number;
@@ -144,7 +175,7 @@ export interface PanoramicTemplateContext {
 }
 
 export interface PanoramicRenderedElement {
-  type: 'device' | 'text' | 'label' | 'decoration';
+  type: 'device' | 'text' | 'label' | 'decoration' | 'image';
   z: number;
 
   // Pixel positions (computed from % of canvas)
@@ -186,6 +217,10 @@ export interface PanoramicRenderedElement {
   shape?: string;
   heightPx?: number;
   opacity?: number;
+
+  // Image-specific
+  srcDataUrl?: string;
+  fit?: 'contain' | 'cover';
 }
 
 export interface TemplateRenderOptions {
@@ -210,11 +245,15 @@ function buildShadowCss(preset: StylePreset, context: TemplateContext): string {
       [0.1, 0.2, 0.15],
     ];
     // Glow preset adds a color glow layer on top
-    const glowLayer = preset.shadow.intensity === 'glow' && preset.shadow.glowScale
-      ? `drop-shadow(0 0 ${Math.round(cw * preset.shadow.glowScale * 0.75)}px ${colors.primary}44) `
-      : '';
+    const glowLayer =
+      preset.shadow.intensity === 'glow' && preset.shadow.glowScale
+        ? `drop-shadow(0 0 ${Math.round(cw * preset.shadow.glowScale * 0.75)}px ${colors.primary}44) `
+        : '';
     const shadowLayers = layers
-      .map(([y, b, a]) => `drop-shadow(0 ${Math.round(cw * y!)}px ${Math.round(cw * b!)}px rgba(0,0,0,${a}))`)
+      .map(
+        ([y, b, a]) =>
+          `drop-shadow(0 ${Math.round(cw * y!)}px ${Math.round(cw * b!)}px rgba(0,0,0,${a}))`,
+      )
       .join('\n          ');
     return `filter: ${glowLayer}${shadowLayers};`;
   }
@@ -229,7 +268,10 @@ function buildShadowCss(preset: StylePreset, context: TemplateContext): string {
   if (shadowDefs.length === 0) return '';
 
   const shadowLayers = shadowDefs
-    .map(([y, b, a]) => `drop-shadow(0 ${Math.round(cw * y!)}px ${Math.round(cw * b!)}px rgba(0,0,0,${a}))`)
+    .map(
+      ([y, b, a]) =>
+        `drop-shadow(0 ${Math.round(cw * y!)}px ${Math.round(cw * b!)}px rgba(0,0,0,${a}))`,
+    )
     .join(' ');
 
   // Glow preset adds a color glow layer
@@ -328,7 +370,9 @@ function buildGradientCss(gradient: BackgroundGradient): string {
 }
 
 function buildDeviceShadowCss(shadow: DeviceShadow): string {
-  const alphaHex = Math.round(shadow.opacity * 255).toString(16).padStart(2, '0');
+  const alphaHex = Math.round(shadow.opacity * 255)
+    .toString(16)
+    .padStart(2, '0');
   return `filter: drop-shadow(0 ${shadow.offsetY}px ${shadow.blur}px ${shadow.color}${alphaHex});`;
 }
 
@@ -357,7 +401,7 @@ function resolvePresetContext(preset: StylePreset, context: TemplateContext) {
   // explicitly enabled a custom deviceShadow in the Device tab.
   const shadowCss = context.deviceShadow
     ? buildDeviceShadowCss(context.deviceShadow)
-    : (bgType !== 'preset')
+    : bgType !== 'preset'
       ? ''
       : buildShadowCss(preset, context);
 

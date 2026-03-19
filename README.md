@@ -278,8 +278,42 @@ Composition presets set initial device positioning — you can fine-tune scale, 
 | `appframe_suggest_copy` | AI-guided copy with 3 approaches |
 | `appframe_suggest_theme` | AI-guided theme suggestion |
 | `appframe_generate_variants` | Generate 2-3 design variant configs |
+| `appframe_create_variant_session` | Create a file-backed 2-3 concept session for agent workflows |
+| `appframe_list_variant_session` | List concepts, active concept, approvals, and export history |
+| `appframe_select_variant` | Switch the active concept in a variant session |
+| `appframe_approve_variant` | Mark one concept as approved and demote the rest to draft |
+| `appframe_export_variant` | Export one concept from a variant session |
+| `appframe_export_approved_variant` | Export the approved concept from a variant session |
 | `appframe_upload_plan` | Preview upload plan |
 | `appframe_upload` | Upload screenshots to stores |
+
+### Agent Workflow
+
+Appframe now supports a file-backed concept workflow for AI agents. The intended flow is:
+
+1. Create a base config or open an existing `appframe.yml`
+2. Ask the agent to create a variant session with 2-3 concepts
+3. Let the agent review or refine the concepts
+4. Approve one concept
+5. Export the approved concept as a structured batch
+
+Example sequence:
+
+```text
+appframe_create_variant_session(configPath="/abs/path/appframe.yml", variantCount=3)
+appframe_list_variant_session(sessionPath="/abs/path/appframe.variants.session.json")
+appframe_select_variant(sessionPath="/abs/path/appframe.variants.session.json", variantId="concept-b")
+appframe_approve_variant(sessionPath="/abs/path/appframe.variants.session.json", variantId="concept-c")
+appframe_export_approved_variant(sessionPath="/abs/path/appframe.variants.session.json")
+```
+
+The variant session JSON stores:
+- the source config path
+- the active concept
+- the approved concept
+- per-concept export history
+
+This workflow is separate from the Agentation overlay in the web UI. Agentation controls browser-side agent interaction; the MCP variant-session tools are the agent-facing screenshot workflow surface.
 
 ## Store Upload
 

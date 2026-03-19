@@ -9,6 +9,7 @@ interface HeaderBarProps {
 }
 
 const TABS = [
+  { id: 'variants', label: 'Variants' },
   { id: 'background', label: 'Background' },
   { id: 'device', label: 'Device' },
   { id: 'text', label: 'Text' },
@@ -28,10 +29,13 @@ export function HeaderBar({
   const togglePanoramic = usePreviewStore((s) => s.togglePanoramic);
   const activeTab = usePreviewStore((s) => s.activeTab);
   const setActiveTab = usePreviewStore((s) => s.setActiveTab);
+  const activeVariantId = usePreviewStore((s) => s.activeVariantId);
+  const variants = usePreviewStore((s) => s.variants);
   const selectedScreen = usePreviewStore((s) => s.selectedScreen);
   const screens = usePreviewStore((s) => s.screens);
   const currentMode = isPanoramic ? 'Panoramic' : 'Individual';
   const modeToggleLabel = isPanoramic ? 'Switch to Individual' : 'Switch to Panoramic';
+  const activeVariant = variants.find((variant) => variant.id === activeVariantId);
 
   return (
     <div className="w-full min-h-11 px-3 py-2 md:px-4 flex flex-wrap items-center gap-2 md:gap-4 border-b border-border bg-surface shrink-0">
@@ -54,6 +58,11 @@ export function HeaderBar({
         <span className="text-sm font-semibold whitespace-nowrap">appframe</span>
         {config && (
           <span className="text-xs text-text-dim truncate">{config.app.name}</span>
+        )}
+        {activeVariant && (
+          <span className="hidden sm:inline-flex text-[10px] text-text-dim bg-surface-2 px-1.5 py-0.5 rounded whitespace-nowrap">
+            {activeVariant.name}
+          </span>
         )}
         <span className="hidden sm:inline-flex text-[10px] text-text-dim bg-surface-2 px-1.5 py-0.5 rounded whitespace-nowrap">
           {currentMode}
@@ -91,8 +100,9 @@ export function HeaderBar({
           }`}
           onClick={onToggleAgentMode}
           aria-pressed={agentMode}
+          title="Toggle the Agentation annotation overlay"
         >
-          {agentMode ? 'AI Mode On' : 'AI Mode Off'}
+          {agentMode ? 'Agentation On' : 'Agentation Off'}
         </button>
 
         <button

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
-import { fetchConfig, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes } from './utils/api';
+import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, fetchSession } from './utils/api';
 import { HeaderBar } from './components/HeaderBar';
 import { DesignTab } from './components/Sidebar/DesignTab';
 import { DeviceTab } from './components/Sidebar/DeviceTab';
 import { TextTab } from './components/Sidebar/TextTab';
 import { EffectsTab } from './components/Sidebar/EffectsTab';
 import { ExportTab } from './components/Sidebar/ExportTab';
+import { VariantsTab } from './components/Sidebar/VariantsTab';
 import { PanoramicBackgroundContent, PanoramicDeviceContent, PanoramicTextContent } from './components/Sidebar/PanoramicTab';
 import { PanoramicEffectsTab } from './components/Sidebar/PanoramicEffectsTab';
 import { PreviewArea } from './components/Preview/PreviewArea';
@@ -19,6 +20,7 @@ export function App() {
   const config = usePreviewStore((s) => s.config);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
   const initScreens = usePreviewStore((s) => s.initScreens);
+  const hydrateSession = usePreviewStore((s) => s.hydrateSession);
   const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
   const setFonts = usePreviewStore((s) => s.setFonts);
   const setFrames = usePreviewStore((s) => s.setFrames);
@@ -62,17 +64,26 @@ export function App() {
     async function init() {
       try {
         const [cfg, fonts, frames] = await Promise.all([
-          fetchConfig(),
+          fetchProject(),
           fetchFonts(),
           fetchFrames(),
         ]);
-
         const platform = cfg.app.platforms[0] ?? 'iphone';
         const size = getPlatformPreviewSize(platform);
         setPreviewSize(size.w, size.h);
         setFonts(fonts as FontData[]);
         setFrames(frames as never[]);
         initScreens(cfg, platform);
+
+        // Hydrate variants from session file if server was started with --session
+        try {
+          const session = await fetchSession() as { activeVariantId?: string; variants?: Array<{ id: string; name: string; status: string; config: never }> } | null;
+          if (session && Array.isArray(session.variants) && session.variants.length > 0) {
+            hydrateSession(session as Parameters<typeof hydrateSession>[0]);
+          }
+        } catch {
+          // No session — use default single variant
+        }
 
         // Fetch koubou devices (non-blocking — may not be available)
         try {
@@ -99,12 +110,12 @@ export function App() {
           // Sizes are optional for preview
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load config');
+        setError(err instanceof Error ? err.message : 'Failed to load project');
       }
     }
 
     init();
-  }, [initScreens, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
+  }, [initScreens, hydrateSession, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
 
   useEffect(() => {
     const syncLayout = () => {
@@ -146,6 +157,7 @@ export function App() {
 
   const sidebarContent = isPanoramic ? (
     <>
+      {activeTab === 'variants' && <VariantsTab />}
       {activeTab === 'background' && <PanoramicBackgroundContent />}
       {activeTab === 'device' && <PanoramicDeviceContent />}
       {activeTab === 'text' && <PanoramicTextContent />}
@@ -154,6 +166,7 @@ export function App() {
     </>
   ) : (
     <>
+      {activeTab === 'variants' && <VariantsTab />}
       {activeTab === 'background' && <DesignTab />}
       {activeTab === 'device' && <DeviceTab />}
       {activeTab === 'text' && <TextTab />}

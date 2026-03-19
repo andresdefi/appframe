@@ -55,7 +55,7 @@ function getLocalizedScreenshot(
   // Check for explicit per-locale screenshot override
   if (locale !== 'default' && config.locales) {
     const localeConfig = config.locales[locale];
-    const localeScreen = localeConfig?.screens[screenIndex];
+    const localeScreen = localeConfig?.screens?.[screenIndex];
     if (localeScreen?.screenshot) {
       return join(configDir, localeScreen.screenshot);
     }
@@ -276,7 +276,7 @@ function getLocalizedText(
   if (locale === 'default' || !config.locales) return undefined;
   const localeConfig = config.locales[locale];
   if (!localeConfig) return undefined;
-  const localeScreen = localeConfig.screens[screenIndex];
+  const localeScreen = localeConfig.screens?.[screenIndex];
   if (!localeScreen) return undefined;
   return localeScreen[field];
 }

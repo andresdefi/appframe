@@ -91,7 +91,8 @@ describe('preview command', () => {
     await previewCommand.parseAsync(['node', 'test', '--port', '4400']);
 
     expect(startPreviewServer).toHaveBeenCalledWith({
-      configPath: expect.stringMatching(/appframe\.yml$/),
+      configPath: undefined,
+      sessionPath: undefined,
       port: 4400,
     });
     expect(exitSpy).not.toHaveBeenCalled();

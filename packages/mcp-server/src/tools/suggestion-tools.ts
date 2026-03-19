@@ -1,5 +1,18 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { join } from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { analyzeScreenshotSet, buildVariantSetPlan, inferCategory } from './design-planning.js';
+import { materializeVariantPlan } from './plan-materializer.js';
+import {
+  generateCopyCandidates,
+  scoreHeadline,
+  selectCopySet,
+  type CopyCandidateSet,
+  type SelectedCopySet,
+} from './copy-planning.js';
+import { createSessionFromManifest } from './variant-session-lib.js';
+import { renderVariantPreviews, scoreVariantPreviews } from './variant-session-tools.js';
 
 type DesignVariantPlan = {
   id: string;
@@ -11,20 +24,25 @@ type DesignVariantPlan = {
   screenPlan: string[];
 };
 
-function dedupe(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean)));
+function parseJsonInput<T>(label: string, raw: string): T {
+  try {
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Invalid ${label}: ${message}`);
+  }
 }
 
-function inferCategory(appDescription: string, features: string[]): string {
-  const haystack = `${appDescription} ${features.join(' ')}`.toLowerCase();
-  if (/(money|budget|bank|expense|invoice|finance|invest)/.test(haystack)) return 'finance';
-  if (/(workout|health|sleep|fitness|habit|wellness|meditation)/.test(haystack)) return 'health';
-  if (/(task|calendar|project|note|todo|schedule|productivity)/.test(haystack))
-    return 'productivity';
-  if (/(chat|message|social|community|creator|share)/.test(haystack)) return 'social';
-  if (/(photo|camera|video|music|edit|creative|design)/.test(haystack)) return 'creative';
-  if (/(game|play|quiz|puzzle|multiplayer)/.test(haystack)) return 'games';
-  return 'general';
+function defaultAutopilotOutputDir(appName: string): string {
+  const slug = appName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return join(process.cwd(), 'output', 'autopilot', slug || 'app');
+}
+
+function dedupe(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
 }
 
 function buildVariantPlans(
@@ -50,53 +68,47 @@ function buildVariantPlans(
     },
     {
       id: 'concept-b',
-      name: 'Layered Momentum',
+      name: 'Dynamic Individual',
       mode: 'individual',
       style: 'bold',
-      recipe: 'stacked-cards',
+      recipe: 'layered-momentum',
       rationale:
-        'Higher-energy concept using layered assets, stronger contrast, and more visual rhythm across slides.',
+        'Higher-energy concept using stronger contrast, more visual rhythm, and frameless rounded screenshots when they read cleaner.',
       screenPlan: [
         'Hero slide with oversized typography and one dominant screenshot.',
-        'Mid-sequence slides mixing device framing with cropped UI details or supporting assets.',
-        'Final slide that compresses supporting features into a punchier visual summary.',
+        'Mid-sequence slides keep one dominant idea per frame while pushing more contrast and motion.',
+        'Final slide compresses supporting features into a punchier visual summary.',
+      ],
+    },
+    {
+      id: 'concept-c',
+      name: 'Editorial Panorama',
+      mode: 'panoramic',
+      style: 'editorial',
+      recipe: 'editorial-panorama',
+      rationale:
+        'Connected premium storytelling with stronger whitespace, slower pacing, and a more editorial visual voice.',
+      screenPlan: [
+        `Use ${Math.max(screenshotCount, 4)} connected frames with shared background and deliberate whitespace.`,
+        'Place devices and headline blocks to read as one connected sequence instead of isolated slides.',
+        'Let frame breaks mark narrative beats rather than restarting the layout each time.',
+      ],
+    },
+    {
+      id: 'concept-d',
+      name: 'Bold Panorama',
+      mode: 'panoramic',
+      style: 'branded',
+      recipe: 'bold-panorama',
+      rationale:
+        'Campaign-like panoramic concept with stronger brand color, larger transitions, and a more cinematic feel.',
+      screenPlan: [
+        `Use ${Math.max(screenshotCount, 4)} connected frames with stronger color blocking and motion.`,
+        'Mix headline-led moments with hero devices and supporting image assets across the strip.',
+        'Close with a stronger branded finish instead of a quiet editorial ending.',
       ],
     },
   ];
-
-  if (variantCount >= 3) {
-    variants.push({
-      id: 'concept-c',
-      name: 'Storyboard Panorama',
-      mode: 'panoramic',
-      style: 'editorial',
-      recipe: 'cinematic-panoramic',
-      rationale:
-        'Cross-screen storyboard concept for premium, connected storytelling when the screenshot set supports it.',
-      screenPlan: [
-        `Use ${Math.max(screenshotCount, 3)} connected frames with shared background and global element placement.`,
-        'Place devices, labels, and supporting assets so the App Store scroll feels continuous.',
-        'Reserve frame breaks for narrative beats instead of restarting the layout each slide.',
-      ],
-    });
-  }
-
-  if (variantCount >= 4) {
-    variants.push({
-      id: 'concept-d',
-      name: 'Editorial Split',
-      mode: 'individual',
-      style: 'editorial',
-      recipe: 'editorial-split',
-      rationale:
-        'Typography-led concept with asymmetric text and asset placement for premium or lifestyle apps.',
-      screenPlan: [
-        'Text-led opening slide with deliberate whitespace.',
-        'Alternating split layouts that separate copy and screenshot focus zones.',
-        'Muted final slide for craft, trust, or brand signal.',
-      ],
-    });
-  }
 
   if (variantCount >= 5) {
     variants.push({
@@ -120,6 +132,450 @@ function buildVariantPlans(
 
 export function registerSuggestionTools(server: McpServer): void {
   server.tool(
+    'appframe_analyze_screenshot_set',
+    'Analyze a raw screenshot set for likely roles, hero priority, density, and text-risk. Use this before planning variants so the agent works from explicit screenshot understanding instead of guessing from filenames.',
+    {
+      screenshots: z
+        .array(
+          z.object({
+            path: z.string().describe('Absolute path to a raw screenshot'),
+            note: z.string().optional().describe('Optional note about what the screenshot shows'),
+          }),
+        )
+        .min(1)
+        .describe('Raw screenshot inventory'),
+    },
+    async ({ screenshots }) => {
+      const analysis = await analyzeScreenshotSet(screenshots);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(
+              {
+                screenshots: analysis,
+                summary: {
+                  count: analysis.length,
+                  topHeroCandidate: analysis[0]?.path ?? null,
+                },
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    'appframe_plan_variant_set',
+    'Plan a concrete AppFrame concept set from app metadata and a screenshot inventory. Returns selected source screens plus variant-by-variant structure, including which concepts are supported now versus which still need future layout expansion.',
+    {
+      appName: z.string().describe('Name of the app'),
+      appDescription: z.string().describe('Short product description'),
+      platforms: z.array(z.enum(['ios', 'android'])).describe('Target platforms'),
+      features: z.array(z.string()).describe('Key product features or selling points'),
+      screenshots: z
+        .array(
+          z.object({
+            path: z.string().describe('Absolute path to a raw screenshot'),
+            note: z.string().optional().describe('Optional note about what the screenshot shows'),
+          }),
+        )
+        .min(1)
+        .describe('Raw screenshot inventory'),
+      goals: z.array(z.string()).optional().describe('What the screenshots should emphasize'),
+      variantCount: z.number().min(2).max(5).default(4).describe('How many concepts to plan'),
+      screenCount: z
+        .number()
+        .min(3)
+        .max(10)
+        .optional()
+        .describe('How many source screens to select for the plan'),
+    },
+    async ({
+      appName,
+      appDescription,
+      platforms,
+      features,
+      screenshots,
+      goals,
+      variantCount,
+      screenCount,
+    }) => {
+      const plan = await buildVariantSetPlan({
+        appName,
+        appDescription,
+        platforms,
+        features,
+        screenshots,
+        goals,
+        variantCount,
+        screenCount,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(plan, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    'appframe_generate_copy_candidates',
+    'Generate structured App Store screenshot copy candidates with explicit hero, differentiator, feature, trust, and summary slots. Use this before planning layouts so all concepts share the same narrative backbone.',
+    {
+      appName: z.string().describe('Name of the app'),
+      appDescription: z.string().describe('Short product description'),
+      features: z.array(z.string()).describe('Prioritized features'),
+      goals: z.array(z.string()).optional().describe('Optional marketing goals'),
+      category: z.string().optional().describe('Optional category override'),
+      screenshotCount: z.number().min(1).max(10).optional().describe('Expected slide count'),
+    },
+    async ({ appName, appDescription, features, goals, category, screenshotCount }) => {
+      const candidateSet = generateCopyCandidates({
+        appName,
+        appDescription,
+        category: category ?? inferCategory(appDescription, features),
+        features,
+        goals,
+        screenshotCount,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(candidateSet, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    'appframe_score_copy_candidates',
+    'Score an existing copy candidate set and return a slot-by-slot view of the best headline options plus issues that should be fixed before layout generation.',
+    {
+      candidateSetJson: z.string().describe('JSON output from appframe_generate_copy_candidates'),
+    },
+    async ({ candidateSetJson }) => {
+      try {
+        const candidateSet = parseJsonInput<CopyCandidateSet>('candidateSetJson', candidateSetJson);
+        const scored = candidateSet.slots.map((slot) => ({
+          slot: slot.slot,
+          sourceFeature: slot.sourceFeature ?? null,
+          candidates: slot.candidates.map((candidate) => ({
+            ...candidate,
+            rescored: scoreHeadline(candidate.headline, candidate.slot, candidate.sourceFeature),
+          })),
+        }));
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(
+                {
+                  appName: candidateSet.appName,
+                  generatedAt: candidateSet.generatedAt,
+                  slots: scored,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return {
+          content: [{ type: 'text' as const, text: `Failed to score copy candidates: ${message}` }],
+        };
+      }
+    },
+  );
+
+  server.tool(
+    'appframe_select_copy_set',
+    'Select the best copy candidate for each slot from a generated candidate set. The selected copy set should be reused across all concepts unless the user asks for a different narrative.',
+    {
+      candidateSetJson: z.string().describe('JSON output from appframe_generate_copy_candidates'),
+    },
+    async ({ candidateSetJson }) => {
+      try {
+        const candidateSet = parseJsonInput<CopyCandidateSet>('candidateSetJson', candidateSetJson);
+        const selected = selectCopySet(candidateSet);
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(selected, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return {
+          content: [{ type: 'text' as const, text: `Failed to select copy set: ${message}` }],
+        };
+      }
+    },
+  );
+
+  server.tool(
+    'appframe_materialize_variant_plan',
+    'Materialize a planned variant set into real AppFrame YAML config files. Use this after appframe_plan_variant_set to turn concept plans into renderable current-AppFrame configs.',
+    {
+      planJson: z
+        .string()
+        .describe(
+          'The JSON output from appframe_plan_variant_set or equivalent VariantSetPlan JSON',
+        ),
+      outputDir: z.string().describe('Absolute directory where config files should be written'),
+      primaryColor: z.string().optional().describe('Optional primary brand color override'),
+      secondaryColor: z.string().optional().describe('Optional secondary brand color override'),
+      font: z.string().optional().describe('Optional font override'),
+      assetImagePath: z
+        .string()
+        .optional()
+        .describe(
+          'Optional absolute path to a logo or supporting image asset for panoramic concepts',
+        ),
+      manifestPath: z
+        .string()
+        .optional()
+        .describe('Optional absolute path for the generated manifest JSON'),
+      selectedCopySetJson: z
+        .string()
+        .optional()
+        .describe('Optional SelectedCopySet JSON used to materialize real copy into the configs'),
+    },
+    async ({
+      planJson,
+      outputDir,
+      primaryColor,
+      secondaryColor,
+      font,
+      assetImagePath,
+      manifestPath,
+      selectedCopySetJson,
+    }) => {
+      try {
+        const plan = JSON.parse(planJson) as Awaited<ReturnType<typeof buildVariantSetPlan>>;
+        const selectedCopySet = selectedCopySetJson
+          ? parseJsonInput<SelectedCopySet>('selectedCopySetJson', selectedCopySetJson)
+          : undefined;
+        const result = await materializeVariantPlan({
+          plan,
+          outputDir,
+          primaryColor,
+          secondaryColor,
+          font,
+          assetImagePath,
+          manifestPath,
+          selectedCopySet,
+        });
+
+        const lines = result.variants.map(
+          (variant) => `- ${variant.id} (${variant.mode}): ${variant.configPath}`,
+        );
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Materialized ${result.variants.length} variants.\nManifest: ${result.manifestPath}\n\n${lines.join('\n')}`,
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Failed to materialize variant plan: ${message}`,
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  server.tool(
+    'appframe_run_autopilot',
+    'Run the full AppFrame autopilot pipeline: analyze screenshots, generate/select copy, plan 4 concepts, materialize configs, create a variant session, render previews, score variants, and return a preview-ready session path.',
+    {
+      appName: z.string().describe('Name of the app'),
+      appDescription: z.string().describe('Short product description'),
+      platforms: z.array(z.enum(['ios', 'android'])).describe('Target platforms'),
+      features: z.array(z.string()).min(1).describe('Prioritized features'),
+      screenshots: z
+        .array(
+          z.object({
+            path: z.string().describe('Absolute path to a raw screenshot'),
+            note: z.string().optional().describe('Optional note about what the screenshot shows'),
+          }),
+        )
+        .min(1)
+        .describe('Raw screenshot inventory'),
+      goals: z.array(z.string()).optional().describe('Optional marketing goals'),
+      primaryColor: z.string().optional().describe('Optional primary brand color'),
+      secondaryColor: z.string().optional().describe('Optional secondary brand color'),
+      font: z.string().optional().describe('Optional font override'),
+      assetImagePath: z.string().optional().describe('Optional logo or supporting asset'),
+      outputDir: z.string().optional().describe('Optional output directory for autopilot artifacts'),
+      sessionPath: z.string().optional().describe('Optional output path for the variant session JSON'),
+      manifestPath: z.string().optional().describe('Optional output path for the materialized manifest JSON'),
+      screenCount: z.number().min(3).max(10).optional().describe('Optional screen count to plan'),
+      variantCount: z.number().min(4).max(5).default(4).describe('How many concepts to produce'),
+    },
+    async ({
+      appName,
+      appDescription,
+      platforms,
+      features,
+      screenshots,
+      goals,
+      primaryColor,
+      secondaryColor,
+      font,
+      assetImagePath,
+      outputDir,
+      sessionPath,
+      manifestPath,
+      screenCount,
+      variantCount,
+    }) => {
+      try {
+        const resolvedOutputDir = outputDir ?? defaultAutopilotOutputDir(appName);
+        await mkdir(resolvedOutputDir, { recursive: true });
+
+        const analysis = await analyzeScreenshotSet(screenshots);
+        const copyCandidates = generateCopyCandidates({
+          appName,
+          appDescription,
+          category: inferCategory(appDescription, features),
+          features,
+          goals,
+          screenshotCount: screenCount ?? Math.min(5, screenshots.length),
+        });
+        const selectedCopySet = selectCopySet(copyCandidates);
+        const plan = await buildVariantSetPlan({
+          appName,
+          appDescription,
+          platforms,
+          features,
+          screenshots,
+          goals,
+          variantCount,
+          screenCount,
+        });
+
+        const analysisPath = join(resolvedOutputDir, 'analysis.json');
+        const copyCandidatesPath = join(resolvedOutputDir, 'copy-candidates.json');
+        const selectedCopySetPath = join(resolvedOutputDir, 'selected-copy.json');
+        const planPath = join(resolvedOutputDir, 'variant-plan.json');
+
+        await Promise.all([
+          writeFile(analysisPath, JSON.stringify(analysis, null, 2), 'utf-8'),
+          writeFile(copyCandidatesPath, JSON.stringify(copyCandidates, null, 2), 'utf-8'),
+          writeFile(selectedCopySetPath, JSON.stringify(selectedCopySet, null, 2), 'utf-8'),
+          writeFile(planPath, JSON.stringify(plan, null, 2), 'utf-8'),
+        ]);
+
+        const materialized = await materializeVariantPlan({
+          plan,
+          outputDir: join(resolvedOutputDir, 'configs'),
+          primaryColor,
+          secondaryColor,
+          font,
+          assetImagePath,
+          manifestPath,
+          selectedCopySet,
+        });
+
+        const previewCommand = `appframe preview --session ${sessionPath ?? join(resolvedOutputDir, 'autopilot.session.json')}`;
+        const createdSession = await createSessionFromManifest({
+          manifestPath: materialized.manifestPath,
+          sessionPath: sessionPath ?? join(resolvedOutputDir, 'autopilot.session.json'),
+          screenshotAnalysis: analysis,
+          copyCandidates,
+          selectedCopySet,
+          conceptPlan: plan,
+          runManifestPath: join(resolvedOutputDir, 'autopilot-run.json'),
+          previewCommand,
+        });
+
+        const previewResult = await renderVariantPreviews({
+          sessionPath: createdSession.sessionPath,
+          outputDir: join(resolvedOutputDir, 'preview-artifacts'),
+          platform: platforms.includes('ios') ? 'ios' : platforms[0] ?? 'ios',
+        });
+        const scoreResult = await scoreVariantPreviews({
+          sessionPath: createdSession.sessionPath,
+        });
+
+        const runManifestPath = join(resolvedOutputDir, 'autopilot-run.json');
+        await writeFile(
+          runManifestPath,
+          JSON.stringify(
+            {
+              app: { appName, appDescription, platforms },
+              generatedAt: new Date().toISOString(),
+              analysisPath,
+              copyCandidatesPath,
+              selectedCopySetPath,
+              planPath,
+              materializedManifestPath: materialized.manifestPath,
+              sessionPath: createdSession.sessionPath,
+              previewPaths: previewResult.previewArtifacts,
+              recommendedVariantId: scoreResult.recommendedVariantId,
+              recommendationReason: scoreResult.recommendationReason,
+              previewCommand,
+            },
+            null,
+            2,
+          ),
+          'utf-8',
+        );
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(
+                {
+                  outputDir: resolvedOutputDir,
+                  runManifestPath,
+                  sessionPath: createdSession.sessionPath,
+                  materializedManifestPath: materialized.manifestPath,
+                  recommendedVariantId: scoreResult.recommendedVariantId,
+                  recommendationReason: scoreResult.recommendationReason,
+                  previewCommand,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return {
+          content: [{ type: 'text' as const, text: `Failed to run autopilot: ${message}` }],
+        };
+      }
+    },
+  );
+
+  server.tool(
     'appframe_create_design_brief',
     'Create a structured design brief and concept plan for AI-driven App Store screenshot generation. Use this before generating variants when the agent needs an explicit brief, concept set, evaluation rubric, and implementation priorities.',
     {
@@ -141,7 +597,7 @@ export function registerSuggestionTools(server: McpServer): void {
         .describe('What the user wants the screenshots to emphasize'),
       brandColors: z.array(z.string()).optional().describe('Known brand colors as hex values'),
       references: z.array(z.string()).optional().describe('Reference styles or URLs'),
-      variantCount: z.number().min(2).max(5).default(3).describe('How many concepts to plan'),
+      variantCount: z.number().min(2).max(5).default(4).describe('How many concepts to plan'),
     },
     async ({
       appName,
@@ -394,7 +850,7 @@ Return a theme config as JSON:
 
   server.tool(
     'appframe_generate_variants',
-    'Generate 2-3 complete appframe config variants with different design strategies for the user to choose from. Returns YAML configs for each variant.',
+    'Generate 4 complete appframe config variants with the default AppFrame concept mix: 2 individual concepts and 2 panoramic concepts. Returns YAML config guidance for each variant.',
     {
       appName: z.string().describe('Name of the app'),
       appDescription: z.string().describe('Short description of the app'),
@@ -414,10 +870,10 @@ Return a theme config as JSON:
       font: z.string().optional().describe('Preferred font'),
       variantCount: z
         .number()
-        .min(2)
-        .max(3)
-        .default(3)
-        .describe('Number of variants to generate (2-3)'),
+        .min(4)
+        .max(5)
+        .default(4)
+        .describe('Number of variants to generate (default 4)'),
     },
     async ({
       appName,
@@ -452,19 +908,23 @@ ${screens.map((s, i) => `  ${i + 1}. "${s.headline}"${s.subtitle ? ` — "${s.su
 - Safe, professional look
 - Font weight: 600
 
-### Variant B: Dynamic & Varied
+### Variant B: Dynamic Individual
 - Style: \`bold\` or \`glow\`
-- Mix compositions: single, duo-overlap, duo-split, hero-tilt, fanned-cards
-- Use per-screen \`background\` overrides to alternate light/dark
-- More dramatic visual presence
+- Keep it in \`individual\` mode
+- Use more dramatic visual presence and stronger contrast
+- Frameless is allowed, but must use rounded corners
 - Font weight: 700-800
 
-### Variant C: Elegant & Editorial (only if variantCount is 3)
-- Style: \`editorial\` or \`branded\`
-- Subtle angled layouts
-- Warm, sophisticated color palette
-- Use playfair-display or raleway font
-- Font weight: 500-600
+### Variant C: Editorial Panorama
+- Mode: \`panoramic\`
+- Style: \`editorial\`
+- Premium connected sequence with stronger whitespace
+- More refined, slower pacing across the strip
+
+### Variant D: Bold Panorama
+- Mode: \`panoramic\`
+- Style: \`branded\` or \`bold\`
+- Stronger brand color, larger transitions, campaign-like energy
 
 ## Output Format
 
@@ -474,6 +934,8 @@ Return each variant as a complete, valid appframe YAML config block. Separate va
 --- VARIANT B ---
 (yaml)
 --- VARIANT C ---
+(yaml)
+--- VARIANT D ---
 (yaml)
 
 Each config must include: app, theme, frames, screens, output sections.

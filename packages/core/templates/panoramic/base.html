@@ -81,23 +81,76 @@
         position: absolute;
         overflow: hidden;
       }
+      .pano-logo {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
       .pano-image img {
         width: 100%;
         height: 100%;
         display: block;
       }
+      .pano-logo img {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .pano-crop {
+        position: absolute;
+        overflow: hidden;
+      }
+      .pano-crop img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform-origin: center center;
+      }
+
+      .pano-card {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+      }
+      .pano-group {
+        position: absolute;
+        overflow: visible;
+      }
+      .pano-card-eyebrow,
+      .pano-card-title,
+      .pano-card-body {
+        white-space: pre-line;
+        word-wrap: break-word;
+      }
+      .pano-card-eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .pano-card-title {
+        font-weight: 700;
+      }
+      .pano-badge {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        white-space: nowrap;
+      }
     </style>
   </head>
   <body>
-    <div class="panoramic-canvas">
-      {# === Frame boundary guides (debug) === #} {% if showGuides %} {% for i in range(1,
-      frameCount) %}
-      <div class="frame-guide" style="left: {{ (i * frameWidth) }}px;"></div>
-      {% endfor %} {% endif %} {# === Render all elements sorted by z-index === #} {% for el in
-      elements %} {% if el.type == 'device' %}
+    {% macro render_element(el, dataIndex='') %}
+      {% if el.type == 'device' %}
       <div
         class="pano-device"
-        data-index="{{ loop.index0 }}"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
         style="left: {{ el.xPx }}px;
                top: {{ el.yPx }}px;
                width: {{ el.widthPx }}px;
@@ -105,8 +158,7 @@
                transform: rotate({{ el.rotation }}deg);
                {{ el.shadowCss | safe }}"
       >
-        {% if el.framePngUrl and frameStyle != 'none' %} {# PNG frame: screenshot behind, frame
-        overlay on top — the frame's opaque bezel masks the edges #}
+        {% if el.framePngUrl and frameStyle != 'none' %}
         <div
           class="screenshot-clip"
           style="left: {{ el.clipLeft }}px;
@@ -122,7 +174,8 @@
           src="{{ el.framePngUrl }}"
           style="width: 100%; height: auto; display: block; position: relative; z-index: 2"
         />
-        {% elif el.frameSvg and frameStyle != 'none' %} {# SVG frame #} {{ el.frameSvg | safe }}
+        {% elif el.frameSvg and frameStyle != 'none' %}
+        {{ el.frameSvg | safe }}
         <div
           class="screenshot-clip"
           style="left: {{ el.clipLeft }}px;
@@ -133,12 +186,13 @@
         >
           <img src="{{ el.screenshotDataUrl }}" />
         </div>
-        {% else %} {# No frame — just the screenshot #}
+        {% else %}
         <img
           src="{{ el.screenshotDataUrl }}"
           style="width: 100%; border-radius: {{ el.borderRadius | default(0) }}px;"
         />
-        {% endif %} {% if el.borderSimulation %}
+        {% endif %}
+        {% if el.borderSimulation %}
         <div
           style="position: absolute; inset: 0; border: {{ el.borderSimulation.thickness }}px solid {{ el.borderSimulation.color }}; border-radius: {{ el.borderSimulation.radius }}px; pointer-events: none; z-index: 3;"
         ></div>
@@ -148,7 +202,7 @@
       {% elif el.type == 'text' %}
       <div
         class="pano-text"
-        data-index="{{ loop.index0 }}"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
         style="left: {{ el.xPx }}px;
                top: {{ el.yPx }}px;
                font-size: {{ el.fontSizePx }}px;
@@ -168,7 +222,7 @@
       {% elif el.type == 'label' %}
       <div
         class="pano-label"
-        data-index="{{ loop.index0 }}"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
         style="left: {{ el.xPx }}px;
                top: {{ el.yPx }}px;
                font-size: {{ el.fontSizePx }}px;
@@ -181,10 +235,11 @@
         {{ el.content }}
       </div>
 
-      {% elif el.type == 'decoration' %} {% if el.shape == 'circle' %}
+      {% elif el.type == 'decoration' %}
+        {% if el.shape == 'circle' %}
       <div
         class="pano-decoration"
-        data-index="{{ loop.index0 }}"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
         style="left: {{ el.xPx }}px;
                  top: {{ el.yPx }}px;
                  width: {{ el.widthPx }}px;
@@ -195,10 +250,10 @@
                  transform: rotate({{ el.rotation }}deg);
                  z-index: {{ el.z }};"
       ></div>
-      {% elif el.shape == 'rectangle' %}
+        {% elif el.shape == 'rectangle' %}
       <div
         class="pano-decoration"
-        data-index="{{ loop.index0 }}"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
         style="left: {{ el.xPx }}px;
                  top: {{ el.yPx }}px;
                  width: {{ el.widthPx }}px;
@@ -209,10 +264,10 @@
                  transform: rotate({{ el.rotation }}deg);
                  z-index: {{ el.z }};"
       ></div>
-      {% elif el.shape == 'line' %}
+        {% elif el.shape == 'line' %}
       <div
         class="pano-decoration"
-        data-index="{{ loop.index0 }}"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
         style="left: {{ el.xPx }}px;
                  top: {{ el.yPx }}px;
                  width: {{ el.widthPx }}px;
@@ -222,10 +277,10 @@
                  transform: rotate({{ el.rotation }}deg);
                  z-index: {{ el.z }};"
       ></div>
-      {% elif el.shape == 'dot-grid' %}
+        {% elif el.shape == 'dot-grid' %}
       <div
         class="pano-decoration"
-        data-index="{{ loop.index0 }}"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
         style="left: {{ el.xPx }}px;
                  top: {{ el.yPx }}px;
                  width: {{ el.widthPx }}px;
@@ -236,10 +291,12 @@
                  transform: rotate({{ el.rotation }}deg);
                  z-index: {{ el.z }};"
       ></div>
-      {% endif %} {% elif el.type == 'image' %}
+        {% endif %}
+
+      {% elif el.type == 'image' %}
       <div
         class="pano-image"
-        data-index="{{ loop.index0 }}"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
         style="left: {{ el.xPx }}px;
                top: {{ el.yPx }}px;
                width: {{ el.widthPx }}px;
@@ -253,7 +310,139 @@
         <img src="{{ el.srcDataUrl }}" style="object-fit: {{ el.fit | default('contain') }};" />
       </div>
 
-      {% endif %} {% endfor %}
+      {% elif el.type == 'logo' %}
+      <div
+        class="pano-logo"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
+        style="left: {{ el.xPx }}px;
+               top: {{ el.yPx }}px;
+               width: {{ el.widthPx }}px;
+               height: {{ el.heightPx }}px;
+               padding: {{ el.paddingPx | default(0) }}px;
+               {% if el.backgroundColor %}background: {{ el.backgroundColor }};{% endif %}
+               opacity: {{ el.opacity | default(1) }};
+               border-radius: {{ el.borderRadius | default(0) }}px;
+               transform: rotate({{ el.rotation | default(0) }}deg);
+               z-index: {{ el.z }};
+               {{ el.shadowCss | safe }}"
+      >
+        <img src="{{ el.srcDataUrl }}" style="object-fit: {{ el.fit | default('contain') }};" />
+      </div>
+
+      {% elif el.type == 'crop' %}
+      <div
+        class="pano-crop"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
+        style="left: {{ el.xPx }}px;
+               top: {{ el.yPx }}px;
+               width: {{ el.widthPx }}px;
+               height: {{ el.heightPx }}px;
+               border-radius: {{ el.borderRadius | default(0) }}px;
+               transform: rotate({{ el.rotation | default(0) }}deg);
+               z-index: {{ el.z }};
+               {{ el.shadowCss | safe }}"
+      >
+        <img
+          src="{{ el.screenshotDataUrl }}"
+          style="transform: translate({{ el.translateXPx | default(0) }}px, {{ el.translateYPx | default(0) }}px) scale({{ el.zoom | default(1) }});"
+        />
+      </div>
+
+      {% elif el.type == 'card' %}
+      <div
+        class="pano-card"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
+        style="left: {{ el.xPx }}px;
+               top: {{ el.yPx }}px;
+               width: {{ el.widthPx }}px;
+               height: {{ el.heightPx }}px;
+               padding: {{ el.paddingPx }}px;
+               background: {{ el.backgroundColor }};
+               opacity: {{ el.opacity | default(1) }};
+               border-radius: {{ el.borderRadius | default(0) }}px;
+               {% if el.borderColor and el.borderWidthPx %}border: {{ el.borderWidthPx }}px solid {{ el.borderColor }};{% endif %}
+               text-align: {{ el.align | default('left') }};
+               transform: rotate({{ el.rotation | default(0) }}deg);
+               z-index: {{ el.z }};
+               {{ el.shadowCss | safe }}"
+      >
+        {% if el.eyebrow %}
+        <div
+          class="pano-card-eyebrow"
+          style="font-size: {{ el.eyebrowSizePx }}px; color: {{ el.eyebrowColor }}; margin-bottom: {{ (el.paddingPx * 0.5) | round }}px;"
+        >
+          {{ el.eyebrow }}
+        </div>
+        {% endif %}
+        {% if el.title %}
+        <div
+          class="pano-card-title"
+          style="font-size: {{ el.titleSizePx }}px; color: {{ el.titleColor }}; line-height: 1.1; margin-bottom: {{ (el.paddingPx * 0.45) | round }}px;"
+        >
+          {{ el.title }}
+        </div>
+        {% endif %}
+        {% if el.body %}
+        <div
+          class="pano-card-body"
+          style="font-size: {{ el.bodySizePx }}px; color: {{ el.bodyColor }}; line-height: 1.35;"
+        >
+          {{ el.body }}
+        </div>
+        {% endif %}
+      </div>
+
+      {% elif el.type == 'badge' %}
+      <div
+        class="pano-badge"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
+        style="left: {{ el.xPx }}px;
+               top: {{ el.yPx }}px;
+               width: {{ el.widthPx }}px;
+               height: {{ el.heightPx }}px;
+               background: {{ el.backgroundColor }};
+               color: {{ el.color }};
+               opacity: {{ el.opacity | default(1) }};
+               border-radius: {{ el.borderRadius | default(0) }}px;
+               {% if el.borderColor and el.borderWidthPx %}border: {{ el.borderWidthPx }}px solid {{ el.borderColor }};{% endif %}
+               font-size: {{ el.fontSizePx }}px;
+               font-weight: {{ el.fontWeight | default(700) }};
+               letter-spacing: {{ ((el.letterSpacing | default(0)) / 100) | round(3) }}em;
+               text-transform: {{ el.textTransform | default('uppercase') }};
+               transform: rotate({{ el.rotation | default(0) }}deg);
+               z-index: {{ el.z }};
+               {{ el.shadowCss | safe }}"
+      >
+        {{ el.content }}
+      </div>
+
+      {% elif el.type == 'group' %}
+      <div
+        class="pano-group"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
+        style="left: {{ el.xPx }}px;
+               top: {{ el.yPx }}px;
+               width: {{ el.widthPx }}px;
+               height: {{ el.heightPx }}px;
+               opacity: {{ el.opacity | default(1) }};
+               transform: rotate({{ el.rotation | default(0) }}deg);
+               z-index: {{ el.z }};"
+      >
+        {% for child in el.children %}
+          {{ render_element(child) }}
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endmacro %}
+
+    <div class="panoramic-canvas">
+      {# === Frame boundary guides (debug) === #} {% if showGuides %} {% for i in range(1,
+      frameCount) %}
+      <div class="frame-guide" style="left: {{ (i * frameWidth) }}px;"></div>
+      {% endfor %} {% endif %} {# === Render all elements sorted by z-index === #} {% for el in
+      elements %}
+      {{ render_element(el, loop.index0) }}
+      {% endfor %}
     </div>
   </body>
 </html>

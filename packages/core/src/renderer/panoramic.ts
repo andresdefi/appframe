@@ -70,18 +70,50 @@ function buildBackgroundCss(bg: PanoramicBackground): string {
   return bg.color ?? '#000000';
 }
 
+function buildShadowCss(
+  shadow: { opacity: number; blur: number; color: string; offsetY: number } | undefined,
+  fallback = '',
+): string {
+  if (!shadow) return fallback;
+  const alphaHex = Math.round(shadow.opacity * 255)
+    .toString(16)
+    .padStart(2, '0');
+  return `filter: drop-shadow(0 ${shadow.offsetY}px ${shadow.blur}px ${shadow.color}${alphaHex});`;
+}
+
+function computeCropTranslation(
+  widthPx: number,
+  heightPx: number,
+  focusX: number,
+  focusY: number,
+  zoom: number,
+): { translateXPx: number; translateYPx: number } {
+  const maxShiftX = ((zoom - 1) * widthPx) / 2;
+  const maxShiftY = ((zoom - 1) * heightPx) / 2;
+  return {
+    translateXPx: ((50 - focusX) / 50) * maxShiftX,
+    translateYPx: ((50 - focusY) / 50) * maxShiftY,
+  };
+}
+
+interface RenderSpace {
+  originXPx: number;
+  originYPx: number;
+  widthPx: number;
+  heightPx: number;
+}
+
 async function buildRenderedElement(
   el: PanoramicElement,
-  canvasWidth: number,
-  canvasHeight: number,
+  space: RenderSpace,
   configDir: string,
   config: AppframeConfig,
 ): Promise<PanoramicRenderedElement> {
-  const xPx = (el.x / 100) * canvasWidth;
-  const yPx = (el.y / 100) * canvasHeight;
+  const xPx = space.originXPx + (el.x / 100) * space.widthPx;
+  const yPx = space.originYPx + (el.y / 100) * space.heightPx;
 
   if (el.type === 'device') {
-    const widthPx = (el.width / 100) * canvasWidth;
+    const widthPx = (el.width / 100) * space.widthPx;
     const screenshotPath = join(configDir, el.screenshot);
     const screenshotDataUrl = await assetToDataUrl(screenshotPath, 'Screenshot');
 
@@ -112,16 +144,7 @@ async function buildRenderedElement(
     }
 
     // Build shadow CSS
-    let shadowCss = '';
-    if (el.shadow) {
-      const alphaHex = Math.round(el.shadow.opacity * 255)
-        .toString(16)
-        .padStart(2, '0');
-      shadowCss = `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${alphaHex});`;
-    } else {
-      // Default subtle shadow
-      shadowCss = 'filter: drop-shadow(0 10px 30px rgba(0,0,0,0.25));';
-    }
+    const shadowCss = buildShadowCss(el.shadow, 'filter: drop-shadow(0 10px 30px rgba(0,0,0,0.25));');
 
     return {
       type: 'device',
@@ -142,18 +165,12 @@ async function buildRenderedElement(
   }
 
   if (el.type === 'image') {
-    const widthPx = (el.width / 100) * canvasWidth;
-    const heightPx = (el.height / 100) * canvasHeight;
+    const widthPx = (el.width / 100) * space.widthPx;
+    const heightPx = (el.height / 100) * space.heightPx;
     const assetPath = join(configDir, el.src);
     const srcDataUrl = await assetToDataUrl(assetPath, 'Image');
 
-    const shadowCss = el.shadow
-      ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
-          el.shadow.opacity * 255,
-        )
-          .toString(16)
-          .padStart(2, '0')});`
-      : '';
+    const shadowCss = buildShadowCss(el.shadow);
 
     return {
       type: 'image',
@@ -171,8 +188,148 @@ async function buildRenderedElement(
     };
   }
 
+  if (el.type === 'logo') {
+    const widthPx = (el.width / 100) * space.widthPx;
+    const heightPx = (el.height / 100) * space.heightPx;
+    const assetPath = join(configDir, el.src);
+    const srcDataUrl = await assetToDataUrl(assetPath, 'Logo');
+
+    return {
+      type: 'logo',
+      z: el.z,
+      xPx,
+      yPx,
+      widthPx,
+      heightPx,
+      rotation: el.rotation,
+      opacity: el.opacity,
+      borderRadius: el.borderRadius,
+      paddingPx: (el.padding / 100) * space.heightPx,
+      backgroundColor: el.backgroundColor,
+      srcDataUrl,
+      fit: el.fit,
+      shadowCss: buildShadowCss(el.shadow),
+    };
+  }
+
+  if (el.type === 'crop') {
+    const widthPx = (el.width / 100) * space.widthPx;
+    const heightPx = (el.height / 100) * space.heightPx;
+    const screenshotPath = join(configDir, el.screenshot);
+    const screenshotDataUrl = await assetToDataUrl(screenshotPath, 'Crop');
+    const { translateXPx, translateYPx } = computeCropTranslation(
+      widthPx,
+      heightPx,
+      el.focusX,
+      el.focusY,
+      el.zoom,
+    );
+
+    return {
+      type: 'crop',
+      z: el.z,
+      xPx,
+      yPx,
+      widthPx,
+      heightPx,
+      rotation: el.rotation,
+      borderRadius: el.borderRadius,
+      screenshotDataUrl,
+      zoom: el.zoom,
+      translateXPx,
+      translateYPx,
+      shadowCss: buildShadowCss(el.shadow),
+    };
+  }
+
+  if (el.type === 'card') {
+    const widthPx = (el.width / 100) * space.widthPx;
+    const heightPx = (el.height / 100) * space.heightPx;
+    const paddingPx = (el.padding / 100) * space.heightPx;
+
+    return {
+      type: 'card',
+      z: el.z,
+      xPx,
+      yPx,
+      widthPx,
+      heightPx,
+      rotation: el.rotation,
+      borderRadius: el.borderRadius,
+      paddingPx,
+      backgroundColor: el.backgroundColor,
+      opacity: el.opacity,
+      borderColor: el.borderColor,
+      borderWidthPx: el.borderWidth,
+      eyebrow: el.eyebrow,
+      title: el.title,
+      body: el.body,
+      align: el.align,
+      eyebrowColor: el.eyebrowColor,
+      titleColor: el.titleColor,
+      bodyColor: el.bodyColor,
+      eyebrowSizePx: (el.eyebrowSize / 100) * space.heightPx,
+      titleSizePx: (el.titleSize / 100) * space.heightPx,
+      bodySizePx: (el.bodySize / 100) * space.heightPx,
+      shadowCss: buildShadowCss(el.shadow),
+    };
+  }
+
+  if (el.type === 'badge') {
+    const widthPx = (el.width / 100) * space.widthPx;
+    const heightPx = (el.height / 100) * space.heightPx;
+
+    return {
+      type: 'badge',
+      z: el.z,
+      xPx,
+      yPx,
+      widthPx,
+      heightPx,
+      rotation: el.rotation,
+      opacity: el.opacity,
+      borderRadius: el.borderRadius,
+      content: el.content,
+      color: el.color,
+      backgroundColor: el.backgroundColor,
+      borderColor: el.borderColor,
+      borderWidthPx: el.borderWidth,
+      fontSizePx: (el.fontSize / 100) * space.heightPx,
+      fontWeight: el.fontWeight,
+      letterSpacing: el.letterSpacing,
+      textTransform: el.textTransform,
+      shadowCss: buildShadowCss(el.shadow),
+    };
+  }
+
+  if (el.type === 'group') {
+    const widthPx = (el.width / 100) * space.widthPx;
+    const heightPx = (el.height / 100) * space.heightPx;
+    const childSpace: RenderSpace = {
+      originXPx: 0,
+      originYPx: 0,
+      widthPx,
+      heightPx,
+    };
+    const children = await Promise.all(
+      el.children.map((child) => buildRenderedElement(child, childSpace, configDir, config)),
+    );
+
+    return {
+      type: 'group',
+      z: el.z,
+      xPx,
+      yPx,
+      widthPx,
+      heightPx,
+      rotation: el.rotation,
+      opacity: el.opacity,
+      children: children.sort((a, b) => a.z - b.z),
+    };
+  }
+
   if (el.type === 'text') {
-    const fontSizePx = (el.fontSize / 100) * canvasHeight;
+    const fontSizePx = (el.fontSize / 100) * space.heightPx;
     return {
       type: 'text',
       z: el.z,
@@ -185,13 +342,13 @@ async function buildRenderedElement(
       fontStyle: el.fontStyle,
       textAlign: el.textAlign,
       lineHeight: el.lineHeight,
-      maxWidthPx: el.maxWidth ? (el.maxWidth / 100) * canvasWidth : undefined,
+      maxWidthPx: el.maxWidth ? (el.maxWidth / 100) * space.widthPx : undefined,
     };
   }
 
   if (el.type === 'label') {
-    const fontSizePx = (el.fontSize / 100) * canvasHeight;
-    const paddingPx = (el.padding / 100) * canvasHeight;
+    const fontSizePx = (el.fontSize / 100) * space.heightPx;
+    const paddingPx = (el.padding / 100) * space.heightPx;
     return {
       type: 'label',
       z: el.z,
@@ -207,8 +364,8 @@ async function buildRenderedElement(
   }
 
   // decoration
-  const widthPx = (el.width / 100) * canvasWidth;
-  const heightPx = el.height ? (el.height / 100) * canvasHeight : widthPx;
+  const widthPx = (el.width / 100) * space.widthPx;
+  const heightPx = el.height ? (el.height / 100) * space.heightPx : widthPx;
   return {
     type: 'decoration',
     z: el.z,
@@ -318,8 +475,12 @@ export async function generatePanoramicScreenshots(
       for (const el of config.panoramic.elements) {
         const rendered = await buildRenderedElement(
           el,
-          totalCanvasWidth,
-          totalCanvasHeight,
+          {
+            originXPx: 0,
+            originYPx: 0,
+            widthPx: totalCanvasWidth,
+            heightPx: totalCanvasHeight,
+          },
           configDir,
           config,
         );

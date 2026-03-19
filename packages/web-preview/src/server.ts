@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { join, dirname, resolve } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { startHttpServer } from 'agentation-mcp';
 import {
@@ -181,6 +181,120 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // API: Get variant session data (from --session flag)
   app.get('/api/session', (_req, res) => {
     res.json(sessionData);
+  });
+
+  app.post('/api/session/save', async (req, res) => {
+    if (!resolvedSessionPath) {
+      res.status(400).json({ error: 'Preview was not started with a session file' });
+      return;
+    }
+
+    try {
+      const body = req.body as {
+        activeVariantId?: unknown;
+        recommendedVariantId?: unknown;
+        recommendationReason?: unknown;
+        variants?: Array<{
+          id?: unknown;
+          name?: unknown;
+          status?: unknown;
+          snapshot?: unknown;
+        }>;
+      };
+
+      const activeVariantId = expectString(body.activeVariantId);
+      if (!activeVariantId) {
+        res.status(400).json({ error: 'activeVariantId is required' });
+        return;
+      }
+      if (!Array.isArray(body.variants)) {
+        res.status(400).json({ error: 'variants array is required' });
+        return;
+      }
+
+      const raw = await readFile(resolvedSessionPath, 'utf-8');
+      const session = JSON.parse(raw) as {
+        activeVariantId: string;
+        updatedAt?: string;
+        variants: Array<Record<string, unknown> & { id?: string }>;
+        autopilot?: Record<string, unknown>;
+      };
+
+      if (!Array.isArray(session.variants)) {
+        res.status(400).json({ error: 'Session file is missing variants' });
+        return;
+      }
+
+      const variantMap = new Map(
+        body.variants.map((variant) => {
+          const id = expectString(variant.id);
+          return [id, variant] as const;
+        }).filter((entry): entry is readonly [string, NonNullable<typeof body.variants>[number]] => Boolean(entry[0])),
+      );
+
+      const updatedAt = new Date().toISOString();
+      session.variants = session.variants.map((variant) => {
+        const variantId = typeof variant.id === 'string' ? variant.id : '';
+        const incoming = variantMap.get(variantId);
+        if (!incoming) return variant;
+        const nextName = expectString(incoming.name);
+        const nextStatus = incoming.status === 'approved' ? 'approved' : 'draft';
+        return {
+          ...variant,
+          name: nextName || variant.name,
+          status: nextStatus,
+          editorSnapshot: incoming.snapshot ?? variant.editorSnapshot,
+        };
+      });
+
+      session.activeVariantId = activeVariantId;
+      session.updatedAt = updatedAt;
+      if (session.autopilot) {
+        session.autopilot = {
+          ...session.autopilot,
+          recommendedVariantId:
+            body.recommendedVariantId === null
+              ? null
+              : expectString(body.recommendedVariantId) || session.autopilot.recommendedVariantId,
+          recommendationReason:
+            body.recommendationReason === null
+              ? null
+              : expectString(body.recommendationReason) || session.autopilot.recommendationReason,
+        };
+      }
+
+      await writeFile(resolvedSessionPath, JSON.stringify(session, null, 2), 'utf-8');
+      sessionData = session;
+      res.json({ success: true, updatedAt });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get('/api/session-asset', (req, res) => {
+    const pathValue = typeof req.query.path === 'string' ? req.query.path : '';
+    if (!pathValue) {
+      res.status(400).json({ error: 'Missing asset path' });
+      return;
+    }
+
+    const resolvedAssetPath = resolve(pathValue);
+    const allowedRoots = [configDir, resolvedSessionPath ? dirname(resolvedSessionPath) : null].filter(
+      (value): value is string => Boolean(value),
+    );
+
+    if (!allowedRoots.some((root) => resolvedAssetPath.startsWith(root))) {
+      res.status(403).json({ error: 'Asset path is outside the preview session roots' });
+      return;
+    }
+
+    res.sendFile(resolvedAssetPath, (error) => {
+      if (error) {
+        const statusCode: number = (error as { statusCode?: number }).statusCode ?? 404;
+        res.status(statusCode).json({ error: 'Asset not found' });
+      }
+    });
   });
 
   // API: Get current config
@@ -1029,196 +1143,23 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
 
       const totalWidth = frameWidth * frameCount;
-
-      // Build rendered elements
-      const renderedElements: PanoramicRenderedElement[] = [];
-      for (const el of elements) {
-        const xPx = (el.x / 100) * totalWidth;
-        const yPx = (el.y / 100) * frameHeight;
-
-        if (el.type === 'device') {
-          const widthPx = (el.width / 100) * totalWidth;
-
-          const screenshotDataUrl = await resolveCanvasAssetDataUrl(
-            el.screenshot,
+      const renderedElements: PanoramicRenderedElement[] = await Promise.all(
+        elements.map((element) =>
+          buildPanoramicRenderedElement({
+            element,
+            space: {
+              originXPx: 0,
+              originYPx: 0,
+              widthPx: totalWidth,
+              heightPx: frameHeight,
+            },
+            config,
             configDir,
-            'Screenshot',
-          );
-
-          // Resolve frame — supports both SVG manifest frames and Koubou PNG frames
-          const frameId = el.frame ?? config.frames.ios ?? undefined;
-          let frame: FrameDefinition | undefined;
-          let frameSvg: string | null = null;
-          let framePngUrl: string | undefined;
-
-          if (frameId) {
-            frame = await getFrame(frameId);
-
-            // If not in SVG manifest, check Koubou device families for PNG frames
-            if (!frame) {
-              const koubouFamily = getDeviceFamily(frameId);
-              if (koubouFamily) {
-                // Try SVG fallback via previewFrameId
-                if (koubouFamily.previewFrameId) {
-                  frame = await getFrame(koubouFamily.previewFrameId);
-                }
-                // Try Koubou PNG frame
-                if (koubouFamily.screenRect && koubouFamily.framePngSize) {
-                  const deviceColor = el.deviceColor ?? config.frames.deviceColor;
-                  const koubouId = getDeviceId(koubouFamily.id, deviceColor || undefined);
-                  const pngPath = koubouId ? await getDeviceFramePath(koubouId) : null;
-                  if (pngPath) {
-                    const pngBuffer = await readFile(pngPath);
-                    framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-                    frame = buildKoubouPreviewFrame(koubouFamily);
-                  }
-                }
-              }
-            }
-          } else {
-            frame = await getDefaultFrame('ios');
-          }
-
-          let clipLeft = 0,
-            clipTop = 0,
-            clipWidth = widthPx,
-            clipHeight = widthPx * 2,
-            clipRadius = 0;
-
-          if (frame && frameStyle !== 'none') {
-            // Use PNG frame if available, otherwise SVG
-            if (!framePngUrl && frame.framePath) {
-              frameSvg = await readFile(frame.framePath, 'utf-8');
-            }
-            const scale = widthPx / frame.frameSize.width;
-            clipLeft = frame.screenArea.x * scale;
-            clipTop = frame.screenArea.y * scale;
-            clipWidth = frame.screenArea.width * scale;
-            clipHeight = frame.screenArea.height * scale;
-            clipRadius = frame.screenArea.borderRadius * scale;
-          }
-
-          const shadowCss = el.shadow
-            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
-                el.shadow.opacity * 255,
-              )
-                .toString(16)
-                .padStart(2, '0')});`
-            : '';
-
-          renderedElements.push({
-            type: 'device',
-            z: el.z,
-            xPx,
-            yPx,
-            widthPx,
-            rotation: el.rotation,
-            screenshotDataUrl,
-            frameSvg,
-            framePngUrl,
-            shadowCss,
-            clipLeft,
-            clipTop,
-            clipWidth,
-            clipHeight,
-            clipRadius,
-            borderSimulation: el.borderSimulation
-              ? {
-                  thickness: el.borderSimulation.thickness,
-                  color: el.borderSimulation.color,
-                  radius: el.borderSimulation.radius,
-                }
-              : undefined,
-          });
-        } else if (el.type === 'text') {
-          let gradientCss: string | undefined;
-          if (el.gradient) {
-            const colors = el.gradient.colors.join(', ');
-            gradientCss =
-              el.gradient.type === 'radial'
-                ? `radial-gradient(circle at ${el.gradient.radialPosition ?? 'center'}, ${colors})`
-                : `linear-gradient(${el.gradient.direction ?? 135}deg, ${colors})`;
-          }
-          renderedElements.push({
-            type: 'text',
-            z: el.z,
-            xPx,
-            yPx,
-            content: el.content,
-            fontSizePx: (el.fontSize / 100) * frameHeight,
-            color: el.color,
-            font: el.font,
-            fontWeight: el.fontWeight,
-            fontStyle: el.fontStyle,
-            textAlign: el.textAlign,
-            lineHeight: el.lineHeight,
-            maxWidthPx: el.maxWidth ? (el.maxWidth / 100) * totalWidth : undefined,
-            gradientCss,
-          });
-        } else if (el.type === 'label') {
-          renderedElements.push({
-            type: 'label',
-            z: el.z,
-            xPx,
-            yPx,
-            content: el.content,
-            fontSizePx: (el.fontSize / 100) * frameHeight,
-            color: el.color,
-            backgroundColor: el.backgroundColor,
-            paddingPx: (el.padding / 100) * frameHeight,
-            borderRadius: el.borderRadius,
-          });
-        } else if (el.type === 'decoration') {
-          renderedElements.push({
-            type: 'decoration',
-            z: el.z,
-            xPx,
-            yPx,
-            widthPx: (el.width / 100) * totalWidth,
-            heightPx: el.height ? (el.height / 100) * frameHeight : (el.width / 100) * totalWidth,
-            shape: el.shape,
-            color: el.color,
-            opacity: el.opacity,
-            rotation: el.rotation,
-          });
-        } else if (el.type === 'image') {
-          const shadowCss = el.shadow
-            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
-                el.shadow.opacity * 255,
-              )
-                .toString(16)
-                .padStart(2, '0')});`
-            : '';
-          renderedElements.push({
-            type: 'image',
-            z: el.z,
-            xPx,
-            yPx,
-            widthPx: (el.width / 100) * totalWidth,
-            heightPx: (el.height / 100) * frameHeight,
-            rotation: el.rotation,
-            opacity: el.opacity,
-            borderRadius: el.borderRadius,
-            srcDataUrl: await resolveCanvasAssetDataUrl(el.src, configDir, 'Image'),
-            fit: el.fit,
-            shadowCss,
-          });
-        }
-      }
-
-      // Build background CSS
-      let backgroundCss = '#000000';
-      if (background.type === 'gradient' && background.gradient) {
-        const colors = background.gradient.colors.join(', ');
-        backgroundCss =
-          background.gradient.type === 'radial'
-            ? `radial-gradient(circle at ${background.gradient.radialPosition}, ${colors})`
-            : `linear-gradient(${background.gradient.direction}deg, ${colors})`;
-      } else if (background.type === 'image' && background.image) {
-        backgroundCss = `url('${background.image}') center/cover no-repeat`;
-      } else if (background.type === 'solid' && background.color) {
-        backgroundCss = background.color;
-      }
+            frameStyle,
+          }),
+        ),
+      );
+      const backgroundCss = buildPanoramicBackgroundCss(background);
 
       // Compute a contrasting guide color from the background
       const guideColor = (() => {
@@ -1535,192 +1476,23 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const exportFrameW = sizeSpec.width;
       const exportFrameH = sizeSpec.height;
       const exportTotalW = exportFrameW * frameCount;
-
-      // Build rendered elements at export resolution
-      const renderedElements: PanoramicRenderedElement[] = [];
-      for (const el of elements) {
-        const xPx = (el.x / 100) * exportTotalW;
-        const yPx = (el.y / 100) * exportFrameH;
-
-        if (el.type === 'device') {
-          const widthPx = (el.width / 100) * exportTotalW;
-
-          const screenshotDataUrl = await resolveCanvasAssetDataUrl(
-            el.screenshot,
+      const renderedElements: PanoramicRenderedElement[] = await Promise.all(
+        elements.map((element) =>
+          buildPanoramicRenderedElement({
+            element,
+            space: {
+              originXPx: 0,
+              originYPx: 0,
+              widthPx: exportTotalW,
+              heightPx: exportFrameH,
+            },
+            config,
             configDir,
-            'Screenshot',
-          );
-
-          const frameId = el.frame ?? config.frames.ios ?? undefined;
-          let frame: FrameDefinition | undefined;
-          let frameSvg: string | null = null;
-          let framePngUrl: string | undefined;
-
-          if (frameId) {
-            frame = await getFrame(frameId);
-            if (!frame) {
-              const koubouFamily = getDeviceFamily(frameId);
-              if (koubouFamily) {
-                if (koubouFamily.previewFrameId) {
-                  frame = await getFrame(koubouFamily.previewFrameId);
-                }
-                if (koubouFamily.screenRect && koubouFamily.framePngSize) {
-                  const deviceColor = el.deviceColor ?? config.frames.deviceColor;
-                  const koubouId = getDeviceId(koubouFamily.id, deviceColor || undefined);
-                  const pngPath = koubouId ? await getDeviceFramePath(koubouId) : null;
-                  if (pngPath) {
-                    const pngBuffer = await readFile(pngPath);
-                    framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-                    frame = buildKoubouPreviewFrame(koubouFamily);
-                  }
-                }
-              }
-            }
-          } else {
-            frame = await getDefaultFrame('ios');
-          }
-
-          let clipLeft = 0,
-            clipTop = 0,
-            clipWidth = widthPx,
-            clipHeight = widthPx * 2,
-            clipRadius = 0;
-
-          if (frame && frameStyle !== 'none') {
-            if (!framePngUrl && frame.framePath) {
-              frameSvg = await readFile(frame.framePath, 'utf-8');
-            }
-            const scale = widthPx / frame.frameSize.width;
-            clipLeft = frame.screenArea.x * scale;
-            clipTop = frame.screenArea.y * scale;
-            clipWidth = frame.screenArea.width * scale;
-            clipHeight = frame.screenArea.height * scale;
-            clipRadius = frame.screenArea.borderRadius * scale;
-          }
-
-          const shadowCss = el.shadow
-            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
-                el.shadow.opacity * 255,
-              )
-                .toString(16)
-                .padStart(2, '0')});`
-            : '';
-
-          renderedElements.push({
-            type: 'device',
-            z: el.z,
-            xPx,
-            yPx,
-            widthPx,
-            rotation: el.rotation,
-            screenshotDataUrl,
-            frameSvg,
-            framePngUrl,
-            shadowCss,
-            clipLeft,
-            clipTop,
-            clipWidth,
-            clipHeight,
-            clipRadius,
-            borderSimulation: el.borderSimulation
-              ? {
-                  thickness: el.borderSimulation.thickness,
-                  color: el.borderSimulation.color,
-                  radius: el.borderSimulation.radius,
-                }
-              : undefined,
-          });
-        } else if (el.type === 'text') {
-          let gradientCss: string | undefined;
-          if (el.gradient) {
-            const colors = el.gradient.colors.join(', ');
-            gradientCss =
-              el.gradient.type === 'radial'
-                ? `radial-gradient(circle at ${el.gradient.radialPosition ?? 'center'}, ${colors})`
-                : `linear-gradient(${el.gradient.direction ?? 135}deg, ${colors})`;
-          }
-          renderedElements.push({
-            type: 'text',
-            z: el.z,
-            xPx,
-            yPx,
-            content: el.content,
-            fontSizePx: (el.fontSize / 100) * exportFrameH,
-            color: el.color,
-            font: el.font,
-            fontWeight: el.fontWeight,
-            fontStyle: el.fontStyle,
-            textAlign: el.textAlign,
-            lineHeight: el.lineHeight,
-            maxWidthPx: el.maxWidth ? (el.maxWidth / 100) * exportTotalW : undefined,
-            gradientCss,
-          });
-        } else if (el.type === 'label') {
-          renderedElements.push({
-            type: 'label',
-            z: el.z,
-            xPx,
-            yPx,
-            content: el.content,
-            fontSizePx: (el.fontSize / 100) * exportFrameH,
-            color: el.color,
-            backgroundColor: el.backgroundColor,
-            paddingPx: (el.padding / 100) * exportFrameH,
-            borderRadius: el.borderRadius,
-          });
-        } else if (el.type === 'decoration') {
-          renderedElements.push({
-            type: 'decoration',
-            z: el.z,
-            xPx,
-            yPx,
-            widthPx: (el.width / 100) * exportTotalW,
-            heightPx: el.height
-              ? (el.height / 100) * exportFrameH
-              : (el.width / 100) * exportTotalW,
-            shape: el.shape,
-            color: el.color,
-            opacity: el.opacity,
-            rotation: el.rotation,
-          });
-        } else if (el.type === 'image') {
-          const shadowCss = el.shadow
-            ? `filter: drop-shadow(0 ${el.shadow.offsetY}px ${el.shadow.blur}px ${el.shadow.color}${Math.round(
-                el.shadow.opacity * 255,
-              )
-                .toString(16)
-                .padStart(2, '0')});`
-            : '';
-          renderedElements.push({
-            type: 'image',
-            z: el.z,
-            xPx,
-            yPx,
-            widthPx: (el.width / 100) * exportTotalW,
-            heightPx: (el.height / 100) * exportFrameH,
-            rotation: el.rotation,
-            opacity: el.opacity,
-            borderRadius: el.borderRadius,
-            srcDataUrl: await resolveCanvasAssetDataUrl(el.src, configDir, 'Image'),
-            fit: el.fit,
-            shadowCss,
-          });
-        }
-      }
-
-      // Build background CSS
-      let backgroundCss = '#000000';
-      if (background.type === 'gradient' && background.gradient) {
-        const colors = background.gradient.colors.join(', ');
-        backgroundCss =
-          background.gradient.type === 'radial'
-            ? `radial-gradient(circle at ${background.gradient.radialPosition}, ${colors})`
-            : `linear-gradient(${background.gradient.direction}deg, ${colors})`;
-      } else if (background.type === 'image' && background.image) {
-        backgroundCss = `url('${background.image}') center/cover no-repeat`;
-      } else if (background.type === 'solid' && background.color) {
-        backgroundCss = background.color;
-      }
+            frameStyle,
+          }),
+        ),
+      );
+      const backgroundCss = buildPanoramicBackgroundCss(background);
 
       const panoramicContext: PanoramicTemplateContext = {
         canvasWidth: exportTotalW,
@@ -1926,6 +1698,15 @@ function localizePanoramicElement(
   localeConfig: LocaleConfig | undefined,
   elementIndex?: number,
 ): PanoramicElement {
+  if (element.type === 'group') {
+    return {
+      ...element,
+      children: element.children.map((child) =>
+        localizePanoramicElement(config, configDir, child, locale, localeConfig) as typeof child,
+      ),
+    };
+  }
+
   if (locale === 'default') return element;
 
   const localePanoramicOverride =
@@ -1935,14 +1716,17 @@ function localizePanoramicElement(
       : undefined;
 
   if (localePanoramicOverride) {
-    if (element.type === 'device' && localePanoramicOverride.screenshot) {
+    if ((element.type === 'device' || element.type === 'crop') && localePanoramicOverride.screenshot) {
       return {
         ...element,
         screenshot: resolve(configDir, localePanoramicOverride.screenshot),
       };
     }
 
-    if ((element.type === 'text' || element.type === 'label') && localePanoramicOverride.content) {
+    if (
+      (element.type === 'text' || element.type === 'label' || element.type === 'badge') &&
+      localePanoramicOverride.content
+    ) {
       return {
         ...element,
         content: localePanoramicOverride.content,
@@ -1951,7 +1735,7 @@ function localizePanoramicElement(
   }
 
   if (
-    element.type === 'device' &&
+    (element.type === 'device' || element.type === 'crop') &&
     element.localeSourceScreen !== undefined &&
     !element.screenshot.startsWith('data:')
   ) {
@@ -1969,7 +1753,7 @@ function localizePanoramicElement(
   }
 
   if (
-    (element.type === 'text' || element.type === 'label') &&
+    (element.type === 'text' || element.type === 'label' || element.type === 'badge') &&
     element.localeSourceScreen !== undefined &&
     element.localeSourceField
   ) {
@@ -2030,6 +1814,442 @@ function placeholderSvgDataUrl(): string {
     </svg>`,
     ).toString('base64')
   );
+}
+
+function buildPanoramicShadowCss(
+  shadow: { opacity: number; blur: number; color: string; offsetY: number } | undefined,
+  fallback = '',
+): string {
+  if (!shadow) return fallback;
+  return `filter: drop-shadow(0 ${shadow.offsetY}px ${shadow.blur}px ${shadow.color}${Math.round(
+    shadow.opacity * 255,
+  )
+    .toString(16)
+    .padStart(2, '0')});`;
+}
+
+function computeCropTranslation(
+  widthPx: number,
+  heightPx: number,
+  focusX: number,
+  focusY: number,
+  zoom: number,
+): { translateXPx: number; translateYPx: number } {
+  const maxShiftX = ((zoom - 1) * widthPx) / 2;
+  const maxShiftY = ((zoom - 1) * heightPx) / 2;
+  return {
+    translateXPx: ((50 - focusX) / 50) * maxShiftX,
+    translateYPx: ((50 - focusY) / 50) * maxShiftY,
+  };
+}
+
+type PanoramicRenderSpace = {
+  originXPx: number;
+  originYPx: number;
+  widthPx: number;
+  heightPx: number;
+};
+
+type PreviewKoubouFamily = NonNullable<ReturnType<typeof getDeviceFamily>>;
+
+type PreviewKoubouAdjustment = {
+  bleedLeft: number;
+  bleedTop: number;
+  bleedRight: number;
+  bleedBottom: number;
+  radiusBleed: number;
+};
+
+const PREVIEW_KOUBOU_ADJUSTMENTS: Record<string, PreviewKoubouAdjustment> = {
+  'ipad-pro-11-m4': { bleedLeft: 20, bleedTop: 20, bleedRight: 20, bleedBottom: 20, radiusBleed: 36 },
+  'ipad-pro-13-m4': { bleedLeft: 20, bleedTop: 20, bleedRight: 20, bleedBottom: 20, radiusBleed: 36 },
+  'macbook-air-2020': { bleedLeft: 4, bleedTop: 4, bleedRight: 4, bleedBottom: 12, radiusBleed: -18 },
+  'macbook-air-2022': { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: -57 },
+  'macbook-pro-2021-14': { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: -47 },
+  'macbook-pro-2021-16': { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: -46 },
+  'watch-ultra': { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: -44 },
+  'watch-series-7-45': { bleedLeft: 8, bleedTop: 20, bleedRight: 8, bleedBottom: 8, radiusBleed: 0 },
+  'watch-series-4-44': { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: -18 },
+  'watch-series-4-40': { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: -18 },
+};
+
+function getPreviewKoubouAdjustment(family: PreviewKoubouFamily): PreviewKoubouAdjustment {
+  const explicit = PREVIEW_KOUBOU_ADJUSTMENTS[family.id];
+  if (explicit) return explicit;
+
+  switch (family.category) {
+    case 'watch':
+      return { bleedLeft: 8, bleedTop: 8, bleedRight: 8, bleedBottom: 8, radiusBleed: 0 };
+    case 'mac':
+      return { bleedLeft: 6, bleedTop: 6, bleedRight: 6, bleedBottom: 6, radiusBleed: 0 };
+    case 'ipad':
+      return { bleedLeft: 18, bleedTop: 18, bleedRight: 18, bleedBottom: 18, radiusBleed: 32 };
+    case 'iphone':
+      return { bleedLeft: 0, bleedTop: 0, bleedRight: 0, bleedBottom: 0, radiusBleed: 0 };
+    default:
+      return { bleedLeft: 12, bleedTop: 12, bleedRight: 12, bleedBottom: 12, radiusBleed: 24 };
+  }
+}
+
+function buildPanoramicKoubouPreviewFrame(family: PreviewKoubouFamily): FrameDefinition {
+  const { bleedLeft, bleedTop, bleedRight, bleedBottom, radiusBleed } =
+    getPreviewKoubouAdjustment(family);
+  const left = Math.max(0, family.screenRect!.x - bleedLeft);
+  const top = Math.max(0, family.screenRect!.y - bleedTop);
+  const right = Math.min(
+    family.framePngSize!.width,
+    family.screenRect!.x + family.screenRect!.width + bleedRight,
+  );
+  const bottom = Math.min(
+    family.framePngSize!.height,
+    family.screenRect!.y + family.screenRect!.height + bleedBottom,
+  );
+
+  return {
+    id: family.id,
+    name: family.name,
+    manufacturer: 'Apple',
+    year: family.year,
+    platform: 'ios',
+    framePath: '',
+    screenArea: {
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+      borderRadius: Math.max(
+        0,
+        Math.min(
+          Math.floor(Math.min(right - left, bottom - top) / 2),
+          (family.screenBorderRadius ?? 0) + radiusBleed,
+        ),
+      ),
+    },
+    frameSize: {
+      width: family.framePngSize!.width,
+      height: family.framePngSize!.height,
+    },
+    screenResolution: family.screenResolution,
+    tags: [family.category],
+  };
+}
+
+function buildPanoramicBackgroundCss(background: PanoramicBackground): string {
+  if (background.type === 'gradient' && background.gradient) {
+    const colors = background.gradient.colors.join(', ');
+    return background.gradient.type === 'radial'
+      ? `radial-gradient(circle at ${background.gradient.radialPosition}, ${colors})`
+      : `linear-gradient(${background.gradient.direction}deg, ${colors})`;
+  }
+  if (background.type === 'image' && background.image) {
+    return `url('${background.image}') center/cover no-repeat`;
+  }
+  if (background.type === 'solid' && background.color) {
+    return background.color;
+  }
+  return '#000000';
+}
+
+async function buildPanoramicRenderedElement(args: {
+  element: PanoramicElement;
+  space: PanoramicRenderSpace;
+  config: AppframeConfig;
+  configDir: string;
+  frameStyle: FrameStyle;
+}): Promise<PanoramicRenderedElement> {
+  const { element, space, config, configDir, frameStyle } = args;
+  const xPx = space.originXPx + (element.x / 100) * space.widthPx;
+  const yPx = space.originYPx + (element.y / 100) * space.heightPx;
+
+  if (element.type === 'device') {
+    const widthPx = (element.width / 100) * space.widthPx;
+    const screenshotDataUrl = await resolveCanvasAssetDataUrl(
+      element.screenshot,
+      configDir,
+      'Screenshot',
+    );
+
+    const frameId = element.frame ?? config.frames.ios ?? undefined;
+    let frame: FrameDefinition | undefined;
+    let frameSvg: string | null = null;
+    let framePngUrl: string | undefined;
+
+    if (frameId) {
+      frame = await getFrame(frameId);
+
+      if (!frame) {
+        const koubouFamily = getDeviceFamily(frameId);
+        if (koubouFamily) {
+          if (koubouFamily.previewFrameId) {
+            frame = await getFrame(koubouFamily.previewFrameId);
+          }
+          if (koubouFamily.screenRect && koubouFamily.framePngSize) {
+            const deviceColor = element.deviceColor ?? config.frames.deviceColor;
+              const koubouId = getDeviceId(koubouFamily.id, deviceColor || undefined);
+              const pngPath = koubouId ? await getDeviceFramePath(koubouId) : null;
+              if (pngPath) {
+                const pngBuffer = await readFile(pngPath);
+                framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+                frame = buildPanoramicKoubouPreviewFrame(koubouFamily);
+              }
+            }
+          }
+      }
+    } else {
+      frame = await getDefaultFrame('ios');
+    }
+
+    let clipLeft = 0;
+    let clipTop = 0;
+    let clipWidth = widthPx;
+    let clipHeight = widthPx * 2;
+    let clipRadius = 0;
+
+    if (frame && frameStyle !== 'none') {
+      if (!framePngUrl && frame.framePath) {
+        frameSvg = await readFile(frame.framePath, 'utf-8');
+      }
+      const scale = widthPx / frame.frameSize.width;
+      clipLeft = frame.screenArea.x * scale;
+      clipTop = frame.screenArea.y * scale;
+      clipWidth = frame.screenArea.width * scale;
+      clipHeight = frame.screenArea.height * scale;
+      clipRadius = frame.screenArea.borderRadius * scale;
+    }
+
+    return {
+      type: 'device',
+      z: element.z,
+      xPx,
+      yPx,
+      widthPx,
+      rotation: element.rotation,
+      screenshotDataUrl,
+      frameSvg,
+      framePngUrl,
+      shadowCss: buildPanoramicShadowCss(element.shadow),
+      clipLeft,
+      clipTop,
+      clipWidth,
+      clipHeight,
+      clipRadius,
+      borderSimulation: element.borderSimulation
+        ? {
+            thickness: element.borderSimulation.thickness,
+            color: element.borderSimulation.color,
+            radius: element.borderSimulation.radius,
+          }
+        : undefined,
+    };
+  }
+
+  if (element.type === 'text') {
+    let gradientCss: string | undefined;
+    if (element.gradient) {
+      const colors = element.gradient.colors.join(', ');
+      gradientCss =
+        element.gradient.type === 'radial'
+          ? `radial-gradient(circle at ${element.gradient.radialPosition ?? 'center'}, ${colors})`
+          : `linear-gradient(${element.gradient.direction ?? 135}deg, ${colors})`;
+    }
+
+    return {
+      type: 'text',
+      z: element.z,
+      xPx,
+      yPx,
+      content: element.content,
+      fontSizePx: (element.fontSize / 100) * space.heightPx,
+      color: element.color,
+      font: element.font,
+      fontWeight: element.fontWeight,
+      fontStyle: element.fontStyle,
+      textAlign: element.textAlign,
+      lineHeight: element.lineHeight,
+      maxWidthPx: element.maxWidth ? (element.maxWidth / 100) * space.widthPx : undefined,
+      gradientCss,
+    };
+  }
+
+  if (element.type === 'label') {
+    return {
+      type: 'label',
+      z: element.z,
+      xPx,
+      yPx,
+      content: element.content,
+      fontSizePx: (element.fontSize / 100) * space.heightPx,
+      color: element.color,
+      backgroundColor: element.backgroundColor,
+      paddingPx: (element.padding / 100) * space.heightPx,
+      borderRadius: element.borderRadius,
+    };
+  }
+
+  if (element.type === 'decoration') {
+    return {
+      type: 'decoration',
+      z: element.z,
+      xPx,
+      yPx,
+      widthPx: (element.width / 100) * space.widthPx,
+      heightPx: element.height
+        ? (element.height / 100) * space.heightPx
+        : (element.width / 100) * space.widthPx,
+      shape: element.shape,
+      color: element.color,
+      opacity: element.opacity,
+      rotation: element.rotation,
+    };
+  }
+
+  if (element.type === 'image') {
+    return {
+      type: 'image',
+      z: element.z,
+      xPx,
+      yPx,
+      widthPx: (element.width / 100) * space.widthPx,
+      heightPx: (element.height / 100) * space.heightPx,
+      rotation: element.rotation,
+      opacity: element.opacity,
+      borderRadius: element.borderRadius,
+      srcDataUrl: await resolveCanvasAssetDataUrl(element.src, configDir, 'Image'),
+      fit: element.fit,
+      shadowCss: buildPanoramicShadowCss(element.shadow),
+    };
+  }
+
+  if (element.type === 'logo') {
+    return {
+      type: 'logo',
+      z: element.z,
+      xPx,
+      yPx,
+      widthPx: (element.width / 100) * space.widthPx,
+      heightPx: (element.height / 100) * space.heightPx,
+      rotation: element.rotation,
+      opacity: element.opacity,
+      borderRadius: element.borderRadius,
+      paddingPx: (element.padding / 100) * space.heightPx,
+      backgroundColor: element.backgroundColor,
+      srcDataUrl: await resolveCanvasAssetDataUrl(element.src, configDir, 'Logo'),
+      fit: element.fit,
+      shadowCss: buildPanoramicShadowCss(element.shadow),
+    };
+  }
+
+  if (element.type === 'crop') {
+    const widthPx = (element.width / 100) * space.widthPx;
+    const heightPx = (element.height / 100) * space.heightPx;
+    const { translateXPx, translateYPx } = computeCropTranslation(
+      widthPx,
+      heightPx,
+      element.focusX,
+      element.focusY,
+      element.zoom,
+    );
+
+    return {
+      type: 'crop',
+      z: element.z,
+      xPx,
+      yPx,
+      widthPx,
+      heightPx,
+      rotation: element.rotation,
+      borderRadius: element.borderRadius,
+      screenshotDataUrl: await resolveCanvasAssetDataUrl(element.screenshot, configDir, 'Crop'),
+      zoom: element.zoom,
+      translateXPx,
+      translateYPx,
+      shadowCss: buildPanoramicShadowCss(element.shadow),
+    };
+  }
+
+  if (element.type === 'card') {
+    return {
+      type: 'card',
+      z: element.z,
+      xPx,
+      yPx,
+      widthPx: (element.width / 100) * space.widthPx,
+      heightPx: (element.height / 100) * space.heightPx,
+      rotation: element.rotation,
+      borderRadius: element.borderRadius,
+      paddingPx: (element.padding / 100) * space.heightPx,
+      backgroundColor: element.backgroundColor,
+      opacity: element.opacity,
+      borderColor: element.borderColor,
+      borderWidthPx: element.borderWidth,
+      eyebrow: element.eyebrow,
+      title: element.title,
+      body: element.body,
+      align: element.align,
+      eyebrowColor: element.eyebrowColor,
+      titleColor: element.titleColor,
+      bodyColor: element.bodyColor,
+      eyebrowSizePx: (element.eyebrowSize / 100) * space.heightPx,
+      titleSizePx: (element.titleSize / 100) * space.heightPx,
+      bodySizePx: (element.bodySize / 100) * space.heightPx,
+      shadowCss: buildPanoramicShadowCss(element.shadow),
+    };
+  }
+
+  if (element.type === 'badge') {
+    return {
+      type: 'badge',
+      z: element.z,
+      xPx,
+      yPx,
+      widthPx: (element.width / 100) * space.widthPx,
+      heightPx: (element.height / 100) * space.heightPx,
+      rotation: element.rotation,
+      opacity: element.opacity,
+      borderRadius: element.borderRadius,
+      content: element.content,
+      color: element.color,
+      backgroundColor: element.backgroundColor,
+      borderColor: element.borderColor,
+      borderWidthPx: element.borderWidth,
+      fontSizePx: (element.fontSize / 100) * space.heightPx,
+      fontWeight: element.fontWeight,
+      letterSpacing: element.letterSpacing,
+      textTransform: element.textTransform,
+      shadowCss: buildPanoramicShadowCss(element.shadow),
+    };
+  }
+
+  const widthPx = (element.width / 100) * space.widthPx;
+  const heightPx = (element.height / 100) * space.heightPx;
+  const children = await Promise.all(
+    element.children.map((child) =>
+      buildPanoramicRenderedElement({
+        element: child,
+        space: {
+          originXPx: 0,
+          originYPx: 0,
+          widthPx,
+          heightPx,
+        },
+        config,
+        configDir,
+        frameStyle,
+      }),
+    ),
+  );
+
+  return {
+    type: 'group',
+    z: element.z,
+    xPx,
+    yPx,
+    widthPx,
+    heightPx,
+    rotation: element.rotation,
+    opacity: element.opacity,
+    children: children.sort((a, b) => a.z - b.z),
+  };
 }
 
 async function resolveCanvasAssetDataUrl(

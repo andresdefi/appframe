@@ -15,6 +15,7 @@ import {
   layoutVariantSchema,
   compositionPresetSchema,
   colorConfigSchema,
+  panoramicElementSchema,
 } from './schema.js';
 
 describe('hex color validation', () => {
@@ -218,6 +219,86 @@ describe('screenConfigSchema', () => {
   });
 });
 
+describe('panoramicElementSchema', () => {
+  it('accepts badge and logo panoramic elements', () => {
+    expect(
+      panoramicElementSchema.safeParse({
+        type: 'logo',
+        src: 'brand-logo.svg',
+        x: 78,
+        y: 6,
+        width: 12,
+        height: 10,
+      }).success,
+    ).toBe(true);
+
+    expect(
+      panoramicElementSchema.safeParse({
+        type: 'badge',
+        content: 'Featured',
+        x: 8,
+        y: 18,
+        width: 16,
+        height: 5,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('accepts grouped panoramic elements', () => {
+    const result = panoramicElementSchema.safeParse({
+      type: 'group',
+      x: 10,
+      y: 12,
+      width: 24,
+      height: 28,
+      rotation: -4,
+      opacity: 0.95,
+      z: 6,
+      children: [
+        {
+          type: 'crop',
+          screenshot: 'detail.png',
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 62,
+          focusX: 50,
+          focusY: 42,
+          zoom: 1.6,
+          rotation: -6,
+          borderRadius: 24,
+          z: 1,
+        },
+        {
+          type: 'card',
+          x: 12,
+          y: 58,
+          width: 76,
+          height: 34,
+          title: 'Proof point',
+          body: 'Support detail.',
+          z: 2,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty group children', () => {
+    const result = panoramicElementSchema.safeParse({
+      type: 'group',
+      x: 10,
+      y: 12,
+      width: 24,
+      height: 28,
+      children: [],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('spotlightConfigSchema', () => {
   it('fills defaults', () => {
     const result = spotlightConfigSchema.safeParse({});
@@ -397,6 +478,42 @@ describe('appframeConfigSchema refinements', () => {
             fit: 'contain',
           },
           { type: 'text', content: 'Hello', x: 20, y: 20, fontSize: 3 },
+        ],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts panoramic crop and card elements', () => {
+    const result = appframeConfigSchema.safeParse({
+      ...validBase,
+      mode: 'panoramic',
+      screens: [],
+      frameCount: 4,
+      panoramic: {
+        background: { type: 'solid', color: '#ffffff' },
+        elements: [
+          {
+            type: 'crop',
+            screenshot: 'screens/detail.png',
+            x: 10,
+            y: 20,
+            width: 12,
+            height: 18,
+            focusX: 55,
+            focusY: 40,
+            zoom: 1.8,
+          },
+          {
+            type: 'card',
+            x: 22,
+            y: 60,
+            width: 18,
+            height: 16,
+            title: 'Proof point',
+            body: 'Short supporting context',
+            backgroundColor: '#FFFFFF',
+          },
         ],
       },
     });

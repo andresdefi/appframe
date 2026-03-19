@@ -2,6 +2,13 @@ import type { AppframeConfig } from '../types';
 
 const API = '';
 
+export interface PersistedSessionVariant {
+  id: string;
+  name: string;
+  status: 'draft' | 'approved';
+  snapshot: unknown;
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
   if (!res.ok) throw new Error(`Request failed: ${res.statusText}`);
@@ -27,6 +34,29 @@ export async function reloadProject(): Promise<AppframeConfig> {
 
 export async function reloadConfig(): Promise<AppframeConfig> {
   return reloadProject();
+}
+
+export async function saveSession(body: {
+  activeVariantId: string;
+  recommendedVariantId?: string | null;
+  recommendationReason?: string | null;
+  variants: PersistedSessionVariant[];
+}): Promise<void> {
+  const res = await fetch(`${API}/api/session/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `Failed to save session: ${res.statusText}`;
+    try {
+      const data = await res.json() as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // Keep the default status text.
+    }
+    throw new Error(message);
+  }
 }
 
 export async function fetchPreviewHtml(body: Record<string, unknown>, signal?: AbortSignal): Promise<string> {

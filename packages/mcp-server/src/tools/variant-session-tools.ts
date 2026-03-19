@@ -7,70 +7,30 @@ import {
   validateConfig,
 } from '@appframe/core';
 import type { AppframeConfig, PanoramicElement, TemplateStyle } from '@appframe/core';
-import { dirname, join, parse as parsePath } from 'node:path';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { rm, writeFile } from 'node:fs/promises';
 import { stringify } from 'yaml';
-
-type VariantStatus = 'draft' | 'approved';
-
-interface VariantArtifact {
-  id: string;
-  exportedAt: string;
-  outputDir: string;
-  mode: 'individual' | 'panoramic';
-  platform: string;
-  locale?: string;
-  filePaths: string[];
-}
-
-interface VariantSessionVariant {
-  id: string;
-  name: string;
-  description: string;
-  status: VariantStatus;
-  config: AppframeConfig;
-  artifacts: VariantArtifact[];
-}
-
-interface VariantSessionFile {
-  version: 1;
-  sourceConfigPath: string;
-  createdAt: string;
-  updatedAt: string;
-  activeVariantId: string;
-  variants: VariantSessionVariant[];
-}
+import {
+  createSessionFromManifest,
+  defaultSessionPath,
+  makeId,
+  readSession,
+  recordPreviewArtifacts,
+  recordVariantScores,
+  slugify,
+  writeSession,
+  type VariantExportArtifact,
+  type VariantPreviewArtifact,
+  type VariantSessionFile,
+  type VariantSessionVariant,
+} from './variant-session-lib.js';
+import { scoreVariantSet } from './preview-scoring.js';
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
 }
 
-function makeId(prefix: string): string {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function slugify(value: string): string {
-  const slug = value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return slug || 'variant';
-}
-
-function defaultSessionPath(configPath: string): string {
-  const parsed = parsePath(configPath);
-  return join(parsed.dir, `${parsed.name}.variants.session.json`);
-}
-
-async function readSession(sessionPath: string): Promise<VariantSessionFile> {
-  const raw = JSON.parse(await readFile(sessionPath, 'utf-8')) as VariantSessionFile;
-  return raw;
-}
-
-async function writeSession(sessionPath: string, session: VariantSessionFile): Promise<void> {
-  await mkdir(dirname(sessionPath), { recursive: true });
-  await writeFile(sessionPath, JSON.stringify(session, null, 2), 'utf-8');
-}
+type VariantArtifact = VariantExportArtifact;
 
 function ensureValidConfig(config: AppframeConfig, label: string): AppframeConfig {
   const result = validateConfig(config);
@@ -280,6 +240,105 @@ async function writeTemporaryConfig(sourceConfigPath: string, variantId: string,
   return tempPath;
 }
 
+export async function renderVariantPreviews(args: {
+  sessionPath: string;
+  outputDir?: string;
+  platform?: string;
+}): Promise<{
+  sessionPath: string;
+  previewArtifacts: Array<{ variantId: string; filePaths: string[]; thumbnailPath: string | null }>;
+}> {
+  const session = await readSession(args.sessionPath);
+  const previewArtifacts: Array<{ variantId: string; artifact: VariantPreviewArtifact }> = [];
+
+  for (const variant of session.variants) {
+    const variantOutputDir = join(
+      args.outputDir ?? join(dirname(args.sessionPath), 'preview-artifacts'),
+      slugify(variant.name),
+    );
+    const tempConfigPath = await writeTemporaryConfig(session.sourceConfigPath, `${variant.id}-preview`, variant.config);
+
+    try {
+      const result = variant.config.mode === 'panoramic'
+        ? await generatePanoramicScreenshots({
+            configPath: tempConfigPath,
+            outputDir: variantOutputDir,
+            platform: args.platform,
+          })
+        : await generateScreenshots({
+            configPath: tempConfigPath,
+            outputDir: variantOutputDir,
+            platform: args.platform,
+            screenIndex: 0,
+          });
+
+      previewArtifacts.push({
+        variantId: variant.id,
+        artifact: {
+          id: makeId('preview'),
+          createdAt: new Date().toISOString(),
+          outputDir: variantOutputDir,
+          mode: variant.config.mode === 'panoramic' ? 'panoramic' : 'individual',
+          platform: args.platform ?? 'ios',
+          filePaths: result.screenshots.map((shot) => shot.outputPath),
+          thumbnailPath: result.screenshots[0]?.outputPath ?? null,
+        },
+      });
+    } finally {
+      await rm(tempConfigPath, { force: true });
+    }
+  }
+
+  await recordPreviewArtifacts(args.sessionPath, previewArtifacts);
+
+  return {
+    sessionPath: args.sessionPath,
+    previewArtifacts: previewArtifacts.map((entry) => ({
+      variantId: entry.variantId,
+      filePaths: entry.artifact.filePaths,
+      thumbnailPath: entry.artifact.thumbnailPath,
+    })),
+  };
+}
+
+export async function scoreVariantPreviews(args: {
+  sessionPath: string;
+}): Promise<{
+  sessionPath: string;
+  recommendedVariantId: string | null;
+  recommendationReason: string | null;
+  scores: Array<{ variantId: string; total: number }>;
+}> {
+  const session = await readSession(args.sessionPath);
+  const scoring = scoreVariantSet(
+    session.variants.map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      config: variant.config,
+      previewCount: variant.previewArtifacts?.length ?? 0,
+    })),
+  );
+
+  await recordVariantScores(args.sessionPath, {
+    scores: scoring.scored.map((variant) => ({
+      variantId: variant.id,
+      score: variant.score,
+    })),
+    recommendedVariantId: scoring.recommendedVariantId,
+    recommendationReason: scoring.recommendationReason,
+  });
+
+  return {
+    sessionPath: args.sessionPath,
+    recommendedVariantId: scoring.recommendedVariantId,
+    recommendationReason: scoring.recommendationReason,
+    scores: scoring.scored.map((variant) => ({
+      variantId: variant.id,
+      total: variant.score.total,
+    })),
+  };
+}
+
 export function registerVariantSessionTools(server: McpServer): void {
   server.tool(
     'appframe_create_variant_session',
@@ -296,7 +355,7 @@ export function registerVariantSessionTools(server: McpServer): void {
         const timestamp = new Date().toISOString();
         const variants = createSessionVariants(config, variantCount);
         const session: VariantSessionFile = {
-          version: 1,
+          version: 2,
           sourceConfigPath: configPath,
           createdAt: timestamp,
           updatedAt: timestamp,
@@ -315,6 +374,145 @@ export function registerVariantSessionTools(server: McpServer): void {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         return { content: [{ type: 'text' as const, text: `Failed to create variant session: ${message}` }] };
+      }
+    },
+  );
+
+  server.tool(
+    'appframe_create_variant_session_from_manifest',
+    'Create a file-backed variant session from a materialized variant manifest and optional autopilot metadata. Use this for AI-generated concept sets so the preview UI can load all concepts directly.',
+    {
+      manifestPath: z.string().describe('Absolute path to the materialized variant manifest JSON file'),
+      sessionPath: z.string().optional().describe('Optional absolute session file output path'),
+      screenshotAnalysisJson: z.string().optional().describe('Optional ScreenshotAnalysis[] JSON'),
+      copyCandidatesJson: z.string().optional().describe('Optional CopyCandidateSet JSON'),
+      selectedCopySetJson: z.string().optional().describe('Optional SelectedCopySet JSON'),
+      conceptPlanJson: z.string().optional().describe('Optional VariantSetPlan JSON'),
+      runManifestPath: z.string().optional().describe('Optional autopilot run manifest path'),
+      previewCommand: z.string().optional().describe('Optional preview command for the agent to run'),
+    },
+    async ({
+      manifestPath,
+      sessionPath,
+      screenshotAnalysisJson,
+      copyCandidatesJson,
+      selectedCopySetJson,
+      conceptPlanJson,
+      runManifestPath,
+      previewCommand,
+    }) => {
+      try {
+        const result = await createSessionFromManifest({
+          manifestPath,
+          sessionPath,
+          screenshotAnalysis: screenshotAnalysisJson ? JSON.parse(screenshotAnalysisJson) : undefined,
+          copyCandidates: copyCandidatesJson ? JSON.parse(copyCandidatesJson) : undefined,
+          selectedCopySet: selectedCopySetJson ? JSON.parse(selectedCopySetJson) : undefined,
+          conceptPlan: conceptPlanJson ? JSON.parse(conceptPlanJson) : undefined,
+          runManifestPath,
+          previewCommand,
+        });
+
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `Variant session created at ${result.sessionPath}\n\nActive variant: ${result.session.activeVariantId}\n\n${result.session.variants.map(summarizeVariant).join('\n')}`,
+          }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return { content: [{ type: 'text' as const, text: `Failed to create session from manifest: ${message}` }] };
+      }
+    },
+  );
+
+  server.tool(
+    'appframe_render_variant_previews',
+    'Render preview artifacts for every concept in a file-backed variant session and attach the preview images to the session metadata.',
+    {
+      sessionPath: z.string().describe('Absolute path to the variant session JSON file'),
+      outputDir: z.string().optional().describe('Optional output directory for preview artifacts'),
+      platform: z.enum(['ios', 'android', 'mac', 'watch']).optional().describe('Optional platform override'),
+    },
+    async ({ sessionPath, outputDir, platform }) => {
+      try {
+        const result = await renderVariantPreviews({ sessionPath, outputDir, platform });
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return { content: [{ type: 'text' as const, text: `Failed to render variant previews: ${message}` }] };
+      }
+    },
+  );
+
+  server.tool(
+    'appframe_score_variant_previews',
+    'Score the variants in a file-backed variant session using deterministic preview heuristics. Updates the session with per-concept scores and the recommended concept.',
+    {
+      sessionPath: z.string().describe('Absolute path to the variant session JSON file'),
+    },
+    async ({ sessionPath }) => {
+      try {
+        const result = await scoreVariantPreviews({ sessionPath });
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return { content: [{ type: 'text' as const, text: `Failed to score variant previews: ${message}` }] };
+      }
+    },
+  );
+
+  server.tool(
+    'appframe_recommend_variant',
+    'Return the currently recommended variant from a file-backed session. If no recommendation exists yet, score the session first.',
+    {
+      sessionPath: z.string().describe('Absolute path to the variant session JSON file'),
+    },
+    async ({ sessionPath }) => {
+      try {
+        const session = await readSession(sessionPath);
+        const recommended = session.autopilot?.recommendedVariantId
+          ? session.variants.find((variant) => variant.id === session.autopilot?.recommendedVariantId)
+          : null;
+
+        if (!recommended || !session.autopilot?.recommendationReason) {
+          const rescored = await scoreVariantPreviews({ sessionPath });
+          return {
+            content: [{
+              type: 'text' as const,
+              text: JSON.stringify(rescored, null, 2),
+            }],
+          };
+        }
+
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify(
+              {
+                recommendedVariantId: recommended.id,
+                name: recommended.name,
+                totalScore: recommended.score?.total ?? null,
+                recommendationReason: session.autopilot.recommendationReason,
+              },
+              null,
+              2,
+            ),
+          }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return { content: [{ type: 'text' as const, text: `Failed to recommend variant: ${message}` }] };
       }
     },
   );

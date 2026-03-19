@@ -166,7 +166,14 @@ export function PanoramicPreview() {
           hitW = el.width;
           // Estimate device height: typical phone frame ~2.1:1 aspect ratio
           hitH = (((el.width / 100) * totalCanvasWidth * 2.1) / previewH) * 100;
-        } else if (el.type === 'image') {
+        } else if (
+          el.type === 'image' ||
+          el.type === 'logo' ||
+          el.type === 'crop' ||
+          el.type === 'card' ||
+          el.type === 'badge' ||
+          el.type === 'group'
+        ) {
           hitW = el.width;
           hitH = el.height;
         } else if (el.type === 'text') {

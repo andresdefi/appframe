@@ -20,6 +20,11 @@ const ELEMENT_TYPE_LABELS: Record<string, string> = {
   label: 'Label',
   decoration: 'Decoration',
   image: 'Image',
+  logo: 'Logo',
+  crop: 'Crop',
+  card: 'Card',
+  badge: 'Badge',
+  group: 'Group',
 };
 
 const PLATFORM_CATEGORIES: Record<string, string[]> = {
@@ -78,6 +83,84 @@ function buildFrameGroups(deviceFamilies: DeviceFamily[], frames: FrameData[], p
 function getSortedIndex(elements: PanoramicElement[], storeIndex: number): number {
   const sorted = elements.map((el, i) => ({ z: el.z, i })).sort((a, b) => a.z - b.z);
   return sorted.findIndex((s) => s.i === storeIndex);
+}
+
+function getElementSummary(element: PanoramicElement): string | null {
+  if (element.type === 'text' || element.type === 'label') {
+    return element.content.slice(0, 20);
+  }
+  if (element.type === 'badge') {
+    return element.content.slice(0, 20);
+  }
+  if (element.type === 'card') {
+    return (element.title ?? element.body ?? 'Card').slice(0, 20);
+  }
+  if (element.type === 'logo') {
+    return 'Brand mark';
+  }
+  if (element.type === 'group') {
+    return `${element.children.length} items`;
+  }
+  return null;
+}
+
+function buildDefaultGroupElement(
+  screenshot: string,
+  x: number,
+  y: number,
+  rotation: number,
+): PanoramicElement {
+  return {
+    type: 'group',
+    x,
+    y,
+    width: 18,
+    height: 28,
+    rotation,
+    opacity: 1,
+    z: 8,
+    children: [
+      {
+        type: 'crop',
+        screenshot,
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 62,
+        focusX: 50,
+        focusY: 40,
+        zoom: 1.6,
+        rotation: rotation > 0 ? -6 : 6,
+        borderRadius: 24,
+        z: 1,
+      },
+      {
+        type: 'card',
+        x: 10,
+        y: 54,
+        width: 82,
+        height: 36,
+        eyebrow: 'Highlight',
+        title: 'Support detail',
+        body: 'Grouped proof card.',
+        align: 'left',
+        backgroundColor: '#FFFFFF',
+        opacity: 0.96,
+        borderColor: '#E2E8F0',
+        borderWidth: 1,
+        borderRadius: 24,
+        padding: 2,
+        rotation: 0,
+        eyebrowColor: '#64748B',
+        titleColor: '#0F172A',
+        bodyColor: '#475569',
+        eyebrowSize: 3.5,
+        titleSize: 7.5,
+        bodySize: 4.2,
+        z: 2,
+      },
+    ],
+  };
 }
 
 function ElementInspector({ index }: { index: number }) {
@@ -197,6 +280,80 @@ function ElementInspector({ index }: { index: number }) {
           onChange={(v) => update({ z: v })}
         />
       </Section>
+
+      {element.type === 'group' && (
+        <>
+          <Section
+            title="Group Layout"
+            tooltip="Move and scale the full grouped composition as one unit."
+          >
+            <RangeSlider
+              label="Width"
+              value={element.width}
+              min={4}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ width: v })}
+              onInstant={(v) => instant({ width: v })}
+            />
+            <RangeSlider
+              label="Height"
+              value={element.height}
+              min={4}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ height: v })}
+              onInstant={(v) => instant({ height: v })}
+            />
+            <RangeSlider
+              label="Rotation"
+              value={element.rotation}
+              min={-180}
+              max={180}
+              formatValue={(v) => `${v}\u00B0`}
+              onChange={(v) => update({ rotation: v })}
+              onInstant={(v) => instant({ rotation: v })}
+            />
+            <RangeSlider
+              label="Opacity"
+              value={element.opacity}
+              min={0}
+              max={1}
+              step={0.05}
+              formatValue={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => update({ opacity: v })}
+              onInstant={(v) => instant({ opacity: v })}
+            />
+          </Section>
+
+          <Section
+            title="Children"
+            tooltip="Child elements are positioned relative to this group box."
+            defaultCollapsed
+          >
+            <div className="space-y-1">
+              {element.children.map((child, childIndex) => (
+                <div
+                  key={childIndex}
+                  className="rounded-md border border-border bg-surface-2 px-2.5 py-2 text-[11px] text-text-dim"
+                >
+                  <span className="font-medium text-text">
+                    {ELEMENT_TYPE_LABELS[child.type]} #{childIndex + 1}
+                  </span>
+                  <span className="ml-1">
+                    ({Math.round(child.x)}%, {Math.round(child.y)}%)
+                  </span>
+                  {getElementSummary(child) && (
+                    <span className="ml-1 truncate">&mdash; {getElementSummary(child)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Section>
+        </>
+      )}
 
       {/* ========== DEVICE ========== */}
       {element.type === 'device' &&
@@ -700,10 +857,10 @@ function ElementInspector({ index }: { index: number }) {
         </>
       )}
 
-      {/* ========== IMAGE ========== */}
-      {element.type === 'image' && (
+      {/* ========== IMAGE / LOGO ========== */}
+      {(element.type === 'image' || element.type === 'logo') && (
         <>
-          <Section title="Image Asset">
+          <Section title={element.type === 'logo' ? 'Logo Asset' : 'Image Asset'}>
             {element.src.startsWith('data:') ? (
               <div className="flex items-center gap-2 mb-2">
                 <img
@@ -720,7 +877,7 @@ function ElementInspector({ index }: { index: number }) {
               className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
               onClick={() => imageInputRef.current?.click()}
             >
-              Upload Image
+              {element.type === 'logo' ? 'Upload Logo' : 'Upload Image'}
             </button>
             <input
               ref={imageInputRef}
@@ -789,6 +946,24 @@ function ElementInspector({ index }: { index: number }) {
               formatValue={(v) => `${v}px`}
               onChange={(v) => update({ borderRadius: v })}
             />
+            {element.type === 'logo' && (
+              <>
+                <RangeSlider
+                  label="Padding"
+                  value={element.padding}
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  formatValue={(v) => `${v}%`}
+                  onChange={(v) => update({ padding: v })}
+                />
+                <ColorPicker
+                  label="Background"
+                  value={element.backgroundColor ?? '#FFFFFF'}
+                  onChange={(v) => update({ backgroundColor: v })}
+                />
+              </>
+            )}
           </Section>
 
           <Section title="Shadow" defaultCollapsed>
@@ -850,6 +1025,489 @@ function ElementInspector({ index }: { index: number }) {
                 />
               </>
             )}
+          </Section>
+        </>
+      )}
+
+      {/* ========== CROP ========== */}
+      {element.type === 'crop' && (
+        <>
+          <Section title="Source Screenshot">
+            {element.screenshot.startsWith('data:') ? (
+              <div className="flex items-center gap-2 mb-2">
+                <img
+                  src={element.screenshot}
+                  alt=""
+                  className="w-10 h-10 rounded object-cover border border-border"
+                />
+                <span className="text-xs text-text-dim truncate flex-1">Custom upload</span>
+              </div>
+            ) : (
+              <div className="text-xs text-text-dim mb-2 truncate">{element.screenshot}</div>
+            )}
+            <button
+              className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Upload Screenshot
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              aria-label="Upload crop screenshot"
+              onChange={handleScreenshotUpload}
+            />
+          </Section>
+
+          <Section title="Crop Frame">
+            <RangeSlider
+              label="Width"
+              value={element.width}
+              min={1}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ width: v })}
+              onInstant={(v) => instant({ width: v })}
+            />
+            <RangeSlider
+              label="Height"
+              value={element.height}
+              min={1}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ height: v })}
+              onInstant={(v) => instant({ height: v })}
+            />
+            <RangeSlider
+              label="Zoom"
+              value={element.zoom}
+              min={1}
+              max={4}
+              step={0.05}
+              formatValue={(v) => `${v.toFixed(2)}x`}
+              onChange={(v) => update({ zoom: v })}
+            />
+            <RangeSlider
+              label="Focus X"
+              value={element.focusX}
+              min={0}
+              max={100}
+              step={1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ focusX: v })}
+            />
+            <RangeSlider
+              label="Focus Y"
+              value={element.focusY}
+              min={0}
+              max={100}
+              step={1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ focusY: v })}
+            />
+            <RangeSlider
+              label="Rotation"
+              value={element.rotation}
+              min={-180}
+              max={180}
+              formatValue={(v) => `${v}\u00B0`}
+              onChange={(v) => update({ rotation: v })}
+              onInstant={(v) => instant({ rotation: v })}
+            />
+            <RangeSlider
+              label="Border Radius"
+              value={element.borderRadius}
+              min={0}
+              max={100}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => update({ borderRadius: v })}
+            />
+          </Section>
+
+          <Section title="Shadow" defaultCollapsed>
+            <Checkbox
+              label="Custom Shadow"
+              checked={!!element.shadow}
+              onChange={(checked) =>
+                update({
+                  shadow: checked
+                    ? { opacity: 0.22, blur: 28, color: '#000000', offsetY: 10 }
+                    : undefined,
+                } as Partial<PanoramicElement>)
+              }
+            />
+            {element.shadow && (
+              <>
+                <RangeSlider
+                  label="Opacity"
+                  value={Math.round(element.shadow.opacity * 100)}
+                  min={0}
+                  max={100}
+                  formatValue={(v) => `${v}%`}
+                  onChange={(v) =>
+                    update({ shadow: { ...element.shadow!, opacity: v / 100 } } as Partial<PanoramicElement>)
+                  }
+                />
+                <RangeSlider
+                  label="Blur"
+                  value={element.shadow.blur}
+                  min={0}
+                  max={60}
+                  formatValue={(v) => `${v}px`}
+                  onChange={(v) =>
+                    update({ shadow: { ...element.shadow!, blur: v } } as Partial<PanoramicElement>)
+                  }
+                />
+                <ColorPicker
+                  label="Color"
+                  value={element.shadow.color}
+                  onChange={(v) =>
+                    update({ shadow: { ...element.shadow!, color: v } } as Partial<PanoramicElement>)
+                  }
+                />
+                <RangeSlider
+                  label="Y Offset"
+                  value={element.shadow.offsetY}
+                  min={0}
+                  max={40}
+                  formatValue={(v) => `${v}px`}
+                  onChange={(v) =>
+                    update({ shadow: { ...element.shadow!, offsetY: v } } as Partial<PanoramicElement>)
+                  }
+                />
+              </>
+            )}
+          </Section>
+        </>
+      )}
+
+      {/* ========== CARD ========== */}
+      {element.type === 'card' && (
+        <>
+          <Section title="Card Content">
+            <div className="mb-2.5">
+              <label className="block text-xs text-text-dim mb-1">Eyebrow</label>
+              <input
+                type="text"
+                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] outline-none focus:border-accent"
+                value={element.eyebrow ?? ''}
+                onChange={(e) => update({ eyebrow: e.target.value || undefined })}
+              />
+            </div>
+            <div className="mb-2.5">
+              <label className="block text-xs text-text-dim mb-1">Title</label>
+              <textarea
+                rows={2}
+                value={element.title ?? ''}
+                onChange={(e) => update({ title: e.target.value || undefined })}
+                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent resize-y min-h-[48px]"
+              />
+            </div>
+            <div className="mb-2.5">
+              <label className="block text-xs text-text-dim mb-1">Body</label>
+              <textarea
+                rows={3}
+                value={element.body ?? ''}
+                onChange={(e) => update({ body: e.target.value || undefined })}
+                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent resize-y min-h-[64px]"
+              />
+            </div>
+          </Section>
+
+          <Section title="Card Layout">
+            <RangeSlider
+              label="Width"
+              value={element.width}
+              min={1}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ width: v })}
+              onInstant={(v) => instant({ width: v })}
+            />
+            <RangeSlider
+              label="Height"
+              value={element.height}
+              min={1}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ height: v })}
+              onInstant={(v) => instant({ height: v })}
+            />
+            <Select
+              label="Alignment"
+              value={element.align}
+              onChange={(v) => update({ align: v as 'left' | 'center' })}
+              options={[
+                { value: 'left', label: 'Left' },
+                { value: 'center', label: 'Center' },
+              ]}
+            />
+            <RangeSlider
+              label="Padding"
+              value={element.padding}
+              min={0}
+              max={10}
+              step={0.1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ padding: v })}
+            />
+            <RangeSlider
+              label="Opacity"
+              value={element.opacity}
+              min={0}
+              max={1}
+              step={0.05}
+              formatValue={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => update({ opacity: v })}
+              onInstant={(v) => instant({ opacity: v })}
+            />
+            <RangeSlider
+              label="Rotation"
+              value={element.rotation}
+              min={-180}
+              max={180}
+              formatValue={(v) => `${v}\u00B0`}
+              onChange={(v) => update({ rotation: v })}
+              onInstant={(v) => instant({ rotation: v })}
+            />
+            <RangeSlider
+              label="Border Radius"
+              value={element.borderRadius}
+              min={0}
+              max={100}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => update({ borderRadius: v })}
+            />
+            <RangeSlider
+              label="Border Width"
+              value={element.borderWidth}
+              min={0}
+              max={20}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => update({ borderWidth: v })}
+            />
+          </Section>
+
+          <Section title="Card Colors" defaultCollapsed>
+            <ColorPicker
+              label="Background"
+              value={element.backgroundColor}
+              onChange={(v) => update({ backgroundColor: v })}
+            />
+            <ColorPicker
+              label="Border"
+              value={element.borderColor ?? '#E2E8F0'}
+              onChange={(v) => update({ borderColor: v })}
+            />
+            <ColorPicker
+              label="Eyebrow"
+              value={element.eyebrowColor}
+              onChange={(v) => update({ eyebrowColor: v })}
+            />
+            <ColorPicker
+              label="Title"
+              value={element.titleColor}
+              onChange={(v) => update({ titleColor: v })}
+            />
+            <ColorPicker
+              label="Body"
+              value={element.bodyColor}
+              onChange={(v) => update({ bodyColor: v })}
+            />
+          </Section>
+
+          <Section title="Typography" defaultCollapsed>
+            <RangeSlider
+              label="Eyebrow Size"
+              value={element.eyebrowSize}
+              min={0.5}
+              max={6}
+              step={0.1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ eyebrowSize: v })}
+            />
+            <RangeSlider
+              label="Title Size"
+              value={element.titleSize}
+              min={0.5}
+              max={10}
+              step={0.1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ titleSize: v })}
+            />
+            <RangeSlider
+              label="Body Size"
+              value={element.bodySize}
+              min={0.5}
+              max={6}
+              step={0.1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ bodySize: v })}
+            />
+          </Section>
+
+          <Section title="Shadow" defaultCollapsed>
+            <Checkbox
+              label="Custom Shadow"
+              checked={!!element.shadow}
+              onChange={(checked) =>
+                update({
+                  shadow: checked
+                    ? { opacity: 0.18, blur: 24, color: '#000000', offsetY: 8 }
+                    : undefined,
+                } as Partial<PanoramicElement>)
+              }
+            />
+            {element.shadow && (
+              <>
+                <RangeSlider
+                  label="Opacity"
+                  value={Math.round(element.shadow.opacity * 100)}
+                  min={0}
+                  max={100}
+                  formatValue={(v) => `${v}%`}
+                  onChange={(v) =>
+                    update({ shadow: { ...element.shadow!, opacity: v / 100 } } as Partial<PanoramicElement>)
+                  }
+                />
+                <RangeSlider
+                  label="Blur"
+                  value={element.shadow.blur}
+                  min={0}
+                  max={60}
+                  formatValue={(v) => `${v}px`}
+                  onChange={(v) =>
+                    update({ shadow: { ...element.shadow!, blur: v } } as Partial<PanoramicElement>)
+                  }
+                />
+                <ColorPicker
+                  label="Color"
+                  value={element.shadow.color}
+                  onChange={(v) =>
+                    update({ shadow: { ...element.shadow!, color: v } } as Partial<PanoramicElement>)
+                  }
+                />
+                <RangeSlider
+                  label="Y Offset"
+                  value={element.shadow.offsetY}
+                  min={0}
+                  max={40}
+                  formatValue={(v) => `${v}px`}
+                  onChange={(v) =>
+                    update({ shadow: { ...element.shadow!, offsetY: v } } as Partial<PanoramicElement>)
+                  }
+                />
+              </>
+            )}
+          </Section>
+        </>
+      )}
+
+      {/* ========== BADGE ========== */}
+      {element.type === 'badge' && (
+        <>
+          <Section title="Badge Content">
+            <div className="mb-2.5">
+              <label className="block text-xs text-text-dim mb-1">Text</label>
+              <input
+                type="text"
+                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] outline-none focus:border-accent"
+                value={element.content}
+                onChange={(e) => update({ content: e.target.value })}
+              />
+            </div>
+          </Section>
+
+          <Section title="Badge Layout">
+            <RangeSlider
+              label="Width"
+              value={element.width}
+              min={1}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ width: v })}
+              onInstant={(v) => instant({ width: v })}
+            />
+            <RangeSlider
+              label="Height"
+              value={element.height}
+              min={0.5}
+              max={40}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ height: v })}
+              onInstant={(v) => instant({ height: v })}
+            />
+            <RangeSlider
+              label="Font Size"
+              value={element.fontSize}
+              min={0.5}
+              max={6}
+              step={0.1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ fontSize: v })}
+            />
+            <RangeSlider
+              label="Rotation"
+              value={element.rotation}
+              min={-180}
+              max={180}
+              formatValue={(v) => `${v}\u00B0`}
+              onChange={(v) => update({ rotation: v })}
+              onInstant={(v) => instant({ rotation: v })}
+            />
+            <RangeSlider
+              label="Border Radius"
+              value={element.borderRadius}
+              min={0}
+              max={100}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => update({ borderRadius: v })}
+            />
+            <RangeSlider
+              label="Opacity"
+              value={element.opacity}
+              min={0}
+              max={1}
+              step={0.05}
+              formatValue={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => update({ opacity: v })}
+              onInstant={(v) => instant({ opacity: v })}
+            />
+          </Section>
+
+          <Section title="Badge Style" defaultCollapsed>
+            <ColorPicker
+              label="Text"
+              value={element.color}
+              onChange={(v) => update({ color: v })}
+            />
+            <ColorPicker
+              label="Background"
+              value={element.backgroundColor}
+              onChange={(v) => update({ backgroundColor: v })}
+            />
+            <ColorPicker
+              label="Border"
+              value={element.borderColor ?? '#FFFFFF'}
+              onChange={(v) => update({ borderColor: v })}
+            />
+            <RangeSlider
+              label="Border Width"
+              value={element.borderWidth}
+              min={0}
+              max={8}
+              step={0.5}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => update({ borderWidth: v })}
+            />
           </Section>
         </>
       )}
@@ -1273,6 +1931,62 @@ export function PanoramicTab() {
     });
   };
 
+  const addCrop = () => {
+    const cropCount = elements.filter((e) => e.type === 'crop').length;
+    addElement({
+      type: 'crop',
+      screenshot: config?.screens[cropCount]?.screenshot ?? config?.screens[0]?.screenshot ?? 'screenshots/screen-1.png',
+      x: 14 + cropCount * 14,
+      y: 56,
+      width: 12,
+      height: 18,
+      focusX: 50,
+      focusY: 40,
+      zoom: 1.5,
+      rotation: cropCount % 2 === 0 ? -4 : 4,
+      borderRadius: 24,
+      z: 7,
+    });
+  };
+
+  const addGroup = () => {
+    const groupCount = elements.filter((e) => e.type === 'group').length;
+    const screenshot =
+      config?.screens[groupCount]?.screenshot ??
+      config?.screens[0]?.screenshot ??
+      'screenshots/screen-1.png';
+    addElement(buildDefaultGroupElement(screenshot, 12 + groupCount * 14, 52, groupCount % 2 === 0 ? -4 : 4));
+  };
+
+  const addCard = () => {
+    const cardCount = elements.filter((e) => e.type === 'card').length;
+    addElement({
+      type: 'card',
+      x: 8 + cardCount * 12,
+      y: 62,
+      width: 18,
+      height: 18,
+      eyebrow: 'Highlight',
+      title: 'Support detail',
+      body: 'Use short proof or context here.',
+      align: 'left',
+      backgroundColor: '#FFFFFF',
+      opacity: 0.96,
+      borderColor: '#E2E8F0',
+      borderWidth: 1,
+      borderRadius: 28,
+      padding: 2.2,
+      rotation: 0,
+      eyebrowColor: '#64748B',
+      titleColor: '#0F172A',
+      bodyColor: '#475569',
+      eyebrowSize: 1.1,
+      titleSize: 2.2,
+      bodySize: 1.3,
+      z: 9,
+    });
+  };
+
   // Background state
   const bgType = background.type;
   const bgColor = background.color ?? '#000000';
@@ -1546,12 +2260,30 @@ export function PanoramicTab() {
           >
             + Image
           </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addCrop}
+          >
+            + Crop
+          </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addCard}
+          >
+            + Card
+          </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addGroup}
+          >
+            + Group
+          </button>
         </div>
 
         {/* Element list */}
         {elements.length === 0 && (
           <p className="text-xs text-text-dim text-center py-4">
-            Add devices, text, images, or decorations to build your panoramic layout.
+            Add devices, text, cards, crops, groups, images, or decorations to build your panoramic layout.
           </p>
         )}
         <div className="space-y-1">
@@ -1573,20 +2305,9 @@ export function PanoramicTab() {
                 <span className="text-text-dim ml-1">
                   ({Math.round(el.x)}%, {Math.round(el.y)}%)
                 </span>
-                {el.type === 'text' && (
-                  <span
-                    className="text-text-dim ml-1 truncate"
-                    title={(el as { content: string }).content}
-                  >
-                    &mdash; {(el as { content: string }).content.slice(0, 20)}
-                  </span>
-                )}
-                {el.type === 'label' && (
-                  <span
-                    className="text-text-dim ml-1 truncate"
-                    title={(el as { content: string }).content}
-                  >
-                    &mdash; {(el as { content: string }).content.slice(0, 20)}
+                {getElementSummary(el) && (
+                  <span className="text-text-dim ml-1 truncate" title={getElementSummary(el) ?? ''}>
+                    &mdash; {getElementSummary(el)}
                   </span>
                 )}
               </button>
@@ -1892,7 +2613,15 @@ export function PanoramicDeviceContent() {
 
   const filtered = elements
     .map((el, i) => ({ el, i }))
-    .filter(({ el }) => el.type === 'device' || el.type === 'decoration' || el.type === 'image');
+    .filter(
+      ({ el }) =>
+        el.type === 'device' ||
+        el.type === 'decoration' ||
+        el.type === 'image' ||
+        el.type === 'logo' ||
+        el.type === 'crop' ||
+        el.type === 'group',
+    );
 
   const addDevice = () => {
     const deviceCount = elements.filter((e) => e.type === 'device').length;
@@ -1951,12 +2680,61 @@ export function PanoramicDeviceContent() {
     });
   };
 
+  const addCrop = () => {
+    const cropCount = elements.filter((e) => e.type === 'crop').length;
+    addElement({
+      type: 'crop',
+      screenshot: config?.screens[cropCount]?.screenshot ?? config?.screens[0]?.screenshot ?? 'screenshots/screen-1.png',
+      x: 14 + cropCount * 14,
+      y: 56,
+      width: 12,
+      height: 18,
+      focusX: 50,
+      focusY: 40,
+      zoom: 1.5,
+      rotation: cropCount % 2 === 0 ? -4 : 4,
+      borderRadius: 24,
+      z: 7,
+    });
+  };
+
+  const addLogo = () => {
+    const logoCount = elements.filter((e) => e.type === 'logo').length;
+    addElement({
+      type: 'logo',
+      src: config?.screens[0]?.screenshot ?? 'screenshots/screen-1.png',
+      x: 76 + logoCount * 3,
+      y: 6,
+      width: 12,
+      height: 10,
+      fit: 'contain',
+      opacity: 0.96,
+      rotation: 0,
+      padding: 1.2,
+      backgroundColor: '#FFFFFFE6',
+      borderRadius: 24,
+      z: 8,
+    });
+  };
+
+  const addGroup = () => {
+    const groupCount = elements.filter((e) => e.type === 'group').length;
+    const screenshot =
+      config?.screens[groupCount]?.screenshot ??
+      config?.screens[0]?.screenshot ??
+      'screenshots/screen-1.png';
+    addElement(buildDefaultGroupElement(screenshot, 12 + groupCount * 14, 52, groupCount % 2 === 0 ? -4 : 4));
+  };
+
   const showInspector =
     selectedElementIndex !== null &&
     elements[selectedElementIndex] &&
     (elements[selectedElementIndex]!.type === 'device' ||
       elements[selectedElementIndex]!.type === 'decoration' ||
-      elements[selectedElementIndex]!.type === 'image');
+      elements[selectedElementIndex]!.type === 'image' ||
+      elements[selectedElementIndex]!.type === 'logo' ||
+      elements[selectedElementIndex]!.type === 'crop' ||
+      elements[selectedElementIndex]!.type === 'group');
 
   return (
     <div>
@@ -1984,11 +2762,29 @@ export function PanoramicDeviceContent() {
           >
             + Image
           </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addLogo}
+          >
+            + Logo
+          </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addCrop}
+          >
+            + Crop
+          </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addGroup}
+          >
+            + Group
+          </button>
         </div>
 
         {filtered.length === 0 && (
           <p className="text-xs text-text-dim text-center py-4">
-            Add devices to place screenshots on the panoramic canvas.
+            Add devices, logos, crops, groups, images, or decorations to place screenshots on the panoramic canvas.
           </p>
         )}
         <div className="space-y-1">
@@ -2010,6 +2806,11 @@ export function PanoramicDeviceContent() {
                 <span className="text-text-dim ml-1">
                   ({Math.round(el.x)}%, {Math.round(el.y)}%)
                 </span>
+                {getElementSummary(el) && (
+                  <span className="text-text-dim ml-1 truncate" title={getElementSummary(el) ?? ''}>
+                    &mdash; {getElementSummary(el)}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -2029,7 +2830,7 @@ export function PanoramicTextContent() {
 
   const filtered = elements
     .map((el, i) => ({ el, i }))
-    .filter(({ el }) => el.type === 'text' || el.type === 'label');
+    .filter(({ el }) => el.type === 'text' || el.type === 'label' || el.type === 'card' || el.type === 'badge');
 
   const addText = () => {
     const textCount = elements.filter((e) => e.type === 'text').length;
@@ -2067,16 +2868,71 @@ export function PanoramicTextContent() {
     });
   };
 
+  const addCard = () => {
+    const cardCount = elements.filter((e) => e.type === 'card').length;
+    addElement({
+      type: 'card',
+      x: 8 + cardCount * 12,
+      y: 62,
+      width: 18,
+      height: 18,
+      eyebrow: 'Highlight',
+      title: 'Support detail',
+      body: 'Use short proof or context here.',
+      align: 'left',
+      backgroundColor: '#FFFFFF',
+      opacity: 0.96,
+      borderColor: '#E2E8F0',
+      borderWidth: 1,
+      borderRadius: 28,
+      padding: 2.2,
+      rotation: 0,
+      eyebrowColor: '#64748B',
+      titleColor: '#0F172A',
+      bodyColor: '#475569',
+      eyebrowSize: 1.1,
+      titleSize: 2.2,
+      bodySize: 1.3,
+      z: 9,
+    });
+  };
+
+  const addBadge = () => {
+    const badgeCount = elements.filter((e) => e.type === 'badge').length;
+    addElement({
+      type: 'badge',
+      content: 'New badge',
+      x: 8 + badgeCount * 12,
+      y: 18,
+      width: 16,
+      height: 5,
+      color: '#0F172A',
+      backgroundColor: '#FFFFFF',
+      opacity: 0.96,
+      borderColor: '#CBD5E1',
+      borderWidth: 1,
+      borderRadius: 100,
+      fontSize: 1.1,
+      fontWeight: 700,
+      letterSpacing: 12,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 12,
+    });
+  };
+
   const showInspector =
     selectedElementIndex !== null &&
     elements[selectedElementIndex] &&
     (elements[selectedElementIndex]!.type === 'text' ||
-      elements[selectedElementIndex]!.type === 'label');
+      elements[selectedElementIndex]!.type === 'label' ||
+      elements[selectedElementIndex]!.type === 'card' ||
+      elements[selectedElementIndex]!.type === 'badge');
 
   return (
     <div>
       <Section title={`Text & Labels (${filtered.length})`} defaultCollapsed={false}>
-        <div className="grid grid-cols-2 gap-1 mb-3">
+        <div className="grid grid-cols-4 gap-1 mb-3">
           <button
             className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
             onClick={addText}
@@ -2089,11 +2945,23 @@ export function PanoramicTextContent() {
           >
             + Label
           </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addCard}
+          >
+            + Card
+          </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addBadge}
+          >
+            + Badge
+          </button>
         </div>
 
         {filtered.length === 0 && (
           <p className="text-xs text-text-dim text-center py-4">
-            Add text elements for headlines, subtitles, and labels.
+            Add text elements, labels, badges, and support cards.
           </p>
         )}
         <div className="space-y-1">
@@ -2115,12 +2983,20 @@ export function PanoramicTextContent() {
                 <span className="text-text-dim ml-1">
                   ({Math.round(el.x)}%, {Math.round(el.y)}%)
                 </span>
-                {(el.type === 'text' || el.type === 'label') && (
+                {(el.type === 'text' || el.type === 'label' || el.type === 'badge') && (
                   <span
                     className="text-text-dim ml-1 truncate"
                     title={(el as { content: string }).content}
                   >
                     &mdash; {(el as { content: string }).content.slice(0, 20)}
+                  </span>
+                )}
+                {el.type === 'card' && (
+                  <span
+                    className="text-text-dim ml-1 truncate"
+                    title={(el.title ?? el.body ?? '').toString()}
+                  >
+                    &mdash; {(el.title ?? el.body ?? 'Card').slice(0, 20)}
                   </span>
                 )}
               </button>

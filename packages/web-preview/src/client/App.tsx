@@ -77,9 +77,9 @@ export function App() {
 
         // Hydrate variants from session file if server was started with --session
         try {
-          const session = await fetchSession() as { activeVariantId?: string; variants?: Array<{ id: string; name: string; status: string; config: never }> } | null;
+          const session = await fetchSession() as Parameters<typeof hydrateSession>[0] | null;
           if (session && Array.isArray(session.variants) && session.variants.length > 0) {
-            hydrateSession(session as Parameters<typeof hydrateSession>[0]);
+            hydrateSession(session);
           }
         } catch {
           // No session — use default single variant

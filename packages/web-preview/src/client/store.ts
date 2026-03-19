@@ -11,6 +11,7 @@ import type {
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
+import { saveSession as saveSessionApi } from './utils/api';
 
 function getConfiguredLocaleText(
   locales: Record<string, LocaleConfig>,
@@ -150,6 +151,33 @@ export interface VariantArtifact {
   manifestName: string;
 }
 
+export interface VariantPreviewArtifact {
+  id: string;
+  createdAt: string;
+  outputDir: string;
+  mode: 'individual' | 'panoramic';
+  platform: string;
+  filePaths: string[];
+  thumbnailPath: string | null;
+}
+
+export interface VariantScoreSummary {
+  total: number;
+  breakdown: Record<string, number>;
+  flags: string[];
+  reason: string;
+}
+
+export interface VariantCopyAssignment {
+  unitKind: 'screen' | 'frame';
+  unitIndex: number;
+  slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary';
+  headline: string;
+  sourceFeature?: string;
+  sourcePath?: string;
+  sourceRole?: string;
+}
+
 export interface VariantSnapshot {
   platform: string;
   previewW: number;
@@ -171,11 +199,15 @@ export interface VariantSnapshot {
 export interface VariantRecord {
   id: string;
   name: string;
+  description?: string;
   status: VariantStatus;
   createdAt: string;
   updatedAt: string;
   snapshot: VariantSnapshot;
   artifacts: VariantArtifact[];
+  previewArtifacts: VariantPreviewArtifact[];
+  copyAssignments: VariantCopyAssignment[];
+  score?: VariantScoreSummary;
 }
 
 export interface PreviewStore {
@@ -184,6 +216,9 @@ export interface PreviewStore {
   sessionLocales: Record<string, LocaleConfig>;
   variants: VariantRecord[];
   activeVariantId: string | null;
+  recommendedVariantId: string | null;
+  recommendationReason: string | null;
+  sessionBacked: boolean;
   platform: string;
   previewW: number;
   previewH: number;
@@ -225,6 +260,7 @@ export interface PreviewStore {
   duplicateActiveVariant: () => void;
   createVariantSet: () => void;
   selectVariant: (id: string) => void;
+  approveVariant: (id: string) => void;
   renameVariant: (id: string, name: string) => void;
   deleteVariant: (id: string) => void;
   setVariantStatus: (id: string, status: VariantStatus) => void;
@@ -240,7 +276,23 @@ export interface PreviewStore {
   updateScreen: (index: number, partial: Partial<ScreenState>) => void;
   triggerRender: () => void;
   initScreens: (config: AppframeConfig, platform: string) => void;
-  hydrateSession: (session: { activeVariantId: string; variants: Array<{ id: string; name: string; status: string; config: AppframeConfig }> }) => void;
+  hydrateSession: (session: {
+    activeVariantId: string;
+    variants: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      status: string;
+      config: AppframeConfig;
+      previewArtifacts?: VariantPreviewArtifact[];
+      copyAssignments?: VariantCopyAssignment[];
+      score?: VariantScoreSummary;
+    }>;
+    autopilot?: {
+      recommendedVariantId?: string | null;
+      recommendationReason?: string | null;
+    };
+  }) => void;
   addScreen: () => void;
   removeScreen: (index: number) => void;
   moveScreen: (from: number, to: number) => void;
@@ -259,6 +311,8 @@ export interface PreviewStore {
   // Undo/redo
   undo: () => void;
   redo: () => void;
+  saveSession: () => Promise<void>;
+  isSavingSession: boolean;
 }
 
 // Simple undo/redo history for screen and panoramic state
@@ -362,6 +416,40 @@ function applyVariantSnapshot(
   };
 }
 
+function coerceVariantSnapshot(
+  candidate: unknown,
+  fallback: VariantSnapshot,
+): VariantSnapshot {
+  if (!candidate || typeof candidate !== 'object') return fallback;
+  const snapshot = candidate as Partial<VariantSnapshot>;
+  if (!Array.isArray(snapshot.screens) || !Array.isArray(snapshot.panoramicElements)) {
+    return fallback;
+  }
+
+  return {
+    ...fallback,
+    ...snapshot,
+    locale: typeof snapshot.locale === 'string' ? snapshot.locale : fallback.locale,
+    sessionLocales:
+      snapshot.sessionLocales && typeof snapshot.sessionLocales === 'object'
+        ? deepCopy(snapshot.sessionLocales as Record<string, LocaleConfig>)
+        : fallback.sessionLocales,
+    screens: deepCopy(snapshot.screens as ScreenState[]),
+    panoramicBackground: deepCopy(
+      (snapshot.panoramicBackground ?? fallback.panoramicBackground) as PanoramicBackground,
+    ),
+    panoramicElements: deepCopy(snapshot.panoramicElements as PanoramicElement[]),
+    panoramicEffects: deepCopy(
+      (snapshot.panoramicEffects ?? fallback.panoramicEffects) as PanoramicEffects,
+    ),
+    exportSize: typeof snapshot.exportSize === 'string' ? snapshot.exportSize : fallback.exportSize,
+    exportRenderer:
+      typeof snapshot.exportRenderer === 'string'
+        ? snapshot.exportRenderer
+        : fallback.exportRenderer,
+  };
+}
+
 function syncActiveVariantRecord(
   variants: VariantRecord[],
   activeVariantId: string | null,
@@ -423,6 +511,8 @@ function buildVariantRecord(
     updatedAt: timestamp,
     snapshot: variantSnapshotFromState(state),
     artifacts: [],
+    previewArtifacts: [],
+    copyAssignments: [],
   };
 }
 
@@ -462,6 +552,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   config: null,
   variants: [],
   activeVariantId: null,
+  recommendedVariantId: null,
+  recommendationReason: null,
+  sessionBacked: false,
   platform: 'iphone',
   previewW: 400,
   previewH: 868,
@@ -485,6 +578,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   exportRenderer: 'playwright',
   screens: [],
   sessionLocales: {},
+  isSavingSession: false,
 
   setConfig: (config) => set({ config }),
   setPlatform: (platform) => set({ platform }),
@@ -539,8 +633,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         };
         const conceptB = buildVariantRecord('Concept B', state);
         const conceptC = buildVariantRecord('Concept C', state);
+        const conceptD = buildVariantRecord('Concept D', state);
         return {
-          variants: [renamed, conceptB, conceptC],
+          variants: [renamed, conceptB, conceptC, conceptD],
           activeVariantId: renamed.id,
           ...applyVariantSnapshot(renamed.snapshot),
         };
@@ -555,8 +650,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         nextVariantName([...variants, conceptA, conceptB], 'Concept'),
         state,
       );
+      const conceptD = buildVariantRecord(
+        nextVariantName([...variants, conceptA, conceptB, conceptC], 'Concept'),
+        state,
+      );
       return {
-        variants: [...variants, conceptA, conceptB, conceptC],
+        variants: [...variants, conceptA, conceptB, conceptC, conceptD],
         activeVariantId: conceptA.id,
         ...applyVariantSnapshot(conceptA.snapshot),
       };
@@ -569,6 +668,22 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       if (!nextVariant) return state;
       return {
         variants,
+        activeVariantId: id,
+        ...applyVariantSnapshot(nextVariant.snapshot),
+      };
+    }),
+  approveVariant: (id) =>
+    set((state) => {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const nextVariant = variants.find((variant) => variant.id === id);
+      if (!nextVariant) return state;
+      const updatedAt = new Date().toISOString();
+      return {
+        variants: variants.map((variant) => ({
+          ...variant,
+          status: variant.id === id ? 'approved' : 'draft',
+          updatedAt,
+        })),
         activeVariantId: id,
         ...applyVariantSnapshot(nextVariant.snapshot),
       };
@@ -698,6 +813,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       sessionLocales,
       variants: [baseVariant],
       activeVariantId: baseVariant.id,
+      recommendedVariantId: null,
+      recommendationReason: null,
+      sessionBacked: false,
       isPanoramic,
       locale: nextLocale,
       screens,
@@ -731,28 +849,36 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
           };
 
       const timestamp = new Date().toISOString();
+      const fallbackSnapshot: VariantSnapshot = {
+        platform,
+        previewW: state.previewW,
+        previewH: state.previewH,
+        locale: 'default',
+        sessionLocales,
+        isPanoramic,
+        screens,
+        selectedScreen: 0,
+        ...panoramicState,
+        panoramicEffects: state.panoramicEffects,
+        selectedElementIndex: null,
+        exportSize: state.exportSize,
+        exportRenderer: state.exportRenderer,
+      };
       return {
         id: sv.id,
         name: sv.name,
+        description: sv.description,
         status: (sv.status === 'approved' ? 'approved' : 'draft') as VariantStatus,
         createdAt: timestamp,
         updatedAt: timestamp,
-        snapshot: {
-          platform,
-          previewW: state.previewW,
-          previewH: state.previewH,
-          locale: 'default',
-          sessionLocales,
-          isPanoramic,
-          screens,
-          selectedScreen: 0,
-          ...panoramicState,
-          panoramicEffects: state.panoramicEffects,
-          selectedElementIndex: null,
-          exportSize: state.exportSize,
-          exportRenderer: state.exportRenderer,
-        },
+        snapshot: coerceVariantSnapshot(
+          (sv as { editorSnapshot?: unknown }).editorSnapshot,
+          fallbackSnapshot,
+        ),
         artifacts: [],
+        previewArtifacts: sv.previewArtifacts ?? [],
+        copyAssignments: sv.copyAssignments ?? [],
+        score: sv.score,
       };
     });
 
@@ -766,6 +892,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     set({
       variants,
       activeVariantId: activeId,
+      recommendedVariantId: session.autopilot?.recommendedVariantId ?? null,
+      recommendationReason: session.autopilot?.recommendationReason ?? null,
+      sessionBacked: true,
       ...applyVariantSnapshot(active.snapshot),
     });
   },
@@ -1006,7 +1135,14 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         if (el.type === 'device') {
           return { ...base, width: el.width * scale };
         }
-        if (el.type === 'image') {
+        if (
+          el.type === 'image' ||
+          el.type === 'logo' ||
+          el.type === 'crop' ||
+          el.type === 'card' ||
+          el.type === 'badge' ||
+          el.type === 'group'
+        ) {
           return { ...base, width: el.width * scale };
         }
         if (el.type === 'text' && el.maxWidth) {
@@ -1075,5 +1211,32 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       selectedElementIndex: entry.selectedElementIndex,
     });
     _skipSnapshot = false;
+  },
+
+  saveSession: async () => {
+    const state = get();
+    if (!state.sessionBacked || !state.activeVariantId) return;
+
+    set({ isSavingSession: true });
+    try {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      await saveSessionApi({
+        activeVariantId: state.activeVariantId,
+        recommendedVariantId: state.recommendedVariantId,
+        recommendationReason: state.recommendationReason,
+        variants: variants.map((variant) => ({
+          id: variant.id,
+          name: variant.name,
+          status: variant.status,
+          snapshot: variant.snapshot,
+        })),
+      });
+      set({ variants });
+    } catch (err) {
+      console.error('Failed to save session:', err);
+      throw err;
+    } finally {
+      set({ isSavingSession: false });
+    }
   },
 }));

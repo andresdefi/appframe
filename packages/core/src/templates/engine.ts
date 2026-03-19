@@ -175,7 +175,7 @@ export interface PanoramicTemplateContext {
 }
 
 export interface PanoramicRenderedElement {
-  type: 'device' | 'text' | 'label' | 'decoration' | 'image';
+  type: 'device' | 'text' | 'label' | 'decoration' | 'image' | 'logo' | 'crop' | 'card' | 'badge' | 'group';
   z: number;
 
   // Pixel positions (computed from % of canvas)
@@ -221,6 +221,34 @@ export interface PanoramicRenderedElement {
   // Image-specific
   srcDataUrl?: string;
   fit?: 'contain' | 'cover';
+
+  // Crop-specific
+  focusX?: number;
+  focusY?: number;
+  zoom?: number;
+  translateXPx?: number;
+  translateYPx?: number;
+
+  // Card-specific
+  eyebrow?: string;
+  title?: string;
+  body?: string;
+  align?: 'left' | 'center';
+  borderColor?: string;
+  borderWidthPx?: number;
+  eyebrowColor?: string;
+  titleColor?: string;
+  bodyColor?: string;
+  eyebrowSizePx?: number;
+  titleSizePx?: number;
+  bodySizePx?: number;
+
+  // Badge-specific
+  letterSpacing?: number;
+  textTransform?: string;
+
+  // Group-specific
+  children?: PanoramicRenderedElement[];
 }
 
 export interface TemplateRenderOptions {

@@ -419,12 +419,126 @@ const panoramicImageElementSchema = z.object({
   z: z.number().int().min(0).max(100).default(4),
 });
 
+const panoramicLogoElementSchema = z.object({
+  type: z.literal('logo'),
+  src: z.string().min(1),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  width: z.number().min(0.5).max(100),
+  height: z.number().min(0.5).max(100),
+  fit: z.enum(['contain', 'cover']).default('contain'),
+  opacity: z.number().min(0).max(1).default(1),
+  rotation: z.number().min(-180).max(180).default(0),
+  padding: z.number().min(0).max(10).default(1.4).describe('Padding as % of canvas height'),
+  backgroundColor: hexColor.optional(),
+  borderRadius: z.number().min(0).max(100).default(24),
+  shadow: deviceShadowSchema.optional(),
+  z: z.number().int().min(0).max(100).default(8),
+});
+
+const panoramicCropElementSchema = z.object({
+  type: z.literal('crop'),
+  screenshot: z.string().min(1),
+  localeSourceScreen: z.number().int().min(0).optional(),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  width: z.number().min(1).max(100),
+  height: z.number().min(1).max(100),
+  focusX: z.number().min(0).max(100).default(50),
+  focusY: z.number().min(0).max(100).default(50),
+  zoom: z.number().min(1).max(4).default(1.4),
+  rotation: z.number().min(-180).max(180).default(0),
+  borderRadius: z.number().min(0).max(100).default(24),
+  shadow: deviceShadowSchema.optional(),
+  z: z.number().int().min(0).max(100).default(7),
+});
+
+const panoramicCardElementSchema = z.object({
+  type: z.literal('card'),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  width: z.number().min(1).max(100),
+  height: z.number().min(1).max(100),
+  eyebrow: z.string().optional(),
+  title: z.string().optional(),
+  body: z.string().optional(),
+  align: z.enum(['left', 'center']).default('left'),
+  backgroundColor: hexColor.default('#FFFFFF'),
+  opacity: z.number().min(0).max(1).default(1),
+  borderColor: hexColor.optional(),
+  borderWidth: z.number().min(0).max(20).default(0),
+  borderRadius: z.number().min(0).max(100).default(28),
+  padding: z.number().min(0).max(10).default(2.2).describe('Padding as % of canvas height'),
+  rotation: z.number().min(-180).max(180).default(0),
+  shadow: deviceShadowSchema.optional(),
+  eyebrowColor: hexColor.default('#64748B'),
+  titleColor: hexColor.default('#0F172A'),
+  bodyColor: hexColor.default('#475569'),
+  eyebrowSize: z.number().min(0.5).max(6).default(1.1),
+  titleSize: z.number().min(0.5).max(10).default(2.4),
+  bodySize: z.number().min(0.5).max(6).default(1.4),
+  z: z.number().int().min(0).max(100).default(9),
+});
+
+const panoramicBadgeElementSchema = z.object({
+  type: z.literal('badge'),
+  content: z.string().min(1),
+  localeSourceScreen: z.number().int().min(0).optional(),
+  localeSourceField: z.enum(['headline', 'subtitle']).optional(),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  width: z.number().min(1).max(100),
+  height: z.number().min(0.5).max(100).default(6),
+  color: hexColor.default('#0F172A'),
+  backgroundColor: hexColor.default('#FFFFFF'),
+  opacity: z.number().min(0).max(1).default(1),
+  borderColor: hexColor.optional(),
+  borderWidth: z.number().min(0).max(20).default(0),
+  borderRadius: z.number().min(0).max(100).default(999),
+  fontSize: z.number().min(0.5).max(6).default(1.3),
+  fontWeight: z.number().int().min(100).max(900).default(700),
+  letterSpacing: z.number().min(-5).max(20).default(12).describe('Letter spacing in 0.01em units'),
+  textTransform: z.enum(['', 'none', 'uppercase', 'lowercase', 'capitalize']).default('uppercase'),
+  rotation: z.number().min(-180).max(180).default(0),
+  shadow: deviceShadowSchema.optional(),
+  z: z.number().int().min(0).max(100).default(12),
+});
+
+const panoramicChildElementSchema = z.discriminatedUnion('type', [
+  panoramicDeviceElementSchema,
+  panoramicTextElementSchema,
+  panoramicLabelElementSchema,
+  panoramicDecorationElementSchema,
+  panoramicImageElementSchema,
+  panoramicLogoElementSchema,
+  panoramicCropElementSchema,
+  panoramicCardElementSchema,
+  panoramicBadgeElementSchema,
+]);
+
+const panoramicGroupElementSchema = z.object({
+  type: z.literal('group'),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  width: z.number().min(1).max(100),
+  height: z.number().min(1).max(100),
+  rotation: z.number().min(-180).max(180).default(0),
+  opacity: z.number().min(0).max(1).default(1),
+  z: z.number().int().min(0).max(100).default(6),
+  children: z.array(panoramicChildElementSchema).min(1, 'Group must include at least one child'),
+});
+
 export const panoramicElementSchema = z.discriminatedUnion('type', [
   panoramicDeviceElementSchema,
   panoramicTextElementSchema,
   panoramicLabelElementSchema,
   panoramicDecorationElementSchema,
   panoramicImageElementSchema,
+  panoramicLogoElementSchema,
+  panoramicCropElementSchema,
+  panoramicCardElementSchema,
+  panoramicBadgeElementSchema,
+  panoramicGroupElementSchema,
 ]);
 
 export const panoramicConfigSchema = z.object({

@@ -9,6 +9,29 @@ export interface PersistedSessionVariant {
   snapshot: unknown;
 }
 
+export interface ApprovedArtifactExportResult {
+  success: boolean;
+  variantId: string | null;
+  variantName: string;
+  outputDir: string;
+  configPath: string;
+  manifestPath: string;
+  artifact: {
+    id: string;
+    kind: 'screens' | 'frames';
+    exportedAt: string;
+    locale: string;
+    mode: 'individual' | 'panoramic';
+    sizeKey: string;
+    renderer: string;
+    fileNames: string[];
+    manifestName: string;
+    outputDir: string;
+    filePaths: string[];
+    configPath: string;
+  };
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
   if (!res.ok) throw new Error(`Request failed: ${res.statusText}`);
@@ -142,6 +165,27 @@ export async function fetchExportConfig(body: Record<string, unknown>): Promise<
     throw new Error(message);
   }
   return res.blob();
+}
+
+export async function exportApprovedArtifact(
+  body: Record<string, unknown>,
+): Promise<ApprovedArtifactExportResult> {
+  const res = await fetch(`${API}/api/export-approved-artifact`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `Approved artifact export failed: ${res.statusText}`;
+    try {
+      const data = await res.json() as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // Keep default status text.
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<ApprovedArtifactExportResult>;
 }
 
 export async function fetchAutoTranslateLocale(

@@ -176,5 +176,5 @@ This roadmap now has three concrete pieces underway:
 - real agent tooling: variant planning/materialization with file-backed autopilot sessions
 - generate-then-rank foundations: preview rendering plus heuristic scoring/recommendation
 - preview review surface: sessions now carry per-concept copy-slot assignments and the preview UI now supports concept filters, side-by-side comparison, and score breakdown review
-- manual refinement path: users can now approve the recommended concept, persist manual edits back into the active variant session, and export the selected variant as a standalone config without depending on an AI agent for every change
+- manual refinement path: users can now approve the recommended concept, persist manual edits back into the active variant session, export the selected variant as a standalone config, and materialize the approved concept into an export-ready artifact directory without depending on an AI agent for every change
 - screenshot understanding foundations: analysis now includes inferred screen ordering, hero-candidate explanations, and unsafe-overlay flags

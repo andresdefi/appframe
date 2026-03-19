@@ -349,7 +349,7 @@ These ideas are worth keeping, but should be rebuilt on top of the current sessi
 - [ ] Define the exact persistence actions the UI should support:
   - [x] save edits to active variant snapshot in session
   - [x] materialize active variant to a standalone config file
-  - [ ] promote approved variant to export-ready artifact
+  - [x] promote approved variant to export-ready artifact
 - [x] Add validation-backed save endpoints for whichever persistence flow is chosen.
 - [x] Add explicit dirty-state / save-state UI in web preview once session-backed persistence exists.
 - [x] Verify App Store size mappings against the current Apple spec and update `packages/core/src/renderer/sizes.ts` where needed.

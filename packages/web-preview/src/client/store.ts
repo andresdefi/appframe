@@ -149,6 +149,9 @@ export interface VariantArtifact {
   renderer: string;
   fileNames: string[];
   manifestName: string;
+  outputDir?: string;
+  filePaths?: string[];
+  configPath?: string;
 }
 
 export interface VariantPreviewArtifact {
@@ -265,6 +268,7 @@ export interface PreviewStore {
   deleteVariant: (id: string) => void;
   setVariantStatus: (id: string, status: VariantStatus) => void;
   recordVariantArtifact: (artifact: Omit<VariantArtifact, 'id' | 'exportedAt'>) => void;
+  recordVariantArtifactForVariant: (variantId: string, artifact: Omit<VariantArtifact, 'id' | 'exportedAt'>) => void;
   setPreviewBg: (bg: 'dark' | 'light') => void;
   setExportSize: (size: string) => void;
   setExportRenderer: (renderer: string) => void;
@@ -284,6 +288,7 @@ export interface PreviewStore {
       description?: string;
       status: string;
       config: AppframeConfig;
+      artifacts?: unknown[];
       previewArtifacts?: VariantPreviewArtifact[];
       copyAssignments?: VariantCopyAssignment[];
       score?: VariantScoreSummary;
@@ -332,6 +337,10 @@ let _skipSnapshot = false;
 
 function deepCopy<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function makeId(prefix: string): string {
@@ -513,6 +522,33 @@ function buildVariantRecord(
     artifacts: [],
     previewArtifacts: [],
     copyAssignments: [],
+  };
+}
+
+function coerceVariantArtifact(candidate: unknown): VariantArtifact | null {
+  if (!isRecord(candidate)) return null;
+
+  const mode = candidate.mode === 'panoramic' ? 'panoramic' : 'individual';
+  const filePaths = Array.isArray(candidate.filePaths)
+    ? candidate.filePaths.filter((entry): entry is string => typeof entry === 'string')
+    : [];
+  const fileNames = Array.isArray(candidate.fileNames)
+    ? candidate.fileNames.filter((entry): entry is string => typeof entry === 'string')
+    : filePaths.map((entry) => entry.split('/').pop() ?? entry);
+
+  return {
+    id: typeof candidate.id === 'string' ? candidate.id : makeId('artifact'),
+    kind: candidate.kind === 'frames' ? 'frames' : mode === 'panoramic' ? 'frames' : 'screens',
+    exportedAt: typeof candidate.exportedAt === 'string' ? candidate.exportedAt : new Date().toISOString(),
+    locale: typeof candidate.locale === 'string' ? candidate.locale : 'default',
+    mode,
+    sizeKey: typeof candidate.sizeKey === 'string' ? candidate.sizeKey : '',
+    renderer: typeof candidate.renderer === 'string' ? candidate.renderer : 'playwright',
+    fileNames,
+    manifestName: typeof candidate.manifestName === 'string' ? candidate.manifestName : '',
+    outputDir: typeof candidate.outputDir === 'string' ? candidate.outputDir : undefined,
+    filePaths,
+    configPath: typeof candidate.configPath === 'string' ? candidate.configPath : undefined,
   };
 }
 
@@ -742,6 +778,26 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         ),
       };
     }),
+  recordVariantArtifactForVariant: (variantId, artifact) =>
+    set((state) => {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const nextArtifact: VariantArtifact = {
+        ...artifact,
+        id: makeId('artifact'),
+        exportedAt: new Date().toISOString(),
+      };
+      return {
+        variants: variants.map((variant) =>
+          variant.id === variantId
+            ? {
+                ...variant,
+                updatedAt: nextArtifact.exportedAt,
+                artifacts: [nextArtifact, ...variant.artifacts],
+              }
+            : variant,
+        ),
+      };
+    }),
   setPreviewBg: (bg) => set({ previewBg: bg }),
   setExportSize: (size) => set({ exportSize: size }),
   setExportRenderer: (renderer) => set({ exportRenderer: renderer }),
@@ -875,7 +931,11 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
           (sv as { editorSnapshot?: unknown }).editorSnapshot,
           fallbackSnapshot,
         ),
-        artifacts: [],
+        artifacts: Array.isArray(sv.artifacts)
+          ? sv.artifacts
+              .map((artifact) => coerceVariantArtifact(artifact))
+              .filter((artifact): artifact is VariantArtifact => artifact !== null)
+          : [],
         previewArtifacts: sv.previewArtifacts ?? [],
         copyAssignments: sv.copyAssignments ?? [],
         score: sv.score,

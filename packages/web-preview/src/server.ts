@@ -1,12 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import { join, dirname, resolve } from 'node:path';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { startHttpServer } from 'agentation-mcp';
 import {
   loadConfig,
   validateConfigOrThrow,
+  generateScreenshots,
+  generatePanoramicScreenshots,
+  generateWithKoubou,
   listFrames,
   getFrame,
   getDefaultFrame,
@@ -142,6 +145,10 @@ function cloneConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function makeId(prefix: string): string {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function expectOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
@@ -188,9 +195,21 @@ function normalizeScreenshotPath(
   return parts.join('/');
 }
 
+function slugifyName(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'variant';
+}
+
+function serializeConfigText(configValue: AppframeConfig, appName: string, variantName: string): string {
+  return `# appframe config — ${appName} (${variantName})\n${JSON.stringify(configValue, null, 2)}`;
+}
+
 function buildConfigFromEditorState(baseConfig: AppframeConfig, body: Record<string, unknown>): AppframeConfig {
   const next = cloneConfig(baseConfig);
-  const mode = body.mode === 'panoramic' ? 'panoramic' : 'individual';
+  const mode = body.mode === 'panoramic' || body.isPanoramic === true ? 'panoramic' : 'individual';
   const screens = Array.isArray(body.screens)
     ? body.screens.filter(isRecord)
     : [];
@@ -492,11 +511,150 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const body = isRecord(req.body) ? req.body : {};
       const variantName = expectOptionalString(body.variantName) ?? config.app.name;
       const nextConfig = buildConfigFromEditorState(config, body);
-      const yaml = `# appframe config — ${config.app.name} (${variantName})\n${JSON.stringify(nextConfig, null, 2)}`;
-      const filename = `${variantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'variant'}.config.yaml`;
+      const yaml = serializeConfigText(nextConfig, config.app.name, variantName);
+      const filename = `${slugifyName(variantName)}.config.yaml`;
       res.set('Content-Type', 'application/x-yaml; charset=utf-8');
       res.set('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(yaml);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    }
+  });
+
+  app.post('/api/export-approved-artifact', async (req, res) => {
+    if (!resolvedSessionPath) {
+      res.status(400).json({ error: 'Preview was not started with a session file' });
+      return;
+    }
+
+    try {
+      const body = isRecord(req.body) ? req.body : {};
+      const raw = await readFile(resolvedSessionPath, 'utf-8');
+      const session = JSON.parse(raw) as {
+        activeVariantId?: string;
+        updatedAt?: string;
+        variants?: Array<Record<string, unknown>>;
+      };
+
+      if (!Array.isArray(session.variants)) {
+        res.status(400).json({ error: 'Session file is missing variants' });
+        return;
+      }
+
+      const approvedVariant = session.variants.find((variant) => variant.status === 'approved');
+      if (!approvedVariant) {
+        res.status(400).json({ error: 'No approved variant found' });
+        return;
+      }
+
+      const approvedVariantId = expectOptionalString(approvedVariant.id);
+      const variantName = expectOptionalString(approvedVariant.name) ?? 'Approved Variant';
+      const baseConfig = isRecord(approvedVariant.config)
+        ? validateConfigOrThrow(approvedVariant.config as AppframeConfig)
+        : config;
+      const currentEditorState = approvedVariantId && approvedVariantId === expectOptionalString(body.activeVariantId)
+        ? body
+        : null;
+      const persistedSnapshot = isRecord(approvedVariant.editorSnapshot)
+        ? approvedVariant.editorSnapshot
+        : null;
+      const sourceState = currentEditorState ?? persistedSnapshot;
+      const nextConfig = sourceState ? buildConfigFromEditorState(baseConfig, sourceState) : baseConfig;
+      const exportLocaleRaw = expectOptionalString(sourceState?.locale);
+      const exportLocale = exportLocaleRaw && exportLocaleRaw !== 'default' ? exportLocaleRaw : undefined;
+      const exportRenderer = expectOptionalString(sourceState?.exportRenderer) ?? 'playwright';
+      const exportSize = expectOptionalString(sourceState?.exportSize) ?? '';
+      const slug = slugifyName(variantName);
+      const outputDir = join(dirname(resolvedSessionPath), 'variant-output', slug);
+      const configPath = join(outputDir, `${slug}.config.yaml`);
+      const exportedAt = new Date().toISOString();
+
+      await mkdir(outputDir, { recursive: true });
+      await writeFile(configPath, serializeConfigText(nextConfig, config.app.name, variantName), 'utf-8');
+
+      const result = nextConfig.mode === 'panoramic'
+        ? await generatePanoramicScreenshots({
+            configPath,
+            outputDir,
+          })
+        : exportRenderer === 'koubou'
+          ? await generateWithKoubou({
+              configPath,
+              outputDir,
+              locale: exportLocale,
+            })
+          : await generateScreenshots({
+              configPath,
+              outputDir,
+              locale: exportLocale,
+            });
+
+      const filePaths = result.screenshots.map((entry) => entry.outputPath);
+      const fileNames = filePaths.map((entry) => entry.split('/').pop() ?? entry);
+      const manifestName = `${slug}.artifact.json`;
+      const manifestPath = join(outputDir, manifestName);
+      const artifact = {
+        id: makeId('artifact'),
+        exportedAt,
+        outputDir,
+        mode: nextConfig.mode === 'panoramic' ? 'panoramic' : 'individual',
+        platform: nextConfig.output.platforms.length === 1 ? nextConfig.output.platforms[0] : 'all',
+        locale: exportLocale ?? 'default',
+        renderer: exportRenderer,
+        sizeKey: exportSize,
+        filePaths,
+        fileNames,
+        manifestName,
+        configPath,
+      };
+
+      await writeFile(
+        manifestPath,
+        JSON.stringify({
+          variantId: approvedVariantId ?? null,
+          variantName,
+          status: 'approved',
+          exportedAt,
+          outputDir,
+          configPath,
+          renderer: exportRenderer,
+          sizeKey: exportSize || null,
+          locale: exportLocale ?? 'default',
+          filePaths,
+        }, null, 2),
+        'utf-8',
+      );
+
+      session.variants = session.variants.map((variant) => {
+        if (variant.id !== approvedVariant.id) return variant;
+        const existingArtifacts = Array.isArray(variant.artifacts)
+          ? variant.artifacts
+          : [];
+        return {
+          ...variant,
+          config: nextConfig,
+          editorSnapshot: sourceState ?? variant.editorSnapshot,
+          artifacts: [artifact, ...existingArtifacts],
+        };
+      });
+      session.activeVariantId = approvedVariantId ?? session.activeVariantId;
+      session.updatedAt = exportedAt;
+      await writeFile(resolvedSessionPath, JSON.stringify(session, null, 2), 'utf-8');
+      sessionData = session;
+
+      res.json({
+        success: true,
+        variantId: approvedVariantId ?? null,
+        variantName,
+        outputDir,
+        configPath,
+        manifestPath,
+        artifact: {
+          ...artifact,
+          kind: artifact.mode === 'panoramic' ? 'frames' : 'screens',
+        },
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(400).json({ error: message });

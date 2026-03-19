@@ -3,7 +3,7 @@ import { usePreviewStore } from '../../store';
 import type { LocaleConfig } from '../../types';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
-import { fetchAutoTranslateLocale, fetchExport, fetchExportConfig, fetchPanoramicExport, reloadProject } from '../../utils/api';
+import { exportApprovedArtifact, fetchAutoTranslateLocale, fetchExport, fetchExportConfig, fetchPanoramicExport, reloadProject } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
 import { getAvailableLocales, getLocaleLabel } from '../../utils/locales';
@@ -62,6 +62,7 @@ export function ExportTab() {
   const variants = usePreviewStore((s) => s.variants);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
   const recordVariantArtifact = usePreviewStore((s) => s.recordVariantArtifact);
+  const recordVariantArtifactForVariant = usePreviewStore((s) => s.recordVariantArtifactForVariant);
   const initScreens = usePreviewStore((s) => s.initScreens);
   const triggerRender = usePreviewStore((s) => s.triggerRender);
   const screens = usePreviewStore((s) => s.screens);
@@ -103,6 +104,7 @@ export function ExportTab() {
   const activeLocaleConfig = locale === 'default' ? undefined : sessionLocales[locale];
   const availableLocales = getAvailableLocales(config, sessionLocales);
   const activeVariant = variants.find((variant) => variant.id === activeVariantId) ?? null;
+  const approvedVariant = variants.find((variant) => variant.status === 'approved') ?? null;
   const variantSlug = slugifyVariantName(activeVariant?.name ?? 'variant');
   const localeOptions = availableLocales.map((value) => ({
     value,
@@ -283,6 +285,35 @@ export function ExportTab() {
     }
   };
 
+  const handleApprovedArtifactExport = async () => {
+    if (!sessionBacked || !approvedVariant) return;
+
+    try {
+      setStatus(`Exporting approved artifact for ${approvedVariant.name}...`);
+      const result = await exportApprovedArtifact({
+        activeVariantId,
+        locale,
+        exportSize: resolvedExportSize,
+        exportRenderer,
+        mode: isPanoramic ? 'panoramic' : 'individual',
+        sessionLocales,
+        screens,
+        panoramicFrameCount,
+        panoramicBackground,
+        panoramicElements,
+      });
+
+      if (result.variantId) {
+        recordVariantArtifactForVariant(result.variantId, result.artifact);
+      }
+
+      setStatus(`Approved artifact exported to ${result.outputDir}`);
+      setToast(`Exported approved artifact for ${result.variantName}`);
+    } catch (err) {
+      setStatus(`Approved artifact export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
   // Empty state
   if (!isPanoramic && screens.length === 0) {
     return (
@@ -332,6 +363,16 @@ export function ExportTab() {
         >
           {sessionBacked ? 'Download Selected Variant Config' : 'Download Current Config'}
         </button>
+
+        {sessionBacked && (
+          <button
+            className="w-full py-2 text-xs bg-surface-2 border border-emerald-500/30 rounded-md text-emerald-200 hover:text-white disabled:opacity-50 mt-1"
+            onClick={handleApprovedArtifactExport}
+            disabled={exporting || !approvedVariant}
+          >
+            {approvedVariant ? `Export Approved Artifact (${approvedVariant.name})` : 'Export Approved Artifact'}
+          </button>
+        )}
 
         {isPanoramic ? (
           <button

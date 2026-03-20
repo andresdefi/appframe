@@ -183,3 +183,5 @@ This roadmap now has three concrete pieces underway:
 - AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load
 - manual refinement path: users can now approve the recommended concept, persist manual edits back into the active variant session, export the selected variant as a standalone config, and materialize the approved concept into an export-ready artifact directory without depending on an AI agent for every change
 - screenshot understanding foundations: analysis now includes inferred screen ordering, hero-candidate explanations, and unsafe-overlay flags
+- autopilot hardening foundations: `appframe_run_autopilot` now persists a stage-by-stage run manifest with resume, forced rerun, stale-artifact detection, structured failure, and explicit preview-next-step metadata
+- preview launch helper: agents can now start the preview server directly from MCP with `appframe_open_preview_session` instead of only receiving a shell command

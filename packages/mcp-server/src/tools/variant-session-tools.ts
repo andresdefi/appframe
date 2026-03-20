@@ -1,5 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { startPreviewServer } from '@appframe/web-preview';
 import {
   generatePanoramicScreenshots,
   generateScreenshots,
@@ -7,6 +8,7 @@ import {
   validateConfig,
 } from '@appframe/core';
 import type { AppframeConfig, PanoramicElement, TemplateStyle } from '@appframe/core';
+import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { rm, writeFile } from 'node:fs/promises';
 import { stringify } from 'yaml';
@@ -31,6 +33,60 @@ function clone<T>(value: T): T {
 }
 
 type VariantArtifact = VariantExportArtifact;
+type PortProbeResult = { available: boolean; error?: NodeJS.ErrnoException };
+
+async function probePort(port: number): Promise<PortProbeResult> {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.once('error', (error: NodeJS.ErrnoException) => {
+      resolve({ available: false, error });
+    });
+    server.once('listening', () => {
+      server.close(() => resolve({ available: true }));
+    });
+    server.listen(port);
+  });
+}
+
+export async function openPreviewSession(args: {
+  sessionPath?: string;
+  configPath?: string;
+  port?: number;
+}): Promise<{
+  url: string;
+  port: number;
+  sessionPath: string | null;
+  configPath: string | null;
+}> {
+  const port = args.port ?? 4400;
+  if (Number.isNaN(port) || port < 1 || port > 65535) {
+    throw new Error(`Invalid port "${String(args.port)}". Must be a number between 1 and 65535.`);
+  }
+  if (!args.sessionPath && !args.configPath) {
+    throw new Error('Preview launch requires either a sessionPath or a configPath.');
+  }
+
+  const portProbe = await probePort(port);
+  if (!portProbe.available) {
+    if (portProbe.error?.code === 'EADDRINUSE') {
+      throw new Error(`Port ${port} is already in use.`);
+    }
+    throw new Error(`Failed to bind preview server on port ${port}: ${portProbe.error?.message ?? 'Unknown error'}`);
+  }
+
+  await startPreviewServer({
+    configPath: args.configPath,
+    sessionPath: args.sessionPath,
+    port,
+  });
+
+  return {
+    url: `http://localhost:${port}`,
+    port,
+    sessionPath: args.sessionPath ?? null,
+    configPath: args.configPath ?? null,
+  };
+}
 
 function ensureValidConfig(config: AppframeConfig, label: string): AppframeConfig {
   const result = validateConfig(config);
@@ -467,6 +523,30 @@ export function registerVariantSessionTools(server: McpServer): void {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         return { content: [{ type: 'text' as const, text: `Failed to render variant previews: ${message}` }] };
+      }
+    },
+  );
+
+  server.tool(
+    'appframe_open_preview_session',
+    'Start the AppFrame web preview server directly for a variant session or config and return the live localhost URL.',
+    {
+      sessionPath: z.string().optional().describe('Absolute path to a variant session JSON file'),
+      configPath: z.string().optional().describe('Absolute path to an AppFrame config file'),
+      port: z.number().min(1).max(65535).optional().describe('Optional preview server port'),
+    },
+    async ({ sessionPath, configPath, port }) => {
+      try {
+        const result = await openPreviewSession({ sessionPath, configPath, port });
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return { content: [{ type: 'text' as const, text: `Failed to open preview session: ${message}` }] };
       }
     },
   );

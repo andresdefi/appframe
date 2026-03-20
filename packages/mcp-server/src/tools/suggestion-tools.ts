@@ -1,8 +1,15 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { join } from 'node:path';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { analyzeScreenshotSet, buildVariantSetPlan, inferCategory } from './design-planning.js';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import {
+  analyzeScreenshotSet,
+  buildVariantSetPlan,
+  inferCategory,
+  type ScreenshotAnalysis,
+  type VariantSetPlan,
+} from './design-planning.js';
 import { materializeVariantPlan } from './plan-materializer.js';
 import {
   generateCopyCandidates,
@@ -11,7 +18,7 @@ import {
   type CopyCandidateSet,
   type SelectedCopySet,
 } from './copy-planning.js';
-import { createSessionFromManifest } from './variant-session-lib.js';
+import { createSessionFromManifest, readSession, type VariantSessionFile } from './variant-session-lib.js';
 import { renderVariantPreviews, scoreVariantPreviews } from './variant-session-tools.js';
 
 type DesignVariantPlan = {
@@ -128,6 +135,1119 @@ function buildVariantPlans(
   }
 
   return variants.slice(0, variantCount);
+}
+
+export const AUTOPILOT_STAGES = [
+  'analysis',
+  'copy',
+  'planning',
+  'materialization',
+  'session',
+  'previews',
+  'scoring',
+] as const;
+
+export type AutopilotStage = (typeof AUTOPILOT_STAGES)[number];
+
+type AutopilotRunState = 'running' | 'completed' | 'failed';
+type AutopilotStageState = 'pending' | 'running' | 'completed' | 'failed';
+
+interface AutopilotStageStatus {
+  stage: AutopilotStage;
+  status: AutopilotStageState;
+  startedAt?: string;
+  completedAt?: string;
+  reused?: boolean;
+  forced?: boolean;
+  stale?: boolean;
+  staleReason?: string;
+  fingerprint?: string;
+  artifactPaths?: string[];
+  summary?: Record<string, unknown>;
+  error?: {
+    message: string;
+  };
+}
+
+interface AutopilotPaths {
+  analysisPath: string;
+  copyCandidatesPath: string;
+  selectedCopySetPath: string;
+  planPath: string;
+  materializedManifestPath: string;
+  sessionPath: string;
+  runManifestPath: string;
+  previewOutputDir: string;
+}
+
+export interface AutopilotRunStatus {
+  version: 1;
+  status: AutopilotRunState;
+  createdAt: string;
+  updatedAt: string;
+  outputDir: string;
+  app: {
+    appName: string;
+    appDescription: string;
+    platforms: Array<'ios' | 'android'>;
+  };
+  options: {
+    variantCount: number;
+    screenCount: number | null;
+    resumeFrom: AutopilotStage | null;
+    forceStages: AutopilotStage[];
+  };
+  artifacts: AutopilotPaths;
+  stages: AutopilotStageStatus[];
+  result?: {
+    sessionPath: string;
+    materializedManifestPath: string;
+    recommendedVariantId: string | null;
+    recommendationReason: string | null;
+    previewCommand: string;
+    previewArtifacts: Array<{
+      variantId: string;
+      filePaths: string[];
+      thumbnailPath: string | null;
+    }>;
+  };
+  nextAction: {
+    kind: 'preview';
+    command: string;
+    toolName: 'appframe_open_preview_session';
+    toolArgs: {
+      sessionPath: string;
+    };
+    when: 'after_success';
+    reason: string;
+  };
+  failure?: {
+    stage: AutopilotStage;
+    message: string;
+  };
+}
+
+export interface RunAutopilotArgs {
+  appName: string;
+  appDescription: string;
+  platforms: Array<'ios' | 'android'>;
+  features: string[];
+  screenshots: Array<{ path: string; note?: string }>;
+  goals?: string[];
+  primaryColor?: string;
+  secondaryColor?: string;
+  font?: string;
+  assetImagePath?: string;
+  outputDir?: string;
+  sessionPath?: string;
+  manifestPath?: string;
+  screenCount?: number;
+  variantCount?: number;
+  resumeFrom?: AutopilotStage;
+  forceStages?: AutopilotStage[];
+}
+
+type AutopilotStageDecision = {
+  stage: AutopilotStage;
+  run: boolean;
+  forced: boolean;
+  stale: boolean;
+  fingerprint: string;
+  reason?: string;
+};
+
+type FileVersion = {
+  path: string;
+  exists: boolean;
+  size: number | null;
+  mtimeMs: number | null;
+};
+
+function stageIndex(stage: AutopilotStage): number {
+  return AUTOPILOT_STAGES.indexOf(stage);
+}
+
+async function getFileVersion(path: string): Promise<FileVersion> {
+  try {
+    const fileStat = await stat(path);
+    return {
+      path,
+      exists: true,
+      size: fileStat.size,
+      mtimeMs: fileStat.mtimeMs,
+    };
+  } catch {
+    return {
+      path,
+      exists: false,
+      size: null,
+      mtimeMs: null,
+    };
+  }
+}
+
+function hashValue(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+async function readJsonArtifactIfExists<T>(path: string): Promise<T | null> {
+  try {
+    return JSON.parse(await readFile(path, 'utf-8')) as T;
+  } catch {
+    return null;
+  }
+}
+
+function getStageStatus(
+  runStatus: AutopilotRunStatus | undefined,
+  stage: AutopilotStage,
+): AutopilotStageStatus | undefined {
+  return runStatus?.stages.find((entry) => entry.stage === stage);
+}
+
+function defaultAutopilotManifestPath(appName: string, configOutputDir: string): string {
+  const slug = appName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return join(configOutputDir, `${slug || 'app'}-variant-manifest.json`);
+}
+
+function buildAutopilotPaths(args: {
+  appName: string;
+  outputDir: string;
+  sessionPath?: string;
+  manifestPath?: string;
+}): AutopilotPaths {
+  return {
+    analysisPath: join(args.outputDir, 'analysis.json'),
+    copyCandidatesPath: join(args.outputDir, 'copy-candidates.json'),
+    selectedCopySetPath: join(args.outputDir, 'selected-copy.json'),
+    planPath: join(args.outputDir, 'variant-plan.json'),
+    materializedManifestPath:
+      args.manifestPath ?? defaultAutopilotManifestPath(args.appName, join(args.outputDir, 'configs')),
+    sessionPath: args.sessionPath ?? join(args.outputDir, 'autopilot.session.json'),
+    runManifestPath: join(args.outputDir, 'autopilot-run.json'),
+    previewOutputDir: join(args.outputDir, 'preview-artifacts'),
+  };
+}
+
+async function loadPreviousAutopilotRunStatus(runManifestPath: string): Promise<AutopilotRunStatus | null> {
+  try {
+    const raw = JSON.parse(await readFile(runManifestPath, 'utf-8')) as Partial<AutopilotRunStatus>;
+    if (raw.version !== 1 || !Array.isArray(raw.stages)) {
+      return null;
+    }
+    return raw as AutopilotRunStatus;
+  } catch {
+    return null;
+  }
+}
+
+async function buildStageFingerprint(args: {
+  stage: AutopilotStage;
+  autopilotArgs: RunAutopilotArgs;
+  paths: AutopilotPaths;
+  previewCommand: string;
+}): Promise<string> {
+  const { stage, autopilotArgs, paths, previewCommand } = args;
+
+  switch (stage) {
+    case 'analysis': {
+      const screenshots = await Promise.all(
+        autopilotArgs.screenshots.map(async (screenshot) => ({
+          path: screenshot.path,
+          note: screenshot.note ?? null,
+          version: await getFileVersion(screenshot.path),
+        })),
+      );
+      return hashValue({ stage, screenshots });
+    }
+    case 'copy':
+      return hashValue({
+        stage,
+        appName: autopilotArgs.appName,
+        appDescription: autopilotArgs.appDescription,
+        category: inferCategory(autopilotArgs.appDescription, autopilotArgs.features),
+        features: autopilotArgs.features,
+        goals: autopilotArgs.goals ?? [],
+        screenshotCount: autopilotArgs.screenCount ?? Math.min(5, autopilotArgs.screenshots.length),
+      });
+    case 'planning': {
+      const screenshots = await Promise.all(
+        autopilotArgs.screenshots.map(async (screenshot) => ({
+          path: screenshot.path,
+          note: screenshot.note ?? null,
+          version: await getFileVersion(screenshot.path),
+        })),
+      );
+      return hashValue({
+        stage,
+        appName: autopilotArgs.appName,
+        appDescription: autopilotArgs.appDescription,
+        platforms: autopilotArgs.platforms,
+        features: autopilotArgs.features,
+        goals: autopilotArgs.goals ?? [],
+        variantCount: autopilotArgs.variantCount ?? 4,
+        screenCount: autopilotArgs.screenCount ?? null,
+        screenshots,
+      });
+    }
+    case 'materialization': {
+      const [plan, selectedCopySet, assetImage] = await Promise.all([
+        readJsonArtifactIfExists<VariantSetPlan>(paths.planPath),
+        readJsonArtifactIfExists<SelectedCopySet>(paths.selectedCopySetPath),
+        autopilotArgs.assetImagePath ? getFileVersion(autopilotArgs.assetImagePath) : null,
+      ]);
+      return hashValue({
+        stage,
+        plan,
+        selectedCopySet,
+        primaryColor: autopilotArgs.primaryColor ?? null,
+        secondaryColor: autopilotArgs.secondaryColor ?? null,
+        font: autopilotArgs.font ?? null,
+        assetImage,
+      });
+    }
+    case 'session': {
+      const [analysis, copyCandidates, selectedCopySet, plan, manifest] = await Promise.all([
+        readJsonArtifactIfExists<ScreenshotAnalysis[]>(paths.analysisPath),
+        readJsonArtifactIfExists<CopyCandidateSet>(paths.copyCandidatesPath),
+        readJsonArtifactIfExists<SelectedCopySet>(paths.selectedCopySetPath),
+        readJsonArtifactIfExists<VariantSetPlan>(paths.planPath),
+        readJsonArtifactIfExists<Record<string, unknown>>(paths.materializedManifestPath),
+      ]);
+      return hashValue({
+        stage,
+        manifest,
+        analysis,
+        copyCandidates,
+        selectedCopySet,
+        plan,
+        previewCommand,
+      });
+    }
+    case 'previews': {
+      const session = await readJsonArtifactIfExists<VariantSessionFile>(paths.sessionPath);
+      return hashValue({
+        stage,
+        platform: autopilotArgs.platforms.includes('ios') ? 'ios' : autopilotArgs.platforms[0] ?? 'ios',
+        variants: session?.variants.map((variant) => ({
+          id: variant.id,
+          config: variant.config,
+        })) ?? null,
+      });
+    }
+    case 'scoring': {
+      const session = await readJsonArtifactIfExists<VariantSessionFile>(paths.sessionPath);
+      const previewFiles = await Promise.all(
+        (session?.variants ?? []).flatMap((variant) => (
+          (variant.previewArtifacts?.[0]?.filePaths ?? []).map((filePath) => getFileVersion(filePath))
+        )),
+      );
+      return hashValue({
+        stage,
+        variants: session?.variants.map((variant) => ({
+          id: variant.id,
+          config: variant.config,
+          previewArtifacts: variant.previewArtifacts?.[0]?.filePaths ?? [],
+        })) ?? null,
+        previewFiles,
+      });
+    }
+  }
+}
+
+async function getStageArtifactProblem(
+  stage: AutopilotStage,
+  paths: AutopilotPaths,
+): Promise<string | null> {
+  switch (stage) {
+    case 'analysis': {
+      const analysis = await getFileVersion(paths.analysisPath);
+      return analysis.exists ? null : `Missing analysis artifact: ${paths.analysisPath}`;
+    }
+    case 'copy': {
+      const [copyCandidates, selectedCopySet] = await Promise.all([
+        getFileVersion(paths.copyCandidatesPath),
+        getFileVersion(paths.selectedCopySetPath),
+      ]);
+      if (!copyCandidates.exists) return `Missing copy artifact: ${paths.copyCandidatesPath}`;
+      if (!selectedCopySet.exists) return `Missing copy artifact: ${paths.selectedCopySetPath}`;
+      return null;
+    }
+    case 'planning': {
+      const plan = await getFileVersion(paths.planPath);
+      return plan.exists ? null : `Missing planning artifact: ${paths.planPath}`;
+    }
+    case 'materialization': {
+      const manifest = await readJsonArtifactIfExists<{ variants?: Array<{ configPath?: string }> }>(
+        paths.materializedManifestPath,
+      );
+      if (!manifest) return `Missing materialized manifest: ${paths.materializedManifestPath}`;
+      for (const variant of manifest.variants ?? []) {
+        if (!variant.configPath) {
+          return `Materialized manifest is missing config paths: ${paths.materializedManifestPath}`;
+        }
+        const configVersion = await getFileVersion(variant.configPath);
+        if (!configVersion.exists) {
+          return `Missing materialized config: ${variant.configPath}`;
+        }
+      }
+      return null;
+    }
+    case 'session': {
+      const sessionVersion = await getFileVersion(paths.sessionPath);
+      return sessionVersion.exists ? null : `Missing session artifact: ${paths.sessionPath}`;
+    }
+    case 'previews': {
+      const session = await readJsonArtifactIfExists<VariantSessionFile>(paths.sessionPath);
+      if (!session) return `Missing session artifact: ${paths.sessionPath}`;
+      for (const variant of session.variants) {
+        const previewArtifact = variant.previewArtifacts?.[0];
+        if (!previewArtifact) {
+          return `Variant ${variant.id} is missing preview artifacts in ${paths.sessionPath}`;
+        }
+        for (const filePath of previewArtifact.filePaths) {
+          const previewFile = await getFileVersion(filePath);
+          if (!previewFile.exists) {
+            return `Missing preview artifact: ${filePath}`;
+          }
+        }
+      }
+      return null;
+    }
+    case 'scoring': {
+      const session = await readJsonArtifactIfExists<VariantSessionFile>(paths.sessionPath);
+      if (!session) return `Missing session artifact: ${paths.sessionPath}`;
+      if (!session.autopilot?.recommendedVariantId || !session.autopilot?.recommendationReason) {
+        return `Session is missing recommendation metadata: ${paths.sessionPath}`;
+      }
+      for (const variant of session.variants) {
+        if (!variant.score) {
+          return `Variant ${variant.id} is missing score metadata in ${paths.sessionPath}`;
+        }
+      }
+      return null;
+    }
+  }
+}
+
+async function decideStageExecution(args: {
+  stage: AutopilotStage;
+  autopilotArgs: RunAutopilotArgs;
+  paths: AutopilotPaths;
+  previewCommand: string;
+  previousRunStatus: AutopilotRunStatus | null;
+  upstreamChanged: boolean;
+}): Promise<AutopilotStageDecision> {
+  const forced = (args.autopilotArgs.forceStages ?? []).includes(args.stage);
+  const fingerprint = await buildStageFingerprint({
+    stage: args.stage,
+    autopilotArgs: args.autopilotArgs,
+    paths: args.paths,
+    previewCommand: args.previewCommand,
+  });
+
+  if (forced) {
+    return {
+      stage: args.stage,
+      run: true,
+      forced: true,
+      stale: false,
+      fingerprint,
+      reason: 'Forced regeneration was requested.',
+    };
+  }
+
+  if (args.upstreamChanged) {
+    return {
+      stage: args.stage,
+      run: true,
+      forced: false,
+      stale: true,
+      fingerprint,
+      reason: 'An upstream stage changed, so downstream artifacts are stale.',
+    };
+  }
+
+  const resumeFrom = args.autopilotArgs.resumeFrom;
+  if (resumeFrom && stageIndex(args.stage) >= stageIndex(resumeFrom)) {
+    return {
+      stage: args.stage,
+      run: true,
+      forced: false,
+      stale: false,
+      fingerprint,
+      reason: `Resume was requested from ${resumeFrom}.`,
+    };
+  }
+
+  const previousStageStatus = getStageStatus(args.previousRunStatus ?? undefined, args.stage);
+  if (!previousStageStatus || previousStageStatus.status !== 'completed') {
+    return {
+      stage: args.stage,
+      run: true,
+      forced: false,
+      stale: true,
+      fingerprint,
+      reason: 'No completed stage metadata is available to reuse prior artifacts.',
+    };
+  }
+
+  const artifactProblem = await getStageArtifactProblem(args.stage, args.paths);
+  if (artifactProblem) {
+    return {
+      stage: args.stage,
+      run: true,
+      forced: false,
+      stale: true,
+      fingerprint,
+      reason: artifactProblem,
+    };
+  }
+
+  if (!previousStageStatus.fingerprint || previousStageStatus.fingerprint !== fingerprint) {
+    return {
+      stage: args.stage,
+      run: true,
+      forced: false,
+      stale: true,
+      fingerprint,
+      reason: 'The current inputs no longer match the previously generated artifacts.',
+    };
+  }
+
+  return {
+    stage: args.stage,
+    run: false,
+    forced: false,
+    stale: false,
+    fingerprint,
+  };
+}
+
+function createInitialAutopilotRunStatus(args: {
+  appName: string;
+  appDescription: string;
+  platforms: Array<'ios' | 'android'>;
+  outputDir: string;
+  paths: AutopilotPaths;
+  variantCount: number;
+  screenCount?: number;
+  resumeFrom?: AutopilotStage;
+  forceStages: AutopilotStage[];
+  previewCommand: string;
+}): AutopilotRunStatus {
+  const timestamp = new Date().toISOString();
+  return {
+    version: 1,
+    status: 'running',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    outputDir: args.outputDir,
+    app: {
+      appName: args.appName,
+      appDescription: args.appDescription,
+      platforms: args.platforms,
+    },
+    options: {
+      variantCount: args.variantCount,
+      screenCount: args.screenCount ?? null,
+      resumeFrom: args.resumeFrom ?? null,
+      forceStages: [...args.forceStages],
+    },
+    artifacts: args.paths,
+    stages: AUTOPILOT_STAGES.map((stage) => ({ stage, status: 'pending' })),
+    nextAction: {
+      kind: 'preview',
+      command: args.previewCommand,
+      toolName: 'appframe_open_preview_session',
+      toolArgs: {
+        sessionPath: args.paths.sessionPath,
+      },
+      when: 'after_success',
+      reason: 'Open the generated variant session in preview after autopilot completes successfully.',
+    },
+  };
+}
+
+async function writeAutopilotRunStatus(status: AutopilotRunStatus): Promise<void> {
+  status.updatedAt = new Date().toISOString();
+  await writeFile(status.artifacts.runManifestPath, JSON.stringify(status, null, 2), 'utf-8');
+}
+
+function updateStageStatus(
+  status: AutopilotRunStatus,
+  stage: AutopilotStage,
+  patch: Partial<AutopilotStageStatus>,
+): void {
+  status.stages = status.stages.map((entry) => (
+    entry.stage === stage
+      ? { ...entry, ...patch, stage }
+      : entry
+  ));
+}
+
+async function readJsonArtifact<T>(label: string, path: string): Promise<T> {
+  try {
+    return JSON.parse(await readFile(path, 'utf-8')) as T;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Unable to load ${label} from ${path}: ${message}`);
+  }
+}
+
+async function markStageRunning(
+  status: AutopilotRunStatus,
+  stage: AutopilotStage,
+  args: {
+    forced: boolean;
+    stale?: boolean;
+    staleReason?: string;
+    fingerprint?: string;
+  },
+): Promise<void> {
+  updateStageStatus(status, stage, {
+    status: 'running',
+    forced: args.forced,
+    stale: args.stale ?? false,
+    staleReason: args.staleReason,
+    fingerprint: args.fingerprint,
+    reused: false,
+    error: undefined,
+    startedAt: new Date().toISOString(),
+    completedAt: undefined,
+  });
+  await writeAutopilotRunStatus(status);
+}
+
+async function markStageCompleted(
+  status: AutopilotRunStatus,
+  stage: AutopilotStage,
+  args: {
+    reused: boolean;
+    forced: boolean;
+    stale?: boolean;
+    staleReason?: string;
+    fingerprint?: string;
+    artifactPaths?: string[];
+    summary?: Record<string, unknown>;
+  },
+): Promise<void> {
+  updateStageStatus(status, stage, {
+    status: 'completed',
+    reused: args.reused,
+    forced: args.forced,
+    stale: args.stale ?? false,
+    staleReason: args.staleReason,
+    fingerprint: args.fingerprint,
+    artifactPaths: args.artifactPaths,
+    summary: args.summary,
+    completedAt: new Date().toISOString(),
+    error: undefined,
+  });
+  await writeAutopilotRunStatus(status);
+}
+
+async function markStageFailed(
+  status: AutopilotRunStatus,
+  stage: AutopilotStage,
+  error: unknown,
+): Promise<never> {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  status.status = 'failed';
+  status.failure = { stage, message };
+  updateStageStatus(status, stage, {
+    status: 'failed',
+    completedAt: new Date().toISOString(),
+    error: { message },
+  });
+  await writeAutopilotRunStatus(status);
+  throw error;
+}
+
+export async function runAutopilotPipeline(args: RunAutopilotArgs): Promise<AutopilotRunStatus> {
+  const variantCount = args.variantCount ?? 4;
+  const resolvedOutputDir = args.outputDir ?? defaultAutopilotOutputDir(args.appName);
+  const resolvedForceStages = dedupe((args.forceStages ?? []) as string[]) as AutopilotStage[];
+  const autopilotArgs: RunAutopilotArgs = {
+    ...args,
+    variantCount,
+    outputDir: resolvedOutputDir,
+    forceStages: resolvedForceStages,
+  };
+  const paths = buildAutopilotPaths({
+    appName: args.appName,
+    outputDir: resolvedOutputDir,
+    sessionPath: args.sessionPath,
+    manifestPath: args.manifestPath,
+  });
+  const previewCommand = `appframe preview --session ${paths.sessionPath}`;
+
+  await mkdir(resolvedOutputDir, { recursive: true });
+  const previousRunStatus = await loadPreviousAutopilotRunStatus(paths.runManifestPath);
+  const runStatus = createInitialAutopilotRunStatus({
+    appName: args.appName,
+    appDescription: args.appDescription,
+    platforms: args.platforms,
+    outputDir: resolvedOutputDir,
+    paths,
+    variantCount,
+    screenCount: args.screenCount,
+    resumeFrom: args.resumeFrom,
+    forceStages: resolvedForceStages,
+    previewCommand,
+  });
+  await writeAutopilotRunStatus(runStatus);
+  let upstreamChanged = false;
+
+  try {
+    let analysis: ScreenshotAnalysis[];
+    const analysisDecision = await decideStageExecution({
+      stage: 'analysis',
+      autopilotArgs,
+      paths,
+      previewCommand,
+      previousRunStatus,
+      upstreamChanged,
+    });
+    if (analysisDecision.run) {
+      await markStageRunning(runStatus, 'analysis', {
+        forced: analysisDecision.forced,
+        stale: analysisDecision.stale,
+        staleReason: analysisDecision.reason,
+        fingerprint: analysisDecision.fingerprint,
+      });
+      analysis = await analyzeScreenshotSet(args.screenshots);
+      await writeFile(paths.analysisPath, JSON.stringify(analysis, null, 2), 'utf-8');
+      await markStageCompleted(runStatus, 'analysis', {
+        reused: false,
+        forced: analysisDecision.forced,
+        stale: analysisDecision.stale,
+        staleReason: analysisDecision.reason,
+        fingerprint: analysisDecision.fingerprint,
+        artifactPaths: [paths.analysisPath],
+        summary: {
+          count: analysis.length,
+          topHeroCandidate: analysis[0]?.path ?? null,
+        },
+      });
+    } else {
+      await markStageRunning(runStatus, 'analysis', {
+        forced: false,
+        stale: false,
+        fingerprint: analysisDecision.fingerprint,
+      });
+      analysis = await readJsonArtifact<ScreenshotAnalysis[]>('analysis', paths.analysisPath);
+      await markStageCompleted(runStatus, 'analysis', {
+        reused: true,
+        forced: false,
+        stale: false,
+        fingerprint: analysisDecision.fingerprint,
+        artifactPaths: [paths.analysisPath],
+        summary: {
+          count: analysis.length,
+          topHeroCandidate: analysis[0]?.path ?? null,
+        },
+      });
+    }
+    if (analysisDecision.run && previousRunStatus) upstreamChanged = true;
+
+    const category = inferCategory(args.appDescription, args.features);
+    let copyCandidates: CopyCandidateSet;
+    let selectedCopySet: SelectedCopySet;
+    const copyDecision = await decideStageExecution({
+      stage: 'copy',
+      autopilotArgs,
+      paths,
+      previewCommand,
+      previousRunStatus,
+      upstreamChanged,
+    });
+    if (copyDecision.run) {
+      await markStageRunning(runStatus, 'copy', {
+        forced: copyDecision.forced,
+        stale: copyDecision.stale,
+        staleReason: copyDecision.reason,
+        fingerprint: copyDecision.fingerprint,
+      });
+      copyCandidates = generateCopyCandidates({
+        appName: args.appName,
+        appDescription: args.appDescription,
+        category,
+        features: args.features,
+        goals: args.goals,
+        screenshotCount: args.screenCount ?? Math.min(5, args.screenshots.length),
+      });
+      selectedCopySet = selectCopySet(copyCandidates);
+      await Promise.all([
+        writeFile(paths.copyCandidatesPath, JSON.stringify(copyCandidates, null, 2), 'utf-8'),
+        writeFile(paths.selectedCopySetPath, JSON.stringify(selectedCopySet, null, 2), 'utf-8'),
+      ]);
+      await markStageCompleted(runStatus, 'copy', {
+        reused: false,
+        forced: copyDecision.forced,
+        stale: copyDecision.stale,
+        staleReason: copyDecision.reason,
+        fingerprint: copyDecision.fingerprint,
+        artifactPaths: [paths.copyCandidatesPath, paths.selectedCopySetPath],
+        summary: {
+          slotCount: copyCandidates.slots.length,
+          selectedFeatureCount: selectedCopySet.features.length,
+        },
+      });
+    } else {
+      await markStageRunning(runStatus, 'copy', {
+        forced: false,
+        stale: false,
+        fingerprint: copyDecision.fingerprint,
+      });
+      copyCandidates = await readJsonArtifact<CopyCandidateSet>('copy candidates', paths.copyCandidatesPath);
+      selectedCopySet = await readJsonArtifact<SelectedCopySet>('selected copy set', paths.selectedCopySetPath);
+      await markStageCompleted(runStatus, 'copy', {
+        reused: true,
+        forced: false,
+        stale: false,
+        fingerprint: copyDecision.fingerprint,
+        artifactPaths: [paths.copyCandidatesPath, paths.selectedCopySetPath],
+        summary: {
+          slotCount: copyCandidates.slots.length,
+          selectedFeatureCount: selectedCopySet.features.length,
+        },
+      });
+    }
+    if (copyDecision.run && previousRunStatus) upstreamChanged = true;
+
+    let plan: VariantSetPlan;
+    const planningDecision = await decideStageExecution({
+      stage: 'planning',
+      autopilotArgs,
+      paths,
+      previewCommand,
+      previousRunStatus,
+      upstreamChanged,
+    });
+    if (planningDecision.run) {
+      await markStageRunning(runStatus, 'planning', {
+        forced: planningDecision.forced,
+        stale: planningDecision.stale,
+        staleReason: planningDecision.reason,
+        fingerprint: planningDecision.fingerprint,
+      });
+      plan = await buildVariantSetPlan({
+        appName: args.appName,
+        appDescription: args.appDescription,
+        platforms: args.platforms,
+        features: args.features,
+        screenshots: args.screenshots,
+        goals: args.goals,
+        variantCount,
+        screenCount: args.screenCount,
+      });
+      await writeFile(paths.planPath, JSON.stringify(plan, null, 2), 'utf-8');
+      await markStageCompleted(runStatus, 'planning', {
+        reused: false,
+        forced: planningDecision.forced,
+        stale: planningDecision.stale,
+        staleReason: planningDecision.reason,
+        fingerprint: planningDecision.fingerprint,
+        artifactPaths: [paths.planPath],
+        summary: {
+          selectedScreens: plan.selectedScreens.length,
+          variantCount: plan.variants.length,
+        },
+      });
+    } else {
+      await markStageRunning(runStatus, 'planning', {
+        forced: false,
+        stale: false,
+        fingerprint: planningDecision.fingerprint,
+      });
+      plan = await readJsonArtifact<VariantSetPlan>('variant plan', paths.planPath);
+      await markStageCompleted(runStatus, 'planning', {
+        reused: true,
+        forced: false,
+        stale: false,
+        fingerprint: planningDecision.fingerprint,
+        artifactPaths: [paths.planPath],
+        summary: {
+          selectedScreens: plan.selectedScreens.length,
+          variantCount: plan.variants.length,
+        },
+      });
+    }
+    if (planningDecision.run && previousRunStatus) upstreamChanged = true;
+
+    const materializationDecision = await decideStageExecution({
+      stage: 'materialization',
+      autopilotArgs,
+      paths,
+      previewCommand,
+      previousRunStatus,
+      upstreamChanged,
+    });
+    if (materializationDecision.run) {
+      await markStageRunning(runStatus, 'materialization', {
+        forced: materializationDecision.forced,
+        stale: materializationDecision.stale,
+        staleReason: materializationDecision.reason,
+        fingerprint: materializationDecision.fingerprint,
+      });
+      const materialized = await materializeVariantPlan({
+        plan,
+        outputDir: join(resolvedOutputDir, 'configs'),
+        primaryColor: args.primaryColor,
+        secondaryColor: args.secondaryColor,
+        font: args.font,
+        assetImagePath: args.assetImagePath,
+        manifestPath: paths.materializedManifestPath,
+        selectedCopySet,
+      });
+      await markStageCompleted(runStatus, 'materialization', {
+        reused: false,
+        forced: materializationDecision.forced,
+        stale: materializationDecision.stale,
+        staleReason: materializationDecision.reason,
+        fingerprint: materializationDecision.fingerprint,
+        artifactPaths: [
+          materialized.manifestPath,
+          ...materialized.variants.map((variant) => variant.configPath),
+        ],
+        summary: {
+          variantCount: materialized.variants.length,
+          manifestPath: materialized.manifestPath,
+        },
+      });
+    } else {
+      await markStageRunning(runStatus, 'materialization', {
+        forced: false,
+        stale: false,
+        fingerprint: materializationDecision.fingerprint,
+      });
+      const materialized = await readJsonArtifact<{
+        variants: Array<{ configPath: string }>;
+      }>('materialized manifest', paths.materializedManifestPath);
+      await markStageCompleted(runStatus, 'materialization', {
+        reused: true,
+        forced: false,
+        stale: false,
+        fingerprint: materializationDecision.fingerprint,
+        artifactPaths: [
+          paths.materializedManifestPath,
+          ...materialized.variants.map((variant) => variant.configPath),
+        ],
+        summary: {
+          variantCount: materialized.variants.length,
+          manifestPath: paths.materializedManifestPath,
+        },
+      });
+    }
+    if (materializationDecision.run && previousRunStatus) upstreamChanged = true;
+
+    let session: VariantSessionFile;
+    const sessionDecision = await decideStageExecution({
+      stage: 'session',
+      autopilotArgs,
+      paths,
+      previewCommand,
+      previousRunStatus,
+      upstreamChanged,
+    });
+    if (sessionDecision.run) {
+      await markStageRunning(runStatus, 'session', {
+        forced: sessionDecision.forced,
+        stale: sessionDecision.stale,
+        staleReason: sessionDecision.reason,
+        fingerprint: sessionDecision.fingerprint,
+      });
+      const createdSession = await createSessionFromManifest({
+        manifestPath: paths.materializedManifestPath,
+        sessionPath: paths.sessionPath,
+        screenshotAnalysis: analysis,
+        copyCandidates,
+        selectedCopySet,
+        conceptPlan: plan,
+        runManifestPath: paths.runManifestPath,
+        previewCommand,
+      });
+      session = createdSession.session;
+      await markStageCompleted(runStatus, 'session', {
+        reused: false,
+        forced: sessionDecision.forced,
+        stale: sessionDecision.stale,
+        staleReason: sessionDecision.reason,
+        fingerprint: sessionDecision.fingerprint,
+        artifactPaths: [createdSession.sessionPath],
+        summary: {
+          activeVariantId: session.activeVariantId,
+          variantCount: session.variants.length,
+        },
+      });
+    } else {
+      await markStageRunning(runStatus, 'session', {
+        forced: false,
+        stale: false,
+        fingerprint: sessionDecision.fingerprint,
+      });
+      session = await readSession(paths.sessionPath);
+      await markStageCompleted(runStatus, 'session', {
+        reused: true,
+        forced: false,
+        stale: false,
+        fingerprint: sessionDecision.fingerprint,
+        artifactPaths: [paths.sessionPath],
+        summary: {
+          activeVariantId: session.activeVariantId,
+          variantCount: session.variants.length,
+        },
+      });
+    }
+    if (sessionDecision.run && previousRunStatus) upstreamChanged = true;
+
+    let previewArtifacts: Array<{ variantId: string; filePaths: string[]; thumbnailPath: string | null }>;
+    const previewsDecision = await decideStageExecution({
+      stage: 'previews',
+      autopilotArgs,
+      paths,
+      previewCommand,
+      previousRunStatus,
+      upstreamChanged,
+    });
+    if (previewsDecision.run) {
+      await markStageRunning(runStatus, 'previews', {
+        forced: previewsDecision.forced,
+        stale: previewsDecision.stale,
+        staleReason: previewsDecision.reason,
+        fingerprint: previewsDecision.fingerprint,
+      });
+      const previewResult = await renderVariantPreviews({
+        sessionPath: paths.sessionPath,
+        outputDir: paths.previewOutputDir,
+        platform: args.platforms.includes('ios') ? 'ios' : args.platforms[0] ?? 'ios',
+      });
+      previewArtifacts = previewResult.previewArtifacts;
+      await markStageCompleted(runStatus, 'previews', {
+        reused: false,
+        forced: previewsDecision.forced,
+        stale: previewsDecision.stale,
+        staleReason: previewsDecision.reason,
+        fingerprint: previewsDecision.fingerprint,
+        artifactPaths: previewArtifacts.flatMap((entry) => entry.filePaths),
+        summary: {
+          previewVariantCount: previewArtifacts.length,
+        },
+      });
+    } else {
+      await markStageRunning(runStatus, 'previews', {
+        forced: false,
+        stale: false,
+        fingerprint: previewsDecision.fingerprint,
+      });
+      session = await readSession(paths.sessionPath);
+      previewArtifacts = session.variants.flatMap((variant) => {
+        const latestPreview = variant.previewArtifacts?.[0];
+        return latestPreview
+          ? [{
+              variantId: variant.id,
+              filePaths: latestPreview.filePaths,
+              thumbnailPath: latestPreview.thumbnailPath,
+            }]
+          : [];
+      });
+      if (previewArtifacts.length === 0) {
+        throw new Error(`Cannot resume after previews because no preview artifacts were found in ${paths.sessionPath}`);
+      }
+      await markStageCompleted(runStatus, 'previews', {
+        reused: true,
+        forced: false,
+        stale: false,
+        fingerprint: previewsDecision.fingerprint,
+        artifactPaths: previewArtifacts.flatMap((entry) => entry.filePaths),
+        summary: {
+          previewVariantCount: previewArtifacts.length,
+        },
+      });
+    }
+    if (previewsDecision.run && previousRunStatus) upstreamChanged = true;
+
+    let recommendedVariantId: string | null;
+    let recommendationReason: string | null;
+    const scoringDecision = await decideStageExecution({
+      stage: 'scoring',
+      autopilotArgs,
+      paths,
+      previewCommand,
+      previousRunStatus,
+      upstreamChanged,
+    });
+    if (scoringDecision.run) {
+      await markStageRunning(runStatus, 'scoring', {
+        forced: scoringDecision.forced,
+        stale: scoringDecision.stale,
+        staleReason: scoringDecision.reason,
+        fingerprint: scoringDecision.fingerprint,
+      });
+      const scoreResult = await scoreVariantPreviews({
+        sessionPath: paths.sessionPath,
+      });
+      recommendedVariantId = scoreResult.recommendedVariantId;
+      recommendationReason = scoreResult.recommendationReason;
+      await markStageCompleted(runStatus, 'scoring', {
+        reused: false,
+        forced: scoringDecision.forced,
+        stale: scoringDecision.stale,
+        staleReason: scoringDecision.reason,
+        fingerprint: scoringDecision.fingerprint,
+        artifactPaths: [paths.sessionPath],
+        summary: {
+          recommendedVariantId,
+          recommendationReason,
+        },
+      });
+    } else {
+      await markStageRunning(runStatus, 'scoring', {
+        forced: false,
+        stale: false,
+        fingerprint: scoringDecision.fingerprint,
+      });
+      session = await readSession(paths.sessionPath);
+      recommendedVariantId = session.autopilot?.recommendedVariantId ?? null;
+      recommendationReason = session.autopilot?.recommendationReason ?? null;
+      if (!recommendedVariantId || !recommendationReason) {
+        throw new Error(`Cannot resume after scoring because recommendation metadata is missing in ${paths.sessionPath}`);
+      }
+      await markStageCompleted(runStatus, 'scoring', {
+        reused: true,
+        forced: false,
+        stale: false,
+        fingerprint: scoringDecision.fingerprint,
+        artifactPaths: [paths.sessionPath],
+        summary: {
+          recommendedVariantId,
+          recommendationReason,
+        },
+      });
+    }
+
+    runStatus.status = 'completed';
+    runStatus.result = {
+      sessionPath: paths.sessionPath,
+      materializedManifestPath: paths.materializedManifestPath,
+      recommendedVariantId,
+      recommendationReason,
+      previewCommand,
+      previewArtifacts,
+    };
+    await writeAutopilotRunStatus(runStatus);
+    return runStatus;
+  } catch (error) {
+    const activeStage = runStatus.stages.find((stage) => stage.status === 'running')?.stage;
+    if (activeStage) {
+      await markStageFailed(runStatus, activeStage, error);
+    }
+    throw error;
+  }
 }
 
 export function registerSuggestionTools(server: McpServer): void {
@@ -435,6 +1555,11 @@ export function registerSuggestionTools(server: McpServer): void {
       manifestPath: z.string().optional().describe('Optional output path for the materialized manifest JSON'),
       screenCount: z.number().min(3).max(10).optional().describe('Optional screen count to plan'),
       variantCount: z.number().min(4).max(5).default(4).describe('How many concepts to produce'),
+      resumeFrom: z.enum(AUTOPILOT_STAGES).optional().describe('Optional stage to resume from using saved artifacts'),
+      forceStages: z
+        .array(z.enum(AUTOPILOT_STAGES))
+        .optional()
+        .describe('Optional stages to force-regenerate, along with any downstream stages'),
     },
     async ({
       appName,
@@ -452,117 +1577,35 @@ export function registerSuggestionTools(server: McpServer): void {
       manifestPath,
       screenCount,
       variantCount,
+      resumeFrom,
+      forceStages,
     }) => {
       try {
-        const resolvedOutputDir = outputDir ?? defaultAutopilotOutputDir(appName);
-        await mkdir(resolvedOutputDir, { recursive: true });
-
-        const analysis = await analyzeScreenshotSet(screenshots);
-        const copyCandidates = generateCopyCandidates({
-          appName,
-          appDescription,
-          category: inferCategory(appDescription, features),
-          features,
-          goals,
-          screenshotCount: screenCount ?? Math.min(5, screenshots.length),
-        });
-        const selectedCopySet = selectCopySet(copyCandidates);
-        const plan = await buildVariantSetPlan({
+        const runStatus = await runAutopilotPipeline({
           appName,
           appDescription,
           platforms,
           features,
           screenshots,
           goals,
-          variantCount,
-          screenCount,
-        });
-
-        const analysisPath = join(resolvedOutputDir, 'analysis.json');
-        const copyCandidatesPath = join(resolvedOutputDir, 'copy-candidates.json');
-        const selectedCopySetPath = join(resolvedOutputDir, 'selected-copy.json');
-        const planPath = join(resolvedOutputDir, 'variant-plan.json');
-
-        await Promise.all([
-          writeFile(analysisPath, JSON.stringify(analysis, null, 2), 'utf-8'),
-          writeFile(copyCandidatesPath, JSON.stringify(copyCandidates, null, 2), 'utf-8'),
-          writeFile(selectedCopySetPath, JSON.stringify(selectedCopySet, null, 2), 'utf-8'),
-          writeFile(planPath, JSON.stringify(plan, null, 2), 'utf-8'),
-        ]);
-
-        const materialized = await materializeVariantPlan({
-          plan,
-          outputDir: join(resolvedOutputDir, 'configs'),
           primaryColor,
           secondaryColor,
           font,
           assetImagePath,
+          outputDir,
+          sessionPath,
           manifestPath,
-          selectedCopySet,
+          screenCount,
+          variantCount,
+          resumeFrom,
+          forceStages,
         });
-
-        const previewCommand = `appframe preview --session ${sessionPath ?? join(resolvedOutputDir, 'autopilot.session.json')}`;
-        const createdSession = await createSessionFromManifest({
-          manifestPath: materialized.manifestPath,
-          sessionPath: sessionPath ?? join(resolvedOutputDir, 'autopilot.session.json'),
-          screenshotAnalysis: analysis,
-          copyCandidates,
-          selectedCopySet,
-          conceptPlan: plan,
-          runManifestPath: join(resolvedOutputDir, 'autopilot-run.json'),
-          previewCommand,
-        });
-
-        const previewResult = await renderVariantPreviews({
-          sessionPath: createdSession.sessionPath,
-          outputDir: join(resolvedOutputDir, 'preview-artifacts'),
-          platform: platforms.includes('ios') ? 'ios' : platforms[0] ?? 'ios',
-        });
-        const scoreResult = await scoreVariantPreviews({
-          sessionPath: createdSession.sessionPath,
-        });
-
-        const runManifestPath = join(resolvedOutputDir, 'autopilot-run.json');
-        await writeFile(
-          runManifestPath,
-          JSON.stringify(
-            {
-              app: { appName, appDescription, platforms },
-              generatedAt: new Date().toISOString(),
-              analysisPath,
-              copyCandidatesPath,
-              selectedCopySetPath,
-              planPath,
-              materializedManifestPath: materialized.manifestPath,
-              sessionPath: createdSession.sessionPath,
-              previewPaths: previewResult.previewArtifacts,
-              recommendedVariantId: scoreResult.recommendedVariantId,
-              recommendationReason: scoreResult.recommendationReason,
-              previewCommand,
-            },
-            null,
-            2,
-          ),
-          'utf-8',
-        );
 
         return {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(
-                {
-                  outputDir: resolvedOutputDir,
-                  runManifestPath,
-                  sessionPath: createdSession.sessionPath,
-                  materializedManifestPath: materialized.manifestPath,
-                  recommendedVariantId: scoreResult.recommendedVariantId,
-                  recommendationReason: scoreResult.recommendationReason,
-                  previewCommand,
-                },
-                null,
-                2,
-              ),
+              text: JSON.stringify(runStatus, null, 2),
             },
           ],
         };

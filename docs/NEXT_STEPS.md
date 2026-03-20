@@ -27,6 +27,8 @@ AppFrame now has an initial autopilot pipeline implemented:
 - preview UI now exposes the selected copy plan for each concept
 - preview UI now supports optional AI-backed refinement planning that maps freeform prompts onto safe branch actions
 - web-preview now has dedicated refinement session save/load round-trip coverage
+- `appframe_run_autopilot` now supports stage-aware resume, forced reruns, stale-artifact detection, and a machine-readable run-status manifest
+- MCP tools can now start preview directly for a generated session via `appframe_open_preview_session`
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `group` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `badge` and `logo` primitives now exist across schema, renderer, preview server, and editor
@@ -88,6 +90,7 @@ These tools now exist and are part of the autopilot path:
 - `appframe_score_copy_candidates`
 - `appframe_select_copy_set`
 - `appframe_run_autopilot`
+- `appframe_open_preview_session`
 - `appframe_create_variant_session_from_manifest`
 - `appframe_render_variant_previews`
 - `appframe_score_variant_previews`
@@ -149,14 +152,14 @@ Recommended order:
 - [x] Create sessions from materialized manifests.
 - [x] Render preview artifacts for generated concepts.
 - [x] Score generated concepts and store a recommendation.
-- [ ] Add explicit stage resume support in `appframe_run_autopilot`.
-- [ ] Add `resumeFrom` support so a user can rerun only analysis, copy, planning, materialization, previews, or scoring.
-- [ ] Add `force` options per stage to regenerate stale artifacts.
-- [ ] Add stale-artifact detection based on source screenshot mtimes and config changes.
-- [ ] Add a machine-readable autopilot run status model, not just loose JSON artifacts.
-- [ ] Add structured failure payloads for each autopilot stage.
-- [ ] Add better output for the agent to know when it should call `appframe preview --session <sessionPath>`.
-- [ ] Optionally add a direct preview-open helper if the product wants the MCP layer to initiate preview itself.
+- [x] Add explicit stage resume support in `appframe_run_autopilot`.
+- [x] Add `resumeFrom` support so a user can rerun only analysis, copy, planning, materialization, previews, or scoring.
+- [x] Add `force` options per stage to regenerate stale artifacts.
+- [x] Add stale-artifact detection based on source screenshot mtimes and config changes.
+- [x] Add a machine-readable autopilot run status model, not just loose JSON artifacts.
+- [x] Add structured failure payloads for each autopilot stage.
+- [x] Add better output for the agent to know when it should call `appframe preview --session <sessionPath>`.
+- [x] Optionally add a direct preview-open helper if the product wants the MCP layer to initiate preview itself.
 
 ### 2. Copy System
 
@@ -399,7 +402,8 @@ This is not fully implemented yet.
 - [ ] Consider a dedicated CLI helper for autopilot sessions, for example:
   - [ ] `appframe preview --session <sessionPath>`
   - [ ] `appframe autopilot --session <sessionPath>` if a dedicated CLI command is added later
-- [ ] Decide whether preview launch belongs in MCP, CLI, or agent workflow only.
+- [x] Decide whether preview launch belongs in MCP, CLI, or agent workflow only.
+  Current direction: support both the existing CLI launch path and the MCP-side `appframe_open_preview_session` helper so agents can open preview without leaving the tool surface.
 - [ ] Add docs covering the intended agent invocation flow.
 
 ### 14. Documentation

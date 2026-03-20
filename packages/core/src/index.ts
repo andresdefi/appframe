@@ -37,6 +37,7 @@ export type {
   PanoramicElement,
   PanoramicConfig,
   PanoramicBackground,
+  PanoramicBackgroundLayer,
   ValidationResult,
   ValidationError,
   FormattedError,
@@ -60,7 +61,13 @@ export type {
 } from './frames/index.js';
 
 export { TemplateEngine } from './templates/index.js';
-export type { TemplateContext, DeviceContext, PanoramicTemplateContext, PanoramicRenderedElement } from './templates/index.js';
+export type {
+  TemplateContext,
+  DeviceContext,
+  PanoramicTemplateContext,
+  PanoramicRenderedBackgroundLayer,
+  PanoramicRenderedElement,
+} from './templates/index.js';
 export { injectSpotlightHTML, injectAnnotationsHTML, injectOverlaysHTML } from './templates/index.js';
 
 export { loadFontFaces, loadAllFontFaces, getFontName, FONT_CATALOG } from './fonts/index.js';

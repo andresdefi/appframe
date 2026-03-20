@@ -23,6 +23,14 @@
         background: {{ backgroundCss | safe }};
         overflow: hidden;
       }
+      .pano-bg-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .pano-bg-layer--glow {
+        border-radius: 999px;
+      }
 
       {# Frame boundary guides (debug only) #}
       {% if showGuides %}
@@ -142,6 +150,20 @@
         justify-content: center;
         text-align: center;
         white-space: nowrap;
+      }
+      .pano-proof-chip {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .pano-proof-chip-value {
+        font-weight: 700;
+        line-height: 1.05;
+      }
+      .pano-proof-chip-detail,
+      .pano-proof-chip-stars {
+        line-height: 1.15;
       }
     </style>
   </head>
@@ -416,6 +438,45 @@
         {{ el.content }}
       </div>
 
+      {% elif el.type == 'proof-chip' %}
+      <div
+        class="pano-proof-chip"
+        {% if dataIndex != '' %}data-index="{{ dataIndex }}"{% endif %}
+        style="left: {{ el.xPx }}px;
+               top: {{ el.yPx }}px;
+               width: {{ el.widthPx }}px;
+               height: {{ el.heightPx }}px;
+               padding: {{ el.paddingPx | default(0) }}px;
+               background: {{ el.backgroundColor }};
+               color: {{ el.color }};
+               opacity: {{ el.opacity | default(1) }};
+               border-radius: {{ el.borderRadius | default(0) }}px;
+               {% if el.borderColor and el.borderWidthPx %}border: {{ el.borderWidthPx }}px solid {{ el.borderColor }};{% endif %}
+               transform: rotate({{ el.rotation | default(0) }}deg);
+               z-index: {{ el.z }};
+               {{ el.shadowCss | safe }}"
+      >
+        {% if el.rating %}
+        <div
+          class="pano-proof-chip-stars"
+          style="color: {{ el.starColor | default('#F59E0B') }}; font-size: {{ ((el.detailSizePx | default(12)) * 1.1) | round }}px; margin-bottom: {{ ((el.paddingPx | default(8)) * 0.35) | round }}px;"
+        >
+          {% for _ in range(0, el.maxRating | default(5)) %}
+            {% if loop.index <= el.rating %}★{% else %}<span style="opacity: 0.25;">★</span>{% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="pano-proof-chip-value" style="font-size: {{ el.valueSizePx }}px;">{{ el.value }}</div>
+        {% if el.detail %}
+        <div
+          class="pano-proof-chip-detail"
+          style="font-size: {{ el.detailSizePx }}px; color: {{ el.mutedColor | default(el.color) }}; margin-top: {{ ((el.paddingPx | default(8)) * 0.28) | round }}px;"
+        >
+          {{ el.detail }}
+        </div>
+        {% endif %}
+      </div>
+
       {% elif el.type == 'group' %}
       <div
         class="pano-group"
@@ -436,6 +497,19 @@
     {% endmacro %}
 
     <div class="panoramic-canvas">
+      {% if backgroundLayers and backgroundLayers.length > 0 %}
+        {% for layer in backgroundLayers %}
+        <div
+          class="pano-bg-layer{% if layer.kind == 'glow' %} pano-bg-layer--glow{% endif %}"
+          style="{% if layer.kind == 'glow' %}left: {{ layer.xPx }}px; top: {{ layer.yPx }}px; width: {{ layer.widthPx }}px; height: {{ layer.heightPx }}px;{% endif %}
+                 background: {{ layer.backgroundCss | safe }};
+                 opacity: {{ layer.opacity | default(1) }};
+                 mix-blend-mode: {{ layer.blendMode | default('normal') }};
+                 {% if layer.blurPx and layer.blurPx > 0 %}filter: blur({{ layer.blurPx }}px); transform: translateZ(0);{% endif %}">
+        </div>
+        {% endfor %}
+      {% endif %}
+
       {# === Frame boundary guides (debug) === #} {% if showGuides %} {% for i in range(1,
       frameCount) %}
       <div class="frame-guide" style="left: {{ (i * frameWidth) }}px;"></div>

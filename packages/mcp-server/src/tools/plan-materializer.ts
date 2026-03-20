@@ -461,6 +461,43 @@ function buildPanoramicElements(args: {
       });
     }
 
+    if (index === 0 || frame.storyBeat === 'trust' || frame.storyBeat === 'summary') {
+      elements.push({
+        type: 'proof-chip',
+        value:
+          frame.storyBeat === 'summary'
+            ? 'Power-user approved'
+            : args.variant.recipe === 'bold-panorama'
+              ? '4.9 out of 5'
+              : 'Top rated flow',
+        detail:
+          frame.storyBeat === 'summary'
+            ? 'Built for daily use'
+            : args.variant.recipe === 'bold-panorama'
+              ? 'App Store reviews'
+              : 'Trusted by repeat users',
+        rating: args.variant.recipe === 'bold-panorama' ? 5 : undefined,
+        maxRating: 5,
+        x: frameSliceStart + Math.max(2.5, sliceWidth - 18),
+        y: frame.storyBeat === 'summary' ? 72 : args.variant.recipe === 'bold-panorama' ? 26 : 24,
+        width: Math.min(16, sliceWidth - 4),
+        height: 8.5,
+        color: args.textColor,
+        mutedColor: args.subtitleColor,
+        starColor: '#F59E0B',
+        backgroundColor: '#FFFFFFE8',
+        opacity: 0.98,
+        borderColor: args.variant.recipe === 'bold-panorama' ? '#FFFFFF66' : args.accentColor,
+        borderWidth: args.variant.recipe === 'bold-panorama' ? 0.5 : 1,
+        borderRadius: 28,
+        valueSize: 1.65,
+        detailSize: 0.95,
+        padding: 1.4,
+        rotation: 0,
+        z: 11,
+      });
+    }
+
     if (args.variant.recipe === 'editorial-panorama') {
       const groupWidth = Math.max(12.5, sliceWidth - 8);
       elements.push(
@@ -571,6 +608,95 @@ function buildPanoramicElements(args: {
   return elements;
 }
 
+function buildPanoramicBackground(args: {
+  style: TemplateStyle;
+  colors: MaterializedPalette;
+}): NonNullable<AppframeConfig['panoramic']>['background'] {
+  if (args.style === 'editorial') {
+    return {
+      type: 'solid',
+      color: args.colors.background,
+      layers: [
+        {
+          kind: 'gradient',
+          gradientType: 'mesh',
+          colors: [args.colors.secondary, '#F8E7C9', args.colors.primary],
+          direction: 145,
+          radialPosition: 'center',
+          opacity: 0.58,
+          blendMode: 'soft-light',
+          blur: 0,
+        },
+        {
+          kind: 'glow',
+          color: '#FFF2D6',
+          x: 68,
+          y: 16,
+          width: 36,
+          height: 28,
+          opacity: 0.34,
+          blur: 96,
+          blendMode: 'screen',
+        },
+      ],
+    };
+  }
+
+  if (args.style === 'branded' || args.style === 'bold') {
+    return {
+      type: 'solid',
+      color: args.colors.background,
+      layers: [
+        {
+          kind: 'gradient',
+          gradientType: 'mesh',
+          colors: [args.colors.primary, args.colors.secondary, '#FFFFFF'],
+          direction: 135,
+          radialPosition: 'center',
+          opacity: 0.72,
+          blendMode: 'overlay',
+          blur: 0,
+        },
+        {
+          kind: 'solid',
+          color: '#0B1020',
+          opacity: 0.12,
+          blendMode: 'multiply',
+          blur: 0,
+        },
+        {
+          kind: 'glow',
+          color: args.colors.primary,
+          x: 24,
+          y: 18,
+          width: 42,
+          height: 34,
+          opacity: 0.38,
+          blur: 110,
+          blendMode: 'screen',
+        },
+      ],
+    };
+  }
+
+  return {
+    type: 'solid',
+    color: args.colors.background,
+    layers: [
+      {
+        kind: 'gradient',
+        gradientType: 'radial',
+        colors: ['#FFFFFF', args.colors.primary],
+        direction: 135,
+        radialPosition: 'top',
+        opacity: 0.3,
+        blendMode: 'soft-light',
+        blur: 0,
+      },
+    ],
+  };
+}
+
 function buildPanoramicConfig(args: {
   plan: VariantSetPlan;
   variant: Extract<PlannedVariant, { mode: 'panoramic' }>;
@@ -607,10 +733,7 @@ function buildPanoramicConfig(args: {
     screens: [],
     frameCount: args.variant.canvasPlan.frameCount,
     panoramic: {
-      background: {
-        type: 'solid',
-        color: colors.background,
-      },
+      background: buildPanoramicBackground({ style, colors }),
       elements: buildPanoramicElements({
         variant: args.variant,
         configDir: args.configDir,

@@ -34,6 +34,7 @@ export type {
   PanoramicElement,
   PanoramicConfig,
   PanoramicBackground,
+  PanoramicBackgroundLayer,
 } from './schema.js';
 export { STYLE_PRESETS } from './presets.js';
 export type { StylePreset, TypographyDefaults, ShadowConfig, BgEffect, ShadowIntensity } from './presets.js';

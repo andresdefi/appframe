@@ -172,6 +172,7 @@ export function PanoramicPreview() {
           el.type === 'crop' ||
           el.type === 'card' ||
           el.type === 'badge' ||
+          el.type === 'proof-chip' ||
           el.type === 'group'
         ) {
           hitW = el.width;

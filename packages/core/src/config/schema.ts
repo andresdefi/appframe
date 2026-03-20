@@ -60,6 +60,17 @@ export const backgroundOverlaySchema = z.object({
   opacity: z.number().min(0).max(1).default(0.3),
 });
 
+const blendModeSchema = z.enum([
+  'normal',
+  'multiply',
+  'screen',
+  'overlay',
+  'soft-light',
+  'hard-light',
+  'lighten',
+  'darken',
+]);
+
 export const backgroundTypeSchema = z.enum(['preset', 'solid', 'gradient', 'image']);
 
 // --- Device Shadow ---
@@ -144,6 +155,55 @@ export const overlaySchema = z.object({
   shapeBlur: z.number().min(0).max(30).optional(),
 });
 export type Overlay = z.infer<typeof overlaySchema>;
+
+const panoramicBackgroundGradientLayerSchema = z.object({
+  kind: z.literal('gradient'),
+  gradientType: z.enum(['linear', 'radial', 'mesh']).default('linear'),
+  colors: z.array(hexColor).min(2).max(6),
+  direction: z.number().min(0).max(360).default(135),
+  radialPosition: z.enum(['center', 'top', 'bottom', 'left', 'right']).default('center'),
+  opacity: z.number().min(0).max(1).default(1),
+  blendMode: blendModeSchema.default('normal'),
+  blur: z.number().min(0).max(240).default(0),
+});
+
+const panoramicBackgroundImageLayerSchema = z.object({
+  kind: z.literal('image'),
+  image: z.string().min(1),
+  fit: z.enum(['cover', 'contain', 'tile']).default('cover'),
+  position: z.enum(['center', 'top', 'bottom', 'left', 'right']).default('center'),
+  scale: z.number().min(10).max(400).default(100).describe('Percent scale for contain/tile layers'),
+  opacity: z.number().min(0).max(1).default(1),
+  blendMode: blendModeSchema.default('normal'),
+  blur: z.number().min(0).max(240).default(0),
+});
+
+const panoramicBackgroundGlowLayerSchema = z.object({
+  kind: z.literal('glow'),
+  color: hexColor.default('#FFFFFF'),
+  x: z.number().min(-50).max(150).default(50),
+  y: z.number().min(-50).max(150).default(50),
+  width: z.number().min(1).max(200).default(36),
+  height: z.number().min(1).max(200).default(36),
+  opacity: z.number().min(0).max(1).default(0.45),
+  blur: z.number().min(0).max(320).default(80),
+  blendMode: blendModeSchema.default('screen'),
+});
+
+const panoramicBackgroundSolidLayerSchema = z.object({
+  kind: z.literal('solid'),
+  color: hexColor,
+  opacity: z.number().min(0).max(1).default(1),
+  blendMode: blendModeSchema.default('normal'),
+  blur: z.number().min(0).max(240).default(0),
+});
+
+export const panoramicBackgroundLayerSchema = z.discriminatedUnion('kind', [
+  panoramicBackgroundGradientLayerSchema,
+  panoramicBackgroundImageLayerSchema,
+  panoramicBackgroundGlowLayerSchema,
+  panoramicBackgroundSolidLayerSchema,
+]);
 
 export const themeConfigSchema = z.object({
   style: templateStyleSchema,
@@ -329,6 +389,7 @@ export const panoramicBackgroundSchema = z.object({
     })
     .optional(),
   preset: z.string().optional(),
+  layers: z.array(panoramicBackgroundLayerSchema).optional(),
 });
 
 const panoramicDeviceElementSchema = z.object({
@@ -504,6 +565,32 @@ const panoramicBadgeElementSchema = z.object({
   z: z.number().int().min(0).max(100).default(12),
 });
 
+const panoramicProofChipElementSchema = z.object({
+  type: z.literal('proof-chip'),
+  value: z.string().min(1),
+  detail: z.string().optional(),
+  rating: z.number().min(0).max(5).optional(),
+  maxRating: z.number().int().min(1).max(5).default(5),
+  x: z.number().min(-50).max(150),
+  y: z.number().min(-50).max(150),
+  width: z.number().min(1).max(100),
+  height: z.number().min(1).max(100).default(9),
+  color: hexColor.default('#0F172A'),
+  mutedColor: hexColor.default('#64748B'),
+  starColor: hexColor.default('#F59E0B'),
+  backgroundColor: hexColor.default('#FFFFFF'),
+  opacity: z.number().min(0).max(1).default(1),
+  borderColor: hexColor.optional(),
+  borderWidth: z.number().min(0).max(20).default(0),
+  borderRadius: z.number().min(0).max(100).default(28),
+  valueSize: z.number().min(0.5).max(8).default(2.1),
+  detailSize: z.number().min(0.5).max(6).default(1.1),
+  padding: z.number().min(0).max(10).default(1.6).describe('Padding as % of canvas height'),
+  rotation: z.number().min(-180).max(180).default(0),
+  shadow: deviceShadowSchema.optional(),
+  z: z.number().int().min(0).max(100).default(11),
+});
+
 const panoramicChildElementSchema = z.discriminatedUnion('type', [
   panoramicDeviceElementSchema,
   panoramicTextElementSchema,
@@ -514,6 +601,7 @@ const panoramicChildElementSchema = z.discriminatedUnion('type', [
   panoramicCropElementSchema,
   panoramicCardElementSchema,
   panoramicBadgeElementSchema,
+  panoramicProofChipElementSchema,
 ]);
 
 const panoramicGroupElementSchema = z.object({
@@ -538,6 +626,7 @@ export const panoramicElementSchema = z.discriminatedUnion('type', [
   panoramicCropElementSchema,
   panoramicCardElementSchema,
   panoramicBadgeElementSchema,
+  panoramicProofChipElementSchema,
   panoramicGroupElementSchema,
 ]);
 
@@ -661,3 +750,4 @@ export type BackgroundOverlay = z.infer<typeof backgroundOverlaySchema>;
 export type PanoramicElement = z.infer<typeof panoramicElementSchema>;
 export type PanoramicConfig = z.infer<typeof panoramicConfigSchema>;
 export type PanoramicBackground = z.infer<typeof panoramicBackgroundSchema>;
+export type PanoramicBackgroundLayer = z.infer<typeof panoramicBackgroundLayerSchema>;

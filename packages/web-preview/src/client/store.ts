@@ -601,7 +601,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   renderVersion: 0,
   isPanoramic: false,
   panoramicFrameCount: 5,
-  panoramicBackground: { type: 'solid', color: '#ffffff' } as PanoramicBackground,
+  panoramicBackground: { type: 'solid', color: '#ffffff', layers: [] } as PanoramicBackground,
   panoramicElements: [] as PanoramicElement[],
   panoramicEffects: { spotlight: null, annotations: [], overlays: [] } as PanoramicEffects,
   selectedElementIndex: null,
@@ -1062,6 +1062,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         updates.panoramicBackground = {
           type: 'solid',
           color: '#ffffff',
+          layers: [],
         };
 
         // Build elements from individual screens
@@ -1201,6 +1202,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
           el.type === 'crop' ||
           el.type === 'card' ||
           el.type === 'badge' ||
+          el.type === 'proof-chip' ||
           el.type === 'group'
         ) {
           return { ...base, width: el.width * scale };

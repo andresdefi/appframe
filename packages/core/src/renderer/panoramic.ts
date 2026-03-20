@@ -3,11 +3,20 @@ import { join, dirname, resolve } from 'node:path';
 import { loadConfig } from '../config/loader.js';
 import { getFrame, getDefaultFrame, loadFrameManifest } from '../frames/loader.js';
 import { TemplateEngine } from '../templates/engine.js';
-import type { PanoramicTemplateContext, PanoramicRenderedElement } from '../templates/engine.js';
+import type {
+  PanoramicTemplateContext,
+  PanoramicRenderedBackgroundLayer,
+  PanoramicRenderedElement,
+} from '../templates/engine.js';
 import { Renderer } from './renderer.js';
 import { getTargetSizes } from './sizes.js';
 import type { GenerateOptions, GenerateResult, RenderResult } from './types.js';
-import type { AppframeConfig, PanoramicElement, PanoramicBackground } from '../config/schema.js';
+import type {
+  AppframeConfig,
+  PanoramicBackground,
+  PanoramicBackgroundLayer,
+  PanoramicElement,
+} from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
 
 function placeholderDataUrl(label: string): string {
@@ -68,6 +77,109 @@ function buildBackgroundCss(bg: PanoramicBackground): string {
   }
   // solid or fallback
   return bg.color ?? '#000000';
+}
+
+function buildBackgroundLayerCss(layer: PanoramicBackgroundLayer): string {
+  if (layer.kind === 'solid') {
+    return layer.color;
+  }
+  if (layer.kind === 'gradient') {
+    if (layer.gradientType === 'mesh') {
+      const [a, b, c = layer.colors[0]!, d = layer.colors[1]!] = layer.colors;
+      return `radial-gradient(circle at 20% 20%, ${a} 0%, transparent 55%), radial-gradient(circle at 78% 24%, ${b} 0%, transparent 58%), radial-gradient(circle at 52% 78%, ${c} 0%, transparent 62%), linear-gradient(${layer.direction}deg, ${d}, ${a})`;
+    }
+    const colors = layer.colors.join(', ');
+    if (layer.gradientType === 'radial') {
+      return `radial-gradient(circle at ${layer.radialPosition}, ${colors})`;
+    }
+    return `linear-gradient(${layer.direction}deg, ${colors})`;
+  }
+  if (layer.kind === 'image') {
+    const size =
+      layer.fit === 'tile'
+        ? `${layer.scale}% auto`
+        : layer.fit === 'contain'
+          ? `contain`
+          : `cover`;
+    const repeat = layer.fit === 'tile' ? 'repeat' : 'no-repeat';
+    return `url('${layer.image}') ${layer.position}/${size} ${repeat}`;
+  }
+  return `radial-gradient(circle at center, ${layer.color} 0%, transparent 72%)`;
+}
+
+async function buildRenderedBackgroundLayers(
+  background: PanoramicBackground,
+  canvasWidth: number,
+  canvasHeight: number,
+  configDir: string,
+): Promise<PanoramicRenderedBackgroundLayer[]> {
+  const layers = background.layers ?? [];
+  const rendered: PanoramicRenderedBackgroundLayer[] = [];
+
+  for (const layer of layers) {
+    if (layer.kind === 'image') {
+      const imageValue = layer.image.startsWith('data:')
+        ? layer.image
+        : await assetToDataUrl(join(configDir, layer.image), 'Background');
+      rendered.push({
+        kind: 'image',
+        backgroundCss: buildBackgroundLayerCss({ ...layer, image: imageValue }),
+        opacity: layer.opacity,
+        blendMode: layer.blendMode,
+        blurPx: layer.blur,
+      });
+      continue;
+    }
+
+    if (layer.kind === 'glow') {
+      rendered.push({
+        kind: 'glow',
+        backgroundCss: buildBackgroundLayerCss(layer),
+        opacity: layer.opacity,
+        blendMode: layer.blendMode,
+        blurPx: layer.blur,
+        xPx: (layer.x / 100) * canvasWidth,
+        yPx: (layer.y / 100) * canvasHeight,
+        widthPx: (layer.width / 100) * canvasWidth,
+        heightPx: (layer.height / 100) * canvasHeight,
+      });
+      continue;
+    }
+
+    rendered.push({
+      kind: layer.kind,
+      backgroundCss: buildBackgroundLayerCss(layer),
+      opacity: layer.opacity,
+      blendMode: layer.blendMode,
+      blurPx: layer.blur,
+    });
+  }
+
+  if (rendered.length === 0) {
+    const legacyCss =
+      background.type === 'image' && background.image && !background.image.startsWith('data:')
+        ? `url('${await assetToDataUrl(join(configDir, background.image), 'Background')}') center/cover no-repeat`
+        : buildBackgroundCss(background);
+    rendered.push({
+      kind: background.type === 'image' ? 'image' : background.type === 'gradient' ? 'gradient' : 'solid',
+      backgroundCss: legacyCss,
+      opacity: 1,
+      blendMode: 'normal',
+      blurPx: 0,
+    });
+  }
+
+  if (background.overlay) {
+    rendered.push({
+      kind: 'solid',
+      backgroundCss: background.overlay.color,
+      opacity: background.overlay.opacity,
+      blendMode: 'normal',
+      blurPx: 0,
+    });
+  }
+
+  return rendered;
 }
 
 function buildShadowCss(
@@ -302,6 +414,36 @@ async function buildRenderedElement(
     };
   }
 
+  if (el.type === 'proof-chip') {
+    const widthPx = (el.width / 100) * space.widthPx;
+    const heightPx = (el.height / 100) * space.heightPx;
+    return {
+      type: 'proof-chip',
+      z: el.z,
+      xPx,
+      yPx,
+      widthPx,
+      heightPx,
+      rotation: el.rotation,
+      opacity: el.opacity,
+      borderRadius: el.borderRadius,
+      value: el.value,
+      detail: el.detail,
+      rating: el.rating !== undefined ? Math.round(el.rating) : undefined,
+      maxRating: el.maxRating,
+      color: el.color,
+      mutedColor: el.mutedColor,
+      starColor: el.starColor,
+      backgroundColor: el.backgroundColor,
+      borderColor: el.borderColor,
+      borderWidthPx: el.borderWidth,
+      valueSizePx: (el.valueSize / 100) * space.heightPx,
+      detailSizePx: (el.detailSize / 100) * space.heightPx,
+      paddingPx: (el.padding / 100) * space.heightPx,
+      shadowCss: buildShadowCss(el.shadow),
+    };
+  }
+
   if (el.type === 'group') {
     const widthPx = (el.width / 100) * space.widthPx;
     const heightPx = (el.height / 100) * space.heightPx;
@@ -467,8 +609,13 @@ export async function generatePanoramicScreenshots(
       const totalCanvasWidth = size.width * frameCount;
       const totalCanvasHeight = size.height;
 
-      // Build background CSS
       const backgroundCss = buildBackgroundCss(config.panoramic.background);
+      const backgroundLayers = await buildRenderedBackgroundLayers(
+        config.panoramic.background,
+        totalCanvasWidth,
+        totalCanvasHeight,
+        configDir,
+      );
 
       // Build all rendered elements with pixel positions
       const elements: PanoramicRenderedElement[] = [];
@@ -497,6 +644,7 @@ export async function generatePanoramicScreenshots(
         fontWeight: config.theme.fontWeight,
         frameStyle: config.frames.style,
         backgroundCss,
+        backgroundLayers,
         elements,
       };
 

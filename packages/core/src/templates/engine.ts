@@ -161,6 +161,7 @@ export interface PanoramicTemplateContext {
 
   // Background CSS
   backgroundCss: string;
+  backgroundLayers?: PanoramicRenderedBackgroundLayer[];
 
   // Debug
   showGuides?: boolean;
@@ -174,8 +175,31 @@ export interface PanoramicTemplateContext {
   fontFamily?: string;
 }
 
+export interface PanoramicRenderedBackgroundLayer {
+  kind: 'solid' | 'gradient' | 'image' | 'glow';
+  backgroundCss: string;
+  opacity: number;
+  blendMode: string;
+  blurPx?: number;
+  xPx?: number;
+  yPx?: number;
+  widthPx?: number;
+  heightPx?: number;
+}
+
 export interface PanoramicRenderedElement {
-  type: 'device' | 'text' | 'label' | 'decoration' | 'image' | 'logo' | 'crop' | 'card' | 'badge' | 'group';
+  type:
+    | 'device'
+    | 'text'
+    | 'label'
+    | 'decoration'
+    | 'image'
+    | 'logo'
+    | 'crop'
+    | 'card'
+    | 'badge'
+    | 'proof-chip'
+    | 'group';
   z: number;
 
   // Pixel positions (computed from % of canvas)
@@ -246,6 +270,16 @@ export interface PanoramicRenderedElement {
   // Badge-specific
   letterSpacing?: number;
   textTransform?: string;
+
+  // Proof-chip-specific
+  value?: string;
+  detail?: string;
+  rating?: number;
+  maxRating?: number;
+  mutedColor?: string;
+  starColor?: string;
+  valueSizePx?: number;
+  detailSizePx?: number;
 
   // Group-specific
   children?: PanoramicRenderedElement[];

@@ -136,6 +136,7 @@ describe('design planning helpers', () => {
     if (plan.variants[3]?.mode === 'panoramic') {
       expect(plan.variants[3].canvasPlan.requiredElements.some((el) => el.type === 'group')).toBe(true);
       expect(plan.variants[3].canvasPlan.requiredElements.some((el) => el.type === 'badge')).toBe(true);
+      expect(plan.variants[3].canvasPlan.requiredElements.some((el) => el.type === 'proof-chip')).toBe(true);
     }
   });
 });

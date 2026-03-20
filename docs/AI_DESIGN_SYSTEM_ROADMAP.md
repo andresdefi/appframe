@@ -50,8 +50,10 @@ Current status:
 - panoramic `crop` and `card` primitives are now in place across schema, renderer, preview server, and editor
 - panoramic `group` support is now in place across schema, renderer, preview server, and editor
 - panoramic `badge` and `logo` support are now in place across schema, renderer, preview server, and editor
+- panoramic layered backgrounds and `proof-chip` support are now in place across schema, renderer, preview server, and editor
 - panoramic planning/materialization now emits grouped crop-and-card systems plus semantic badge/logo elements in generated concepts
-- layered backgrounds are the next major scene-graph gap
+- panoramic planning/materialization now emits layered backgrounds and proof chips in generated concepts
+- extracted screenshot detail layers and floating UI detail cards are the next major scene-graph gap
 
 ### 2. Design Recipe System
 
@@ -154,7 +156,7 @@ Implementation order:
 - Add recipe library
 - Add screenshot analysis model
 - Add richer element primitives beyond `image`
-  Status: `crop`, `card`, `group`, `badge`, and `logo` are now landed; layered backgrounds remain.
+  Status: `crop`, `card`, `group`, `badge`, `logo`, layered backgrounds, and proof chips are now landed; extracted screenshot details and floating UI detail cards remain.
 
 ### Phase 3: Search And Evaluation
 

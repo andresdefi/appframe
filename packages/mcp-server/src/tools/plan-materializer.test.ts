@@ -78,10 +78,12 @@ describe('plan materializer', () => {
       if (variant.id === 'concept-c') {
         expect(parsed.panoramic.elements.some((el: { type: string }) => el.type === 'group')).toBe(true);
         expect(parsed.panoramic.elements.some((el: { type: string }) => el.type === 'logo')).toBe(true);
+        expect(parsed.panoramic.background.layers?.length).toBeGreaterThan(0);
       }
       if (variant.id === 'concept-c' || variant.id === 'concept-d') {
         expect(parsed.panoramic.elements.some((el: { type: string }) => el.type === 'group')).toBe(true);
         expect(parsed.panoramic.elements.some((el: { type: string }) => el.type === 'badge')).toBe(true);
+        expect(parsed.panoramic.elements.some((el: { type: string }) => el.type === 'proof-chip')).toBe(true);
       }
     }
 

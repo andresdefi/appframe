@@ -109,7 +109,17 @@ export interface PlannedPanoramicCanvasPlan {
   frameCount: number;
   designGoal: string;
   requiredElements: Array<{
-    type: 'text' | 'device' | 'image' | 'logo' | 'decoration' | 'crop' | 'card' | 'badge' | 'group';
+    type:
+      | 'text'
+      | 'device'
+      | 'image'
+      | 'logo'
+      | 'decoration'
+      | 'crop'
+      | 'card'
+      | 'badge'
+      | 'proof-chip'
+      | 'group';
     purpose: string;
   }>;
 }
@@ -853,6 +863,7 @@ function buildVariantEntries(
         requiredElements: [
           { type: 'text', purpose: 'benefit-led headlines' },
           { type: 'badge', purpose: 'campaign callout or featured-state badge' },
+          { type: 'proof-chip', purpose: 'ratings or trust proof chip' },
           { type: 'device', purpose: 'hero and supporting product shots' },
           { type: 'group', purpose: 'floating grouped crop-and-card clusters for momentum and proof' },
           { type: 'logo', purpose: 'brand lockup or supporting graphic asset' },
@@ -889,6 +900,7 @@ function buildVariantEntries(
         requiredElements: [
           { type: 'text', purpose: 'benefit headline' },
           { type: 'badge', purpose: 'proof or ratings-style badge' },
+          { type: 'proof-chip', purpose: 'compact trust marker or rating chip' },
           { type: 'device', purpose: 'product proof' },
           { type: 'logo', purpose: 'brand lockup or ratings proof' },
         ],

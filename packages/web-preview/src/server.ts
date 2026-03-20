@@ -39,6 +39,7 @@ import type {
   KoubouSingleScreenOptions,
   PanoramicElement,
   PanoramicBackground,
+  PanoramicBackgroundLayer,
   Loupe,
   LocaleConfig,
 } from '@appframe/core';
@@ -46,6 +47,7 @@ import type {
   TemplateContext,
   DeviceContext,
   PanoramicTemplateContext,
+  PanoramicRenderedBackgroundLayer,
   PanoramicRenderedElement,
 } from '@appframe/core';
 import { autoTranslateLocale } from './translation.js';
@@ -1549,6 +1551,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         ),
       );
       const backgroundCss = buildPanoramicBackgroundCss(background);
+      const backgroundLayers = await buildPanoramicRenderedBackgroundLayers({
+        background,
+        configDir,
+        canvasWidth: totalWidth,
+        canvasHeight: frameHeight,
+      });
 
       // Compute a contrasting guide color from the background
       const guideColor = (() => {
@@ -1579,6 +1587,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         fontWeight,
         frameStyle,
         backgroundCss,
+        backgroundLayers,
         showGuides: true,
         guideColor,
         elements: renderedElements,
@@ -1883,6 +1892,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         ),
       );
       const backgroundCss = buildPanoramicBackgroundCss(background);
+      const backgroundLayers = await buildPanoramicRenderedBackgroundLayers({
+        background,
+        configDir,
+        canvasWidth: exportTotalW,
+        canvasHeight: exportFrameH,
+      });
 
       const panoramicContext: PanoramicTemplateContext = {
         canvasWidth: exportTotalW,
@@ -1893,6 +1908,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         fontWeight,
         frameStyle,
         backgroundCss,
+        backgroundLayers,
         showGuides: false, // No guides for export
         elements: renderedElements,
       };
@@ -2340,6 +2356,106 @@ function buildPanoramicBackgroundCss(background: PanoramicBackground): string {
   return '#000000';
 }
 
+function buildPanoramicBackgroundLayerCss(layer: PanoramicBackgroundLayer): string {
+  if (layer.kind === 'solid') {
+    return layer.color;
+  }
+  if (layer.kind === 'gradient') {
+    if (layer.gradientType === 'mesh') {
+      const [a, b, c = layer.colors[0]!, d = layer.colors[1]!] = layer.colors;
+      return `radial-gradient(circle at 20% 20%, ${a} 0%, transparent 55%), radial-gradient(circle at 78% 24%, ${b} 0%, transparent 58%), radial-gradient(circle at 52% 78%, ${c} 0%, transparent 62%), linear-gradient(${layer.direction}deg, ${d}, ${a})`;
+    }
+    const colors = layer.colors.join(', ');
+    return layer.gradientType === 'radial'
+      ? `radial-gradient(circle at ${layer.radialPosition}, ${colors})`
+      : `linear-gradient(${layer.direction}deg, ${colors})`;
+  }
+  if (layer.kind === 'image') {
+    const size =
+      layer.fit === 'tile'
+        ? `${layer.scale}% auto`
+        : layer.fit === 'contain'
+          ? 'contain'
+          : 'cover';
+    const repeat = layer.fit === 'tile' ? 'repeat' : 'no-repeat';
+    return `url('${layer.image}') ${layer.position}/${size} ${repeat}`;
+  }
+  return `radial-gradient(circle at center, ${layer.color} 0%, transparent 72%)`;
+}
+
+async function buildPanoramicRenderedBackgroundLayers(args: {
+  background: PanoramicBackground;
+  configDir: string;
+  canvasWidth: number;
+  canvasHeight: number;
+}): Promise<PanoramicRenderedBackgroundLayer[]> {
+  const { background, configDir, canvasWidth, canvasHeight } = args;
+  const rendered: PanoramicRenderedBackgroundLayer[] = [];
+
+  for (const layer of background.layers ?? []) {
+    if (layer.kind === 'image') {
+      const imageDataUrl = await resolveCanvasAssetDataUrl(layer.image, configDir, 'Background');
+      rendered.push({
+        kind: 'image',
+        backgroundCss: buildPanoramicBackgroundLayerCss({ ...layer, image: imageDataUrl }),
+        opacity: layer.opacity,
+        blendMode: layer.blendMode,
+        blurPx: layer.blur,
+      });
+      continue;
+    }
+
+    if (layer.kind === 'glow') {
+      rendered.push({
+        kind: 'glow',
+        backgroundCss: buildPanoramicBackgroundLayerCss(layer),
+        opacity: layer.opacity,
+        blendMode: layer.blendMode,
+        blurPx: layer.blur,
+        xPx: (layer.x / 100) * canvasWidth,
+        yPx: (layer.y / 100) * canvasHeight,
+        widthPx: (layer.width / 100) * canvasWidth,
+        heightPx: (layer.height / 100) * canvasHeight,
+      });
+      continue;
+    }
+
+    rendered.push({
+      kind: layer.kind,
+      backgroundCss: buildPanoramicBackgroundLayerCss(layer),
+      opacity: layer.opacity,
+      blendMode: layer.blendMode,
+      blurPx: layer.blur,
+    });
+  }
+
+  if (rendered.length === 0) {
+    let legacyCss = buildPanoramicBackgroundCss(background);
+    if (background.type === 'image' && background.image) {
+      legacyCss = `url('${await resolveCanvasAssetDataUrl(background.image, configDir, 'Background')}') center/cover no-repeat`;
+    }
+    rendered.push({
+      kind: background.type === 'image' ? 'image' : background.type === 'gradient' ? 'gradient' : 'solid',
+      backgroundCss: legacyCss,
+      opacity: 1,
+      blendMode: 'normal',
+      blurPx: 0,
+    });
+  }
+
+  if (background.overlay) {
+    rendered.push({
+      kind: 'solid',
+      backgroundCss: background.overlay.color,
+      opacity: background.overlay.opacity,
+      blendMode: 'normal',
+      blurPx: 0,
+    });
+  }
+
+  return rendered;
+}
+
 async function buildPanoramicRenderedElement(args: {
   element: PanoramicElement;
   space: PanoramicRenderSpace;
@@ -2606,6 +2722,34 @@ async function buildPanoramicRenderedElement(args: {
       fontWeight: element.fontWeight,
       letterSpacing: element.letterSpacing,
       textTransform: element.textTransform,
+      shadowCss: buildPanoramicShadowCss(element.shadow),
+    };
+  }
+
+  if (element.type === 'proof-chip') {
+    return {
+      type: 'proof-chip',
+      z: element.z,
+      xPx,
+      yPx,
+      widthPx: (element.width / 100) * space.widthPx,
+      heightPx: (element.height / 100) * space.heightPx,
+      rotation: element.rotation,
+      opacity: element.opacity,
+      borderRadius: element.borderRadius,
+      value: element.value,
+      detail: element.detail,
+      rating: element.rating !== undefined ? Math.round(element.rating) : undefined,
+      maxRating: element.maxRating,
+      color: element.color,
+      mutedColor: element.mutedColor,
+      starColor: element.starColor,
+      backgroundColor: element.backgroundColor,
+      borderColor: element.borderColor,
+      borderWidthPx: element.borderWidth,
+      valueSizePx: (element.valueSize / 100) * space.heightPx,
+      detailSizePx: (element.detailSize / 100) * space.heightPx,
+      paddingPx: (element.padding / 100) * space.heightPx,
       shadowCss: buildPanoramicShadowCss(element.shadow),
     };
   }

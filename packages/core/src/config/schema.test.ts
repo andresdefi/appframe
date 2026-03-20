@@ -16,6 +16,7 @@ import {
   compositionPresetSchema,
   colorConfigSchema,
   panoramicElementSchema,
+  panoramicBackgroundSchema,
 } from './schema.js';
 
 describe('hex color validation', () => {
@@ -220,7 +221,7 @@ describe('screenConfigSchema', () => {
 });
 
 describe('panoramicElementSchema', () => {
-  it('accepts badge and logo panoramic elements', () => {
+  it('accepts badge, proof-chip, and logo panoramic elements', () => {
     expect(
       panoramicElementSchema.safeParse({
         type: 'logo',
@@ -240,6 +241,19 @@ describe('panoramicElementSchema', () => {
         y: 18,
         width: 16,
         height: 5,
+      }).success,
+    ).toBe(true);
+
+    expect(
+      panoramicElementSchema.safeParse({
+        type: 'proof-chip',
+        value: '4.9 out of 5',
+        detail: 'App Store rating',
+        rating: 5,
+        x: 12,
+        y: 20,
+        width: 18,
+        height: 9,
       }).success,
     ).toBe(true);
   });
@@ -296,6 +310,39 @@ describe('panoramicElementSchema', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe('panoramicBackgroundSchema', () => {
+  it('accepts layered panoramic backgrounds', () => {
+    expect(
+      panoramicBackgroundSchema.safeParse({
+        type: 'solid',
+        color: '#0F172A',
+        layers: [
+          {
+            kind: 'gradient',
+            gradientType: 'mesh',
+            colors: ['#60A5FA', '#A78BFA', '#F472B6'],
+            direction: 135,
+            opacity: 0.8,
+            blendMode: 'soft-light',
+            blur: 0,
+          },
+          {
+            kind: 'glow',
+            color: '#FFFFFF',
+            x: 50,
+            y: 30,
+            width: 40,
+            height: 28,
+            opacity: 0.4,
+            blur: 96,
+            blendMode: 'screen',
+          },
+        ],
+      }).success,
+    ).toBe(true);
   });
 });
 

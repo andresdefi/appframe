@@ -18,6 +18,7 @@ import type {
   LocaleConfig,
   PanoramicElement,
   PanoramicBackground,
+  PanoramicBackgroundLayer,
 } from '@appframe/core';
 
 export type {
@@ -40,6 +41,7 @@ export type {
   LocaleConfig,
   PanoramicElement,
   PanoramicBackground,
+  PanoramicBackgroundLayer,
 };
 
 export interface PanoramicEffects {

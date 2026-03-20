@@ -1,7 +1,7 @@
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useState } from 'react';
 import { usePreviewStore } from '../../store';
 import type { FrameData, DeviceFamily } from '../../store';
-import type { PanoramicElement } from '../../types';
+import type { PanoramicBackgroundLayer, PanoramicElement } from '../../types';
 import { usePanoramicInstantPatch } from '../../hooks/usePanoramicInstantPatch';
 import { Section } from '../Controls/Section';
 import { ColorPicker } from '../Controls/ColorPicker';
@@ -24,8 +24,19 @@ const ELEMENT_TYPE_LABELS: Record<string, string> = {
   crop: 'Crop',
   card: 'Card',
   badge: 'Badge',
+  'proof-chip': 'Proof Chip',
   group: 'Group',
 };
+
+const BLEND_MODE_OPTIONS = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'screen', label: 'Screen' },
+  { value: 'overlay', label: 'Overlay' },
+  { value: 'soft-light', label: 'Soft Light' },
+  { value: 'multiply', label: 'Multiply' },
+  { value: 'lighten', label: 'Lighten' },
+  { value: 'darken', label: 'Darken' },
+] as const;
 
 const PLATFORM_CATEGORIES: Record<string, string[]> = {
   iphone: ['iphone'],
@@ -91,6 +102,9 @@ function getElementSummary(element: PanoramicElement): string | null {
   }
   if (element.type === 'badge') {
     return element.content.slice(0, 20);
+  }
+  if (element.type === 'proof-chip') {
+    return element.value.slice(0, 20);
   }
   if (element.type === 'card') {
     return (element.title ?? element.body ?? 'Card').slice(0, 20);
@@ -1512,6 +1526,143 @@ function ElementInspector({ index }: { index: number }) {
         </>
       )}
 
+      {element.type === 'proof-chip' && (
+        <>
+          <Section title="Proof Chip Content">
+            <div className="mb-2.5">
+              <label className="block text-xs text-text-dim mb-1">Value</label>
+              <input
+                type="text"
+                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] outline-none focus:border-accent"
+                value={element.value}
+                onChange={(e) => update({ value: e.target.value })}
+              />
+            </div>
+            <div className="mb-2.5">
+              <label className="block text-xs text-text-dim mb-1">Detail</label>
+              <input
+                type="text"
+                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] outline-none focus:border-accent"
+                value={element.detail ?? ''}
+                onChange={(e) => update({ detail: e.target.value || undefined })}
+                placeholder="App Store rating"
+              />
+            </div>
+            <RangeSlider
+              label="Rating"
+              value={element.rating ?? 0}
+              min={0}
+              max={5}
+              step={0.1}
+              formatValue={(v) => (v === 0 ? 'Off' : `${v.toFixed(1)}★`)}
+              onChange={(v) => update({ rating: v === 0 ? undefined : Number(v.toFixed(1)) })}
+            />
+          </Section>
+
+          <Section title="Proof Chip Layout">
+            <RangeSlider
+              label="Width"
+              value={element.width}
+              min={1}
+              max={100}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ width: v })}
+              onInstant={(v) => instant({ width: v })}
+            />
+            <RangeSlider
+              label="Height"
+              value={element.height}
+              min={1}
+              max={40}
+              step={0.5}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ height: v })}
+              onInstant={(v) => instant({ height: v })}
+            />
+            <RangeSlider
+              label="Value Size"
+              value={element.valueSize}
+              min={0.5}
+              max={8}
+              step={0.1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ valueSize: v })}
+            />
+            <RangeSlider
+              label="Detail Size"
+              value={element.detailSize}
+              min={0.5}
+              max={6}
+              step={0.1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ detailSize: v })}
+            />
+            <RangeSlider
+              label="Padding"
+              value={element.padding}
+              min={0}
+              max={10}
+              step={0.1}
+              formatValue={(v) => `${v}%`}
+              onChange={(v) => update({ padding: v })}
+            />
+            <RangeSlider
+              label="Rotation"
+              value={element.rotation}
+              min={-180}
+              max={180}
+              formatValue={(v) => `${v}\u00B0`}
+              onChange={(v) => update({ rotation: v })}
+              onInstant={(v) => instant({ rotation: v })}
+            />
+            <RangeSlider
+              label="Opacity"
+              value={element.opacity}
+              min={0}
+              max={1}
+              step={0.05}
+              formatValue={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => update({ opacity: v })}
+              onInstant={(v) => instant({ opacity: v })}
+            />
+          </Section>
+
+          <Section title="Proof Chip Style" defaultCollapsed>
+            <ColorPicker label="Text" value={element.color} onChange={(v) => update({ color: v })} />
+            <ColorPicker label="Muted Text" value={element.mutedColor} onChange={(v) => update({ mutedColor: v })} />
+            <ColorPicker label="Star Color" value={element.starColor} onChange={(v) => update({ starColor: v })} />
+            <ColorPicker
+              label="Background"
+              value={element.backgroundColor}
+              onChange={(v) => update({ backgroundColor: v })}
+            />
+            <ColorPicker
+              label="Border"
+              value={element.borderColor ?? '#CBD5E1'}
+              onChange={(v) => update({ borderColor: v })}
+            />
+            <RangeSlider
+              label="Border Width"
+              value={element.borderWidth}
+              min={0}
+              max={8}
+              step={0.5}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => update({ borderWidth: v })}
+            />
+            <RangeSlider
+              label="Border Radius"
+              value={element.borderRadius}
+              min={0}
+              max={100}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => update({ borderRadius: v })}
+            />
+          </Section>
+        </>
+      )}
+
       {/* ========== LABEL ========== */}
       {element.type === 'label' && (
         <Section title="Label">
@@ -1630,10 +1781,14 @@ function PanoramicBgImage({
   imageDataUrl,
   onUpload,
   onRemove,
+  buttonLabel = 'Upload Background Image',
+  alt = 'Background',
 }: {
   imageDataUrl?: string;
   onUpload: (dataUrl: string) => void;
   onRemove: () => void;
+  buttonLabel?: string;
+  alt?: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1650,7 +1805,7 @@ function PanoramicBgImage({
         className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
         onClick={() => fileRef.current?.click()}
       >
-        Upload Background Image
+        {buttonLabel}
       </button>
       <input
         ref={fileRef}
@@ -1665,7 +1820,7 @@ function PanoramicBgImage({
           <img
             src={imageDataUrl}
             className="w-full max-h-20 object-cover rounded-md border border-border"
-            alt="Background"
+            alt={alt}
           />
           <button
             className="w-full py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
@@ -1677,6 +1832,19 @@ function PanoramicBgImage({
       )}
     </>
   );
+}
+
+function getBackgroundLayerLabel(layer: PanoramicBackgroundLayer): string {
+  switch (layer.kind) {
+    case 'gradient':
+      return layer.gradientType === 'mesh' ? 'Mesh Gradient' : `${layer.gradientType} Gradient`;
+    case 'image':
+      return layer.fit === 'tile' ? 'Texture Layer' : 'Image Layer';
+    case 'glow':
+      return 'Glow Layer';
+    case 'solid':
+      return 'Solid Layer';
+  }
 }
 
 function ScreenshotUploader() {
@@ -2219,6 +2387,302 @@ export function PanoramicTab() {
             </div>
           </>
         )}
+
+        <Section title={`Layer Stack (${layers.length})`} defaultCollapsed>
+          <div className="grid grid-cols-2 gap-1 mb-3">
+            <button
+              className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+              onClick={() => addLayer('gradient')}
+            >
+              + Gradient
+            </button>
+            <button
+              className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+              onClick={() => addLayer('image')}
+            >
+              + Image
+            </button>
+            <button
+              className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+              onClick={() => addLayer('glow')}
+            >
+              + Glow
+            </button>
+            <button
+              className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+              onClick={() => addLayer('solid')}
+            >
+              + Solid
+            </button>
+          </div>
+
+          {layers.length === 0 && (
+            <p className="text-xs text-text-dim">
+              Add layered gradients, textures, and glow passes on top of the base background.
+            </p>
+          )}
+
+          {layers.length > 0 && (
+            <>
+              <div className="space-y-1 mb-3">
+                {layers.map((layer, index) => (
+                  <button
+                    key={`${layer.kind}-${index}`}
+                    className={`w-full text-left text-xs px-2.5 py-2 rounded-md transition-colors ${
+                      index === selectedLayerIndex
+                        ? 'bg-accent/15 text-accent border border-accent/30'
+                        : 'bg-surface-2 border border-border hover:border-accent/30'
+                    }`}
+                    onClick={() => setSelectedLayerIndex(index)}
+                  >
+                    <span className="font-medium">{getBackgroundLayerLabel(layer)}</span>
+                    <span className="text-text-dim ml-1">#{index + 1}</span>
+                  </button>
+                ))}
+              </div>
+
+              {selectedLayer && (
+                <>
+                  <div className="flex gap-1 mb-3">
+                    <button
+                      className="flex-1 py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-40"
+                      disabled={selectedLayerIndex === 0}
+                      onClick={() => {
+                        const nextLayers = [...layers];
+                        [nextLayers[selectedLayerIndex - 1], nextLayers[selectedLayerIndex]] = [
+                          nextLayers[selectedLayerIndex],
+                          nextLayers[selectedLayerIndex - 1],
+                        ];
+                        replaceLayers(nextLayers);
+                        setSelectedLayerIndex(selectedLayerIndex - 1);
+                      }}
+                    >
+                      Move Up
+                    </button>
+                    <button
+                      className="flex-1 py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-40"
+                      disabled={selectedLayerIndex === layers.length - 1}
+                      onClick={() => {
+                        const nextLayers = [...layers];
+                        [nextLayers[selectedLayerIndex], nextLayers[selectedLayerIndex + 1]] = [
+                          nextLayers[selectedLayerIndex + 1],
+                          nextLayers[selectedLayerIndex],
+                        ];
+                        replaceLayers(nextLayers);
+                        setSelectedLayerIndex(selectedLayerIndex + 1);
+                      }}
+                    >
+                      Move Down
+                    </button>
+                    <button
+                      className="flex-1 py-1 text-[11px] bg-surface-2 border border-border rounded-md text-red-300 hover:text-red-200"
+                      onClick={() => {
+                        const nextLayers = layers.filter((_, index) => index !== selectedLayerIndex);
+                        replaceLayers(nextLayers);
+                        setSelectedLayerIndex(Math.max(0, Math.min(selectedLayerIndex, nextLayers.length - 1)));
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+
+                  <Select
+                    label="Blend Mode"
+                    value={selectedLayer.blendMode}
+                    onChange={(value) =>
+                      updateLayer(selectedLayerIndex, { ...selectedLayer, blendMode: value as typeof selectedLayer.blendMode })
+                    }
+                    options={BLEND_MODE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+                  />
+                  <RangeSlider
+                    label="Opacity"
+                    value={Math.round(selectedLayer.opacity * 100)}
+                    min={0}
+                    max={100}
+                    formatValue={(v) => `${v}%`}
+                    onChange={(value) =>
+                      updateLayer(selectedLayerIndex, { ...selectedLayer, opacity: value / 100 } as PanoramicBackgroundLayer)
+                    }
+                  />
+                  <RangeSlider
+                    label="Blur"
+                    value={selectedLayer.blur}
+                    min={0}
+                    max={240}
+                    formatValue={(v) => `${v}px`}
+                    onChange={(value) =>
+                      updateLayer(selectedLayerIndex, { ...selectedLayer, blur: value } as PanoramicBackgroundLayer)
+                    }
+                  />
+
+                  {selectedLayer.kind === 'solid' && (
+                    <ColorPicker
+                      label="Color"
+                      value={selectedLayer.color}
+                      onChange={(value) =>
+                        updateLayer(selectedLayerIndex, { ...selectedLayer, color: value })
+                      }
+                    />
+                  )}
+
+                  {selectedLayer.kind === 'gradient' && (
+                    <>
+                      <Select
+                        label="Gradient Type"
+                        value={selectedLayer.gradientType}
+                        onChange={(value) =>
+                          updateLayer(selectedLayerIndex, {
+                            ...selectedLayer,
+                            gradientType: value as typeof selectedLayer.gradientType,
+                          })
+                        }
+                        options={[
+                          { value: 'linear', label: 'Linear' },
+                          { value: 'radial', label: 'Radial' },
+                          { value: 'mesh', label: 'Mesh' },
+                        ]}
+                      />
+                      {selectedLayer.gradientType === 'linear' && (
+                        <RangeSlider
+                          label="Direction"
+                          value={selectedLayer.direction}
+                          min={0}
+                          max={360}
+                          formatValue={(v) => `${v}\u00B0`}
+                          onChange={(value) =>
+                            updateLayer(selectedLayerIndex, { ...selectedLayer, direction: value })
+                          }
+                        />
+                      )}
+                      {selectedLayer.gradientType === 'radial' && (
+                        <Select
+                          label="Center"
+                          value={selectedLayer.radialPosition}
+                          onChange={(value) =>
+                            updateLayer(selectedLayerIndex, {
+                              ...selectedLayer,
+                              radialPosition: value as typeof selectedLayer.radialPosition,
+                            })
+                          }
+                          options={[
+                            { value: 'center', label: 'Center' },
+                            { value: 'top', label: 'Top' },
+                            { value: 'bottom', label: 'Bottom' },
+                            { value: 'left', label: 'Left' },
+                            { value: 'right', label: 'Right' },
+                          ]}
+                        />
+                      )}
+                      {selectedLayer.colors.map((color, colorIndex) => (
+                        <ColorPicker
+                          key={colorIndex}
+                          label={`Stop ${colorIndex + 1}`}
+                          value={color}
+                          onChange={(value) => {
+                            const colors = [...selectedLayer.colors];
+                            colors[colorIndex] = value;
+                            updateLayer(selectedLayerIndex, { ...selectedLayer, colors });
+                          }}
+                        />
+                      ))}
+                    </>
+                  )}
+
+                  {selectedLayer.kind === 'image' && (
+                    <>
+                      <PanoramicBgImage
+                        imageDataUrl={selectedLayer.image}
+                        onUpload={(dataUrl) => updateLayer(selectedLayerIndex, { ...selectedLayer, image: dataUrl })}
+                        onRemove={() => updateLayer(selectedLayerIndex, { ...selectedLayer, image: '' })}
+                        buttonLabel="Upload Layer Image"
+                        alt="Background layer"
+                      />
+                      <Select
+                        label="Fit"
+                        value={selectedLayer.fit}
+                        onChange={(value) =>
+                          updateLayer(selectedLayerIndex, { ...selectedLayer, fit: value as typeof selectedLayer.fit })
+                        }
+                        options={[
+                          { value: 'cover', label: 'Cover' },
+                          { value: 'contain', label: 'Contain' },
+                          { value: 'tile', label: 'Tile' },
+                        ]}
+                      />
+                      <Select
+                        label="Position"
+                        value={selectedLayer.position}
+                        onChange={(value) =>
+                          updateLayer(selectedLayerIndex, {
+                            ...selectedLayer,
+                            position: value as typeof selectedLayer.position,
+                          })
+                        }
+                        options={[
+                          { value: 'center', label: 'Center' },
+                          { value: 'top', label: 'Top' },
+                          { value: 'bottom', label: 'Bottom' },
+                          { value: 'left', label: 'Left' },
+                          { value: 'right', label: 'Right' },
+                        ]}
+                      />
+                      <RangeSlider
+                        label="Scale"
+                        value={selectedLayer.scale}
+                        min={10}
+                        max={400}
+                        formatValue={(v) => `${v}%`}
+                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, scale: value })}
+                      />
+                    </>
+                  )}
+
+                  {selectedLayer.kind === 'glow' && (
+                    <>
+                      <ColorPicker
+                        label="Glow Color"
+                        value={selectedLayer.color}
+                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, color: value })}
+                      />
+                      <RangeSlider
+                        label="X"
+                        value={selectedLayer.x}
+                        min={-50}
+                        max={150}
+                        formatValue={(v) => `${v}%`}
+                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, x: value })}
+                      />
+                      <RangeSlider
+                        label="Y"
+                        value={selectedLayer.y}
+                        min={-50}
+                        max={150}
+                        formatValue={(v) => `${v}%`}
+                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, y: value })}
+                      />
+                      <RangeSlider
+                        label="Width"
+                        value={selectedLayer.width}
+                        min={1}
+                        max={200}
+                        formatValue={(v) => `${v}%`}
+                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, width: value })}
+                      />
+                      <RangeSlider
+                        label="Height"
+                        value={selectedLayer.height}
+                        min={1}
+                        max={200}
+                        formatValue={(v) => `${v}%`}
+                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, height: value })}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </Section>
       </Section>
 
       {/* Screenshots — bulk upload */}
@@ -2341,6 +2805,7 @@ export function PanoramicBackgroundContent() {
   const setExportSize = usePreviewStore((s) => s.setExportSize);
   const syncPanoramicDevicesForPlatform = usePreviewStore((s) => s.syncPanoramicDevicesForPlatform);
   const { patchBackground } = usePanoramicInstantPatch();
+  const [selectedLayerIndex, setSelectedLayerIndex] = useState(0);
 
   const handlePlatformChange = useCallback(
     (v: string) => {
@@ -2386,6 +2851,74 @@ export function PanoramicBackgroundContent() {
     direction: 135,
     radialPosition: 'center' as const,
   };
+  const layers = background.layers ?? [];
+  const selectedLayer =
+    layers.length > 0 ? layers[Math.min(selectedLayerIndex, layers.length - 1)] : null;
+
+  const replaceLayers = useCallback(
+    (nextLayers: PanoramicBackgroundLayer[]) => updateBackground({ layers: nextLayers }),
+    [updateBackground],
+  );
+
+  const updateLayer = useCallback(
+    (index: number, patch: PanoramicBackgroundLayer) => {
+      const nextLayers = [...layers];
+      nextLayers[index] = patch;
+      replaceLayers(nextLayers);
+    },
+    [layers, replaceLayers],
+  );
+
+  const addLayer = useCallback(
+    (kind: PanoramicBackgroundLayer['kind']) => {
+      const next =
+        kind === 'gradient'
+          ? {
+              kind: 'gradient' as const,
+              gradientType: 'mesh' as const,
+              colors: ['#60A5FA', '#A78BFA', '#F472B6'],
+              direction: 135,
+              radialPosition: 'center' as const,
+              opacity: 0.8,
+              blendMode: 'soft-light' as const,
+              blur: 0,
+            }
+          : kind === 'image'
+            ? {
+                kind: 'image' as const,
+                image: '',
+                fit: 'cover' as const,
+                position: 'center' as const,
+                scale: 100,
+                opacity: 0.24,
+                blendMode: 'overlay' as const,
+                blur: 0,
+              }
+            : kind === 'glow'
+              ? {
+                  kind: 'glow' as const,
+                  color: '#FFFFFF',
+                  x: 50,
+                  y: 28,
+                  width: 38,
+                  height: 32,
+                  opacity: 0.35,
+                  blur: 90,
+                  blendMode: 'screen' as const,
+                }
+              : {
+                  kind: 'solid' as const,
+                  color: '#0F172A',
+                  opacity: 0.16,
+                  blendMode: 'overlay' as const,
+                  blur: 0,
+                };
+      const nextLayers = [...layers, next];
+      replaceLayers(nextLayers);
+      setSelectedLayerIndex(nextLayers.length - 1);
+    },
+    [layers, replaceLayers],
+  );
 
   return (
     <div>
@@ -2830,7 +3363,14 @@ export function PanoramicTextContent() {
 
   const filtered = elements
     .map((el, i) => ({ el, i }))
-    .filter(({ el }) => el.type === 'text' || el.type === 'label' || el.type === 'card' || el.type === 'badge');
+    .filter(
+      ({ el }) =>
+        el.type === 'text' ||
+        el.type === 'label' ||
+        el.type === 'card' ||
+        el.type === 'badge' ||
+        el.type === 'proof-chip',
+    );
 
   const addText = () => {
     const textCount = elements.filter((e) => e.type === 'text').length;
@@ -2921,18 +3461,47 @@ export function PanoramicTextContent() {
     });
   };
 
+  const addProofChip = () => {
+    const proofCount = elements.filter((e) => e.type === 'proof-chip').length;
+    addElement({
+      type: 'proof-chip',
+      value: '4.9 out of 5',
+      detail: 'App Store rating',
+      rating: 5,
+      maxRating: 5,
+      x: 8 + proofCount * 14,
+      y: 24,
+      width: 18,
+      height: 9,
+      color: '#0F172A',
+      mutedColor: '#64748B',
+      starColor: '#F59E0B',
+      backgroundColor: '#FFFFFF',
+      opacity: 0.98,
+      borderColor: '#E2E8F0',
+      borderWidth: 1,
+      borderRadius: 28,
+      valueSize: 1.8,
+      detailSize: 1,
+      padding: 1.4,
+      rotation: 0,
+      z: 11,
+    });
+  };
+
   const showInspector =
     selectedElementIndex !== null &&
     elements[selectedElementIndex] &&
     (elements[selectedElementIndex]!.type === 'text' ||
       elements[selectedElementIndex]!.type === 'label' ||
       elements[selectedElementIndex]!.type === 'card' ||
-      elements[selectedElementIndex]!.type === 'badge');
+      elements[selectedElementIndex]!.type === 'badge' ||
+      elements[selectedElementIndex]!.type === 'proof-chip');
 
   return (
     <div>
       <Section title={`Text & Labels (${filtered.length})`} defaultCollapsed={false}>
-        <div className="grid grid-cols-4 gap-1 mb-3">
+        <div className="grid grid-cols-5 gap-1 mb-3">
           <button
             className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
             onClick={addText}
@@ -2957,11 +3526,17 @@ export function PanoramicTextContent() {
           >
             + Badge
           </button>
+          <button
+            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            onClick={addProofChip}
+          >
+            + Proof
+          </button>
         </div>
 
         {filtered.length === 0 && (
           <p className="text-xs text-text-dim text-center py-4">
-            Add text elements, labels, badges, and support cards.
+            Add text elements, labels, badges, proof chips, and support cards.
           </p>
         )}
         <div className="space-y-1">
@@ -2989,6 +3564,11 @@ export function PanoramicTextContent() {
                     title={(el as { content: string }).content}
                   >
                     &mdash; {(el as { content: string }).content.slice(0, 20)}
+                  </span>
+                )}
+                {el.type === 'proof-chip' && (
+                  <span className="text-text-dim ml-1 truncate" title={el.value}>
+                    &mdash; {el.value.slice(0, 20)}
                   </span>
                 )}
                 {el.type === 'card' && (

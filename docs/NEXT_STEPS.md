@@ -28,8 +28,11 @@ AppFrame now has an initial autopilot pipeline implemented:
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `group` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `badge` and `logo` primitives now exist across schema, renderer, preview server, and editor
+- panoramic layered background systems now exist across schema, renderer, preview server, and editor
+- panoramic `proof-chip` primitives now exist across schema, renderer, preview server, and editor
 - panoramic planning/materialization now uses grouped crop-and-card systems in generated concepts
 - panoramic planning/materialization now emits `badge` and `logo` elements in generated panoramic concepts
+- panoramic planning/materialization now emits layered backgrounds and proof chips in generated panoramic concepts
 - screenshot analysis now includes ordering inference, hero explanations, and unsafe text-overlay flags
 - the AppFrame skill has been rewritten around the autopilot flow
 
@@ -306,14 +309,14 @@ This is the most important remaining capability area for before.click-level qual
 
 - [x] Add `badge` primitive.
 - [x] Add `logo` primitive or semantic badge/logo wrappers.
-- [ ] Add ratings/proof chip support.
+- [x] Add ratings/proof chip support.
 
 - [ ] Add richer background system:
-  - [ ] multiple background layers
-  - [ ] soft/mesh gradients
-  - [ ] texture/image overlays
-  - [ ] glow/blur layers
-  - [ ] blend/opacity controls
+  - [x] multiple background layers
+  - [x] soft/mesh gradients
+  - [x] texture/image overlays
+  - [x] glow/blur layers
+  - [x] blend/opacity controls
 
 - [ ] Add support for layered extracted screenshot details.
 - [ ] Add support for floating UI detail cards.
@@ -427,18 +430,18 @@ This is not fully implemented yet.
 
 If a future thread should continue immediately, the best next slice is:
 
-1. add richer semantic primitives such as `badge` and `logo`
-2. improve panoramic compositions with grouped card/crop systems and layered backgrounds
+1. add layered extracted screenshot details and floating UI detail cards
+2. improve panoramic compositions with grouped decorative systems and stronger proof layouts
 3. add preview UI refinement actions for common edits
 4. add preview-side metadata panels and comparison views for autopilot sessions
 
-That is the next quality step now that `crop`, `card`, and `group` are available.
+That is the next quality step now that layered backgrounds and proof chips are available.
 
 ## Suggested Concrete Next Task Prompt
 
 Use this to start a future thread:
 
-> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next scene-graph slice after `group`: add `badge` and `logo` primitives across schema, renderer, preview server, and panoramic editor, then update the planner/materializer to use them in panoramic concepts and richer proof systems.
+> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next panoramic quality slice after layered backgrounds and proof chips: add extracted screenshot detail layers, floating UI detail cards, and grouped decorative systems, then update planner/materializer output and preview review UI to expose those richer compositions clearly.
 
 ## Notes For Future Threads
 

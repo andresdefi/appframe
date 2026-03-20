@@ -127,6 +127,9 @@ describe('design planning helpers', () => {
       expect(plan.variants[2].canvasPlan.requiredElements.some((el) => el.type === 'group')).toBe(true);
       expect(plan.variants[2].canvasPlan.requiredElements.some((el) => el.type === 'logo')).toBe(true);
       expect(plan.variants[2].frames?.every((frame) => frame.cropSuitability)).toBe(true);
+      expect(plan.variants[2].frames?.some((frame) => frame.compositionFeatures?.includes('layered-detail-extract'))).toBe(true);
+      expect(plan.variants[2].frames?.every((frame) => frame.compositionFeatures?.includes('floating-detail-card'))).toBe(true);
+      expect(plan.variants[2].frames?.some((frame) => frame.compositionNote && frame.compositionNote.length > 20)).toBe(true);
     }
     expect(plan.variants[3]).toMatchObject({
       id: 'concept-d',
@@ -137,6 +140,8 @@ describe('design planning helpers', () => {
       expect(plan.variants[3].canvasPlan.requiredElements.some((el) => el.type === 'group')).toBe(true);
       expect(plan.variants[3].canvasPlan.requiredElements.some((el) => el.type === 'badge')).toBe(true);
       expect(plan.variants[3].canvasPlan.requiredElements.some((el) => el.type === 'proof-chip')).toBe(true);
+      expect(plan.variants[3].frames?.some((frame) => frame.compositionFeatures?.includes('decorative-cluster'))).toBe(true);
+      expect(plan.variants[3].frames?.some((frame) => frame.compositionFeatures?.includes('proof-stack'))).toBe(true);
     }
   });
 });

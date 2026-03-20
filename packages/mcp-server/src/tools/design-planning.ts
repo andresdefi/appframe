@@ -23,6 +23,11 @@ export type TextRisk = 'low' | 'medium' | 'high';
 export type CropSuitability = 'low' | 'medium' | 'high';
 export type RecommendedUsage = 'hero-device' | 'secondary-device' | 'crop-card' | 'support-only';
 export type OrderingConfidence = 'low' | 'medium' | 'high';
+export type PanoramicCompositionFeature =
+  | 'layered-detail-extract'
+  | 'floating-detail-card'
+  | 'decorative-cluster'
+  | 'proof-stack';
 
 export interface SafeTextZone {
   x: number;
@@ -103,6 +108,8 @@ export interface PlannedPanoramicFrame {
   storyBeat: string;
   assetGuidance?: string;
   pacing?: string;
+  compositionFeatures?: PanoramicCompositionFeature[];
+  compositionNote?: string;
 }
 
 export interface PlannedPanoramicCanvasPlan {
@@ -754,6 +761,73 @@ function buildGoalLine(goals: string[]): string {
   return goals.join(', ');
 }
 
+function buildPanoramicCompositionFeatures(args: {
+  recipe: 'editorial-panorama' | 'bold-panorama';
+  analysis: ScreenshotAnalysis;
+  storyBeat: string;
+  index: number;
+}): PanoramicCompositionFeature[] {
+  const features: PanoramicCompositionFeature[] = ['floating-detail-card'];
+
+  if (args.analysis.cropSuitability !== 'low') {
+    features.push('layered-detail-extract');
+  }
+
+  if (
+    args.recipe === 'bold-panorama'
+    || args.index === 0
+    || args.storyBeat === 'trust'
+    || args.storyBeat === 'summary'
+  ) {
+    features.push('decorative-cluster');
+  }
+
+  if (args.storyBeat === 'trust' || args.storyBeat === 'summary') {
+    features.push('proof-stack');
+  }
+
+  return features;
+}
+
+function buildPanoramicCompositionNote(args: {
+  recipe: 'editorial-panorama' | 'bold-panorama';
+  features: PanoramicCompositionFeature[];
+  analysis: ScreenshotAnalysis;
+  storyBeat: string;
+}): string {
+  const parts: string[] = [];
+
+  if (args.features.includes('layered-detail-extract')) {
+    parts.push('Pull cropped UI details into a layered supporting stack.');
+  }
+
+  if (args.features.includes('floating-detail-card')) {
+    parts.push(
+      args.recipe === 'editorial-panorama'
+        ? 'Pair the main device with a quieter floating UI card.'
+        : 'Use a floating UI card to keep momentum and readability.',
+    );
+  }
+
+  if (args.features.includes('decorative-cluster')) {
+    parts.push('Anchor the frame with grouped decorative accents instead of loose single shapes.');
+  }
+
+  if (args.features.includes('proof-stack')) {
+    parts.push('Reserve extra room for proof or trust signals near the close.');
+  }
+
+  if (parts.length === 0) {
+    parts.push(
+      args.analysis.cropSuitability === 'low'
+        ? 'Keep the full screenshot dominant and let typography carry the frame.'
+        : `Support the ${args.storyBeat} beat with one tighter product detail.`,
+    );
+  }
+
+  return parts.join(' ');
+}
+
 function buildVariantEntries(
   selected: ScreenshotAnalysis[],
   goals: string[],
@@ -831,19 +905,36 @@ function buildVariantEntries(
           { type: 'logo', purpose: 'brand mark or subtle supporting asset' },
         ],
       },
-      frames: selected.map((analysis, index) => ({
-        frame: index + 1,
-        sourcePath: analysis.path,
-        sourceRole: analysis.role,
-        cropSuitability: analysis.cropSuitability,
-        storyBeat: buildSlideRole(index, selected.length),
-        pacing:
-          index === 0
-            ? 'open strong'
-            : index === selected.length - 1
-              ? 'close quietly'
-              : 'develop narrative',
-      })),
+      frames: selected.map((analysis, index) => {
+        const storyBeat = buildSlideRole(index, selected.length);
+        const compositionFeatures = buildPanoramicCompositionFeatures({
+          recipe: 'editorial-panorama',
+          analysis,
+          storyBeat,
+          index,
+        });
+
+        return {
+          frame: index + 1,
+          sourcePath: analysis.path,
+          sourceRole: analysis.role,
+          cropSuitability: analysis.cropSuitability,
+          storyBeat,
+          pacing:
+            index === 0
+              ? 'open strong'
+              : index === selected.length - 1
+                ? 'close quietly'
+                : 'develop narrative',
+          compositionFeatures,
+          compositionNote: buildPanoramicCompositionNote({
+            recipe: 'editorial-panorama',
+            features: compositionFeatures,
+            analysis,
+            storyBeat,
+          }),
+        };
+      }),
     });
   }
 
@@ -870,17 +961,34 @@ function buildVariantEntries(
           { type: 'decoration', purpose: 'motion and depth' },
         ],
       },
-      frames: selected.map((analysis, index) => ({
-        frame: index + 1,
-        sourcePath: analysis.path,
-        sourceRole: analysis.role,
-        cropSuitability: analysis.cropSuitability,
-        storyBeat: buildSlideRole(index, selected.length),
-        assetGuidance:
-          analysis.cropSuitability === 'high'
-            ? 'Pair the full screenshot with cropped support details or a floating image asset.'
-            : 'Keep the screenshot dominant and let the typography do the extra work.',
-      })),
+      frames: selected.map((analysis, index) => {
+        const storyBeat = buildSlideRole(index, selected.length);
+        const compositionFeatures = buildPanoramicCompositionFeatures({
+          recipe: 'bold-panorama',
+          analysis,
+          storyBeat,
+          index,
+        });
+
+        return {
+          frame: index + 1,
+          sourcePath: analysis.path,
+          sourceRole: analysis.role,
+          cropSuitability: analysis.cropSuitability,
+          storyBeat,
+          assetGuidance:
+            analysis.cropSuitability === 'high'
+              ? 'Pair the full screenshot with cropped support details or a floating image asset.'
+              : 'Keep the screenshot dominant and let the typography do the extra work.',
+          compositionFeatures,
+          compositionNote: buildPanoramicCompositionNote({
+            recipe: 'bold-panorama',
+            features: compositionFeatures,
+            analysis,
+            storyBeat,
+          }),
+        };
+      }),
     });
   }
 

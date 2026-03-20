@@ -209,6 +209,13 @@ function createSessionVariants(config: AppframeConfig, variantCount: number): Va
       status: 'draft',
       config: ensureValidConfig(clone(config), 'Concept A'),
       artifacts: [],
+      history: [{
+        id: makeId('history'),
+        createdAt: new Date().toISOString(),
+        type: 'created',
+        label: 'Variant created from source config',
+      }],
+      provenance: { origin: 'manual', branchDepth: 0, note: 'Seeded from the source config.' },
     },
     {
       id: 'concept-b',
@@ -217,6 +224,13 @@ function createSessionVariants(config: AppframeConfig, variantCount: number): Va
       status: 'draft',
       config: secondConceptConfig,
       artifacts: [],
+      history: [{
+        id: makeId('history'),
+        createdAt: new Date().toISOString(),
+        type: 'created',
+        label: 'Variant created as an alternate concept',
+      }],
+      provenance: { origin: 'manual', branchDepth: 0, note: secondConceptDescription },
     },
   ];
 
@@ -228,6 +242,13 @@ function createSessionVariants(config: AppframeConfig, variantCount: number): Va
       status: 'draft',
       config: createPanoramicStoryboardVariant(config),
       artifacts: [],
+      history: [{
+        id: makeId('history'),
+        createdAt: new Date().toISOString(),
+        type: 'created',
+        label: 'Variant created as a panoramic storyboard concept',
+      }],
+      provenance: { origin: 'manual', branchDepth: 0, note: 'Derived from the source screens.' },
     });
   }
 

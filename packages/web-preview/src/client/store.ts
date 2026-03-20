@@ -181,6 +181,112 @@ export interface VariantCopyAssignment {
   sourceRole?: string;
 }
 
+export type RefinementActionId =
+  | 'premium'
+  | 'shorter-copy'
+  | 'frameless'
+  | 'lighter'
+  | 'darker'
+  | 'bigger-text'
+  | 'reduce-overlap';
+
+export interface VariantHistoryEntry {
+  id: string;
+  createdAt: string;
+  type: 'created' | 'duplicated' | 'refined' | 'status-change' | 'saved';
+  label: string;
+  detail?: string;
+  actionId?: RefinementActionId;
+  sourceVariantId?: string;
+}
+
+export interface VariantProvenance {
+  origin: 'manual' | 'autopilot' | 'duplicate' | 'refinement';
+  parentVariantId?: string;
+  parentVariantName?: string;
+  branchDepth: number;
+  note?: string;
+}
+
+export interface AutopilotRefinementHistoryEntry {
+  createdAt: string;
+  prompt: string;
+  detail?: string;
+  variantId?: string;
+  branchVariantId?: string;
+  mode?: 'manual' | 'ai';
+  actionId?: RefinementActionId;
+  actions?: RefinementActionId[];
+  referenceVariantId?: string;
+  referenceVariantName?: string;
+}
+
+export interface AutopilotScreenshotAnalysis {
+  path: string;
+  role: string;
+  heroPriority: number;
+  inferredOrder: number | null;
+  focus: string;
+  unsafeForTextOverlay: boolean;
+  heroExplanation?: string[];
+  orderingReason?: string[];
+}
+
+export interface AutopilotCopyCandidate {
+  headline: string;
+  sourceFeature?: string;
+}
+
+export interface AutopilotSelectedCopySet {
+  hero: AutopilotCopyCandidate;
+  differentiator: AutopilotCopyCandidate;
+  features: AutopilotCopyCandidate[];
+  trust?: AutopilotCopyCandidate;
+  summary: AutopilotCopyCandidate;
+}
+
+export interface AutopilotPlanVariant {
+  id: string;
+  name: string;
+  mode: 'individual' | 'panoramic';
+  style: string;
+  recipe: string;
+  strategy: string;
+  canvasPlan?: {
+    frameCount: number;
+    designGoal: string;
+    requiredElements: Array<{
+      type: string;
+      purpose: string;
+    }>;
+  };
+  frames?: Array<{
+    frame: number;
+    sourcePath: string;
+    sourceRole: string;
+    cropSuitability: string;
+    storyBeat: string;
+    compositionFeatures?: string[];
+    compositionNote?: string;
+  }>;
+}
+
+export interface AutopilotConceptPlan {
+  analysisSummary?: {
+    screenshotCount: number;
+    selectedCount: number;
+    topHeroCandidate: string | null;
+    topHeroExplanation?: string[];
+  };
+  selectedScreens?: Array<{
+    path: string;
+    role: string;
+    inferredOrder: number | null;
+    unsafeForTextOverlay: boolean;
+  }>;
+  variants: AutopilotPlanVariant[];
+}
+
 export interface VariantSnapshot {
   platform: string;
   previewW: number;
@@ -211,6 +317,8 @@ export interface VariantRecord {
   previewArtifacts: VariantPreviewArtifact[];
   copyAssignments: VariantCopyAssignment[];
   score?: VariantScoreSummary;
+  history: VariantHistoryEntry[];
+  provenance?: VariantProvenance;
 }
 
 export interface PreviewStore {
@@ -221,6 +329,11 @@ export interface PreviewStore {
   activeVariantId: string | null;
   recommendedVariantId: string | null;
   recommendationReason: string | null;
+  autopilotAnalysis: AutopilotScreenshotAnalysis[];
+  autopilotSelectedCopySet: AutopilotSelectedCopySet | null;
+  autopilotConceptPlan: AutopilotConceptPlan | null;
+  autopilotRefinementHistory: AutopilotRefinementHistoryEntry[];
+  sessionSaveBaseline: string | null;
   sessionBacked: boolean;
   platform: string;
   previewW: number;
@@ -261,6 +374,16 @@ export interface PreviewStore {
   upsertLocaleConfig: (locale: string, localeConfig: LocaleConfig) => void;
   createVariant: (name?: string) => void;
   duplicateActiveVariant: () => void;
+  applyRefinementToActive: (actionId: RefinementActionId) => void;
+  applyAiRefinementPlanToActive: (args: {
+    prompt: string;
+    label: string;
+    detail?: string;
+    actions: RefinementActionId[];
+    nameSuggestion?: string;
+    referenceVariantId?: string;
+    referenceVariantName?: string;
+  }) => void;
   createVariantSet: () => void;
   selectVariant: (id: string) => void;
   approveVariant: (id: string) => void;
@@ -292,10 +415,16 @@ export interface PreviewStore {
       previewArtifacts?: VariantPreviewArtifact[];
       copyAssignments?: VariantCopyAssignment[];
       score?: VariantScoreSummary;
+      history?: VariantHistoryEntry[];
+      provenance?: VariantProvenance;
     }>;
     autopilot?: {
       recommendedVariantId?: string | null;
       recommendationReason?: string | null;
+      screenshotAnalysis?: AutopilotScreenshotAnalysis[];
+      selectedCopySet?: AutopilotSelectedCopySet;
+      conceptPlan?: AutopilotConceptPlan;
+      refinementHistory?: AutopilotRefinementHistoryEntry[];
     };
   }) => void;
   addScreen: () => void;
@@ -345,6 +474,315 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function makeId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function makeHistoryEntry(
+  type: VariantHistoryEntry['type'],
+  label: string,
+  extras: Omit<VariantHistoryEntry, 'id' | 'createdAt' | 'type' | 'label'> = {},
+): VariantHistoryEntry {
+  return {
+    id: makeId('history'),
+    createdAt: new Date().toISOString(),
+    type,
+    label,
+    ...extras,
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function shiftHexColor(hex: string | undefined, amount: number): string | undefined {
+  if (!hex || !/^#([0-9a-f]{6}|[0-9a-f]{8})$/i.test(hex)) return hex;
+  const value = hex.slice(1);
+  const rgb = value.slice(0, 6);
+  const alpha = value.length === 8 ? value.slice(6) : '';
+  const next = [0, 2, 4]
+    .map((offset) => clamp(parseInt(rgb.slice(offset, offset + 2), 16) + amount, 0, 255))
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('');
+  return `#${next}${alpha}`;
+}
+
+function shortenTextValue(value: string, maxWords: number): string {
+  const normalized = value
+    .replace(/\n/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  if (normalized.length <= maxWords) return value;
+  return normalized.slice(0, maxWords).join(' ');
+}
+
+function mapPanoramicElementTree(
+  elements: PanoramicElement[],
+  mapper: (element: PanoramicElement) => PanoramicElement,
+): PanoramicElement[] {
+  return elements.map((element) => {
+    const mapped = mapper(element);
+    if (mapped.type === 'group') {
+      return {
+        ...mapped,
+        children: mapPanoramicElementTree(mapped.children, mapper) as Extract<PanoramicElement, { type: 'group' }>['children'],
+      };
+    }
+    return mapped;
+  });
+}
+
+export function getRefinementLabel(actionId: RefinementActionId): string {
+  switch (actionId) {
+    case 'premium':
+      return 'Make more premium';
+    case 'shorter-copy':
+      return 'Shorten copy';
+    case 'frameless':
+      return 'Use frameless devices';
+    case 'lighter':
+      return 'Make lighter';
+    case 'darker':
+      return 'Make darker';
+    case 'bigger-text':
+      return 'Increase text size';
+    case 'reduce-overlap':
+      return 'Reduce overlap';
+  }
+}
+
+function applyRefinementToSnapshot(snapshot: VariantSnapshot, actionId: RefinementActionId): VariantSnapshot {
+  const next = deepCopy(snapshot);
+
+  if (!next.isPanoramic) {
+    next.screens = next.screens.map((screen) => {
+      switch (actionId) {
+        case 'premium':
+          return {
+            ...screen,
+            style: 'editorial',
+            fontWeight: Math.max(screen.fontWeight, 700),
+            frameStyle: 'none',
+            cornerRadius: Math.max(screen.cornerRadius, 24),
+            colors: {
+              ...screen.colors,
+              background: '#F5F0E8',
+              text: '#2C2416',
+              subtitle: '#7A7062',
+              primary: '#8B7355',
+              secondary: '#C1B08B',
+            },
+          };
+        case 'shorter-copy':
+          return {
+            ...screen,
+            headline: shortenTextValue(screen.headline, 4),
+            subtitle: screen.subtitle ? shortenTextValue(screen.subtitle, 7) : screen.subtitle,
+          };
+        case 'frameless':
+          return {
+            ...screen,
+            frameStyle: 'none',
+            cornerRadius: Math.max(screen.cornerRadius, 24),
+          };
+        case 'lighter':
+          return {
+            ...screen,
+            colors: {
+              ...screen.colors,
+              background: shiftHexColor(screen.colors.background, 18) ?? screen.colors.background,
+              primary: shiftHexColor(screen.colors.primary, 12) ?? screen.colors.primary,
+              secondary: shiftHexColor(screen.colors.secondary, 12) ?? screen.colors.secondary,
+              text: '#1C1917',
+              subtitle: '#57534E',
+            },
+            backgroundColor: shiftHexColor(screen.backgroundColor, 16) ?? screen.backgroundColor,
+          };
+        case 'darker':
+          return {
+            ...screen,
+            colors: {
+              ...screen.colors,
+              background: shiftHexColor(screen.colors.background, -26) ?? screen.colors.background,
+              primary: shiftHexColor(screen.colors.primary, -8) ?? screen.colors.primary,
+              secondary: shiftHexColor(screen.colors.secondary, -8) ?? screen.colors.secondary,
+              text: '#F8FAFC',
+              subtitle: '#CBD5E1',
+            },
+            backgroundColor: shiftHexColor(screen.backgroundColor, -20) ?? screen.backgroundColor,
+          };
+        case 'bigger-text':
+          return {
+            ...screen,
+            headlineSize: Math.min((screen.headlineSize || 0) + 6, 72),
+            subtitleSize: Math.min((screen.subtitleSize || 0) + 4, 48),
+          };
+        case 'reduce-overlap':
+          return {
+            ...screen,
+            deviceTop: Math.min(screen.deviceTop + 4, 40),
+            deviceScale: Math.max(screen.deviceScale - 6, 72),
+          };
+      }
+    });
+    return next;
+  }
+
+  if (actionId === 'premium') {
+    next.panoramicBackground = {
+      ...next.panoramicBackground,
+      color: '#F5F0E8',
+      layers: next.panoramicBackground.layers?.map((layer) => ({
+        ...layer,
+        opacity: clamp((layer.opacity ?? 1) * 0.9, 0, 1),
+      })),
+    };
+  }
+
+  if (actionId === 'lighter' || actionId === 'darker') {
+    const amount = actionId === 'lighter' ? 18 : -24;
+    next.panoramicBackground = {
+      ...next.panoramicBackground,
+      color: shiftHexColor(next.panoramicBackground.color, amount) ?? next.panoramicBackground.color,
+      layers: next.panoramicBackground.layers?.map((layer) => ({
+        ...layer,
+        color: shiftHexColor(layer.color, amount) ?? layer.color,
+        colors: layer.colors?.map((color) => shiftHexColor(color, amount) ?? color),
+      })),
+    };
+  }
+
+  next.panoramicElements = mapPanoramicElementTree(next.panoramicElements, (element) => {
+    switch (actionId) {
+      case 'premium':
+        if (element.type === 'text') {
+          return { ...element, fontSize: Math.min(element.fontSize + 0.2, 6), color: '#2C2416', fontWeight: 700 };
+        }
+        if (element.type === 'label') {
+          return { ...element, color: '#7A7062' };
+        }
+        if (element.type === 'device') {
+          return { ...element, frameStyle: 'none', cornerRadius: Math.max(element.cornerRadius ?? 0, 24) };
+        }
+        return element;
+      case 'shorter-copy':
+        if (element.type === 'text' || element.type === 'label' || element.type === 'badge') {
+          return { ...element, content: shortenTextValue(element.content, element.type === 'text' ? 5 : 4) };
+        }
+        if (element.type === 'card') {
+          return {
+            ...element,
+            title: element.title ? shortenTextValue(element.title, 4) : element.title,
+            body: element.body ? shortenTextValue(element.body, 7) : element.body,
+          };
+        }
+        if (element.type === 'proof-chip') {
+          return {
+            ...element,
+            value: shortenTextValue(element.value, 4),
+            detail: element.detail ? shortenTextValue(element.detail, 5) : element.detail,
+          };
+        }
+        return element;
+      case 'frameless':
+        if (element.type === 'device') {
+          return { ...element, frameStyle: 'none', cornerRadius: Math.max(element.cornerRadius ?? 0, 24) };
+        }
+        return element;
+      case 'lighter':
+      case 'darker': {
+        const amount = actionId === 'lighter' ? 18 : -24;
+        if (element.type === 'text' || element.type === 'label') {
+          return {
+            ...element,
+            color: shiftHexColor(element.color, amount) ?? element.color,
+            backgroundColor: 'backgroundColor' in element
+              ? shiftHexColor(element.backgroundColor, amount) ?? element.backgroundColor
+              : undefined,
+          };
+        }
+        if (element.type === 'card' || element.type === 'badge' || element.type === 'proof-chip' || element.type === 'logo') {
+          return {
+            ...element,
+            backgroundColor: shiftHexColor(element.backgroundColor, amount) ?? element.backgroundColor,
+            borderColor: shiftHexColor(element.borderColor, amount) ?? element.borderColor,
+            color: 'color' in element ? shiftHexColor(element.color, amount) ?? element.color : undefined,
+            titleColor: 'titleColor' in element ? shiftHexColor(element.titleColor, amount) ?? element.titleColor : undefined,
+            bodyColor: 'bodyColor' in element ? shiftHexColor(element.bodyColor, amount) ?? element.bodyColor : undefined,
+            eyebrowColor: 'eyebrowColor' in element ? shiftHexColor(element.eyebrowColor, amount) ?? element.eyebrowColor : undefined,
+            mutedColor: 'mutedColor' in element ? shiftHexColor(element.mutedColor, amount) ?? element.mutedColor : undefined,
+          };
+        }
+        if (element.type === 'decoration') {
+          return { ...element, color: shiftHexColor(element.color, amount) ?? element.color };
+        }
+        return element;
+      }
+      case 'bigger-text':
+        if (element.type === 'text') {
+          return { ...element, fontSize: Math.min(element.fontSize + 0.45, 8), y: Math.max(element.y - 1, 1) };
+        }
+        if (element.type === 'label') {
+          return { ...element, fontSize: Math.min(element.fontSize + 0.2, 3.5) };
+        }
+        if (element.type === 'card') {
+          return {
+            ...element,
+            titleSize: Math.min(element.titleSize + 0.4, 10),
+            bodySize: Math.min(element.bodySize + 0.2, 6),
+            eyebrowSize: Math.min(element.eyebrowSize + 0.1, 3),
+          };
+        }
+        if (element.type === 'badge') {
+          return { ...element, fontSize: Math.min(element.fontSize + 0.15, 4) };
+        }
+        if (element.type === 'proof-chip') {
+          return {
+            ...element,
+            valueSize: Math.min(element.valueSize + 0.2, 6),
+            detailSize: Math.min(element.detailSize + 0.1, 4),
+          };
+        }
+        return element;
+      case 'reduce-overlap':
+        if (element.type === 'device') {
+          return { ...element, y: Math.min(element.y + 3.5, 34), width: Math.max(element.width - 1, 10.5) };
+        }
+        if (element.type === 'text') {
+          return { ...element, y: Math.max(element.y - 1, 2), maxWidth: Math.min((element.maxWidth ?? 18) + 2, 28) };
+        }
+        if (element.type === 'group' || element.type === 'proof-chip' || element.type === 'badge' || element.type === 'card') {
+          return { ...element, y: Math.min(element.y + 4, 84) };
+        }
+        return element;
+    }
+  });
+
+  return next;
+}
+
+function applyRefinementSequenceToSnapshot(
+  snapshot: VariantSnapshot,
+  actionIds: RefinementActionId[],
+): VariantSnapshot {
+  return actionIds.reduce(
+    (currentSnapshot, actionId) => applyRefinementToSnapshot(currentSnapshot, actionId),
+    deepCopy(snapshot),
+  );
+}
+
+function buildRefinementBranchName(baseName: string, label: string, nameSuggestion?: string): string {
+  if (nameSuggestion && nameSuggestion.trim().length > 0) {
+    return nameSuggestion.trim();
+  }
+  const suffix = label
+    .replace(/^AI refinement:\s*/i, '')
+    .replace(/^Make /, '')
+    .replace(/^Use /, '')
+    .replace(/^Increase /, '')
+    .replace(/^Shorten /, '')
+    .replace(/^Reduce /, '')
+    .trim();
+  return suffix ? `${baseName} ${suffix}` : `${baseName} Refined`;
 }
 
 export function variantSnapshotFromState(
@@ -510,11 +948,17 @@ function buildVariantRecord(
     | 'exportSize'
     | 'exportRenderer'
   >,
+  options: {
+    description?: string;
+    provenance?: VariantProvenance;
+    history?: VariantHistoryEntry[];
+  } = {},
 ): VariantRecord {
   const timestamp = new Date().toISOString();
   return {
     id: makeId('variant'),
     name,
+    description: options.description,
     status: 'draft',
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -522,6 +966,36 @@ function buildVariantRecord(
     artifacts: [],
     previewArtifacts: [],
     copyAssignments: [],
+    history: options.history ?? [makeHistoryEntry('created', 'Variant created')],
+    provenance: options.provenance ?? { origin: 'manual', branchDepth: 0 },
+  };
+}
+
+function cloneVariantRecord(
+  source: VariantRecord,
+  snapshot: VariantSnapshot,
+  options: {
+    name: string;
+    description?: string;
+    provenance: VariantProvenance;
+    historyEntry: VariantHistoryEntry;
+  },
+): VariantRecord {
+  const timestamp = new Date().toISOString();
+  return {
+    ...source,
+    id: makeId('variant'),
+    name: options.name,
+    description: options.description ?? source.description,
+    status: 'draft',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    snapshot,
+    artifacts: [],
+    previewArtifacts: [],
+    score: undefined,
+    history: [options.historyEntry, ...source.history],
+    provenance: options.provenance,
   };
 }
 
@@ -549,6 +1023,87 @@ function coerceVariantArtifact(candidate: unknown): VariantArtifact | null {
     outputDir: typeof candidate.outputDir === 'string' ? candidate.outputDir : undefined,
     filePaths,
     configPath: typeof candidate.configPath === 'string' ? candidate.configPath : undefined,
+  };
+}
+
+function coerceVariantHistory(candidate: unknown): VariantHistoryEntry[] {
+  if (!Array.isArray(candidate)) return [];
+  return candidate
+    .filter(isRecord)
+    .map((entry) => ({
+      id: typeof entry.id === 'string' ? entry.id : makeId('history'),
+      createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),
+      type:
+        entry.type === 'created'
+        || entry.type === 'duplicated'
+        || entry.type === 'refined'
+        || entry.type === 'status-change'
+        || entry.type === 'saved'
+          ? entry.type
+          : 'created',
+      label: typeof entry.label === 'string' ? entry.label : 'Variant updated',
+      detail: typeof entry.detail === 'string' ? entry.detail : undefined,
+      actionId:
+        entry.actionId === 'premium'
+        || entry.actionId === 'shorter-copy'
+        || entry.actionId === 'frameless'
+        || entry.actionId === 'lighter'
+        || entry.actionId === 'darker'
+        || entry.actionId === 'bigger-text'
+        || entry.actionId === 'reduce-overlap'
+          ? entry.actionId
+          : undefined,
+      sourceVariantId: typeof entry.sourceVariantId === 'string' ? entry.sourceVariantId : undefined,
+    }));
+}
+
+function coerceVariantProvenance(candidate: unknown): VariantProvenance | undefined {
+  if (!isRecord(candidate)) return undefined;
+  const origin =
+    candidate.origin === 'manual'
+    || candidate.origin === 'autopilot'
+    || candidate.origin === 'duplicate'
+    || candidate.origin === 'refinement'
+      ? candidate.origin
+      : 'manual';
+  return {
+    origin,
+    parentVariantId: typeof candidate.parentVariantId === 'string' ? candidate.parentVariantId : undefined,
+    parentVariantName: typeof candidate.parentVariantName === 'string' ? candidate.parentVariantName : undefined,
+    branchDepth: typeof candidate.branchDepth === 'number' ? candidate.branchDepth : 0,
+    note: typeof candidate.note === 'string' ? candidate.note : undefined,
+  };
+}
+
+function serializeSaveVariant(variant: VariantRecord) {
+  return {
+    id: variant.id,
+    name: variant.name,
+    description: variant.description,
+    status: variant.status,
+    snapshot: deepCopy(variant.snapshot),
+    artifacts: deepCopy(variant.artifacts),
+    previewArtifacts: deepCopy(variant.previewArtifacts),
+    copyAssignments: deepCopy(variant.copyAssignments),
+    score: variant.score ? deepCopy(variant.score) : undefined,
+    history: deepCopy(variant.history),
+    provenance: variant.provenance ? deepCopy(variant.provenance) : undefined,
+  };
+}
+
+export function buildSessionSavePayload(args: {
+  activeVariantId: string;
+  recommendedVariantId: string | null;
+  recommendationReason: string | null;
+  autopilotRefinementHistory: AutopilotRefinementHistoryEntry[];
+  variants: VariantRecord[];
+}) {
+  return {
+    activeVariantId: args.activeVariantId,
+    recommendedVariantId: args.recommendedVariantId,
+    recommendationReason: args.recommendationReason,
+    refinementHistory: deepCopy(args.autopilotRefinementHistory),
+    variants: args.variants.map((variant) => serializeSaveVariant(variant)),
   };
 }
 
@@ -590,6 +1145,11 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   activeVariantId: null,
   recommendedVariantId: null,
   recommendationReason: null,
+  autopilotAnalysis: [],
+  autopilotSelectedCopySet: null,
+  autopilotConceptPlan: null,
+  autopilotRefinementHistory: [],
+  sessionSaveBaseline: null,
   sessionBacked: false,
   platform: 'iphone',
   previewW: 400,
@@ -632,7 +1192,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   createVariant: (name) =>
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
-      const variant = buildVariantRecord(name ?? nextVariantName(variants), state);
+      const variant = buildVariantRecord(name ?? nextVariantName(variants), state, {
+        history: [makeHistoryEntry('created', 'Variant created manually')],
+        provenance: { origin: 'manual', branchDepth: 0 },
+      });
       return {
         variants: [...variants, variant],
         activeVariantId: variant.id,
@@ -643,14 +1206,120 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
       const activeVariant = variants.find((variant) => variant.id === state.activeVariantId);
-      const variant = buildVariantRecord(
-        activeVariant ? `${activeVariant.name} Copy` : nextVariantName(variants),
-        state,
-      );
+      const baseSnapshot = variantSnapshotFromState(state);
+      const variant = activeVariant
+        ? cloneVariantRecord(activeVariant, baseSnapshot, {
+            name: `${activeVariant.name} Branch`,
+            provenance: {
+              origin: 'duplicate',
+              parentVariantId: activeVariant.id,
+              parentVariantName: activeVariant.name,
+              branchDepth: (activeVariant.provenance?.branchDepth ?? 0) + 1,
+              note: 'Branched from the active concept.',
+            },
+            historyEntry: makeHistoryEntry('duplicated', 'Branched from active variant', {
+              sourceVariantId: activeVariant.id,
+            }),
+          })
+        : buildVariantRecord(nextVariantName(variants), state, {
+            history: [makeHistoryEntry('created', 'Variant created manually')],
+            provenance: { origin: 'manual', branchDepth: 0 },
+          });
       return {
         variants: [...variants, variant],
         activeVariantId: variant.id,
         ...applyVariantSnapshot(variant.snapshot),
+      };
+    }),
+  applyRefinementToActive: (actionId) =>
+    set((state) => {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const activeVariant = variants.find((variant) => variant.id === state.activeVariantId);
+      if (!activeVariant) return state;
+
+      const refinedSnapshot = applyRefinementToSnapshot(activeVariant.snapshot, actionId);
+      const refinementLabel = getRefinementLabel(actionId);
+      const branch = cloneVariantRecord(activeVariant, refinedSnapshot, {
+        name: buildRefinementBranchName(activeVariant.name, refinementLabel),
+        description: activeVariant.description,
+        provenance: {
+          origin: 'refinement',
+          parentVariantId: activeVariant.id,
+          parentVariantName: activeVariant.name,
+          branchDepth: (activeVariant.provenance?.branchDepth ?? 0) + 1,
+          note: refinementLabel,
+        },
+        historyEntry: makeHistoryEntry('refined', refinementLabel, {
+          detail: `Prompt: ${refinementLabel}\nActions: ${refinementLabel}`,
+          actionId,
+          sourceVariantId: activeVariant.id,
+        }),
+      });
+      const refinementHistoryEntry: AutopilotRefinementHistoryEntry = {
+        createdAt: branch.createdAt,
+        prompt: refinementLabel,
+        detail: 'Applied a safe local refinement branch.',
+        variantId: activeVariant.id,
+        branchVariantId: branch.id,
+        mode: 'manual',
+        actionId,
+        actions: [actionId],
+      };
+
+      return {
+        variants: [...variants, branch],
+        activeVariantId: branch.id,
+        autopilotRefinementHistory: [refinementHistoryEntry, ...state.autopilotRefinementHistory],
+        ...applyVariantSnapshot(branch.snapshot),
+      };
+    }),
+  applyAiRefinementPlanToActive: (args) =>
+    set((state) => {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const activeVariant = variants.find((variant) => variant.id === state.activeVariantId);
+      if (!activeVariant || args.actions.length === 0) return state;
+
+      const refinedSnapshot = applyRefinementSequenceToSnapshot(activeVariant.snapshot, args.actions);
+      const branch = cloneVariantRecord(activeVariant, refinedSnapshot, {
+        name: buildRefinementBranchName(activeVariant.name, args.label, args.nameSuggestion),
+        description: activeVariant.description,
+        provenance: {
+          origin: 'refinement',
+          parentVariantId: activeVariant.id,
+          parentVariantName: activeVariant.name,
+          branchDepth: (activeVariant.provenance?.branchDepth ?? 0) + 1,
+          note: args.label,
+        },
+        historyEntry: makeHistoryEntry('refined', args.label, {
+          detail: [
+            `Prompt: ${args.prompt}`,
+            args.detail ? `Why: ${args.detail}` : null,
+            `Actions: ${args.actions.map((actionId) => getRefinementLabel(actionId)).join(', ')}`,
+            args.referenceVariantName ? `Reference: ${args.referenceVariantName}` : null,
+          ].filter((value): value is string => Boolean(value)).join('\n'),
+          actionId: args.actions.length === 1 ? args.actions[0] : undefined,
+          sourceVariantId: activeVariant.id,
+        }),
+      });
+
+      const refinementHistoryEntry: AutopilotRefinementHistoryEntry = {
+        createdAt: branch.createdAt,
+        prompt: args.prompt,
+        detail: args.detail ?? args.label,
+        variantId: activeVariant.id,
+        branchVariantId: branch.id,
+        mode: 'ai',
+        actionId: args.actions.length === 1 ? args.actions[0] : undefined,
+        actions: deepCopy(args.actions),
+        referenceVariantId: args.referenceVariantId,
+        referenceVariantName: args.referenceVariantName,
+      };
+
+      return {
+        variants: [...variants, branch],
+        activeVariantId: branch.id,
+        autopilotRefinementHistory: [refinementHistoryEntry, ...state.autopilotRefinementHistory],
+        ...applyVariantSnapshot(branch.snapshot),
       };
     }),
   createVariantSet: () =>
@@ -667,9 +1336,18 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
           snapshot: baseState,
           updatedAt: new Date().toISOString(),
         };
-        const conceptB = buildVariantRecord('Concept B', state);
-        const conceptC = buildVariantRecord('Concept C', state);
-        const conceptD = buildVariantRecord('Concept D', state);
+        const conceptB = buildVariantRecord('Concept B', state, {
+          history: [makeHistoryEntry('created', 'Concept created manually')],
+          provenance: { origin: 'manual', branchDepth: 0 },
+        });
+        const conceptC = buildVariantRecord('Concept C', state, {
+          history: [makeHistoryEntry('created', 'Concept created manually')],
+          provenance: { origin: 'manual', branchDepth: 0 },
+        });
+        const conceptD = buildVariantRecord('Concept D', state, {
+          history: [makeHistoryEntry('created', 'Concept created manually')],
+          provenance: { origin: 'manual', branchDepth: 0 },
+        });
         return {
           variants: [renamed, conceptB, conceptC, conceptD],
           activeVariantId: renamed.id,
@@ -677,18 +1355,24 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         };
       }
 
-      const conceptA = buildVariantRecord(nextVariantName(variants, 'Concept'), state);
+      const conceptA = buildVariantRecord(nextVariantName(variants, 'Concept'), state, {
+        history: [makeHistoryEntry('created', 'Concept created manually')],
+        provenance: { origin: 'manual', branchDepth: 0 },
+      });
       const conceptB = buildVariantRecord(
         nextVariantName([...variants, conceptA], 'Concept'),
         state,
+        { history: [makeHistoryEntry('created', 'Concept created manually')], provenance: { origin: 'manual', branchDepth: 0 } },
       );
       const conceptC = buildVariantRecord(
         nextVariantName([...variants, conceptA, conceptB], 'Concept'),
         state,
+        { history: [makeHistoryEntry('created', 'Concept created manually')], provenance: { origin: 'manual', branchDepth: 0 } },
       );
       const conceptD = buildVariantRecord(
         nextVariantName([...variants, conceptA, conceptB, conceptC], 'Concept'),
         state,
+        { history: [makeHistoryEntry('created', 'Concept created manually')], provenance: { origin: 'manual', branchDepth: 0 } },
       );
       return {
         variants: [...variants, conceptA, conceptB, conceptC, conceptD],
@@ -719,6 +1403,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
           ...variant,
           status: variant.id === id ? 'approved' : 'draft',
           updatedAt,
+          history:
+            variant.id === id
+              ? [makeHistoryEntry('status-change', 'Variant approved'), ...variant.history]
+              : variant.history,
         })),
         activeVariantId: id,
         ...applyVariantSnapshot(nextVariant.snapshot),
@@ -754,7 +1442,17 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   setVariantStatus: (id, status) =>
     set((state) => ({
       variants: state.variants.map((variant) =>
-        variant.id === id ? { ...variant, status, updatedAt: new Date().toISOString() } : variant,
+        variant.id === id
+          ? {
+              ...variant,
+              status,
+              updatedAt: new Date().toISOString(),
+              history: [
+                makeHistoryEntry('status-change', status === 'approved' ? 'Variant approved' : 'Variant moved to draft'),
+                ...variant.history,
+              ],
+            }
+          : variant,
       ),
     })),
   recordVariantArtifact: (artifact) =>
@@ -862,6 +1560,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       selectedElementIndex: null,
       exportSize: currentState.exportSize,
       exportRenderer: currentState.exportRenderer,
+    }, {
+      history: [makeHistoryEntry('created', 'Concept created from loaded config')],
+      provenance: { origin: 'manual', branchDepth: 0, note: 'Initialized from the current config.' },
     });
 
     set({
@@ -871,6 +1572,11 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       activeVariantId: baseVariant.id,
       recommendedVariantId: null,
       recommendationReason: null,
+      autopilotAnalysis: [],
+      autopilotSelectedCopySet: null,
+      autopilotConceptPlan: null,
+      autopilotRefinementHistory: [],
+      sessionSaveBaseline: null,
       sessionBacked: false,
       isPanoramic,
       locale: nextLocale,
@@ -939,6 +1645,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         previewArtifacts: sv.previewArtifacts ?? [],
         copyAssignments: sv.copyAssignments ?? [],
         score: sv.score,
+        history: coerceVariantHistory((sv as { history?: unknown }).history),
+        provenance: coerceVariantProvenance((sv as { provenance?: unknown }).provenance),
       };
     });
 
@@ -949,11 +1657,24 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       : variants[0]!.id;
     const active = variants.find((v) => v.id === activeId)!;
 
+    const sessionSaveBaseline = JSON.stringify(buildSessionSavePayload({
+      activeVariantId: activeId,
+      recommendedVariantId: session.autopilot?.recommendedVariantId ?? null,
+      recommendationReason: session.autopilot?.recommendationReason ?? null,
+      autopilotRefinementHistory: session.autopilot?.refinementHistory ?? [],
+      variants,
+    }));
+
     set({
       variants,
       activeVariantId: activeId,
       recommendedVariantId: session.autopilot?.recommendedVariantId ?? null,
       recommendationReason: session.autopilot?.recommendationReason ?? null,
+      autopilotAnalysis: session.autopilot?.screenshotAnalysis ?? [],
+      autopilotSelectedCopySet: session.autopilot?.selectedCopySet ?? null,
+      autopilotConceptPlan: session.autopilot?.conceptPlan ?? null,
+      autopilotRefinementHistory: session.autopilot?.refinementHistory ?? [],
+      sessionSaveBaseline,
       sessionBacked: true,
       ...applyVariantSnapshot(active.snapshot),
     });
@@ -1282,18 +2003,16 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     set({ isSavingSession: true });
     try {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
-      await saveSessionApi({
+      const payload = buildSessionSavePayload({
         activeVariantId: state.activeVariantId,
         recommendedVariantId: state.recommendedVariantId,
         recommendationReason: state.recommendationReason,
-        variants: variants.map((variant) => ({
-          id: variant.id,
-          name: variant.name,
-          status: variant.status,
-          snapshot: variant.snapshot,
-        })),
+        autopilotRefinementHistory: state.autopilotRefinementHistory,
+        variants,
       });
+      await saveSessionApi(payload);
       set({ variants });
+      set({ sessionSaveBaseline: JSON.stringify(payload) });
     } catch (err) {
       console.error('Failed to save session:', err);
       throw err;

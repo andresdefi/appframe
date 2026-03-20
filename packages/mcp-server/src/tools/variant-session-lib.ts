@@ -38,6 +38,24 @@ export interface VariantCopyAssignment {
   sourceRole?: ScreenshotRole;
 }
 
+export interface VariantHistoryEntry {
+  id: string;
+  createdAt: string;
+  type: 'created' | 'duplicated' | 'refined' | 'status-change' | 'saved';
+  label: string;
+  detail?: string;
+  actionId?: string;
+  sourceVariantId?: string;
+}
+
+export interface VariantProvenance {
+  origin: 'manual' | 'autopilot' | 'duplicate' | 'refinement';
+  parentVariantId?: string;
+  parentVariantName?: string;
+  branchDepth: number;
+  note?: string;
+}
+
 export interface VariantSessionVariant {
   id: string;
   name: string;
@@ -48,6 +66,8 @@ export interface VariantSessionVariant {
   previewArtifacts?: VariantPreviewArtifact[];
   copyAssignments?: VariantCopyAssignment[];
   score?: VariantScore;
+  history?: VariantHistoryEntry[];
+  provenance?: VariantProvenance;
 }
 
 export interface VariantSessionAutopilot {
@@ -65,6 +85,9 @@ export interface VariantSessionAutopilot {
   refinementHistory: Array<{
     createdAt: string;
     prompt: string;
+    variantId?: string;
+    branchVariantId?: string;
+    actionId?: string;
   }>;
 }
 
@@ -102,6 +125,20 @@ export function makeId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function makeHistoryEntry(
+  type: VariantHistoryEntry['type'],
+  label: string,
+  extras: Omit<VariantHistoryEntry, 'id' | 'createdAt' | 'type' | 'label'> = {},
+): VariantHistoryEntry {
+  return {
+    id: makeId('history'),
+    createdAt: new Date().toISOString(),
+    type,
+    label,
+    ...extras,
+  };
+}
+
 export function slugify(value: string): string {
   const slug = value
     .toLowerCase()
@@ -129,6 +166,8 @@ export async function readSession(sessionPath: string): Promise<VariantSessionFi
         ...variant,
         previewArtifacts: variant.previewArtifacts ?? [],
         copyAssignments: variant.copyAssignments ?? [],
+        history: variant.history ?? [],
+        provenance: variant.provenance ?? { origin: 'manual', branchDepth: 0 },
       })),
       autopilot: raw.autopilot
         ? {
@@ -149,6 +188,8 @@ export async function readSession(sessionPath: string): Promise<VariantSessionFi
       ...variant,
       previewArtifacts: [],
       copyAssignments: [],
+      history: [],
+      provenance: { origin: 'manual', branchDepth: 0 },
     })),
   };
 }
@@ -278,6 +319,12 @@ export async function createSessionFromManifest(args: {
       artifacts: [],
       previewArtifacts: [],
       copyAssignments: buildVariantCopyAssignments(plannedVariant, args.selectedCopySet),
+      history: [makeHistoryEntry('created', 'Variant created from autopilot plan')],
+      provenance: {
+        origin: 'autopilot' as const,
+        branchDepth: 0,
+        note: 'Generated from a materialized autopilot manifest.',
+      },
     };
   }));
 

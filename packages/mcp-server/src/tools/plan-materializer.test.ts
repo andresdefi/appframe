@@ -84,6 +84,21 @@ describe('plan materializer', () => {
         expect(parsed.panoramic.elements.some((el: { type: string }) => el.type === 'group')).toBe(true);
         expect(parsed.panoramic.elements.some((el: { type: string }) => el.type === 'badge')).toBe(true);
         expect(parsed.panoramic.elements.some((el: { type: string }) => el.type === 'proof-chip')).toBe(true);
+        const groups = parsed.panoramic.elements.filter((el: { type: string }) => el.type === 'group');
+        expect(
+          groups.some((group: { children?: Array<{ type: string }> }) =>
+            (group.children ?? []).filter((child) => child.type === 'crop').length >= 2),
+        ).toBe(true);
+        expect(
+          groups.some((group: { children?: Array<{ type: string }> }) => {
+            const childTypes = new Set((group.children ?? []).map((child) => child.type));
+            return childTypes.has('card') && (childTypes.has('crop') || childTypes.has('badge'));
+          }),
+        ).toBe(true);
+        expect(
+          groups.some((group: { children?: Array<{ type: string }> }) =>
+            (group.children ?? []).some((child) => child.type === 'decoration')),
+        ).toBe(true);
       }
     }
 

@@ -5,8 +5,15 @@ const API = '';
 export interface PersistedSessionVariant {
   id: string;
   name: string;
+  description?: string;
   status: 'draft' | 'approved';
   snapshot: unknown;
+  artifacts?: unknown[];
+  previewArtifacts?: unknown[];
+  copyAssignments?: unknown[];
+  score?: unknown;
+  history?: unknown[];
+  provenance?: unknown;
 }
 
 export interface ApprovedArtifactExportResult {
@@ -30,6 +37,24 @@ export interface ApprovedArtifactExportResult {
     filePaths: string[];
     configPath: string;
   };
+}
+
+export type AiRefinementActionId =
+  | 'premium'
+  | 'shorter-copy'
+  | 'frameless'
+  | 'lighter'
+  | 'darker'
+  | 'bigger-text'
+  | 'reduce-overlap';
+
+export interface AiRefinementPlanResult {
+  label: string;
+  rationale: string;
+  actions: AiRefinementActionId[];
+  nameSuggestion?: string;
+  referenceVariantId?: string;
+  referenceVariantName?: string;
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
@@ -63,6 +88,7 @@ export async function saveSession(body: {
   activeVariantId: string;
   recommendedVariantId?: string | null;
   recommendationReason?: string | null;
+  refinementHistory?: unknown[];
   variants: PersistedSessionVariant[];
 }): Promise<void> {
   const res = await fetch(`${API}/api/session/save`, {
@@ -80,6 +106,29 @@ export async function saveSession(body: {
     }
     throw new Error(message);
   }
+}
+
+export async function refineWithAi(body: {
+  prompt: string;
+  activeVariantId: string;
+  variants: PersistedSessionVariant[];
+}): Promise<AiRefinementPlanResult> {
+  const res = await fetch(`${API}/api/refine-with-ai`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `AI refinement failed: ${res.statusText}`;
+    try {
+      const data = await res.json() as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // Keep default status text.
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<AiRefinementPlanResult>;
 }
 
 export async function fetchPreviewHtml(body: Record<string, unknown>, signal?: AbortSignal): Promise<string> {

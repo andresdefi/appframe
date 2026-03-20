@@ -50,6 +50,14 @@ import type {
   PanoramicRenderedBackgroundLayer,
   PanoramicRenderedElement,
 } from '@appframe/core';
+import { planAiRefinement } from './aiRefinement.js';
+import {
+  buildConfigFromEditorState,
+  materializeSessionSaveVariants,
+  mergeSessionSaveRequest,
+  type PersistedSessionRecord,
+  type SessionSaveRequestBody,
+} from './sessionPersistence.js';
 import { autoTranslateLocale } from './translation.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -143,10 +151,6 @@ function createDefaultConfig(): AppframeConfig {
   };
 }
 
-function cloneConfig<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
 function makeId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -159,44 +163,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function buildBackgroundString(screen: Record<string, unknown>, fallback?: string): string | undefined {
-  const backgroundType = expectOptionalString(screen.backgroundType);
-  if (backgroundType === 'solid') {
-    return expectOptionalString(screen.backgroundColor) ?? fallback;
-  }
-  if (backgroundType === 'gradient') {
-    const gradient = screen.backgroundGradient;
-    if (!isRecord(gradient) || !Array.isArray(gradient.colors) || gradient.colors.length < 2) {
-      return fallback;
-    }
-    const colors = gradient.colors.map((entry) => String(entry)).join(', ');
-    if (gradient.type === 'radial') {
-      return `radial-gradient(circle at ${String(gradient.radialPosition ?? 'center')}, ${colors})`;
-    }
-    return `linear-gradient(${Number(gradient.direction ?? 135)}deg, ${colors})`;
-  }
-  if (backgroundType === 'preset') return undefined;
-  return fallback;
-}
-
-function normalizeScreenshotPath(
-  original: string | undefined,
-  nextName: unknown,
-  index: number,
-): string {
-  if (!original) {
-    return typeof nextName === 'string' && nextName
-      ? `screenshots/${nextName}`
-      : `screenshots/screen-${index + 1}.png`;
-  }
-  if (typeof nextName !== 'string' || !nextName || original.endsWith(nextName)) {
-    return original;
-  }
-  const parts = original.split('/');
-  parts[parts.length - 1] = nextName;
-  return parts.join('/');
-}
-
 function slugifyName(value: string): string {
   const slug = value
     .toLowerCase()
@@ -207,170 +173,6 @@ function slugifyName(value: string): string {
 
 function serializeConfigText(configValue: AppframeConfig, appName: string, variantName: string): string {
   return `# appframe config — ${appName} (${variantName})\n${JSON.stringify(configValue, null, 2)}`;
-}
-
-function buildConfigFromEditorState(baseConfig: AppframeConfig, body: Record<string, unknown>): AppframeConfig {
-  const next = cloneConfig(baseConfig);
-  const mode = body.mode === 'panoramic' || body.isPanoramic === true ? 'panoramic' : 'individual';
-  const screens = Array.isArray(body.screens)
-    ? body.screens.filter(isRecord)
-    : [];
-  const locales = isRecord(body.sessionLocales)
-    ? body.sessionLocales
-    : next.locales;
-
-  next.mode = mode;
-  next.locales = locales as AppframeConfig['locales'];
-
-  const firstScreen = screens[0];
-  if (firstScreen) {
-    next.theme = {
-      ...next.theme,
-      style: (expectOptionalString(firstScreen.style) as AppframeConfig['theme']['style']) ?? next.theme.style,
-      font: expectOptionalString(firstScreen.font) ?? next.theme.font,
-      fontWeight:
-        typeof firstScreen.fontWeight === 'number'
-          ? firstScreen.fontWeight
-          : next.theme.fontWeight,
-      headlineSize:
-        typeof firstScreen.headlineSize === 'number' && firstScreen.headlineSize > 0
-          ? firstScreen.headlineSize
-          : undefined,
-      subtitleSize:
-        typeof firstScreen.subtitleSize === 'number' && firstScreen.subtitleSize > 0
-          ? firstScreen.subtitleSize
-          : undefined,
-      headlineGradient: isRecord(firstScreen.headlineGradient)
-        ? firstScreen.headlineGradient as AppframeConfig['theme']['headlineGradient']
-        : undefined,
-      subtitleGradient: isRecord(firstScreen.subtitleGradient)
-        ? firstScreen.subtitleGradient as AppframeConfig['theme']['subtitleGradient']
-        : undefined,
-      headlineLineHeight:
-        typeof firstScreen.headlineLineHeight === 'number' && firstScreen.headlineLineHeight > 0
-          ? firstScreen.headlineLineHeight / 100
-          : undefined,
-      headlineLetterSpacing:
-        typeof firstScreen.headlineLetterSpacing === 'number' && firstScreen.headlineLetterSpacing !== 0
-          ? `${firstScreen.headlineLetterSpacing / 100}em`
-          : undefined,
-      headlineTextTransform:
-        (expectOptionalString(firstScreen.headlineTextTransform) as AppframeConfig['theme']['headlineTextTransform'])
-        ?? undefined,
-      headlineFontStyle:
-        (expectOptionalString(firstScreen.headlineFontStyle) as AppframeConfig['theme']['headlineFontStyle'])
-        ?? undefined,
-      subtitleOpacity:
-        typeof firstScreen.subtitleOpacity === 'number' && firstScreen.subtitleOpacity > 0
-          ? firstScreen.subtitleOpacity / 100
-          : undefined,
-      subtitleLetterSpacing:
-        typeof firstScreen.subtitleLetterSpacing === 'number' && firstScreen.subtitleLetterSpacing !== 0
-          ? `${firstScreen.subtitleLetterSpacing / 100}em`
-          : undefined,
-      subtitleTextTransform:
-        (expectOptionalString(firstScreen.subtitleTextTransform) as AppframeConfig['theme']['subtitleTextTransform'])
-        ?? undefined,
-    };
-
-    const colors = isRecord(firstScreen.colors) ? firstScreen.colors : null;
-    if (colors) {
-      next.theme.colors = {
-        primary: expectOptionalString(colors.primary) ?? next.theme.colors.primary,
-        secondary: expectOptionalString(colors.secondary) ?? next.theme.colors.secondary,
-        background: expectOptionalString(colors.background) ?? next.theme.colors.background,
-        text: expectOptionalString(colors.text) ?? next.theme.colors.text,
-        subtitle: expectOptionalString(colors.subtitle) ?? next.theme.colors.subtitle,
-      };
-    }
-
-    next.frames = {
-      ...next.frames,
-      style:
-        (expectOptionalString(firstScreen.frameStyle) as AppframeConfig['frames']['style'])
-        ?? next.frames.style,
-      deviceColor: expectOptionalString(firstScreen.deviceColor) ?? next.frames.deviceColor,
-    };
-  }
-
-  if (mode === 'panoramic') {
-    const fallbackPanoramic = next.panoramic;
-    next.frameCount =
-      typeof body.panoramicFrameCount === 'number'
-        ? body.panoramicFrameCount
-        : next.frameCount ?? 5;
-    next.panoramic = {
-      background: isRecord(body.panoramicBackground)
-        ? body.panoramicBackground as NonNullable<AppframeConfig['panoramic']>['background']
-        : fallbackPanoramic?.background ?? { type: 'solid' },
-      elements: Array.isArray(body.panoramicElements)
-        ? body.panoramicElements as NonNullable<AppframeConfig['panoramic']>['elements']
-        : fallbackPanoramic?.elements ?? [],
-    };
-    return validateConfigOrThrow(next);
-  }
-
-  next.screens = screens.map((screen, index) => {
-    const original = next.screens[index] ?? {
-      screenshot: `screenshots/screen-${index + 1}.png`,
-      headline: `Screen ${index + 1}`,
-      layout: 'center' as const,
-      composition: 'single' as const,
-      autoSizeHeadline: true,
-      autoSizeSubtitle: false,
-      annotations: [],
-    };
-
-    return {
-      ...original,
-      screenshot: normalizeScreenshotPath(original.screenshot, screen.screenshotName, index),
-      headline: expectOptionalString(screen.headline) ?? original.headline,
-      subtitle: expectOptionalString(screen.subtitle),
-      layout:
-        (expectOptionalString(screen.layout) as typeof original.layout)
-        ?? original.layout,
-      device: expectOptionalString(screen.frameId) ?? original.device,
-      background: buildBackgroundString(screen, original.background),
-      composition:
-        (expectOptionalString(screen.composition) as typeof original.composition)
-        ?? original.composition,
-      autoSizeHeadline:
-        typeof screen.autoSizeHeadline === 'boolean'
-          ? screen.autoSizeHeadline
-          : original.autoSizeHeadline,
-      autoSizeSubtitle:
-        typeof screen.autoSizeSubtitle === 'boolean'
-          ? screen.autoSizeSubtitle
-          : original.autoSizeSubtitle,
-      spotlight: isRecord(screen.spotlight)
-        ? screen.spotlight as typeof original.spotlight
-        : original.spotlight,
-      annotations: Array.isArray(screen.annotations)
-        ? screen.annotations as typeof original.annotations
-        : original.annotations ?? [],
-      deviceShadow: isRecord(screen.deviceShadow)
-        ? screen.deviceShadow as typeof original.deviceShadow
-        : original.deviceShadow,
-      borderSimulation: isRecord(screen.borderSimulation)
-        ? screen.borderSimulation as typeof original.borderSimulation
-        : original.borderSimulation,
-      cornerRadius:
-        typeof screen.cornerRadius === 'number'
-          ? screen.cornerRadius
-          : original.cornerRadius,
-      loupe: isRecord(screen.loupe)
-        ? screen.loupe as typeof original.loupe
-        : original.loupe,
-      callouts: Array.isArray(screen.callouts)
-        ? screen.callouts as typeof original.callouts
-        : original.callouts,
-      overlays: Array.isArray(screen.overlays)
-        ? screen.overlays as typeof original.overlays
-        : original.overlays,
-    };
-  });
-
-  return validateConfigOrThrow(next);
 }
 
 export async function startPreviewServer(options: PreviewServerOptions): Promise<void> {
@@ -426,19 +228,41 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
 
     try {
-      const body = req.body as {
-        activeVariantId?: unknown;
-        recommendedVariantId?: unknown;
-        recommendationReason?: unknown;
-        variants?: Array<{
-          id?: unknown;
-          name?: unknown;
-          status?: unknown;
-          snapshot?: unknown;
-        }>;
-      };
+      const body = req.body as SessionSaveRequestBody;
+      const raw = await readFile(resolvedSessionPath, 'utf-8');
+      const session = JSON.parse(raw) as PersistedSessionRecord;
 
+      if (!Array.isArray(session.variants)) {
+        res.status(400).json({ error: 'Session file is missing variants' });
+        return;
+      }
+
+      const updatedAt = new Date().toISOString();
+      const nextSession = mergeSessionSaveRequest({
+        session,
+        body,
+        fallbackConfig: config,
+        updatedAt,
+      });
+
+      await writeFile(resolvedSessionPath, JSON.stringify(nextSession, null, 2), 'utf-8');
+      sessionData = nextSession;
+      res.json({ success: true, updatedAt });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post('/api/refine-with-ai', async (req, res) => {
+    try {
+      const body = req.body as SessionSaveRequestBody & { prompt?: unknown };
+      const prompt = expectString(body.prompt);
       const activeVariantId = expectString(body.activeVariantId);
+      if (!prompt) {
+        res.status(400).json({ error: 'prompt is required' });
+        return;
+      }
       if (!activeVariantId) {
         res.status(400).json({ error: 'activeVariantId is required' });
         return;
@@ -448,63 +272,43 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         return;
       }
 
-      const raw = await readFile(resolvedSessionPath, 'utf-8');
-      const session = JSON.parse(raw) as {
-        activeVariantId: string;
-        updatedAt?: string;
-        variants: Array<Record<string, unknown> & { id?: string }>;
-        autopilot?: Record<string, unknown>;
-      };
+      const session = resolvedSessionPath
+        ? JSON.parse(await readFile(resolvedSessionPath, 'utf-8')) as PersistedSessionRecord
+        : {
+            activeVariantId,
+            variants: [],
+          } satisfies PersistedSessionRecord;
 
-      if (!Array.isArray(session.variants)) {
-        res.status(400).json({ error: 'Session file is missing variants' });
-        return;
-      }
+      const materializedVariants = materializeSessionSaveVariants({
+        session: Array.isArray(session.variants) ? session : { ...session, variants: [] },
+        bodyVariants: body.variants,
+        fallbackConfig: config,
+      });
+      const variantsWithConfig = materializedVariants
+        .filter((variant) => typeof variant.id === 'string' && isRecord(variant.config))
+        .map((variant) => ({
+          id: variant.id!,
+          name: typeof variant.name === 'string' ? variant.name : 'Variant',
+          description: typeof variant.description === 'string' ? variant.description : undefined,
+          status: typeof variant.status === 'string' ? variant.status : undefined,
+          provenance: variant.provenance,
+          score: variant.score,
+          config: variant.config as AppframeConfig,
+        }));
 
-      const variantMap = new Map(
-        body.variants.map((variant) => {
-          const id = expectString(variant.id);
-          return [id, variant] as const;
-        }).filter((entry): entry is readonly [string, NonNullable<typeof body.variants>[number]] => Boolean(entry[0])),
-      );
-
-      const updatedAt = new Date().toISOString();
-      session.variants = session.variants.map((variant) => {
-        const variantId = typeof variant.id === 'string' ? variant.id : '';
-        const incoming = variantMap.get(variantId);
-        if (!incoming) return variant;
-        const nextName = expectString(incoming.name);
-        const nextStatus = incoming.status === 'approved' ? 'approved' : 'draft';
-        return {
-          ...variant,
-          name: nextName || variant.name,
-          status: nextStatus,
-          editorSnapshot: incoming.snapshot ?? variant.editorSnapshot,
-        };
+      const plan = await planAiRefinement({
+        appName: config.app.name,
+        appDescription: config.app.description,
+        prompt,
+        activeVariantId,
+        variants: variantsWithConfig,
       });
 
-      session.activeVariantId = activeVariantId;
-      session.updatedAt = updatedAt;
-      if (session.autopilot) {
-        session.autopilot = {
-          ...session.autopilot,
-          recommendedVariantId:
-            body.recommendedVariantId === null
-              ? null
-              : expectString(body.recommendedVariantId) || session.autopilot.recommendedVariantId,
-          recommendationReason:
-            body.recommendationReason === null
-              ? null
-              : expectString(body.recommendationReason) || session.autopilot.recommendationReason,
-        };
-      }
-
-      await writeFile(resolvedSessionPath, JSON.stringify(session, null, 2), 'utf-8');
-      sessionData = session;
-      res.json({ success: true, updatedAt });
+      res.json(plan);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(500).json({ error: message });
+      const status = message.includes('OPENAI_API_KEY') ? 503 : 500;
+      res.status(status).json({ error: message });
     }
   });
 

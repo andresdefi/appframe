@@ -25,6 +25,8 @@ AppFrame now has an initial autopilot pipeline implemented:
 - preview UI can display recommendation metadata and preview thumbnails
 - variant sessions now persist explicit per-concept copy-slot assignments
 - preview UI now exposes the selected copy plan for each concept
+- preview UI now supports optional AI-backed refinement planning that maps freeform prompts onto safe branch actions
+- web-preview now has dedicated refinement session save/load round-trip coverage
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `group` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `badge` and `logo` primitives now exist across schema, renderer, preview server, and editor
@@ -318,9 +320,9 @@ This is the most important remaining capability area for before.click-level qual
   - [x] glow/blur layers
   - [x] blend/opacity controls
 
-- [ ] Add support for layered extracted screenshot details.
-- [ ] Add support for floating UI detail cards.
-- [ ] Add support for grouped decorative systems.
+- [x] Add support for layered extracted screenshot details.
+- [x] Add support for floating UI detail cards.
+- [x] Add support for grouped decorative systems.
 
 ### 10. Preview UI As Review Surface
 
@@ -328,7 +330,7 @@ This is the most important remaining capability area for before.click-level qual
 - [x] Show recommendation metadata.
 - [x] Show preview thumbnails in the variants tab.
 - [x] Support 4-concept sessions.
-- [ ] Show analysis/copy/plan metadata in dedicated panels.
+- [x] Show analysis/copy/plan metadata in dedicated panels.
 - [x] Add side-by-side concept comparison view.
 - [ ] Add quick filter tabs for:
   - [x] all concepts
@@ -337,11 +339,11 @@ This is the most important remaining capability area for before.click-level qual
   - [x] approved only
 - [x] Add richer recommendation UI with score breakdown display.
 - [x] Add explicit "approve recommended" action.
-- [ ] Add "duplicate concept" in session-aware autopilot flows without losing metadata.
+- [x] Add "duplicate concept" in session-aware autopilot flows without losing metadata.
 - [x] Add "edit manually" affordance that preserves autopilot metadata.
-- [ ] Add "refine with AI" buttons in the UI.
+- [x] Add "refine with AI" buttons in the UI.
 - [x] Add preview thumbnails to any future concept comparison grid.
-- [ ] Improve panoramic concept preview UX so users can evaluate cross-frame continuity more clearly.
+- [x] Improve panoramic concept preview UX so users can evaluate cross-frame continuity more clearly.
 
 ### 10.5. Useful Follow-Ups From PR #1
 
@@ -357,7 +359,7 @@ These ideas are worth keeping, but should be rebuilt on top of the current sessi
 - [x] Add explicit dirty-state / save-state UI in web preview once session-backed persistence exists.
 - [x] Verify App Store size mappings against the current Apple spec and update `packages/core/src/renderer/sizes.ts` where needed.
 - [ ] Consider keeping improved Koubou stderr logging, but only as a small isolated patch with cleanup behavior decided explicitly.
-- [ ] Add tests for any persistence flow so preview edits round-trip through load/save without losing config fields or session metadata.
+- [x] Add tests for any persistence flow so preview edits round-trip through load/save without losing config fields or session metadata.
 
 ### 11. Refinement Loop
 
@@ -373,11 +375,11 @@ This is not fully implemented yet.
   - [ ] reduce overlap
   - [ ] increase text size
   - [ ] swap screenshot order
-- [ ] Record refinement prompts into session history.
-- [ ] Apply refinement actions to a chosen concept without destroying the original.
-- [ ] Add a duplicate-before-refine option so users can branch variants safely.
-- [ ] Add UI hooks to trigger refinement tools from the preview app.
-- [ ] Add tests for refinement-session updates.
+- [x] Record refinement prompts into session history.
+- [x] Apply refinement actions to a chosen concept without destroying the original.
+- [x] Add a duplicate-before-refine option so users can branch variants safely.
+- [x] Add UI hooks to trigger refinement tools from the preview app.
+- [x] Add tests for refinement-session updates.
 
 ### 12. Skill And Agent Workflow
 
@@ -430,18 +432,18 @@ This is not fully implemented yet.
 
 If a future thread should continue immediately, the best next slice is:
 
-1. add layered extracted screenshot details and floating UI detail cards
-2. improve panoramic compositions with grouped decorative systems and stronger proof layouts
-3. add preview UI refinement actions for common edits
-4. add preview-side metadata panels and comparison views for autopilot sessions
+1. add preview UI refinement actions for common edits
+2. add refine-with-AI actions in session-aware autopilot flows
+3. continue autopilot hardening around resume, stale detection, and structured run status
+4. add tests for refinement-session updates and save/load round-tripping
 
-That is the next quality step now that layered backgrounds and proof chips are available.
+That is the next quality step now that local branch-and-refine actions, session history, and continuity review are in place.
 
 ## Suggested Concrete Next Task Prompt
 
 Use this to start a future thread:
 
-> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next panoramic quality slice after layered backgrounds and proof chips: add extracted screenshot detail layers, floating UI detail cards, and grouped decorative systems, then update planner/materializer output and preview review UI to expose those richer compositions clearly.
+> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next refinement slice after local branch-and-refine support: add refine-with-AI actions in the preview UI, persist/refine session history more explicitly, and add tests that round-trip branched/refined variants through save/load without losing provenance or editor state.
 
 ## Notes For Future Threads
 

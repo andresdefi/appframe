@@ -53,7 +53,7 @@ Current status:
 - panoramic layered backgrounds and `proof-chip` support are now in place across schema, renderer, preview server, and editor
 - panoramic planning/materialization now emits grouped crop-and-card systems plus semantic badge/logo elements in generated concepts
 - panoramic planning/materialization now emits layered backgrounds and proof chips in generated concepts
-- extracted screenshot detail layers and floating UI detail cards are the next major scene-graph gap
+- extracted screenshot detail layers, floating UI detail cards, and grouped decorative systems are now in place in panoramic planning/materialization and visible in the preview review UI
 
 ### 2. Design Recipe System
 
@@ -156,7 +156,7 @@ Implementation order:
 - Add recipe library
 - Add screenshot analysis model
 - Add richer element primitives beyond `image`
-  Status: `crop`, `card`, `group`, `badge`, `logo`, layered backgrounds, and proof chips are now landed; extracted screenshot details and floating UI detail cards remain.
+  Status: `crop`, `card`, `group`, `badge`, `logo`, layered backgrounds, proof chips, extracted screenshot details, floating UI detail cards, and grouped decorative systems are now landed.
 
 ### Phase 3: Search And Evaluation
 
@@ -178,5 +178,8 @@ This roadmap now has three concrete pieces underway:
 - real agent tooling: variant planning/materialization with file-backed autopilot sessions
 - generate-then-rank foundations: preview rendering plus heuristic scoring/recommendation
 - preview review surface: sessions now carry per-concept copy-slot assignments and the preview UI now supports concept filters, side-by-side comparison, and score breakdown review
+- richer panoramic composition review: sessions now expose screenshot analysis, selected copy, concept-plan metadata, and composition summaries in the preview variants surface so layered-detail systems are inspectable without leaving the session
+- refinement review surface: preview sessions now support safe branch-and-refine actions, variant provenance/history, and panoramic continuity review without leaving the session flow
+- AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load
 - manual refinement path: users can now approve the recommended concept, persist manual edits back into the active variant session, export the selected variant as a standalone config, and materialize the approved concept into an export-ready artifact directory without depending on an AI agent for every change
 - screenshot understanding foundations: analysis now includes inferred screen ordering, hero-candidate explanations, and unsafe-overlay flags

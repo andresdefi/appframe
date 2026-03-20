@@ -12,6 +12,8 @@ import type {
 } from './design-planning.js';
 import type { SelectedCopySet } from './copy-planning.js';
 
+type PanoramicGroupChild = Extract<PanoramicElement, { type: 'group' }>['children'][number];
+
 export interface MaterializedVariantFile {
   id: string;
   name: string;
@@ -226,10 +228,117 @@ function storyBeatTitle(storyBeat: string): string {
 
 function storyBeatBody(frame: PlannedPanoramicFrame): string {
   return (
+    frame.compositionNote ??
     frame.assetGuidance ??
     frame.pacing ??
     `Use the ${frame.sourceRole} screen as a supporting proof detail.`
   );
+}
+
+function hasCompositionFeature(
+  frame: PlannedPanoramicFrame,
+  feature: 'layered-detail-extract' | 'floating-detail-card' | 'decorative-cluster' | 'proof-stack',
+): boolean {
+  return frame.compositionFeatures?.includes(feature) ?? false;
+}
+
+function buildShadow(args: {
+  opacity: number;
+  blur: number;
+  offsetY: number;
+  color?: string;
+}) {
+  return {
+    opacity: args.opacity,
+    blur: args.blur,
+    offsetY: args.offsetY,
+    color: args.color ?? '#0F172A',
+  };
+}
+
+function buildPanoramicDetailStackGroup(args: {
+  screenshot: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  textColor: string;
+  badgeText: string;
+  focusX: number;
+  focusY: number;
+  zoom: number;
+  tone: 'light' | 'dark';
+}): PanoramicElement {
+  const shadowColor = args.tone === 'dark' ? '#020617' : '#0F172A';
+  const badgeColor = args.tone === 'dark' ? '#FFFFFF' : args.textColor;
+  const badgeBackground = args.tone === 'dark' ? '#0F172ACC' : '#FFFFFFE8';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'crop',
+      screenshot: args.screenshot,
+      x: 4,
+      y: 15,
+      width: 56,
+      height: 44,
+      focusX: Math.max(12, args.focusX - 4),
+      focusY: Math.min(88, args.focusY + 2),
+      zoom: Math.max(1.35, args.zoom - 0.15),
+      rotation: -7,
+      borderRadius: 20,
+      shadow: buildShadow({ opacity: 0.16, blur: 18, offsetY: 8, color: shadowColor }),
+      z: 1,
+    },
+    {
+      type: 'crop',
+      screenshot: args.screenshot,
+      x: 28,
+      y: 4,
+      width: 64,
+      height: 52,
+      focusX: args.focusX,
+      focusY: args.focusY,
+      zoom: args.zoom,
+      rotation: 6,
+      borderRadius: 24,
+      shadow: buildShadow({ opacity: 0.22, blur: 24, offsetY: 10, color: shadowColor }),
+      z: 2,
+    },
+    {
+      type: 'badge',
+      content: args.badgeText,
+      x: 6,
+      y: 0,
+      width: 36,
+      height: 8.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.96,
+      borderColor: args.accentColor,
+      borderWidth: args.tone === 'dark' ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 1.05,
+      fontWeight: 700,
+      letterSpacing: 9,
+      textTransform: 'uppercase',
+      rotation: 0,
+      shadow: buildShadow({ opacity: 0.08, blur: 14, offsetY: 4, color: shadowColor }),
+      z: 3,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 7,
+    children,
+  };
 }
 
 function buildPanoramicSupportGroup(args: {
@@ -248,7 +357,82 @@ function buildPanoramicSupportGroup(args: {
   focusX: number;
   focusY: number;
   zoom: number;
+  badgeContent?: string;
+  cardBackgroundColor?: string;
+  includeCrop?: boolean;
 }): PanoramicElement {
+  const includeCrop = args.includeCrop ?? true;
+  const children: PanoramicGroupChild[] = [];
+
+  if (args.badgeContent) {
+    children.push({
+      type: 'badge',
+      content: args.badgeContent,
+      x: 10,
+      y: 0,
+      width: 36,
+      height: 8.4,
+      color: args.textColor,
+      backgroundColor: '#FFFFFFE8',
+      opacity: 0.96,
+      borderColor: args.accentColor,
+      borderWidth: 1,
+      borderRadius: 100,
+      fontSize: 1,
+      fontWeight: 700,
+      letterSpacing: 9,
+      textTransform: 'uppercase',
+      rotation: 0,
+      shadow: buildShadow({ opacity: 0.08, blur: 12, offsetY: 3 }),
+      z: 3,
+    });
+  }
+
+  if (includeCrop) {
+    children.push({
+      type: 'crop',
+      screenshot: args.screenshot,
+      x: 0,
+      y: args.badgeContent ? 7 : 0,
+      width: 100,
+      height: 58,
+      focusX: args.focusX,
+      focusY: args.focusY,
+      zoom: args.zoom,
+      rotation: args.rotation > 0 ? -6 : 6,
+      borderRadius: 24,
+      shadow: buildShadow({ opacity: 0.18, blur: 22, offsetY: 8 }),
+      z: 1,
+    });
+  }
+
+  children.push({
+    type: 'card',
+    x: includeCrop ? 10 : 6,
+    y: includeCrop ? 50 : 10,
+    width: includeCrop ? 82 : 88,
+    height: includeCrop ? 36 : 44,
+    eyebrow: args.storyBeat,
+    title: args.title,
+    body: args.body,
+    align: 'left',
+    backgroundColor: args.cardBackgroundColor ?? '#FFFFFF',
+    opacity: 0.97,
+    borderColor: args.accentColor,
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: includeCrop ? 2 : 2.4,
+    rotation: 0,
+    eyebrowColor: args.subtitleColor,
+    titleColor: args.textColor,
+    bodyColor: args.subtitleColor,
+    eyebrowSize: includeCrop ? 3.5 : 3.2,
+    titleSize: includeCrop ? 7.2 : 7.8,
+    bodySize: includeCrop ? 4.1 : 4.3,
+    shadow: buildShadow({ opacity: 0.12, blur: 20, offsetY: 6 }),
+    z: 2,
+  });
+
   return {
     type: 'group',
     x: args.x,
@@ -258,47 +442,93 @@ function buildPanoramicSupportGroup(args: {
     rotation: args.rotation,
     opacity: 1,
     z: 8,
-    children: [
-      {
-        type: 'crop',
-        screenshot: args.screenshot,
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 62,
-        focusX: args.focusX,
-        focusY: args.focusY,
-        zoom: args.zoom,
-        rotation: args.rotation > 0 ? -6 : 6,
-        borderRadius: 24,
-        z: 1,
-      },
-      {
-        type: 'card',
-        x: 10,
-        y: 54,
-        width: 82,
-        height: 36,
-        eyebrow: args.storyBeat,
-        title: args.title,
-        body: args.body,
-        align: 'left',
-        backgroundColor: '#FFFFFF',
-        opacity: 0.96,
-        borderColor: args.accentColor,
-        borderWidth: 1,
-        borderRadius: 24,
-        padding: 2,
-        rotation: 0,
-        eyebrowColor: args.subtitleColor,
-        titleColor: args.textColor,
-        bodyColor: args.subtitleColor,
-        eyebrowSize: 3.5,
-        titleSize: 7.2,
-        bodySize: 4.1,
-        z: 2,
-      },
-    ],
+    children,
+  };
+}
+
+function buildPanoramicDecorativeGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  label?: string;
+  dark: boolean;
+}): PanoramicElement {
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 0,
+      y: 12,
+      width: 18,
+      height: 18,
+      color: args.accentColor,
+      opacity: args.dark ? 0.34 : 0.2,
+      rotation: 0,
+      z: 1,
+    },
+    {
+      type: 'decoration',
+      shape: 'dot-grid',
+      x: 18,
+      y: 0,
+      width: 36,
+      height: 22,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.28 : 0.2,
+      rotation: 0,
+      z: 2,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 12,
+      y: 34,
+      width: 44,
+      height: 2,
+      color: args.accentColor,
+      opacity: args.dark ? 0.42 : 0.28,
+      rotation: 12,
+      z: 3,
+    },
+  ];
+
+  if (args.label) {
+    children.push({
+      type: 'badge',
+      content: args.label,
+      x: 8,
+      y: 24,
+      width: 34,
+      height: 9,
+      color: args.dark ? '#FFFFFF' : '#0F172A',
+      backgroundColor: args.dark ? '#0F172ACC' : '#FFFFFFE0',
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 1,
+      fontWeight: 700,
+      letterSpacing: 8,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 4,
+    });
+  }
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: args.dark ? 0.92 : 0.88,
+    z: 4,
+    children,
   };
 }
 
@@ -377,11 +607,16 @@ function buildPanoramicElements(args: {
     const sliceWidth = 100 / frameCount;
     const frameSliceStart = (index / frameCount) * 100;
     const frameCenter = frameSliceStart + 50 / frameCount;
+    const hasLayeredDetail = hasCompositionFeature(frame, 'layered-detail-extract');
+    const hasFloatingDetailCard = hasCompositionFeature(frame, 'floating-detail-card');
+    const hasDecorativeCluster = hasCompositionFeature(frame, 'decorative-cluster');
     const copy = resolveCopyForSlot(args.selectedCopySet, frame.storyBeat, featureIndex);
     if (frame.storyBeat === 'feature') featureIndex += 1;
     const sourceScreenshot = toConfigRelativePath(args.configDir, frame.sourcePath);
     const supportTitle = storyBeatTitle(frame.storyBeat);
     const supportBody = storyBeatBody(frame);
+    const detailFocusX = frame.sourceRole === 'detail' || frame.sourceRole === 'paywall' ? 55 : 50;
+    const detailFocusY = frame.storyBeat === 'hero' ? 32 : 40;
 
     elements.push({
       type: 'device',
@@ -498,7 +733,28 @@ function buildPanoramicElements(args: {
       });
     }
 
-    if (args.variant.recipe === 'editorial-panorama') {
+    if (args.variant.recipe === 'editorial-panorama' && hasLayeredDetail) {
+      const detailWidth = Math.max(11, sliceWidth - 10);
+      elements.push(
+        buildPanoramicDetailStackGroup({
+          screenshot: sourceScreenshot,
+          x: frameSliceStart + 1.5,
+          y: index % 2 === 0 ? 24 : 30,
+          width: detailWidth,
+          height: 18,
+          rotation: index % 2 === 0 ? -4 : 4,
+          accentColor: args.accentColor,
+          textColor: args.textColor,
+          badgeText: frame.storyBeat === 'hero' ? 'Key detail' : 'UI detail',
+          focusX: detailFocusX,
+          focusY: detailFocusY,
+          zoom: frame.cropSuitability === 'high' ? 2.1 : 1.75,
+          tone: 'light',
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'editorial-panorama' && hasFloatingDetailCard) {
       const groupWidth = Math.max(12.5, sliceWidth - 8);
       elements.push(
         buildPanoramicSupportGroup({
@@ -514,14 +770,54 @@ function buildPanoramicElements(args: {
           accentColor: args.accentColor,
           textColor: args.textColor,
           subtitleColor: args.subtitleColor,
-          focusX: frame.sourceRole === 'detail' || frame.sourceRole === 'paywall' ? 55 : 50,
-          focusY: 38,
+          focusX: detailFocusX,
+          focusY: detailFocusY,
           zoom: frame.cropSuitability === 'high' ? 1.8 : 1.5,
+          badgeContent: frame.storyBeat === 'hero' ? 'Editorial system' : 'Story card',
+          cardBackgroundColor: '#FFFFFFF2',
+          includeCrop: true,
         }),
       );
     }
 
-    if (args.variant.recipe === 'bold-panorama' && frame.cropSuitability !== 'low') {
+    if (args.variant.recipe === 'editorial-panorama' && hasDecorativeCluster) {
+      elements.push(
+        buildPanoramicDecorativeGroup({
+          x: frameSliceStart + Math.max(2, sliceWidth - 11),
+          y: frame.storyBeat === 'summary' ? 70 : 18,
+          width: 10,
+          height: 18,
+          rotation: index % 2 === 0 ? 8 : -8,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          label: frame.storyBeat === 'hero' ? 'Featured' : undefined,
+          dark: false,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'bold-panorama' && hasLayeredDetail) {
+      const detailWidth = Math.max(11.5, sliceWidth - 9);
+      elements.push(
+        buildPanoramicDetailStackGroup({
+          screenshot: sourceScreenshot,
+          x: frameSliceStart + sliceWidth - detailWidth - 1.5,
+          y: 18,
+          width: detailWidth,
+          height: 18.5,
+          rotation: index % 2 === 0 ? 5 : -5,
+          accentColor: args.accentColor,
+          textColor: '#0F172A',
+          badgeText: frame.storyBeat === 'hero' ? 'Hero detail' : 'Zoomed UI',
+          focusX: detailFocusX,
+          focusY: detailFocusY,
+          zoom: frame.cropSuitability === 'high' ? 2.2 : 1.85,
+          tone: 'dark',
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'bold-panorama' && hasFloatingDetailCard && frame.cropSuitability !== 'low') {
       const groupWidth = Math.max(13, sliceWidth - 7);
       elements.push(
         buildPanoramicSupportGroup({
@@ -537,40 +833,53 @@ function buildPanoramicElements(args: {
           accentColor: args.accentColor,
           textColor: '#111827',
           subtitleColor: '#475569',
-          focusX: frame.sourceRole === 'detail' || frame.sourceRole === 'paywall' ? 55 : 50,
-          focusY: 38,
+          focusX: detailFocusX,
+          focusY: detailFocusY,
           zoom: frame.cropSuitability === 'high' ? 1.9 : 1.55,
+          badgeContent: frame.storyBeat === 'trust' ? 'Proof card' : 'Momentum card',
+          cardBackgroundColor: '#FFFFFFF0',
+          includeCrop: true,
         }),
       );
-    } else if (
-      args.variant.recipe === 'bold-panorama' &&
-      (index === 0 || frame.storyBeat === 'trust' || frame.storyBeat === 'summary')
-    ) {
-      elements.push({
-        type: 'card',
-        x: frameSliceStart + 3,
-        y: 66,
-        width: Math.max(12, sliceWidth - 8),
-        height: 14,
-        eyebrow: frame.storyBeat,
-        title: supportTitle,
-        body: supportBody,
-        align: 'left',
-        backgroundColor: '#FFFFFF',
-        opacity: 0.95,
-        borderColor: args.accentColor,
-        borderWidth: 1,
-        borderRadius: 24,
-        padding: 1.7,
-        rotation: 0,
-        eyebrowColor: args.accentColor,
-        titleColor: '#111827',
-        bodyColor: '#475569',
-        eyebrowSize: 1,
-        titleSize: 1.8,
-        bodySize: 1.1,
-        z: 8,
-      });
+    } else if (args.variant.recipe === 'bold-panorama' && hasFloatingDetailCard) {
+      elements.push(
+        buildPanoramicSupportGroup({
+          screenshot: sourceScreenshot,
+          x: frameSliceStart + 3,
+          y: 58,
+          width: Math.max(12.5, sliceWidth - 7),
+          height: 21,
+          rotation: index % 2 === 0 ? -3 : 3,
+          storyBeat: frame.storyBeat,
+          title: supportTitle,
+          body: supportBody,
+          accentColor: args.accentColor,
+          textColor: '#111827',
+          subtitleColor: '#475569',
+          focusX: detailFocusX,
+          focusY: detailFocusY,
+          zoom: 1.45,
+          badgeContent: 'Focus card',
+          cardBackgroundColor: '#FFFFFFF2',
+          includeCrop: false,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'bold-panorama' && hasDecorativeCluster) {
+      elements.push(
+        buildPanoramicDecorativeGroup({
+          x: frameSliceStart + 2,
+          y: frame.storyBeat === 'summary' ? 16 : 72,
+          width: 10.5,
+          height: 18,
+          rotation: index % 2 === 0 ? -10 : 10,
+          accentColor: args.accentColor,
+          secondaryColor: '#FFFFFF',
+          label: frame.storyBeat === 'summary' ? 'Finale' : undefined,
+          dark: true,
+        }),
+      );
     }
   });
 

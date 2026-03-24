@@ -914,6 +914,12 @@ export function VariantsTab() {
                       Flags: {variant.score.flags.join(' · ')}
                     </div>
                   ) : null}
+                  {variant.score?.modelRanking ? (
+                    <div>
+                      Visual model {variant.score.modelRanking.score}/100
+                      {typeof variant.score.modelRanking.rank === 'number' ? ` · rank ${variant.score.modelRanking.rank}` : ''}
+                    </div>
+                  ) : null}
                 </div>
 
                 {variant.score && (
@@ -922,6 +928,16 @@ export function VariantsTab() {
                       Score Breakdown
                     </summary>
                     <div className="space-y-2 border-t border-border px-3 py-2">
+                      {variant.score.highlights?.length ? (
+                        <div className="rounded-md border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-2 text-[10px] text-emerald-100">
+                          Highlights: {variant.score.highlights.join(' · ')}
+                        </div>
+                      ) : null}
+                      {variant.score.issues?.length ? (
+                        <div className="rounded-md border border-amber-500/20 bg-amber-500/8 px-2.5 py-2 text-[10px] text-amber-100">
+                          Issues: {variant.score.issues.join(' · ')}
+                        </div>
+                      ) : null}
                       {Object.entries(variant.score.breakdown).map(([label, value]) => (
                         <div key={label}>
                           <div className="mb-1 flex items-center justify-between text-[10px] text-text-dim">

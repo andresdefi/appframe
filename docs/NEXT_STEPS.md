@@ -29,6 +29,8 @@ AppFrame now has an initial autopilot pipeline implemented:
 - web-preview now has dedicated refinement session save/load round-trip coverage
 - `appframe_run_autopilot` now supports stage-aware resume, forced reruns, stale-artifact detection, and a machine-readable run-status manifest
 - MCP tools can now start preview directly for a generated session via `appframe_open_preview_session`
+- preview scoring now inspects rendered PNG previews for contrast, text-zone safety, whitespace balance, clutter, and panoramic seam continuity
+- preview scoring now measures concept diversity across the full rendered concept set, explains concrete layout/copy issues, and accepts optional model-ranking signals for future visual judging
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `group` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `badge` and `logo` primitives now exist across schema, renderer, preview server, and editor
@@ -279,18 +281,18 @@ Recommended order:
 
 - [x] Add deterministic heuristic scoring.
 - [x] Add recommendation persistence.
-- [ ] Score actual rendered preview images, not just config heuristics.
+- [x] Score actual rendered preview images, not just config heuristics.
 - [ ] Add image-based checks for:
-  - [ ] contrast/readability
-  - [ ] text collisions
-  - [ ] excessive empty space
-  - [ ] panoramic continuity quality
-  - [ ] visual clutter
+  - [x] contrast/readability
+  - [x] text collisions
+  - [x] excessive empty space
+  - [x] panoramic continuity quality
+  - [x] visual clutter
 - [ ] Add diversity scoring across all 4 concepts together.
 - [ ] Add score explanations that point to concrete layout/copy problems.
 - [ ] Add model-assisted visual scoring behind optional AI credentials.
 - [ ] Blend heuristic and model scores into one final recommendation formula.
-- [ ] Add test fixtures for weak vs strong concept scoring.
+- [x] Add test fixtures for weak vs strong concept scoring.
 
 ### 9. Scene Graph / Renderer Expansion
 

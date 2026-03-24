@@ -185,3 +185,5 @@ This roadmap now has three concrete pieces underway:
 - screenshot understanding foundations: analysis now includes inferred screen ordering, hero-candidate explanations, and unsafe-overlay flags
 - autopilot hardening foundations: `appframe_run_autopilot` now persists a stage-by-stage run manifest with resume, forced rerun, stale-artifact detection, structured failure, and explicit preview-next-step metadata
 - preview launch helper: agents can now start the preview server directly from MCP with `appframe_open_preview_session` instead of only receiving a shell command
+- rendered preview scoring: recommendation now blends config heuristics with rendered PNG analysis for contrast, text-zone safety, whitespace balance, clutter, and panoramic seam continuity
+- rendered preview scoring now also measures set-wide concept diversity, emits concrete layout/copy explanation text, and is wired for optional model-assisted visual ranking inputs

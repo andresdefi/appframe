@@ -169,6 +169,15 @@ export interface VariantScoreSummary {
   breakdown: Record<string, number>;
   flags: string[];
   reason: string;
+  highlights?: string[];
+  issues?: string[];
+  modelRanking?: {
+    score: number;
+    confidence: number;
+    rank?: number;
+    reason?: string;
+    source: 'visual-model';
+  };
 }
 
 export interface VariantCopyAssignment {

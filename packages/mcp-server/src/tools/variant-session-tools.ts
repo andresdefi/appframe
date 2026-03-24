@@ -26,7 +26,7 @@ import {
   type VariantSessionFile,
   type VariantSessionVariant,
 } from './variant-session-lib.js';
-import { scoreVariantSet } from './preview-scoring.js';
+import { scoreVariantSet, type ModelAssistedVisualRanking } from './preview-scoring.js';
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -380,6 +380,7 @@ export async function renderVariantPreviews(args: {
 
 export async function scoreVariantPreviews(args: {
   sessionPath: string;
+  visualRanking?: ModelAssistedVisualRanking[];
 }): Promise<{
   sessionPath: string;
   recommendedVariantId: string | null;
@@ -393,7 +394,11 @@ export async function scoreVariantPreviews(args: {
       name: variant.name,
       config: variant.config,
       previewCount: variant.previewArtifacts?.length ?? 0,
+      previewFilePaths: variant.previewArtifacts?.flatMap((artifact) => artifact.filePaths) ?? [],
     })),
+    {
+      visualRanking: args.visualRanking,
+    },
   );
 
   await recordVariantScores(args.sessionPath, {
@@ -553,13 +558,20 @@ export function registerVariantSessionTools(server: McpServer): void {
 
   server.tool(
     'appframe_score_variant_previews',
-    'Score the variants in a file-backed variant session using deterministic preview heuristics. Updates the session with per-concept scores and the recommended concept.',
+    'Score the variants in a file-backed variant session using rendered-preview heuristics, with optional model-assisted visual ranking inputs. Updates the session with per-concept scores and the recommended concept.',
     {
       sessionPath: z.string().describe('Absolute path to the variant session JSON file'),
+      visualRanking: z.array(z.object({
+        variantId: z.string(),
+        score: z.number().min(0).max(100).optional(),
+        rank: z.number().int().min(1).optional(),
+        confidence: z.number().min(0).max(1).optional(),
+        reason: z.string().optional(),
+      })).optional().describe('Optional external visual-ranking signals to blend into the heuristic score.'),
     },
-    async ({ sessionPath }) => {
+    async ({ sessionPath, visualRanking }) => {
       try {
-        const result = await scoreVariantPreviews({ sessionPath });
+        const result = await scoreVariantPreviews({ sessionPath, visualRanking });
         return {
           content: [{
             type: 'text' as const,

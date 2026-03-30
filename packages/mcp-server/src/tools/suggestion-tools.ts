@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import {
   analyzeScreenshotSet,
+  buildCopyPlanningSignals,
   buildVariantSetPlan,
   inferCategory,
   type ScreenshotAnalysis,
@@ -447,6 +448,10 @@ async function buildStageFingerprint(args: {
       );
       return hashValue({
         stage,
+        liveAiVisualScoring: {
+          enabled: Boolean(process.env.OPENAI_API_KEY),
+          model: process.env.APPFRAME_VISUAL_SCORING_MODEL ?? 'gpt-4o-mini',
+        },
         variants: session?.variants.map((variant) => ({
           id: variant.id,
           config: variant.config,
@@ -879,6 +884,10 @@ export async function runAutopilotPipeline(args: RunAutopilotArgs): Promise<Auto
         features: args.features,
         goals: args.goals,
         screenshotCount: args.screenCount ?? Math.min(5, args.screenshots.length),
+        screenSignals: buildCopyPlanningSignals(
+          analysis,
+          args.screenCount ?? Math.min(5, args.screenshots.length),
+        ),
       });
       selectedCopySet = selectCopySet(copyCandidates);
       await Promise.all([
@@ -1190,6 +1199,7 @@ export async function runAutopilotPipeline(args: RunAutopilotArgs): Promise<Auto
       });
       const scoreResult = await scoreVariantPreviews({
         sessionPath: paths.sessionPath,
+        useAiVisualScoring: true,
       });
       recommendedVariantId = scoreResult.recommendedVariantId;
       recommendationReason = scoreResult.recommendationReason;
@@ -1203,6 +1213,7 @@ export async function runAutopilotPipeline(args: RunAutopilotArgs): Promise<Auto
         summary: {
           recommendedVariantId,
           recommendationReason,
+          aiVisualScoring: scoreResult.aiVisualScoring,
         },
       });
     } else {
@@ -1356,8 +1367,9 @@ export function registerSuggestionTools(server: McpServer): void {
       goals: z.array(z.string()).optional().describe('Optional marketing goals'),
       category: z.string().optional().describe('Optional category override'),
       screenshotCount: z.number().min(1).max(10).optional().describe('Expected slide count'),
+      screenSignalsJson: z.string().optional().describe('Optional JSON array of screenshot-derived slot signals'),
     },
-    async ({ appName, appDescription, features, goals, category, screenshotCount }) => {
+    async ({ appName, appDescription, features, goals, category, screenshotCount, screenSignalsJson }) => {
       const candidateSet = generateCopyCandidates({
         appName,
         appDescription,
@@ -1365,6 +1377,9 @@ export function registerSuggestionTools(server: McpServer): void {
         features,
         goals,
         screenshotCount,
+        screenSignals: screenSignalsJson
+          ? parseJsonInput<Parameters<typeof generateCopyCandidates>[0]['screenSignals']>('screenSignalsJson', screenSignalsJson)
+          : undefined,
       });
 
       return {

@@ -26,6 +26,18 @@ export interface CopyCandidateSet {
   slots: CopySlotCandidates[];
 }
 
+export interface CopyScreenSignal {
+  slot?: CopySlot;
+  sourceRole?: string;
+  density?: 'minimal' | 'balanced' | 'dense';
+  textRisk?: 'low' | 'medium' | 'high';
+  focus?: string;
+  unsafeForTextOverlay?: boolean;
+  topQuietRatio?: number;
+  focusStrength?: number;
+  copyDirection?: string;
+}
+
 export interface SelectedCopySet {
   hero: CopyCandidate;
   differentiator: CopyCandidate;
@@ -88,10 +100,72 @@ function compactFeature(feature: string): string {
   return words.slice(0, 4).join(' ');
 }
 
-function buildHeroPhrases(appName: string, appDescription: string, features: string[]): string[] {
-  const firstFeature = compactFeature(features[0] ?? '');
+function buildRoleAwarePhrases(signal: CopyScreenSignal | undefined, fallback: string): string[] {
+  const focus = compactFeature(signal?.focus ?? fallback);
+  switch (signal?.sourceRole) {
+    case 'workflow':
+      return [`Plan ${focus.toLowerCase()} fast`, `Do ${focus.toLowerCase()} clearly`];
+    case 'detail':
+      return [`See ${focus.toLowerCase()} clearly`, `${focus} at a glance`];
+    case 'discovery':
+      return [`Explore ${focus.toLowerCase()} fast`, `Find ${focus.toLowerCase()} easily`];
+    case 'communication':
+      return [`Chat ${focus.toLowerCase()} fast`, `${focus} with context`];
+    case 'paywall':
+      return [`Unlock ${focus.toLowerCase()} clearly`, `See the value fast`];
+    case 'home':
+      return [`Everything in one view`, `${focus} in one place`];
+    default:
+      return [`${focus}`, `${focus} in focus`];
+  }
+}
+
+function signalSlotForIndex(index: number, total: number): CopySlot {
+  if (index === 0) return 'hero';
+  if (index === 1) return 'differentiator';
+  if (index === total - 1) return 'summary';
+  if (index === total - 2 && total > 3) return 'trust';
+  return 'feature';
+}
+
+function resolveSignalsBySlot(
+  screenSignals: CopyScreenSignal[] | undefined,
+  featureSlots: number,
+): {
+  hero?: CopyScreenSignal;
+  differentiator?: CopyScreenSignal;
+  trust?: CopyScreenSignal;
+  summary?: CopyScreenSignal;
+  features: CopyScreenSignal[];
+} {
+  if (!screenSignals || screenSignals.length === 0) {
+    return { features: [] };
+  }
+
+  const assigned = screenSignals.map((signal, index) => ({
+    ...signal,
+    slot: signal.slot ?? signalSlotForIndex(index, screenSignals.length),
+  }));
+
+  return {
+    hero: assigned.find((signal) => signal.slot === 'hero'),
+    differentiator: assigned.find((signal) => signal.slot === 'differentiator'),
+    trust: assigned.find((signal) => signal.slot === 'trust'),
+    summary: assigned.find((signal) => signal.slot === 'summary'),
+    features: assigned.filter((signal) => signal.slot === 'feature').slice(0, featureSlots),
+  };
+}
+
+function buildHeroPhrases(
+  appName: string,
+  appDescription: string,
+  features: string[],
+  signal?: CopyScreenSignal,
+): string[] {
+  const firstFeature = compactFeature(signal?.focus ?? features[0] ?? '');
   const description = normalizePhrase(appDescription);
   return [
+    ...buildRoleAwarePhrases(signal, firstFeature || appName),
     `${appName} made clear`,
     `Your ${firstFeature.toLowerCase()}`,
     `${description.split(' ').slice(0, 4).join(' ')}`,
@@ -99,10 +173,17 @@ function buildHeroPhrases(appName: string, appDescription: string, features: str
   ];
 }
 
-function buildDifferentiatorPhrases(features: string[], goals: string[]): string[] {
-  const firstFeature = compactFeature(features[0] ?? goals[0] ?? 'Core workflow');
+function buildDifferentiatorPhrases(
+  features: string[],
+  goals: string[],
+  signal?: CopyScreenSignal,
+): string[] {
+  const firstFeature = compactFeature(signal?.focus ?? features[0] ?? goals[0] ?? 'Core workflow');
   const secondFeature = compactFeature(features[1] ?? goals[1] ?? firstFeature);
   return [
+    ...(signal?.unsafeForTextOverlay ? [`${firstFeature} without clutter`] : []),
+    ...(signal?.density === 'minimal' ? [`${firstFeature} without noise`] : []),
+    ...buildRoleAwarePhrases(signal, firstFeature),
     `${firstFeature} without friction`,
     `${firstFeature} with focus`,
     `${secondFeature} in context`,
@@ -110,36 +191,62 @@ function buildDifferentiatorPhrases(features: string[], goals: string[]): string
   ];
 }
 
-function buildFeaturePhrases(feature: string): string[] {
-  const compact = compactFeature(feature);
+function buildFeaturePhrases(feature: string, signal?: CopyScreenSignal): string[] {
+  const compact = compactFeature(signal?.focus ?? feature);
   const lower = compact.toLowerCase();
   return [
+    ...buildRoleAwarePhrases(signal, compact),
     `${compact}`,
     `${compact} at a glance`,
-    `${compact} without clutter`,
+    signal?.unsafeForTextOverlay ? `${compact} without clutter` : `${compact} without noise`,
     `Keep ${lower} moving`,
   ];
 }
 
-function buildTrustPhrases(category: string, appName: string): string[] {
+function buildTrustPhrases(category: string, appName: string, signal?: CopyScreenSignal): string[] {
   switch (category) {
     case 'finance':
-      return ['Built for daily trust', `${appName} feels calm`, 'Clear money decisions'];
+      return [
+        ...(signal?.focus ? [`Trust ${compactFeature(signal.focus).toLowerCase()} daily`] : []),
+        'Built for daily trust',
+        `${appName} feels calm`,
+        'Clear money decisions',
+      ];
     case 'health':
     case 'wellness':
-      return ['Gentle daily progress', 'Designed for consistency', 'A calmer routine'];
+      return [
+        ...(signal?.focus ? [`Keep ${compactFeature(signal.focus).toLowerCase()} steady`] : []),
+        'Gentle daily progress',
+        'Designed for consistency',
+        'A calmer routine',
+      ];
     case 'productivity':
-      return ['Stay in control', 'Made for repeat use', 'Focus without friction'];
+      return [
+        ...(signal?.focus ? [`Keep ${compactFeature(signal.focus).toLowerCase()} on track`] : []),
+        'Stay in control',
+        'Made for repeat use',
+        'Focus without friction',
+      ];
     default:
-      return ['Made for repeat use', 'Crafted for every day', `${appName} feels polished`];
+      return [
+        ...(signal?.focus ? [`Use ${compactFeature(signal.focus).toLowerCase()} daily`] : []),
+        'Made for repeat use',
+        'Crafted for every day',
+        `${appName} feels polished`,
+      ];
   }
 }
 
-function buildSummaryPhrases(features: string[], goals: string[]): string[] {
-  const items = [...features, ...goals].map(compactFeature).filter(Boolean);
+function buildSummaryPhrases(
+  features: string[],
+  goals: string[],
+  signal?: CopyScreenSignal,
+): string[] {
+  const items = [signal?.focus ?? '', ...features, ...goals].map(compactFeature).filter(Boolean);
   const first = items[0] ?? 'Core features';
   const second = items[1] ?? 'everyday use';
   return [
+    ...(signal?.focus ? [`${first} in one place`] : []),
     `${first} and more`,
     `${first} in one place`,
     `${second} without noise`,
@@ -229,9 +336,11 @@ export function generateCopyCandidates(args: {
   features: string[];
   goals?: string[];
   screenshotCount?: number;
+  screenSignals?: CopyScreenSignal[];
 }): CopyCandidateSet {
   const goals = args.goals ?? [];
   const featureSlots = Math.max(1, Math.min(args.features.length || 1, Math.max((args.screenshotCount ?? 4) - 3, 1)));
+  const slotSignals = resolveSignalsBySlot(args.screenSignals, featureSlots);
   const narrative = [
     'Lead with the primary outcome.',
     'Reinforce the differentiator.',
@@ -244,14 +353,14 @@ export function generateCopyCandidates(args: {
       slot: 'hero',
       candidates: buildCandidates(
         'hero',
-        buildHeroPhrases(args.appName, args.appDescription, args.features),
+        buildHeroPhrases(args.appName, args.appDescription, args.features, slotSignals.hero),
       ),
     },
     {
       slot: 'differentiator',
       candidates: buildCandidates(
         'differentiator',
-        buildDifferentiatorPhrases(args.features, goals),
+        buildDifferentiatorPhrases(args.features, goals, slotSignals.differentiator),
       ),
     },
     ...Array.from({ length: featureSlots }, (_value, index) => {
@@ -259,16 +368,16 @@ export function generateCopyCandidates(args: {
       return {
         slot: 'feature' as const,
         sourceFeature: feature,
-        candidates: buildCandidates('feature', buildFeaturePhrases(feature), feature),
+        candidates: buildCandidates('feature', buildFeaturePhrases(feature, slotSignals.features[index]), feature),
       };
     }),
     {
       slot: 'trust',
-      candidates: buildCandidates('trust', buildTrustPhrases(args.category, args.appName)),
+      candidates: buildCandidates('trust', buildTrustPhrases(args.category, args.appName, slotSignals.trust)),
     },
     {
       slot: 'summary',
-      candidates: buildCandidates('summary', buildSummaryPhrases(args.features, goals)),
+      candidates: buildCandidates('summary', buildSummaryPhrases(args.features, goals, slotSignals.summary)),
     },
   ];
 
@@ -304,4 +413,3 @@ export function selectCopySet(candidateSet: CopyCandidateSet): SelectedCopySet {
     summary,
   };
 }
-

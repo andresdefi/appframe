@@ -1,0 +1,214 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: appframe
+        - generic [ref=e7]: SpendWise
+      - generic [ref=e9]:
+        - button "Background" [ref=e10]
+        - button "Device" [ref=e11]
+        - button "Text" [ref=e12]
+        - button "Extras" [ref=e13]
+        - button "Export" [active] [ref=e14]
+      - button "Panoramic" [ref=e343]:
+        - img [ref=e17]
+        - text: Panoramic
+    - generic [ref=e19]:
+      - generic [ref=e21]:
+        - generic [ref=e393]:
+          - button "Export Choose output size and renderer, then download your screenshots." [expanded] [ref=e394] [cursor=pointer]:
+            - generic [ref=e395]: Export
+            - generic "Choose output size and renderer, then download your screenshots." [ref=e396]: "?"
+            - img [ref=e397]
+          - generic [ref=e400]:
+            - generic [ref=e401]:
+              - generic [ref=e402]: Output Size
+              - combobox "Output Size" [ref=e403]:
+                - option "iPhone 6.9\" (1260×2736)" [selected]
+                - option "iPhone 6.7\" (1290×2796)"
+                - option "iPhone 6.5\" (1284×2778)"
+                - option "iPhone 6.3\" (1206×2622)"
+                - option "iPhone 5.5\" (1242×2208)"
+            - button "Export All 5 Frames" [ref=e404]
+            - button "Export Full Canvas" [ref=e405]
+        - generic [ref=e406]:
+          - button "Preview Background Change the editor background color. This does not affect exported images." [ref=e407] [cursor=pointer]:
+            - generic [ref=e408]: Preview Background
+            - generic "Change the editor background color. This does not affect exported images." [ref=e409]: "?"
+            - img [ref=e410]
+          - generic [ref=e413]:
+            - generic [ref=e414] [cursor=pointer]:
+              - radio [checked] [ref=e415]
+              - text: Dark
+            - generic [ref=e416] [cursor=pointer]:
+              - radio [ref=e417]
+              - text: Light
+        - generic [ref=e418]:
+          - button "Actions Refresh previews or reload the YAML configuration file from disk." [ref=e419] [cursor=pointer]:
+            - generic [ref=e420]: Actions
+            - generic "Refresh previews or reload the YAML configuration file from disk." [ref=e421]: "?"
+            - img [ref=e422]
+          - generic [ref=e424]:
+            - generic [ref=e425]:
+              - button [ref=e426]: Refresh All
+              - button [ref=e427]: Reload Config
+            - generic [ref=e428]: Ready
+      - generic [ref=e376]:
+        - generic [ref=e378]:
+          - generic [ref=e379]:
+            - generic [ref=e380]: Frame 1
+            - generic [ref=e381]: Frame 2
+            - generic [ref=e382]: Frame 3
+            - generic [ref=e383]: Frame 4
+            - generic [ref=e384]: Frame 5
+          - iframe [ref=e386]:
+            - generic [ref=f6e2]:
+              - generic [ref=f6e3]:
+                - img [ref=f6e4]
+                - img [ref=f6e9]
+              - generic [ref=f6e10]:
+                - img [ref=f6e11]
+                - img [ref=f6e16]
+              - generic [ref=f6e17]:
+                - img [ref=f6e18]
+                - img [ref=f6e23]
+              - generic [ref=f6e24]:
+                - img [ref=f6e25]
+                - img [ref=f6e30]
+              - generic [ref=f6e31]:
+                - img [ref=f6e32]
+                - img [ref=f6e37]
+              - generic [ref=f6e38]: Every expense, instantly tracked
+              - generic [ref=f6e39]: See where your money goes
+              - generic [ref=f6e40]: Stay on budget, effortlessly
+              - generic [ref=f6e41]: Smart categories that learn
+              - generic [ref=f6e42]: Travel without worry
+        - generic [ref=e388]:
+          - generic [ref=e389]: Zoom
+          - slider "Zoom level" [ref=e390]: "42"
+          - generic [ref=e391]: 42%
+          - button "Reset zoom to fit" [ref=e392]: Fit
+  - button "MCP Connected /agentation v2.3.1 Output Detail Standard React Components Hide Until Restart Marker Colour Purple Blue Cyan Green Yellow Orange Red Clear on copy/send Block page interactions Manage MCP & Webhooks Manage MCP & Webhooks MCP Connection Connected MCP connection allows agents to receive and act on annotations. Learn more Webhooks Auto-Send The webhook URL will receive live annotation changes and annotation data." [ref=e130] [cursor=pointer]:
+    - img [ref=e132]
+    - generic:
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button:
+          - img
+        - generic "MCP Connected"
+      - generic:
+        - button:
+          - img
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic: /agentation
+            - generic: v2.3.1
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - generic:
+                    - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - generic:
+                    - img
+              - generic:
+                - checkbox [disabled]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - generic:
+                    - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Colour
+            - generic:
+              - button "Purple":
+                - generic "Purple"
+              - button "Blue":
+                - generic "Blue"
+              - button "Cyan":
+                - generic "Cyan"
+              - button "Green":
+                - generic "Green"
+              - button "Yellow":
+                - generic "Yellow"
+              - button "Orange":
+                - generic "Orange"
+              - button "Red":
+                - generic "Red"
+          - generic:
+            - generic:
+              - checkbox "Clear on copy/send"
+              - generic:
+                - text: Clear on copy/send
+                - generic:
+                  - generic:
+                    - img
+            - generic:
+              - checkbox "Block page interactions" [checked]
+              - generic:
+                - img
+              - generic: Block page interactions
+          - generic:
+            - button "Manage MCP & Webhooks":
+              - generic: Manage MCP & Webhooks
+              - generic:
+                - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - generic:
+                    - img
+              - generic "Connected"
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - generic:
+                    - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"

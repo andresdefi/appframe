@@ -197,6 +197,78 @@ function styleToFontWeight(style: string): number {
   }
 }
 
+function normalizedLoupeCoordinate(value: number | undefined): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+  return Math.max(-0.9, Math.min(0.9, (value - 50) / 50));
+}
+
+function buildLoupeForScreen(
+  screen: PlannedIndividualScreen,
+  colors: MaterializedPalette,
+  composition: PlannedIndividualScreen['composition'],
+) {
+  if (!screen.focalPoint || composition === 'fanned-cards') return undefined;
+
+  return {
+    sourceX: normalizedLoupeCoordinate(screen.focalPoint.x),
+    sourceY: normalizedLoupeCoordinate(screen.focalPoint.y),
+    displayX: composition === 'single' ? 76 : 18,
+    displayY: composition === 'single' ? 67 : 74,
+    width: composition === 'single' ? 0.34 : 0.24,
+    height: composition === 'single' ? 0.24 : 0.19,
+    zoom: screen.sourceRole === 'detail' || screen.sourceRole === 'paywall' ? 2.7 : 2.35,
+    cornerRadius: 18,
+    borderWidth: 4,
+    borderColor: colors.background,
+    shadow: true,
+    shadowColor: '#00000033',
+    shadowRadius: 26,
+    shadowOffsetX: 0,
+    shadowOffsetY: 10,
+    xOffset: 0,
+    yOffset: 0,
+  };
+}
+
+function buildOverlaysForScreen(
+  screen: PlannedIndividualScreen,
+  colors: MaterializedPalette,
+): AppframeConfig['screens'][number]['overlays'] {
+  const accent = screen.dominantPalette?.[0] ?? colors.primary;
+  const overlays: NonNullable<AppframeConfig['screens'][number]['overlays']> = [];
+
+  if (screen.slideRole === 'trust' || screen.slideRole === 'summary') {
+    overlays.push({
+      id: `trust-${screen.index}`,
+      type: 'star-rating',
+      x: 72,
+      y: 22,
+      size: 14,
+      rotation: 0,
+      opacity: 0.96,
+      shapeColor: '#F59E0B',
+    });
+  }
+
+  if (screen.composition !== 'single') {
+    overlays.push({
+      id: `shape-${screen.index}`,
+      type: 'shape',
+      x: 8,
+      y: 66,
+      size: screen.composition === 'fanned-cards' ? 16 : 12,
+      rotation: screen.index % 2 === 0 ? -8 : 8,
+      opacity: 0.88,
+      shapeType: 'circle',
+      shapeColor: accent,
+      shapeOpacity: 0.24,
+      shapeBlur: 4,
+    });
+  }
+
+  return overlays.length > 0 ? overlays : undefined;
+}
+
 function normalizeStyle(style: string): TemplateStyle {
   const allowed: TemplateStyle[] = [
     'minimal',
@@ -547,18 +619,33 @@ function buildIndividualConfig(args: {
   const screens = args.variant.screens.map((screen: PlannedIndividualScreen) => {
     const copy = resolveCopyForSlot(args.selectedCopySet, screen.slideRole, featureIndex);
     if (screen.slideRole === 'feature') featureIndex += 1;
+    const extraScreenshots = (screen.extraScreenshots ?? [])
+      .slice(0, screen.composition === 'fanned-cards' ? 2 : 1)
+      .map((pathValue) => ({ screenshot: toConfigRelativePath(args.configDir, pathValue) }));
+    const loupe = screen.sourceRole === 'detail' || screen.sourceRole === 'paywall' || screen.sourceRole === 'feature'
+      ? buildLoupeForScreen(screen, colors, screen.composition)
+      : undefined;
+    const overlays = buildOverlaysForScreen(screen, colors);
+    const backgroundFromPalette = screen.dominantPalette?.find((value) => /^#(?:f|e|d|c)/i.test(value));
 
     return {
       screenshot: toConfigRelativePath(args.configDir, screen.sourcePath),
       headline: copy?.headline ?? buildHeadline(screen.copyDirection, screen.slideRole),
       subtitle: copy?.subtitle ?? buildSubtitle(screen.slideRole),
       layout: screen.layout,
-      composition: 'single' as const,
+      composition: screen.composition,
+      ...(extraScreenshots.length > 0 ? { extraDevices: extraScreenshots } : {}),
       autoSizeHeadline: true,
       autoSizeSubtitle: false,
       annotations: [],
       cornerRadius: screen.framing === 'frameless-rounded' ? 24 : 0,
-      ...(screen.backgroundStrategy === 'primary-tint' ? { background: colors.background } : {}),
+      ...(screen.backgroundStrategy === 'primary-tint'
+        ? { background: backgroundFromPalette ?? colors.background }
+        : screen.backgroundStrategy === 'contrast-rhythm' && backgroundFromPalette
+          ? { background: backgroundFromPalette }
+          : {}),
+      ...(loupe ? { loupe } : {}),
+      ...(overlays ? { overlays } : {}),
     };
   });
   const useFrameless = args.variant.screens.some((screen) => screen.framing === 'frameless-rounded');
@@ -615,8 +702,10 @@ function buildPanoramicElements(args: {
     const sourceScreenshot = toConfigRelativePath(args.configDir, frame.sourcePath);
     const supportTitle = storyBeatTitle(frame.storyBeat);
     const supportBody = storyBeatBody(frame);
-    const detailFocusX = frame.sourceRole === 'detail' || frame.sourceRole === 'paywall' ? 55 : 50;
-    const detailFocusY = frame.storyBeat === 'hero' ? 32 : 40;
+    const detailFocusX = frame.focalPoint?.x
+      ?? (frame.sourceRole === 'detail' || frame.sourceRole === 'paywall' ? 55 : 50);
+    const detailFocusY = frame.focalPoint?.y
+      ?? (frame.storyBeat === 'hero' ? 32 : 40);
 
     elements.push({
       type: 'device',

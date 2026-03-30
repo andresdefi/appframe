@@ -1,0 +1,141 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: appframe
+      - generic [ref=e7]: SpendWise
+      - generic [ref=e8]: Individual
+      - generic [ref=e209]: 1/5
+    - generic [ref=e10]:
+      - button "Background" [ref=e11]
+      - button "Device" [ref=e12]
+      - button "Text" [ref=e13]
+      - button "Extras" [ref=e14]
+      - button "Export" [ref=e15]
+    - generic [ref=e16]:
+      - button "AI Mode Off" [ref=e17]
+      - 'button "Switch to Panoramic. Current mode: Individual." [active] [ref=e210]':
+        - img [ref=e20]
+        - text: Switch to Panoramic
+  - generic [ref=e22]:
+    - generic [ref=e211]:
+      - button "Background Choose between solid colors, gradients, images, or template presets for your screenshot background." [expanded] [ref=e212] [cursor=pointer]:
+        - generic [ref=e213]: Background
+        - generic "Choose between solid colors, gradients, images, or template presets for your screenshot background." [ref=e214]: "?"
+        - img [ref=e215]
+      - generic [ref=e218]:
+        - generic [ref=e219]:
+          - generic [ref=e220] [cursor=pointer]:
+            - radio "Solid" [checked] [ref=e221]
+            - text: Solid
+          - generic [ref=e222] [cursor=pointer]:
+            - radio "Gradient" [ref=e223]
+            - text: Gradient
+          - generic [ref=e224] [cursor=pointer]:
+            - radio "Image" [ref=e225]
+            - text: Image
+          - generic [ref=e226] [cursor=pointer]:
+            - radio "Preset" [ref=e227]
+            - text: Preset
+        - generic [ref=e228]:
+          - generic [ref=e229]:
+            - generic [ref=e230]: Color
+            - textbox "Color" [ref=e231] [cursor=pointer]: "#ffffff"
+          - generic [ref=e232]:
+            - 'button "Select color #000000" [ref=e233] [cursor=pointer]'
+            - 'button "Select color #1a1a2e" [ref=e234] [cursor=pointer]'
+            - 'button "Select color #16213e" [ref=e235] [cursor=pointer]'
+            - 'button "Select color #0f3460" [ref=e236] [cursor=pointer]'
+            - 'button "Select color #533483" [ref=e237] [cursor=pointer]'
+            - 'button "Select color #e94560" [ref=e238] [cursor=pointer]'
+            - 'button "Select color #f5f5f5" [ref=e239] [cursor=pointer]'
+            - 'button "Select color #fafafa" [ref=e240] [cursor=pointer]'
+            - 'button "Select color #2d3436" [ref=e241] [cursor=pointer]'
+            - 'button "Select color #636e72" [ref=e242] [cursor=pointer]'
+            - 'button "Select color #00b894" [ref=e243] [cursor=pointer]'
+            - 'button "Select color #00cec9" [ref=e244] [cursor=pointer]'
+            - 'button "Select color #6c5ce7" [ref=e245] [cursor=pointer]'
+            - 'button "Select color #fdcb6e" [ref=e246] [cursor=pointer]'
+            - 'button "Select color #e17055" [ref=e247] [cursor=pointer]'
+            - 'button "Select color #dfe6e9" [ref=e248] [cursor=pointer]'
+            - 'button "Select color #b2bec3" [ref=e249] [cursor=pointer]'
+            - 'button "Select color #2c3e50" [ref=e250] [cursor=pointer]'
+            - 'button "Select color #8e44ad" [ref=e251] [cursor=pointer]'
+            - 'button "Select color #2980b9" [ref=e252] [cursor=pointer]'
+    - generic [ref=e253]:
+      - generic [ref=e255]:
+        - generic [ref=e256] [cursor=pointer]:
+          - generic [ref=e257]:
+            - generic [ref=e258]: Screen 1
+            - generic [ref=e259]:
+              - button "Move screen 1 right" [ref=e260]: ›
+              - button "Remove screen 1" [ref=e261]: ×
+          - iframe [ref=e263]:
+            - generic [ref=f7e2]:
+              - generic [ref=f7e3]:
+                - generic [ref=f7e4]: Every expense, instantly tracked
+                - generic [ref=f7e5]: Smart categorization does the work for you
+              - generic [ref=f7e6]:
+                - img [ref=f7e7]
+                - img [ref=f7e12]
+        - generic [ref=e265] [cursor=pointer]:
+          - generic [ref=e266]:
+            - button "Move screen 2 left" [ref=e267]: ‹
+            - generic [ref=e268]: Screen 2
+            - generic [ref=e269]:
+              - button "Move screen 2 right" [ref=e270]: ›
+              - button "Remove screen 2" [ref=e271]: ×
+          - iframe [ref=e273]:
+            - generic [ref=f8e2]:
+              - generic [ref=f8e3]:
+                - generic [ref=f8e4]: See where your money goes
+                - generic [ref=f8e5]: Beautiful insights at a glance
+              - generic [ref=f8e6]:
+                - img [ref=f8e7]
+                - img [ref=f8e12]
+        - generic [ref=e275] [cursor=pointer]:
+          - generic [ref=e276]:
+            - button "Move screen 3 left" [ref=e277]: ‹
+            - generic [ref=e278]: Screen 3
+            - generic [ref=e279]:
+              - button "Move screen 3 right" [ref=e280]: ›
+              - button "Remove screen 3" [ref=e281]: ×
+          - iframe [ref=e283]:
+            - generic [ref=f9e2]:
+              - generic [ref=f9e4]: Stay on budget, effortlessly
+              - generic [ref=f9e5]:
+                - img [ref=f9e6]
+                - img [ref=f9e11]
+        - generic [ref=e285] [cursor=pointer]:
+          - generic [ref=e286]:
+            - button "Move screen 4 left" [ref=e287]: ‹
+            - generic [ref=e288]: Screen 4
+            - generic [ref=e289]:
+              - button "Move screen 4 right" [ref=e290]: ›
+              - button "Remove screen 4" [ref=e291]: ×
+          - iframe [ref=e293]:
+            - generic [ref=f10e2]:
+              - generic [ref=f10e3]:
+                - generic [ref=f10e4]: Smart categories that learn
+                - generic [ref=f10e5]: AI-powered expense sorting
+              - generic [ref=f10e6]:
+                - img [ref=f10e7]
+                - img [ref=f10e12]
+        - generic [ref=e295] [cursor=pointer]:
+          - generic [ref=e296]:
+            - button "Move screen 5 left" [ref=e297]: ‹
+            - generic [ref=e298]: Screen 5
+            - button "Remove screen 5" [ref=e300]: ×
+          - iframe [ref=e302]:
+            - generic [ref=f11e2]:
+              - generic [ref=f11e3]:
+                - generic [ref=f11e4]: Travel without worry
+                - generic [ref=f11e5]: 50+ currencies supported
+              - generic [ref=f11e6]:
+                - img [ref=f11e7]
+                - img [ref=f11e12]
+        - button "Add a new screen" [ref=e304] [cursor=pointer]: + Add Screen
+      - generic [ref=e305]:
+        - generic [ref=e306]: Zoom
+        - slider "Zoom level" [ref=e307]: "34"
+        - generic [ref=e308]: 34%
+        - button "Reset zoom to fit" [disabled] [ref=e309]: Fit

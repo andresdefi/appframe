@@ -1,0 +1,330 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: appframe
+        - generic [ref=e7]: SpendWise
+        - generic [ref=e8]: 1/5
+      - generic [ref=e9]:
+        - button "Background" [ref=e10]
+        - button "Device" [ref=e11]
+        - button "Text" [active] [ref=e12]
+        - button "Extras" [ref=e13]
+        - button "Export" [ref=e14]
+      - button "Individual" [ref=e15]:
+        - img [ref=e17]
+        - text: Individual
+    - generic [ref=e19]:
+      - generic [ref=e21]:
+        - generic [ref=e225]:
+          - button "Text Edit the headline and subtitle text that appears above or below the device frame." [expanded] [ref=e226] [cursor=pointer]:
+            - generic [ref=e227]: Text
+            - generic "Edit the headline and subtitle text that appears above or below the device frame." [ref=e228]: "?"
+            - img [ref=e229]
+          - generic [ref=e232]:
+            - generic [ref=e233]:
+              - generic [ref=e234]: Headline
+              - textbox "Headline" [ref=e235]: Every expense, instantly tracked
+            - generic [ref=e236]:
+              - generic [ref=e237]: Subtitle
+              - textbox "Subtitle" [ref=e238]:
+                - /placeholder: Optional subtitle
+                - text: Smart categorization does the work for you
+            - generic [ref=e240]:
+              - generic [ref=e241]: Headline Color
+              - textbox "Headline Color" [ref=e242] [cursor=pointer]: "#0f172a"
+            - generic [ref=e244]:
+              - generic [ref=e245]: Subtitle Color
+              - textbox "Subtitle Color" [ref=e246] [cursor=pointer]: "#64748b"
+        - generic [ref=e247]:
+          - button "Typography Control font family, weight, size, rotation, spacing, and text transformations." [ref=e248] [cursor=pointer]:
+            - generic [ref=e249]: Typography
+            - generic "Control font family, weight, size, rotation, spacing, and text transformations." [ref=e250]: "?"
+            - img [ref=e251]
+          - generic [ref=e253]:
+            - generic [ref=e254]:
+              - generic [ref=e255]: Font
+              - combobox [ref=e256]
+            - generic [ref=e257]:
+              - generic [ref=e258]: Font Weight
+              - generic [ref=e259]:
+                - slider [ref=e260]: "600"
+                - spinbutton [ref=e261]: "600"
+            - generic [ref=e262]:
+              - generic [ref=e263]: Headline Size
+              - generic [ref=e264]:
+                - slider [disabled] [ref=e265]: "0"
+                - spinbutton [ref=e266]: Auto
+            - generic [ref=e267]:
+              - generic [ref=e268]: Subtitle Size
+              - generic [ref=e269]:
+                - slider [ref=e270]: "0"
+                - spinbutton [ref=e271]: Auto
+            - generic [ref=e273] [cursor=pointer]:
+              - checkbox [checked] [ref=e274]
+              - text: Auto-size Headline
+            - generic [ref=e276] [cursor=pointer]:
+              - checkbox [ref=e277]
+              - text: Auto-size Subtitle
+            - generic [ref=e278]:
+              - generic [ref=e279]: Headline Rotation
+              - generic [ref=e280]:
+                - slider [ref=e281]: "0"
+                - spinbutton [ref=e282]: 0°
+            - generic [ref=e283]:
+              - generic [ref=e284]: Subtitle Rotation
+              - generic [ref=e285]:
+                - slider [ref=e286]: "0"
+                - spinbutton [ref=e287]: 0°
+            - generic [ref=e288]:
+              - generic [ref=e289]: Headline Line Height
+              - generic [ref=e290]:
+                - slider [ref=e291]: "80"
+                - spinbutton [ref=e292]: Auto
+            - generic [ref=e293]:
+              - generic [ref=e294]: Headline Letter Spacing
+              - generic [ref=e295]:
+                - slider [ref=e296]: "0"
+                - spinbutton [ref=e297]: Auto
+            - generic [ref=e298]:
+              - generic [ref=e300]:
+                - generic [ref=e301]: Headline Case
+                - combobox [ref=e302]
+              - generic [ref=e304]:
+                - generic [ref=e305]: Headline Style
+                - combobox [ref=e306]
+            - generic [ref=e307]:
+              - generic [ref=e308]: Subtitle Opacity
+              - generic [ref=e309]:
+                - slider [ref=e310]: "0"
+                - spinbutton [ref=e311]: Auto
+            - generic [ref=e312]:
+              - generic [ref=e313]: Subtitle Letter Spacing
+              - generic [ref=e314]:
+                - slider [ref=e315]: "0"
+                - spinbutton [ref=e316]: Auto
+            - generic [ref=e317]:
+              - generic [ref=e318]: Subtitle Case
+              - combobox [ref=e319]
+        - generic [ref=e320]:
+          - button "Text Position Drag text elements in the preview to reposition, or reset to default positions." [ref=e321] [cursor=pointer]:
+            - generic [ref=e322]: Text Position
+            - generic "Drag text elements in the preview to reposition, or reset to default positions." [ref=e323]: "?"
+            - img [ref=e324]
+          - generic [ref=e326]:
+            - generic [ref=e327]: Drag the headline or subtitle in the preview to reposition them.
+            - button [ref=e328]: Reset to Default
+        - generic [ref=e329]:
+          - button "Text Gradient Apply a gradient color effect to headline or subtitle text." [ref=e330] [cursor=pointer]:
+            - generic [ref=e331]: Text Gradient
+            - generic "Apply a gradient color effect to headline or subtitle text." [ref=e332]: "?"
+            - img [ref=e333]
+          - generic [ref=e335]:
+            - generic [ref=e337] [cursor=pointer]:
+              - checkbox [ref=e338]
+              - text: Enable Headline Gradient
+            - generic [ref=e341] [cursor=pointer]:
+              - checkbox [ref=e342]
+              - text: Enable Subtitle Gradient
+      - generic [ref=e64]:
+        - generic [ref=e66]:
+          - generic [ref=e67] [cursor=pointer]:
+            - generic [ref=e68]:
+              - generic [ref=e69]: Screen 1
+              - generic [ref=e70]:
+                - button "Move screen 1 right" [ref=e71]: ›
+                - button "Remove screen 1" [ref=e72]: ×
+            - iframe [ref=e74]:
+              - generic [ref=f1e2]:
+                - generic [ref=f1e3]:
+                  - generic [ref=f1e4]: Every expense, instantly tracked
+                  - generic [ref=f1e5]: Smart categorization does the work for you
+                - generic [ref=f1e6]:
+                  - img [ref=f1e7]
+                  - img [ref=f1e12]
+          - generic [ref=e76] [cursor=pointer]:
+            - generic [ref=e77]:
+              - button "Move screen 2 left" [ref=e78]: ‹
+              - generic [ref=e79]: Screen 2
+              - generic [ref=e80]:
+                - button "Move screen 2 right" [ref=e81]: ›
+                - button "Remove screen 2" [ref=e82]: ×
+            - iframe [ref=e86]:
+              - generic [ref=f2e2]:
+                - generic [ref=f2e3]:
+                  - generic [ref=f2e4]: See where your money goes
+                  - generic [ref=f2e5]: Beautiful insights at a glance
+                - generic [ref=f2e6]:
+                  - img [ref=f2e7]
+                  - img [ref=f2e12]
+          - generic [ref=e88] [cursor=pointer]:
+            - generic [ref=e89]:
+              - button "Move screen 3 left" [ref=e90]: ‹
+              - generic [ref=e91]: Screen 3
+              - generic [ref=e92]:
+                - button "Move screen 3 right" [ref=e93]: ›
+                - button "Remove screen 3" [ref=e94]: ×
+            - iframe [ref=e98]:
+              - generic [ref=f3e2]:
+                - generic [ref=f3e4]: Stay on budget, effortlessly
+                - generic [ref=f3e5]:
+                  - img [ref=f3e6]
+                  - img [ref=f3e11]
+          - generic [ref=e100] [cursor=pointer]:
+            - generic [ref=e101]:
+              - button "Move screen 4 left" [ref=e102]: ‹
+              - generic [ref=e103]: Screen 4
+              - generic [ref=e104]:
+                - button "Move screen 4 right" [ref=e105]: ›
+                - button "Remove screen 4" [ref=e106]: ×
+            - iframe [ref=e110]:
+              - generic [ref=f4e2]:
+                - generic [ref=f4e3]:
+                  - generic [ref=f4e4]: Smart categories that learn
+                  - generic [ref=f4e5]: AI-powered expense sorting
+                - generic [ref=f4e6]:
+                  - img [ref=f4e7]
+                  - img [ref=f4e12]
+          - generic [ref=e112] [cursor=pointer]:
+            - generic [ref=e113]:
+              - button "Move screen 5 left" [ref=e114]: ‹
+              - generic [ref=e115]: Screen 5
+              - button "Remove screen 5" [ref=e117]: ×
+            - iframe [ref=e121]:
+              - generic [ref=f5e2]:
+                - generic [ref=f5e3]:
+                  - generic [ref=f5e4]: Travel without worry
+                  - generic [ref=f5e5]: 50+ currencies supported
+                - generic [ref=f5e6]:
+                  - img [ref=f5e7]
+                  - img [ref=f5e12]
+          - button "Add a new screen" [ref=e123] [cursor=pointer]: + Add Screen
+        - generic [ref=e124]:
+          - generic [ref=e125]: Zoom
+          - slider "Zoom level" [ref=e126]: "34"
+          - generic [ref=e127]: 34%
+          - button "Reset zoom to fit" [disabled] [ref=e128]: Fit
+  - button "MCP Connected /agentation v2.3.1 Output Detail Standard React Components Hide Until Restart Marker Colour Purple Blue Cyan Green Yellow Orange Red Clear on copy/send Block page interactions Manage MCP & Webhooks Manage MCP & Webhooks MCP Connection Connected MCP connection allows agents to receive and act on annotations. Learn more Webhooks Auto-Send The webhook URL will receive live annotation changes and annotation data." [ref=e130] [cursor=pointer]:
+    - img [ref=e132]
+    - generic:
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button:
+          - img
+        - generic "MCP Connected"
+      - generic:
+        - button:
+          - img
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic: /agentation
+            - generic: v2.3.1
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - generic:
+                    - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - generic:
+                    - img
+              - generic:
+                - checkbox [disabled]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - generic:
+                    - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Colour
+            - generic:
+              - button "Purple":
+                - generic "Purple"
+              - button "Blue":
+                - generic "Blue"
+              - button "Cyan":
+                - generic "Cyan"
+              - button "Green":
+                - generic "Green"
+              - button "Yellow":
+                - generic "Yellow"
+              - button "Orange":
+                - generic "Orange"
+              - button "Red":
+                - generic "Red"
+          - generic:
+            - generic:
+              - checkbox "Clear on copy/send"
+              - generic:
+                - text: Clear on copy/send
+                - generic:
+                  - generic:
+                    - img
+            - generic:
+              - checkbox "Block page interactions" [checked]
+              - generic:
+                - img
+              - generic: Block page interactions
+          - generic:
+            - button "Manage MCP & Webhooks":
+              - generic: Manage MCP & Webhooks
+              - generic:
+                - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - generic:
+                    - img
+              - generic "Connected"
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - generic:
+                    - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"

@@ -28,5 +28,31 @@ describe('copy planning helpers', () => {
     expect(weak.score).toBeLessThan(strong.score);
     expect(weak.issues.some((issue) => issue.includes('"and"'))).toBe(true);
   });
-});
 
+  it('uses screenshot-derived slot signals to steer candidate phrases', () => {
+    const candidateSet = generateCopyCandidates({
+      appName: 'Planit',
+      appDescription: 'Daily planning with tasks, habits, and reminders.',
+      category: 'productivity',
+      features: ['Tasks', 'Widgets', 'Habit streaks'],
+      screenshotCount: 5,
+      screenSignals: [
+        { slot: 'hero', sourceRole: 'workflow', focus: 'your day', density: 'minimal', topQuietRatio: 0.82 },
+        { slot: 'differentiator', sourceRole: 'home', focus: 'everything in one view', density: 'balanced' },
+        { slot: 'feature', sourceRole: 'detail', focus: 'habit streaks', unsafeForTextOverlay: true },
+        { slot: 'trust', sourceRole: 'detail', focus: 'daily routine' },
+        { slot: 'summary', sourceRole: 'home', focus: 'your day at a glance' },
+      ],
+    });
+
+    const heroHeadlines = candidateSet.slots
+      .find((slot) => slot.slot === 'hero')
+      ?.candidates.map((candidate) => candidate.headline.replace(/\n/g, ' ')) ?? [];
+    const featureHeadlines = candidateSet.slots
+      .find((slot) => slot.slot === 'feature')
+      ?.candidates.map((candidate) => candidate.headline.replace(/\n/g, ' ')) ?? [];
+
+    expect(heroHeadlines.some((headline) => /plan your day fast/i.test(headline))).toBe(true);
+    expect(featureHeadlines.some((headline) => /habit streaks/i.test(headline))).toBe(true);
+  });
+});

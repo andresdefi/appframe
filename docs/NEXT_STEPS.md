@@ -30,7 +30,12 @@ AppFrame now has an initial autopilot pipeline implemented:
 - `appframe_run_autopilot` now supports stage-aware resume, forced reruns, stale-artifact detection, and a machine-readable run-status manifest
 - MCP tools can now start preview directly for a generated session via `appframe_open_preview_session`
 - preview scoring now inspects rendered PNG previews for contrast, text-zone safety, whitespace balance, clutter, and panoramic seam continuity
-- preview scoring now measures concept diversity across the full rendered concept set, explains concrete layout/copy issues, and accepts optional model-ranking signals for future visual judging
+- preview scoring now measures concept diversity across the full rendered concept set, explains concrete layout/copy issues, and can call a live model-assisted visual ranking pass behind optional AI credentials with safe fallback behavior
+- screenshot analysis now derives actual-pixel palette extraction, quiet text zones, and focal-point estimates from PNG screenshots
+- copy candidate generation can now use screenshot-derived slot signals from analysis to steer role-aware, focus-aware headline options
+- planning/materialization now emit dynamic individual compositions with extra screenshots, loupes, overlays, and palette-informed backgrounds
+- planning now resequences screenshots per concept and adds basic support-screen reuse constraints so concepts do not silently collapse to the same order
+- the core renderer pipeline now passes multi-device compositions and screen effects through to template rendering
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `group` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `badge` and `logo` primitives now exist across schema, renderer, preview server, and editor
@@ -49,7 +54,7 @@ The current default concept contract is:
 - `concept-c`: `panoramic` / Editorial Panorama
 - `concept-d`: `panoramic` / Bold Panorama
 
-This means the minimum viable AI flow now exists, but it is still a first version. Quality is still limited by renderer expressiveness, screenshot understanding depth, scoring sophistication, and refinement tooling.
+This means the minimum viable AI flow now exists, but it is still a first version. Quality is now less constrained by basic composition and pixel analysis, but still limited by OCR/vision depth, screenshot-to-plan intelligence, copy sophistication, and refinement tooling.
 
 ## Files Added Or Extended
 
@@ -112,12 +117,15 @@ Legacy/manual session tools still exist:
 These passed after the latest implementation:
 
 ```bash
+pnpm --filter @appframe/core typecheck
 pnpm --filter @appframe/mcp-server typecheck
 pnpm --filter @appframe/web-preview typecheck
 pnpm vitest run packages/mcp-server/src/tools/design-planning.test.ts \
   packages/mcp-server/src/tools/plan-materializer.test.ts \
   packages/mcp-server/src/tools/copy-planning.test.ts \
-  packages/mcp-server/src/tools/preview-scoring.test.ts
+  packages/mcp-server/src/tools/preview-scoring.test.ts \
+  packages/mcp-server/src/tools/variant-session-tools.test.ts \
+  packages/core/src/renderer/pipeline.test.ts
 ```
 
 Run these again after any work in the touched areas.
@@ -126,23 +134,23 @@ Run these again after any work in the touched areas.
 
 The current implementation is not yet the full target product. The biggest remaining gaps are:
 
-1. richer renderer primitives
-2. deeper screenshot understanding
-3. stronger ranking from actual preview images
-4. refinement actions inside the preview flow
-5. tighter orchestration with preview launch/open behavior
-6. more capable panoramic and layered compositions
+1. broader screenshot-to-plan and screenshot-to-copy intelligence
+2. OCR/vision enrichment beyond current pixel heuristics
+3. refinement actions inside the preview flow
+4. tighter orchestration with preview launch/open behavior
+5. more capable panoramic and layered compositions
+6. stronger recipe/category coverage
 
 ## Priority Order For Future Threads
 
 Recommended order:
 
-1. Renderer + schema expansion
-2. Screenshot understanding improvements
-3. Better scoring/ranking from rendered previews
-4. Preview UI refinement actions + session history
-5. Full autopilot polish and resume/retry behavior
-6. Better before.click-style recipe coverage
+1. Screenshot-to-plan and screenshot-to-copy intelligence
+2. Better screenshot understanding and AI-assisted analysis
+3. Preview UI refinement actions + session history
+4. Full autopilot polish and resume/retry behavior
+5. Better before.click-style recipe coverage
+6. Panoramic composition expansion
 
 ## Detailed Checklist
 
@@ -171,6 +179,7 @@ Recommended order:
 - [x] Reuse selected copy set during config materialization.
 - [x] Add copy slot metadata into sessions in a UI-readable way.
 - [x] Expose selected copy directly in the preview UI.
+- [x] Use screenshot-derived slot signals to steer copy candidate phrasing.
 - [ ] Add subtitle candidate generation instead of mostly headline-only generation.
 - [ ] Add category-specific copy templates for:
   - [ ] finance
@@ -181,8 +190,8 @@ Recommended order:
   - [ ] games
 - [ ] Add anti-repetition checks across the full selected copy set.
 - [ ] Add stronger "no feature list headline" detection.
-- [ ] Add support for AI-backed copy generation behind optional API credentials.
-- [ ] Add fallback merging logic so AI-generated copy can be rescored by the heuristic system before selection.
+- [ ] If model-assisted copy returns, accept agent-provided outputs rather than bundling API-key-based generation inside AppFrame.
+- [ ] Add fallback merging logic so externally generated copy can be rescored by the heuristic system before selection.
 - [ ] Add locale-aware copy generation.
 - [ ] Add tests covering weak copy rejection patterns.
 
@@ -196,9 +205,9 @@ Recommended order:
 - [x] Add crop suitability.
 - [x] Add recommended usage.
 - [ ] Add OCR-based detection of in-screenshot text.
-- [ ] Add heuristics for actual whitespace/empty-region detection from pixels.
-- [ ] Add focal-point estimation based on simple saliency/image heuristics.
-- [ ] Add screenshot color extraction from actual image contents instead of role heuristics only.
+- [x] Add heuristics for actual whitespace/empty-region detection from pixels.
+- [x] Add focal-point estimation based on simple saliency/image heuristics.
+- [x] Add screenshot color extraction from actual image contents instead of role heuristics only.
 - [ ] Add optional vision-model enrichment when AI credentials are present.
 - [ ] Add better role detection for:
   - [ ] onboarding
@@ -217,12 +226,14 @@ Recommended order:
 - [x] Lock concept identities to 2 individual + 2 panoramic.
 - [x] Add new plan metadata fields to analysis.
 - [ ] Add explicit concept diversity constraints so two concepts cannot collapse into minor recolors.
+  Status: concept-specific screenshot resequencing now exists, but recipe/style diversity is still narrower than the target quality bar.
 - [ ] Add plan-time recipe selection based on app category.
 - [ ] Add plan-time frame strategy:
   - [ ] which concepts must use frames
   - [ ] which concepts may go frameless
   - [ ] why frameless is allowed
 - [ ] Add plan-time screenshot assignment constraints to avoid overusing the same screenshot.
+  Status: support-screen reuse is now constrained inside dynamic individual concepts, but cross-concept assignment strategy is still basic.
 - [ ] Add crop-level planning once crop primitives exist.
   Status: basic crop usage now exists in panoramic planning/materialization, but not explicit crop-by-crop planning output.
 - [ ] Add support for alternate 5th concept families after renderer expansion.
@@ -233,6 +244,7 @@ Recommended order:
 - [x] Materialize planned variants into real configs.
 - [x] Inject selected copy set into generated configs.
 - [x] Use frameless rounded treatment when requested by the plan.
+- [x] Materialize dynamic individual compositions with extra screenshots, loupes, overlays, and palette-aware backgrounds.
 - [ ] Expand materializer for future primitives:
   - [x] `crop`
   - [x] `card`
@@ -288,10 +300,10 @@ Recommended order:
   - [x] excessive empty space
   - [x] panoramic continuity quality
   - [x] visual clutter
-- [ ] Add diversity scoring across all 4 concepts together.
-- [ ] Add score explanations that point to concrete layout/copy problems.
-- [ ] Add model-assisted visual scoring behind optional AI credentials.
-- [ ] Blend heuristic and model scores into one final recommendation formula.
+- [x] Add diversity scoring across all 4 concepts together.
+- [x] Add score explanations that point to concrete layout/copy problems.
+- [x] Add model-assisted visual scoring behind optional AI credentials.
+- [x] Blend heuristic and model scores into one final recommendation formula.
 - [x] Add test fixtures for weak vs strong concept scoring.
 
 ### 9. Scene Graph / Renderer Expansion
@@ -328,6 +340,7 @@ This is the most important remaining capability area for before.click-level qual
 - [x] Add support for layered extracted screenshot details.
 - [x] Add support for floating UI detail cards.
 - [x] Add support for grouped decorative systems.
+- [x] Pass multi-device individual compositions and screen effects through the core renderer pipeline.
 
 ### 10. Preview UI As Review Surface
 
@@ -456,6 +469,7 @@ Use this to start a future thread:
 - The repo may have unrelated untracked files; do not revert unrelated user changes.
 - Existing manual variant workflows still matter; preserve backward compatibility where possible.
 - Session compatibility matters now that sessions can be created from both manual configs and autopilot manifests.
-- The current scoring system is heuristic and config-based, not truly visual yet.
-- The current screenshot understanding is still heuristic and not OCR/vision-driven.
-- The current renderer still limits how close AppFrame can get to before.click-style layouts.
+- The current scoring system is now partly visual and can optionally use live model ranking, but it is still not a full art-direction loop.
+- The current screenshot understanding now includes real pixel heuristics, but it is still not OCR/vision-driven.
+- The current renderer is broader than the original single-device flow, but it still limits how close AppFrame can get to before.click-style layouts.
+- Prefer local deterministic logic or agent-provided model outputs over adding new built-in API-key dependencies inside AppFrame itself.

@@ -27,6 +27,10 @@ import {
   type VariantSessionVariant,
 } from './variant-session-lib.js';
 import { scoreVariantSet, type ModelAssistedVisualRanking } from './preview-scoring.js';
+import {
+  requestVisualModelRanking,
+  type VisualModelScoringStatus,
+} from './visual-model-ranking.js';
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -381,13 +385,32 @@ export async function renderVariantPreviews(args: {
 export async function scoreVariantPreviews(args: {
   sessionPath: string;
   visualRanking?: ModelAssistedVisualRanking[];
+  useAiVisualScoring?: boolean;
 }): Promise<{
   sessionPath: string;
   recommendedVariantId: string | null;
   recommendationReason: string | null;
   scores: Array<{ variantId: string; total: number }>;
+  aiVisualScoring: VisualModelScoringStatus;
 }> {
   const session = await readSession(args.sessionPath);
+  const liveVisualRanking = await requestVisualModelRanking({
+    enabled: args.useAiVisualScoring,
+    variants: session.variants.map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      config: variant.config,
+      previewFilePaths: variant.previewArtifacts?.flatMap((artifact) => artifact.filePaths) ?? [],
+    })),
+  });
+  const rankingByVariantId = new Map<string, ModelAssistedVisualRanking>();
+  for (const ranking of liveVisualRanking.rankings) {
+    rankingByVariantId.set(ranking.variantId, ranking);
+  }
+  for (const ranking of args.visualRanking ?? []) {
+    rankingByVariantId.set(ranking.variantId, ranking);
+  }
+
   const scoring = scoreVariantSet(
     session.variants.map((variant) => ({
       id: variant.id,
@@ -397,7 +420,7 @@ export async function scoreVariantPreviews(args: {
       previewFilePaths: variant.previewArtifacts?.flatMap((artifact) => artifact.filePaths) ?? [],
     })),
     {
-      visualRanking: args.visualRanking,
+      visualRanking: rankingByVariantId.size > 0 ? Array.from(rankingByVariantId.values()) : undefined,
     },
   );
 
@@ -418,6 +441,7 @@ export async function scoreVariantPreviews(args: {
       variantId: variant.id,
       total: variant.score.total,
     })),
+    aiVisualScoring: liveVisualRanking.status,
   };
 }
 
@@ -568,10 +592,11 @@ export function registerVariantSessionTools(server: McpServer): void {
         confidence: z.number().min(0).max(1).optional(),
         reason: z.string().optional(),
       })).optional().describe('Optional external visual-ranking signals to blend into the heuristic score.'),
+      useAiVisualScoring: z.boolean().optional().describe('Attempt live visual scoring from rendered previews when OPENAI_API_KEY is available. Falls back safely to heuristic scoring.'),
     },
-    async ({ sessionPath, visualRanking }) => {
+    async ({ sessionPath, visualRanking, useAiVisualScoring }) => {
       try {
-        const result = await scoreVariantPreviews({ sessionPath, visualRanking });
+        const result = await scoreVariantPreviews({ sessionPath, visualRanking, useAiVisualScoring });
         return {
           content: [{
             type: 'text' as const,
@@ -599,7 +624,7 @@ export function registerVariantSessionTools(server: McpServer): void {
           : null;
 
         if (!recommended || !session.autopilot?.recommendationReason) {
-          const rescored = await scoreVariantPreviews({ sessionPath });
+          const rescored = await scoreVariantPreviews({ sessionPath, useAiVisualScoring: true });
           return {
             content: [{
               type: 'text' as const,

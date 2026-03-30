@@ -3,7 +3,7 @@ import { join, dirname, resolve } from 'node:path';
 import { loadConfig } from '../config/loader.js';
 import { getFrame, getDefaultFrame, loadFrameManifest } from '../frames/loader.js';
 import { TemplateEngine } from '../templates/engine.js';
-import type { TemplateContext } from '../templates/engine.js';
+import type { DeviceContext, TemplateContext } from '../templates/engine.js';
 import { Renderer } from './renderer.js';
 import { getTargetSizes } from './sizes.js';
 import type { GenerateOptions, GenerateResult, RenderResult, ScreenshotSize } from './types.js';
@@ -11,6 +11,7 @@ import type { AppframeConfig, ScreenConfig, TemplateStyle } from '../config/sche
 import type { FrameDefinition } from '../frames/types.js';
 import { injectSpotlightHTML, injectAnnotationsHTML } from '../templates/injectors.js';
 import { resolveLocalizedAsset } from '../devices/assets.js';
+import { COMPOSITION_PRESETS, type CompositionPreset } from '../composer/presets.js';
 
 async function screenshotToDataUrl(screenshotPath: string): Promise<string> {
   try {
@@ -72,6 +73,34 @@ function getLocalizedScreenshot(
   }
 
   return join(configDir, defaultScreenshot);
+}
+
+async function buildDeviceContext(args: {
+  screenshotPath: string;
+  frame: FrameDefinition | undefined;
+  frameStyle: AppframeConfig['frames']['style'];
+  slot?: {
+    offsetX: number;
+    offsetY: number;
+    scale: number;
+    rotation: number;
+    angle: number;
+    tilt: number;
+    zIndex: number;
+  };
+}): Promise<DeviceContext> {
+  return {
+    screenshotDataUrl: await screenshotToDataUrl(args.screenshotPath),
+    frame: args.frame ?? null,
+    frameSvg: args.frame && args.frameStyle !== 'none' ? await loadFrameSvgContent(args.frame) : null,
+    offsetX: args.slot?.offsetX ?? 0,
+    offsetY: args.slot?.offsetY ?? 15,
+    scale: args.slot?.scale ?? 92,
+    rotation: args.slot?.rotation ?? 0,
+    angle: args.slot?.angle ?? 0,
+    tilt: args.slot?.tilt ?? 0,
+    zIndex: args.slot?.zIndex ?? 1,
+  };
 }
 
 /**
@@ -170,12 +199,46 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
 
       // Resolve screenshot path (with per-locale override support)
       const screenshotPath = getLocalizedScreenshot(config, idx, locale, configDir, screen.screenshot);
-      const screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
 
       // Resolve frame
       const frame = await resolveFrame(config, screen, size.platform);
+      const composition = screen.composition ?? 'single';
+      let screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
       let frameSvg: string | null = null;
-      if (frame && config.frames.style !== 'none') {
+      let devices: DeviceContext[] | undefined;
+
+      if (composition !== 'single') {
+        const preset = COMPOSITION_PRESETS[composition as CompositionPreset];
+        if (preset) {
+          const primaryDevice = await buildDeviceContext({
+            screenshotPath,
+            frame,
+            frameStyle: config.frames.style,
+            slot: preset.slots[0],
+          });
+          const extraDevices = await Promise.all(
+            (screen.extraDevices ?? [])
+              .slice(0, Math.max(0, preset.slots.length - 1))
+              .map(async (extraDevice, extraIndex) => {
+                const extraDevicePath = join(configDir, extraDevice.screenshot);
+                const extraFrame = extraDevice.device
+                  ? await getFrame(extraDevice.device)
+                  : frame;
+                return buildDeviceContext({
+                  screenshotPath: extraDevicePath,
+                  frame: extraFrame ?? undefined,
+                  frameStyle: config.frames.style,
+                  slot: preset.slots[extraIndex + 1],
+                });
+              }),
+          );
+          devices = [primaryDevice, ...extraDevices];
+          screenshotDataUrl = primaryDevice.screenshotDataUrl;
+          frameSvg = primaryDevice.frameSvg;
+        }
+      }
+
+      if (!frameSvg && frame && config.frames.style !== 'none') {
         frameSvg = await loadFrameSvgContent(frame);
       }
 
@@ -190,6 +253,8 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         font: config.theme.font,
         fontWeight: config.theme.fontWeight,
         layout: screen.layout,
+        composition,
+        ...(devices ? { devices } : {}),
         frame: frame ?? null,
         frameStyle: config.frames.style,
         frameSvg,
@@ -199,6 +264,9 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         subtitleGradient: config.theme.subtitleGradient,
         autoSizeHeadline: screen.autoSizeHeadline,
         autoSizeSubtitle: screen.autoSizeSubtitle,
+        ...(screen.loupe ? { loupe: screen.loupe } : {}),
+        ...(screen.callouts ? { callouts: screen.callouts } : {}),
+        ...(screen.overlays ? { overlays: screen.overlays } : {}),
         headlineLineHeight: config.theme.headlineLineHeight,
         headlineLetterSpacing: config.theme.headlineLetterSpacing,
         headlineTextTransform: config.theme.headlineTextTransform,

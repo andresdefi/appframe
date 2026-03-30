@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const templateEngineMocks = vi.hoisted(() => ({
+  render: vi.fn().mockResolvedValue('<html><head></head><body>mock</body></html>'),
+}));
+
 vi.mock('../config/loader.js', () => ({
   loadConfig: vi.fn(),
 }));
@@ -13,7 +17,7 @@ vi.mock('../frames/loader.js', () => ({
 vi.mock('../templates/engine.js', () => {
   return {
     TemplateEngine: class {
-      render = vi.fn().mockResolvedValue('<html><head></head><body>mock</body></html>');
+      render = templateEngineMocks.render;
     },
   };
 });
@@ -156,6 +160,34 @@ describe('generateScreenshots', () => {
 
     const result = await generateScreenshots({ configPath: '/tmp/appframe.yml' });
     expect(result.screenshots.length).toBe(2);
+  });
+
+  it('passes multi-device composition and screen effects into the template context', async () => {
+    const config = createMinimalConfig({
+      screens: [{
+        screenshot: 'hero.png',
+        headline: 'Hi',
+        layout: 'center',
+        composition: 'hero-tilt',
+        extraDevices: [{ screenshot: 'detail.png' }],
+        autoSizeHeadline: false,
+        autoSizeSubtitle: false,
+        annotations: [],
+        loupe: { sourceX: 0.2, sourceY: -0.1, width: 0.3, height: 0.2, zoom: 2.4, cornerRadius: 16, borderWidth: 0, borderColor: '#fff', shadow: false, shadowColor: '#000000', shadowRadius: 0, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 },
+        callouts: [{ id: 'c1', sourceX: 20, sourceY: 30, sourceW: 24, sourceH: 18, displayX: 74, displayY: 68, displayScale: 1.2, rotation: 0, borderRadius: 12, shadow: true, borderWidth: 0 }],
+        overlays: [{ id: 'o1', type: 'star-rating', x: 72, y: 18, size: 14, rotation: 0, opacity: 1 }],
+      }],
+    });
+    mockLoadConfig.mockResolvedValue(config);
+
+    await generateScreenshots({ configPath: '/tmp/appframe.yml' });
+
+    const context = templateEngineMocks.render.mock.calls[0]?.[0];
+    expect(context?.composition).toBe('hero-tilt');
+    expect(context?.devices).toHaveLength(2);
+    expect(context?.loupe).toBeDefined();
+    expect(context?.callouts).toHaveLength(1);
+    expect(context?.overlays).toHaveLength(1);
   });
 
   it('generates for android platform', async () => {

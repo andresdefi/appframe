@@ -1,0 +1,285 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: appframe
+        - generic [ref=e7]: SpendWise
+        - generic [ref=e516]: 1/5
+      - generic [ref=e9]:
+        - button "Background" [ref=e10]
+        - button "Device" [ref=e11]
+        - button "Text" [ref=e12]
+        - button "Extras" [ref=e13]
+        - button "Export" [ref=e14]
+      - button "Individual" [ref=e517]:
+        - img [ref=e17]
+        - text: Individual
+    - generic [ref=e19]:
+      - generic [ref=e624]:
+        - button "Background Choose between solid colors, gradients, images, or template presets for your screenshot background." [expanded] [ref=e625] [cursor=pointer]:
+          - generic [ref=e626]: Background
+          - generic "Choose between solid colors, gradients, images, or template presets for your screenshot background." [ref=e627]: "?"
+          - img [ref=e628]
+        - generic [ref=e631]:
+          - generic [ref=e632]:
+            - generic [ref=e633] [cursor=pointer]:
+              - radio "Solid" [ref=e634]
+              - text: Solid
+            - generic [ref=e635] [cursor=pointer]:
+              - radio "Gradient" [checked] [active] [ref=e636]
+              - text: Gradient
+            - generic [ref=e637] [cursor=pointer]:
+              - radio "Image" [ref=e638]
+              - text: Image
+            - generic [ref=e639] [cursor=pointer]:
+              - radio "Preset" [ref=e640]
+              - text: Preset
+          - generic [ref=e666]:
+            - button "Apply Sunset gradient" [ref=e667] [cursor=pointer]
+            - button "Apply Ocean gradient" [ref=e668] [cursor=pointer]
+            - button "Apply Midnight gradient" [ref=e669] [cursor=pointer]
+            - button "Apply Sky gradient" [ref=e670] [cursor=pointer]
+            - button "Apply Horizon gradient" [ref=e671] [cursor=pointer]
+            - button "Apply Vapor gradient" [ref=e672] [cursor=pointer]
+            - button "Apply Tropical gradient" [ref=e673] [cursor=pointer]
+            - button "Apply Dusk Sky gradient" [ref=e674] [cursor=pointer]
+            - button "Apply Flamingo gradient" [ref=e675] [cursor=pointer]
+            - button "Apply Arctic gradient" [ref=e676] [cursor=pointer]
+            - button "Apply Velvet gradient" [ref=e677] [cursor=pointer]
+            - button "Apply Lush gradient" [ref=e678] [cursor=pointer]
+            - button "Apply Aurora gradient" [ref=e679] [cursor=pointer]
+            - button "Apply Coral gradient" [ref=e680] [cursor=pointer]
+            - button "Apply Lavender gradient" [ref=e681] [cursor=pointer]
+            - button "Apply Emerald gradient" [ref=e682] [cursor=pointer]
+            - button "Apply Fire gradient" [ref=e683] [cursor=pointer]
+            - button "Apply Berry gradient" [ref=e684] [cursor=pointer]
+            - button "Apply Peach gradient" [ref=e685] [cursor=pointer]
+            - button "Apply Dusk gradient" [ref=e686] [cursor=pointer]
+            - button "Apply Mint gradient" [ref=e687] [cursor=pointer]
+            - button "Apply Rose gradient" [ref=e688] [cursor=pointer]
+            - button "Apply Indigo gradient" [ref=e689] [cursor=pointer]
+            - button "Apply Candy gradient" [ref=e690] [cursor=pointer]
+            - button "Apply Forest gradient" [ref=e691] [cursor=pointer]
+            - button "Apply Neon gradient" [ref=e692] [cursor=pointer]
+            - button "Apply Warm gradient" [ref=e693] [cursor=pointer]
+          - generic [ref=e694]:
+            - generic [ref=e695] [cursor=pointer]:
+              - radio "Linear" [checked] [ref=e696]
+              - text: Linear
+            - generic [ref=e697] [cursor=pointer]:
+              - radio "Radial" [ref=e698]
+              - text: Radial
+          - generic [ref=e699]:
+            - generic [ref=e700]: Direction
+            - generic [ref=e701]:
+              - slider "Direction" [ref=e702]: "135"
+              - 'spinbutton "Direction: 135°. Click to edit" [ref=e703]': 135°
+          - generic [ref=e705]:
+            - generic [ref=e706]: Stop 1
+            - textbox "Stop 1" [ref=e707] [cursor=pointer]: "#6366f1"
+          - generic [ref=e709]:
+            - generic [ref=e710]: Stop 2
+            - textbox "Stop 2" [ref=e711] [cursor=pointer]: "#ec4899"
+          - button "+ Add Color Stop" [ref=e712]
+      - generic [ref=e567]:
+        - generic [ref=e569]:
+          - generic [ref=e570] [cursor=pointer]:
+            - generic [ref=e571]:
+              - generic [ref=e572]: Screen 1
+              - generic [ref=e573]:
+                - button "Move screen 1 right" [ref=e574]: ›
+                - button "Remove screen 1" [ref=e575]: ×
+            - iframe [ref=e577]:
+              - generic [ref=f7e14]:
+                - generic [ref=f7e15]:
+                  - generic [ref=f7e16]: Every expense, instantly tracked
+                  - generic [ref=f7e17]: Smart categorization does the work for you
+                - generic [ref=f7e18]:
+                  - img [ref=f7e19]
+                  - img [ref=f7e24]
+          - generic [ref=e579] [cursor=pointer]:
+            - generic [ref=e580]:
+              - button "Move screen 2 left" [ref=e581]: ‹
+              - generic [ref=e582]: Screen 2
+              - generic [ref=e583]:
+                - button "Move screen 2 right" [ref=e584]: ›
+                - button "Remove screen 2" [ref=e585]: ×
+            - iframe [ref=e587]:
+              - generic [ref=f8e2]:
+                - generic [ref=f8e3]:
+                  - generic [ref=f8e4]: See where your money goes
+                  - generic [ref=f8e5]: Beautiful insights at a glance
+                - generic [ref=f8e6]:
+                  - img [ref=f8e7]
+                  - img [ref=f8e12]
+          - generic [ref=e589] [cursor=pointer]:
+            - generic [ref=e590]:
+              - button "Move screen 3 left" [ref=e591]: ‹
+              - generic [ref=e592]: Screen 3
+              - generic [ref=e593]:
+                - button "Move screen 3 right" [ref=e594]: ›
+                - button "Remove screen 3" [ref=e595]: ×
+            - iframe [ref=e597]:
+              - generic [ref=f9e2]:
+                - generic [ref=f9e4]: Stay on budget, effortlessly
+                - generic [ref=f9e5]:
+                  - img [ref=f9e6]
+                  - img [ref=f9e11]
+          - generic [ref=e599] [cursor=pointer]:
+            - generic [ref=e600]:
+              - button "Move screen 4 left" [ref=e601]: ‹
+              - generic [ref=e602]: Screen 4
+              - generic [ref=e603]:
+                - button "Move screen 4 right" [ref=e604]: ›
+                - button "Remove screen 4" [ref=e605]: ×
+            - iframe [ref=e607]:
+              - generic [ref=f10e2]:
+                - generic [ref=f10e3]:
+                  - generic [ref=f10e4]: Smart categories that learn
+                  - generic [ref=f10e5]: AI-powered expense sorting
+                - generic [ref=f10e6]:
+                  - img [ref=f10e7]
+                  - img [ref=f10e12]
+          - generic [ref=e609] [cursor=pointer]:
+            - generic [ref=e610]:
+              - button "Move screen 5 left" [ref=e611]: ‹
+              - generic [ref=e612]: Screen 5
+              - button "Remove screen 5" [ref=e614]: ×
+            - iframe [ref=e616]:
+              - generic [ref=f11e2]:
+                - generic [ref=f11e3]:
+                  - generic [ref=f11e4]: Travel without worry
+                  - generic [ref=f11e5]: 50+ currencies supported
+                - generic [ref=f11e6]:
+                  - img [ref=f11e7]
+                  - img [ref=f11e12]
+          - button "Add a new screen" [ref=e618] [cursor=pointer]: + Add Screen
+        - generic [ref=e619]:
+          - generic [ref=e620]: Zoom
+          - slider "Zoom level" [ref=e621]: "34"
+          - generic [ref=e622]: 34%
+          - button "Reset zoom to fit" [disabled] [ref=e623]: Fit
+  - button "MCP Connected /agentation v2.3.1 Output Detail Standard React Components Hide Until Restart Marker Colour Purple Blue Cyan Green Yellow Orange Red Clear on copy/send Block page interactions Manage MCP & Webhooks Manage MCP & Webhooks MCP Connection Connected MCP connection allows agents to receive and act on annotations. Learn more Webhooks Auto-Send The webhook URL will receive live annotation changes and annotation data." [ref=e130] [cursor=pointer]:
+    - img [ref=e132]
+    - generic:
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button:
+          - img
+        - generic "MCP Connected"
+      - generic:
+        - button:
+          - img
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic: /agentation
+            - generic: v2.3.1
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - generic:
+                    - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - generic:
+                    - img
+              - generic:
+                - checkbox [disabled]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - generic:
+                    - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Colour
+            - generic:
+              - button "Purple":
+                - generic "Purple"
+              - button "Blue":
+                - generic "Blue"
+              - button "Cyan":
+                - generic "Cyan"
+              - button "Green":
+                - generic "Green"
+              - button "Yellow":
+                - generic "Yellow"
+              - button "Orange":
+                - generic "Orange"
+              - button "Red":
+                - generic "Red"
+          - generic:
+            - generic:
+              - checkbox "Clear on copy/send"
+              - generic:
+                - text: Clear on copy/send
+                - generic:
+                  - generic:
+                    - img
+            - generic:
+              - checkbox "Block page interactions" [checked]
+              - generic:
+                - img
+              - generic: Block page interactions
+          - generic:
+            - button "Manage MCP & Webhooks":
+              - generic: Manage MCP & Webhooks
+              - generic:
+                - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - generic:
+                    - img
+              - generic "Connected"
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - generic:
+                    - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"

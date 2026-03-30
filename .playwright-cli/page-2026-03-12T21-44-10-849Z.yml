@@ -1,0 +1,200 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: appframe
+      - generic [ref=e7]: SpendWise
+      - generic [ref=e8]: Individual
+      - generic [ref=e207]: 1/5
+    - generic [ref=e10]:
+      - button "Background" [ref=e11]
+      - button "Device" [active] [ref=e12]
+      - button "Text" [ref=e13]
+      - button "Extras" [ref=e14]
+      - button "Export" [ref=e15]
+    - generic [ref=e16]:
+      - button "AI Mode Off" [ref=e17]
+      - 'button "Switch to Panoramic. Current mode: Individual." [ref=e208]':
+        - img [ref=e20]
+        - text: Switch to Panoramic
+  - generic [ref=e22]:
+    - generic [ref=e24]:
+      - generic [ref=e308]:
+        - button "Platform Choose the target platform. This adjusts the preview dimensions and available device frames." [expanded] [ref=e309] [cursor=pointer]:
+          - generic [ref=e310]: Platform
+          - generic "Choose the target platform. This adjusts the preview dimensions and available device frames." [ref=e311]: "?"
+          - img [ref=e312]
+        - generic [ref=e316]:
+          - generic [ref=e317]: Platform
+          - combobox "Platform" [ref=e318]:
+            - option "iPhone"
+            - option "iPad"
+            - option "Mac" [selected]
+            - option "Apple Watch"
+            - option "Android"
+      - generic [ref=e319]:
+        - button "Screenshot" [ref=e320] [cursor=pointer]:
+          - generic [ref=e321]: Screenshot
+          - img [ref=e322]
+        - generic [ref=e324]:
+          - generic [ref=e325]: home.png
+          - button [ref=e326]: Upload Screenshot
+      - generic [ref=e327]:
+        - button "Device Frame" [ref=e328] [cursor=pointer]:
+          - generic [ref=e329]: Device Frame
+          - img [ref=e330]
+        - generic [ref=e333]:
+          - generic [ref=e334]: Device
+          - combobox [ref=e335]
+      - generic [ref=e339]:
+        - button "Device Layout Control the size, position, rotation, and tilt of the device in the screenshot frame." [ref=e340] [cursor=pointer]:
+          - generic [ref=e341]: Device Layout
+          - generic "Control the size, position, rotation, and tilt of the device in the screenshot frame." [ref=e342]: "?"
+          - img [ref=e343]
+        - generic [ref=e345]:
+          - generic [ref=e347] [cursor=pointer]:
+            - checkbox [ref=e348]
+            - text: Fullscreen Screenshot
+          - generic [ref=e349]:
+            - generic [ref=e350]: Layout
+            - combobox [ref=e351]
+          - generic [ref=e352]:
+            - generic [ref=e353]: Device Size
+            - generic [ref=e354]:
+              - slider [ref=e355]: "92"
+              - spinbutton [ref=e356]: 92%
+          - generic [ref=e357]:
+            - generic [ref=e358]: Device Position
+            - generic [ref=e359]:
+              - slider [ref=e360]: "15"
+              - spinbutton [ref=e361]: 15%
+          - generic [ref=e362]:
+            - generic [ref=e363]: Horizontal Position
+            - generic [ref=e364]:
+              - slider [ref=e365]: "0"
+              - spinbutton [ref=e366]: 0%
+          - generic [ref=e367]:
+            - generic [ref=e368]: Device Rotation
+            - generic [ref=e369]:
+              - slider [ref=e370]: "0"
+              - spinbutton [ref=e371]: 0°
+          - generic [ref=e372]:
+            - generic [ref=e373]: 3D Tilt
+            - generic [ref=e374]:
+              - slider [ref=e375]: "0"
+              - spinbutton [ref=e376]: 0°
+          - button [ref=e377]: Reset Device Position
+      - generic [ref=e378]:
+        - button "Device Shadow Add a custom drop shadow behind the device frame." [ref=e379] [cursor=pointer]:
+          - generic [ref=e380]: Device Shadow
+          - generic "Add a custom drop shadow behind the device frame." [ref=e381]: "?"
+          - img [ref=e382]
+        - generic [ref=e384]:
+          - generic [ref=e386] [cursor=pointer]:
+            - checkbox [ref=e387]
+            - text: Custom Shadow
+          - generic:
+            - generic:
+              - generic: Opacity
+              - generic:
+                - slider: "25"
+                - spinbutton: 25%
+            - generic:
+              - generic: Blur
+              - generic:
+                - slider: "20"
+                - spinbutton: 20px
+            - generic:
+              - generic:
+                - generic: Color
+                - textbox: "#000000"
+            - generic:
+              - generic: Y Offset
+              - generic:
+                - slider: "10"
+                - spinbutton: 10px
+      - generic [ref=e388]:
+        - button "Composition Choose how devices are arranged. Use multi-device layouts to show multiple app screens in one image." [ref=e389] [cursor=pointer]:
+          - generic [ref=e390]: Composition
+          - generic "Choose how devices are arranged. Use multi-device layouts to show multiple app screens in one image." [ref=e391]: "?"
+          - img [ref=e392]
+        - generic [ref=e395]:
+          - generic [ref=e396]: Device Arrangement
+          - combobox [ref=e397]
+    - generic [ref=e251]:
+      - generic [ref=e253]:
+        - generic [ref=e254] [cursor=pointer]:
+          - generic [ref=e255]:
+            - generic [ref=e256]: Screen 1
+            - generic [ref=e257]:
+              - button "Move screen 1 right" [ref=e258]: ›
+              - button "Remove screen 1" [ref=e259]: ×
+          - iframe [ref=e261]:
+            - generic [ref=f7e14]:
+              - generic [ref=f7e15]:
+                - generic [ref=f7e16]: Every expense, instantly tracked
+                - generic [ref=f7e17]: Smart categorization does the work for you
+              - generic [ref=f7e18]:
+                - img [ref=f7e20]
+                - img [ref=f7e21]
+        - generic [ref=e263] [cursor=pointer]:
+          - generic [ref=e264]:
+            - button "Move screen 2 left" [ref=e265]: ‹
+            - generic [ref=e266]: Screen 2
+            - generic [ref=e267]:
+              - button "Move screen 2 right" [ref=e268]: ›
+              - button "Remove screen 2" [ref=e269]: ×
+          - iframe [ref=e271]:
+            - generic [ref=f8e14]:
+              - generic [ref=f8e15]:
+                - generic [ref=f8e16]: See where your money goes
+                - generic [ref=f8e17]: Beautiful insights at a glance
+              - generic [ref=f8e18]:
+                - img [ref=f8e20]
+                - img [ref=f8e21]
+        - generic [ref=e273] [cursor=pointer]:
+          - generic [ref=e274]:
+            - button "Move screen 3 left" [ref=e275]: ‹
+            - generic [ref=e276]: Screen 3
+            - generic [ref=e277]:
+              - button "Move screen 3 right" [ref=e278]: ›
+              - button "Remove screen 3" [ref=e279]: ×
+          - iframe [ref=e281]:
+            - generic [ref=f9e13]:
+              - generic [ref=f9e15]: Stay on budget, effortlessly
+              - generic [ref=f9e16]:
+                - img [ref=f9e18]
+                - img [ref=f9e19]
+        - generic [ref=e283] [cursor=pointer]:
+          - generic [ref=e284]:
+            - button "Move screen 4 left" [ref=e285]: ‹
+            - generic [ref=e286]: Screen 4
+            - generic [ref=e287]:
+              - button "Move screen 4 right" [ref=e288]: ›
+              - button "Remove screen 4" [ref=e289]: ×
+          - iframe [ref=e291]:
+            - generic [ref=f10e14]:
+              - generic [ref=f10e15]:
+                - generic [ref=f10e16]: Smart categories that learn
+                - generic [ref=f10e17]: AI-powered expense sorting
+              - generic [ref=f10e18]:
+                - img [ref=f10e20]
+                - img [ref=f10e21]
+        - generic [ref=e293] [cursor=pointer]:
+          - generic [ref=e294]:
+            - button "Move screen 5 left" [ref=e295]: ‹
+            - generic [ref=e296]: Screen 5
+            - button "Remove screen 5" [ref=e298]: ×
+          - iframe [ref=e300]:
+            - generic [ref=f11e14]:
+              - generic [ref=f11e15]:
+                - generic [ref=f11e16]: Travel without worry
+                - generic [ref=f11e17]: 50+ currencies supported
+              - generic [ref=f11e18]:
+                - img [ref=f11e20]
+                - img [ref=f11e21]
+        - button "Add a new screen" [ref=e302] [cursor=pointer]: + Add Screen
+      - generic [ref=e303]:
+        - generic [ref=e304]: Zoom
+        - slider "Zoom level" [ref=e305]: "21"
+        - generic [ref=e306]: 21%
+        - button "Reset zoom to fit" [disabled] [ref=e307]: Fit

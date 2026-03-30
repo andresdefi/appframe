@@ -13,6 +13,9 @@ Thumbs.db
 .vscode/
 !.vscode/settings.json
 .idea/
+.playwright-cli/
+.serena/project.yml
+.serena/memories/
 
 # Environment
 .env

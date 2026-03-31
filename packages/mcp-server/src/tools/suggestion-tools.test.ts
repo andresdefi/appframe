@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 
 const designPlanningMocks = vi.hoisted(() => ({
   analyzeScreenshotSet: vi.fn(),
+  buildCopyPlanningSignals: vi.fn(),
   buildVariantSetPlan: vi.fn(),
   inferCategory: vi.fn(),
 }));
@@ -87,6 +88,7 @@ function makeConfig(style: 'minimal' | 'bold') {
 
 function clearMockCalls(): void {
   designPlanningMocks.analyzeScreenshotSet.mockClear();
+  designPlanningMocks.buildCopyPlanningSignals.mockClear();
   designPlanningMocks.buildVariantSetPlan.mockClear();
   designPlanningMocks.inferCategory.mockClear();
   copyPlanningMocks.generateCopyCandidates.mockClear();
@@ -119,6 +121,18 @@ beforeEach(() => {
       unsafeForTextOverlay: false,
     }))
   ));
+  designPlanningMocks.buildCopyPlanningSignals.mockReturnValue([
+    {
+      slot: 'hero',
+      path: '/shots/home.png',
+      role: 'home',
+      density: 'balanced',
+      focus: 'home flow',
+      unsafeForTextOverlay: false,
+      topQuietRatio: 0.76,
+      focusStrength: 0.42,
+    },
+  ]);
 
   designPlanningMocks.inferCategory.mockReturnValue('productivity');
   designPlanningMocks.buildVariantSetPlan.mockResolvedValue({

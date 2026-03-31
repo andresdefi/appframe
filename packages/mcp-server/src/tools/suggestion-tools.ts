@@ -8,6 +8,7 @@ import {
   buildCopyPlanningSignals,
   buildVariantSetPlan,
   inferCategory,
+  type AppCategory,
   type ScreenshotAnalysis,
   type VariantSetPlan,
 } from './design-planning.js';
@@ -54,20 +55,209 @@ function dedupe(values: string[]): string[] {
 }
 
 function buildVariantPlans(
+  category: AppCategory,
   variantCount: number,
   features: string[],
   screenshotCount: number,
 ): DesignVariantPlan[] {
   const featureSummary = features.length > 0 ? features : ['core product flow'];
+  const variantLabels: Record<AppCategory, Pick<DesignVariantPlan, 'name' | 'style' | 'recipe' | 'rationale'>[]> = {
+    finance: [
+      {
+        name: 'Trust Hero',
+        style: 'clean',
+        recipe: 'trust-led-hero',
+        rationale: 'Calmer first-pass concept centered on trust, precision, and readable proof.',
+      },
+      {
+        name: 'Proof Motion',
+        style: 'minimal',
+        recipe: 'proof-led-momentum',
+        rationale: 'Higher-energy finance concept that still prioritizes proof, clarity, and credibility.',
+      },
+      {
+        name: 'Editorial Confidence',
+        style: 'editorial',
+        recipe: 'editorial-panorama',
+        rationale: 'Connected trust-led panorama with calmer whitespace and premium proof pacing.',
+      },
+      {
+        name: 'Proof Panorama',
+        style: 'branded',
+        recipe: 'bold-panorama',
+        rationale: 'Campaign-like panoramic concept that emphasizes trust proof and confident hierarchy.',
+      },
+    ],
+    health: [
+      {
+        name: 'Calm Hero',
+        style: 'minimal',
+        recipe: 'calm-hero',
+        rationale: 'Supportive first-pass concept focused on routine, progress, and calm readability.',
+      },
+      {
+        name: 'Routine Momentum',
+        style: 'playful',
+        recipe: 'routine-momentum',
+        rationale: 'A more upbeat concept that keeps the pacing gentle and progress-focused.',
+      },
+      {
+        name: 'Wellness Panorama',
+        style: 'editorial',
+        recipe: 'editorial-panorama',
+        rationale: 'Connected panorama that treats progress and routine like an editorial story.',
+      },
+      {
+        name: 'Progress Panorama',
+        style: 'branded',
+        recipe: 'bold-panorama',
+        rationale: 'Higher-energy panorama that still preserves a steady, encouraging tone.',
+      },
+    ],
+    productivity: [
+      {
+        name: 'Workflow Hero',
+        style: 'minimal',
+        recipe: 'workflow-hero',
+        rationale: 'First-pass concept focused on flow clarity, control, and thumbnail legibility.',
+      },
+      {
+        name: 'Focused Momentum',
+        style: 'bold',
+        recipe: 'focused-momentum',
+        rationale: 'Higher-energy concept built around pace, control, and repeatable workflow moments.',
+      },
+      {
+        name: 'Editorial Panorama',
+        style: 'editorial',
+        recipe: 'editorial-panorama',
+        rationale: 'Connected premium storytelling with stronger whitespace and a more editorial workflow voice.',
+      },
+      {
+        name: 'Bold Panorama',
+        style: 'branded',
+        recipe: 'bold-panorama',
+        rationale: 'Campaign-like panoramic concept with stronger motion and a more cinematic finish.',
+      },
+    ],
+    social: [
+      {
+        name: 'Connection Hero',
+        style: 'playful',
+        recipe: 'connection-hero',
+        rationale: 'First-pass concept focused on social activity, clarity, and human energy.',
+      },
+      {
+        name: 'Community Momentum',
+        style: 'bold',
+        recipe: 'community-momentum',
+        rationale: 'Higher-energy concept using chat, feed, and response moments to signal activity.',
+      },
+      {
+        name: 'Conversation Panorama',
+        style: 'editorial',
+        recipe: 'editorial-panorama',
+        rationale: 'Connected social storytelling with more readable pacing across conversation beats.',
+      },
+      {
+        name: 'Launch Panorama',
+        style: 'branded',
+        recipe: 'bold-panorama',
+        rationale: 'Campaign-like panorama that pushes community energy and stronger transitions.',
+      },
+    ],
+    creative: [
+      {
+        name: 'Showcase Hero',
+        style: 'editorial',
+        recipe: 'showcase-hero',
+        rationale: 'First-pass concept that treats the strongest screen as a visual showcase rather than utility UI.',
+      },
+      {
+        name: 'Studio Momentum',
+        style: 'glow',
+        recipe: 'studio-montage',
+        rationale: 'More expressive concept with stronger color, layered rhythm, and visual payoff.',
+      },
+      {
+        name: 'Gallery Panorama',
+        style: 'editorial',
+        recipe: 'editorial-panorama',
+        rationale: 'Connected panorama built like an editorial gallery rather than isolated feature slides.',
+      },
+      {
+        name: 'Portfolio Panorama',
+        style: 'branded',
+        recipe: 'bold-panorama',
+        rationale: 'Campaign-like concept for launch polish, stronger transitions, and visual payoff.',
+      },
+    ],
+    games: [
+      {
+        name: 'Gameplay Hero',
+        style: 'glow',
+        recipe: 'gameplay-hero',
+        rationale: 'First-pass concept centered on gameplay payoff, energy, and immediate readability.',
+      },
+      {
+        name: 'Action Montage',
+        style: 'bold',
+        recipe: 'action-montage',
+        rationale: 'Higher-energy concept using layered shots and stronger movement to feel more cinematic.',
+      },
+      {
+        name: 'World Panorama',
+        style: 'editorial',
+        recipe: 'editorial-panorama',
+        rationale: 'Connected panorama that treats progression and atmosphere like a world-building strip.',
+      },
+      {
+        name: 'Cinematic Panorama',
+        style: 'branded',
+        recipe: 'bold-panorama',
+        rationale: 'Campaign-like panoramic concept with stronger transitions and launch-trailer energy.',
+      },
+    ],
+    general: [
+      {
+        name: 'Clean Hero',
+        style: 'minimal',
+        recipe: 'clean-hero',
+        rationale: 'Safe first-pass concept focused on clarity, thumbnail legibility, and a strong headline-to-device hierarchy.',
+      },
+      {
+        name: 'Dynamic Individual',
+        style: 'bold',
+        recipe: 'layered-momentum',
+        rationale: 'Higher-energy concept using stronger contrast, more visual rhythm, and frameless rounded screenshots when they read cleaner.',
+      },
+      {
+        name: 'Editorial Panorama',
+        style: 'editorial',
+        recipe: 'editorial-panorama',
+        rationale: 'Connected premium storytelling with stronger whitespace, slower pacing, and a more editorial visual voice.',
+      },
+      {
+        name: 'Bold Panorama',
+        style: 'branded',
+        recipe: 'bold-panorama',
+        rationale: 'Campaign-like panoramic concept with stronger brand color, larger transitions, and a more cinematic feel.',
+      },
+    ],
+  };
+  const concepts = variantLabels[category] ?? variantLabels.general;
+  const conceptA = concepts[0]!;
+  const conceptB = concepts[1]!;
+  const conceptC = concepts[2]!;
+  const conceptD = concepts[3]!;
   const variants: DesignVariantPlan[] = [
     {
       id: 'concept-a',
-      name: 'Clean Hero',
+      name: conceptA.name,
       mode: 'individual',
-      style: 'minimal',
-      recipe: 'clean-hero',
-      rationale:
-        'Safe first-pass concept focused on clarity, thumbnail legibility, and a strong headline-to-device hierarchy.',
+      style: conceptA.style,
+      recipe: conceptA.recipe,
+      rationale: conceptA.rationale,
       screenPlan: [
         'Hero slide with the strongest outcome statement and clean centered device.',
         `Feature slides that each sell one idea from: ${featureSummary.slice(0, 3).join(', ')}.`,
@@ -76,12 +266,11 @@ function buildVariantPlans(
     },
     {
       id: 'concept-b',
-      name: 'Dynamic Individual',
+      name: conceptB.name,
       mode: 'individual',
-      style: 'bold',
-      recipe: 'layered-momentum',
-      rationale:
-        'Higher-energy concept using stronger contrast, more visual rhythm, and frameless rounded screenshots when they read cleaner.',
+      style: conceptB.style,
+      recipe: conceptB.recipe,
+      rationale: conceptB.rationale,
       screenPlan: [
         'Hero slide with oversized typography and one dominant screenshot.',
         'Mid-sequence slides keep one dominant idea per frame while pushing more contrast and motion.',
@@ -90,12 +279,11 @@ function buildVariantPlans(
     },
     {
       id: 'concept-c',
-      name: 'Editorial Panorama',
+      name: conceptC.name,
       mode: 'panoramic',
-      style: 'editorial',
-      recipe: 'editorial-panorama',
-      rationale:
-        'Connected premium storytelling with stronger whitespace, slower pacing, and a more editorial visual voice.',
+      style: conceptC.style,
+      recipe: conceptC.recipe,
+      rationale: conceptC.rationale,
       screenPlan: [
         `Use ${Math.max(screenshotCount, 4)} connected frames with shared background and deliberate whitespace.`,
         'Place devices and headline blocks to read as one connected sequence instead of isolated slides.',
@@ -104,12 +292,11 @@ function buildVariantPlans(
     },
     {
       id: 'concept-d',
-      name: 'Bold Panorama',
+      name: conceptD.name,
       mode: 'panoramic',
-      style: 'branded',
-      recipe: 'bold-panorama',
-      rationale:
-        'Campaign-like panoramic concept with stronger brand color, larger transitions, and a more cinematic feel.',
+      style: conceptD.style,
+      recipe: conceptD.recipe,
+      rationale: conceptD.rationale,
       screenPlan: [
         `Use ${Math.max(screenshotCount, 4)} connected frames with stronger color blocking and motion.`,
         'Mix headline-led moments with hero devices and supporting image assets across the strip.',
@@ -1669,7 +1856,7 @@ export function registerSuggestionTools(server: McpServer): void {
       variantCount,
     }) => {
       const category = inferCategory(appDescription, features);
-      const variants = buildVariantPlans(variantCount, features, screenshots.length);
+      const variants = buildVariantPlans(category, variantCount, features, screenshots.length);
       const visualGoals = dedupe([
         ...(goals ?? []),
         'Readable at thumbnail size',

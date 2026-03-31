@@ -35,6 +35,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - copy candidate generation can now use screenshot-derived slot signals from analysis to steer role-aware, focus-aware headline options
 - planning/materialization now emit dynamic individual compositions with extra screenshots, loupes, overlays, and palette-informed backgrounds
 - planning now resequences screenshots per concept and adds basic support-screen reuse constraints so concepts do not silently collapse to the same order
+- planning now selects category-aware concept recipes, naming, strategies, and role weighting for finance, health, productivity, social, creative, games, and general apps
 - the core renderer pipeline now passes multi-device compositions and screen effects through to template rendering
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
 - panoramic `group` primitives now exist across schema, renderer, preview server, and editor
@@ -139,7 +140,7 @@ The current implementation is not yet the full target product. The biggest remai
 3. refinement actions inside the preview flow
 4. tighter orchestration with preview launch/open behavior
 5. more capable panoramic and layered compositions
-6. stronger recipe/category coverage
+6. deeper category-specific layout, frame, and screenshot-assignment coverage
 
 ## Priority Order For Future Threads
 
@@ -227,7 +228,7 @@ Recommended order:
 - [x] Add new plan metadata fields to analysis.
 - [ ] Add explicit concept diversity constraints so two concepts cannot collapse into minor recolors.
   Status: concept-specific screenshot resequencing now exists, but recipe/style diversity is still narrower than the target quality bar.
-- [ ] Add plan-time recipe selection based on app category.
+- [x] Add plan-time recipe selection based on app category.
 - [ ] Add plan-time frame strategy:
   - [ ] which concepts must use frames
   - [ ] which concepts may go frameless

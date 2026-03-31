@@ -47,6 +47,7 @@ Implementation order:
 Current status:
 
 - panoramic `image` support is in place
+- deterministic category-aware concept selection is now in place for finance, health, productivity, social, creative, games, and general app categories
 - panoramic `crop` and `card` primitives are now in place across schema, renderer, preview server, and editor
 - panoramic `group` support is now in place across schema, renderer, preview server, and editor
 - panoramic `badge` and `logo` support are now in place across schema, renderer, preview server, and editor
@@ -186,6 +187,7 @@ This roadmap now has three concrete pieces underway:
 - individual composition breadth: dynamic individual concepts now materialize multi-device compositions, supporting screenshots, loupes, overlays, and palette-aware backgrounds instead of staying inside a single-device layout
 - deterministic concept planning: concepts now resequence screenshots differently, constrain support-screen reuse, and derive per-screen copy direction from screenshot role, density, quiet-space, and focal cues instead of sharing one generic ordering/story pass
 - screenshot-aware copy generation: copy candidates can now consume screenshot-derived slot signals so hero, differentiator, feature, trust, and summary lines respond to actual screen content instead of only the feature list
+- design recipe selection now varies concept naming, supported recipe labels, strategies, panoramic goals, and screenshot role weighting by inferred app category instead of using one generic 4-concept set for every app
 - local-first product direction: core AppFrame behavior should prefer deterministic local logic and agent-provided outputs over bundling new API-key-based model dependencies directly into the app
 - autopilot hardening foundations: `appframe_run_autopilot` now persists a stage-by-stage run manifest with resume, forced rerun, stale-artifact detection, structured failure, and explicit preview-next-step metadata
 - preview launch helper: agents can now start the preview server directly from MCP with `appframe_open_preview_session` instead of only receiving a shell command

@@ -24,6 +24,7 @@ export type TextRisk = 'low' | 'medium' | 'high';
 export type CropSuitability = 'low' | 'medium' | 'high';
 export type RecommendedUsage = 'hero-device' | 'secondary-device' | 'crop-card' | 'support-only';
 export type OrderingConfidence = 'low' | 'medium' | 'high';
+export type AppCategory = 'finance' | 'health' | 'productivity' | 'social' | 'creative' | 'games' | 'general';
 export type PanoramicCompositionFeature =
   | 'layered-detail-extract'
   | 'floating-detail-card'
@@ -82,7 +83,7 @@ export interface VariantSetPlan {
   app: {
     name: string;
     description: string;
-    category: string;
+    category: AppCategory;
     platforms: string[];
   };
   goals: string[];
@@ -194,6 +195,67 @@ interface ImageMetadata {
   width: number | null;
   height: number | null;
 }
+
+type ConceptId = 'concept-a' | 'concept-b' | 'concept-c' | 'concept-d' | 'concept-e';
+type SequenceStage = 'hero' | 'middle' | 'closing' | 'support';
+
+type PanoramicRequiredElement = PlannedPanoramicCanvasPlan['requiredElements'][number];
+
+interface CategoryConceptSpec {
+  name: string;
+  style: string;
+  recipe: string;
+  strategy: string;
+  designGoal?: string;
+  requiredElements?: PanoramicRequiredElement[];
+}
+
+type CategoryRoleWeights = Record<SequenceStage, Partial<Record<ScreenshotRole, number>>>;
+
+const CATEGORY_ROLE_WEIGHTS: Record<AppCategory, CategoryRoleWeights> = {
+  finance: {
+    hero: { home: 18, detail: 14, workflow: 10, paywall: -18, communication: -12 },
+    middle: { detail: 18, workflow: 12, home: 8, settings: 4 },
+    closing: { settings: 16, detail: 14, paywall: 10, communication: -4 },
+    support: { detail: 14, settings: 10, home: 6, paywall: 4 },
+  },
+  health: {
+    hero: { home: 16, onboarding: 14, workflow: 12, paywall: -12, settings: -4 },
+    middle: { workflow: 18, detail: 12, home: 8, feature: 6 },
+    closing: { detail: 12, settings: 8, paywall: 4, home: 4 },
+    support: { workflow: 12, detail: 10, onboarding: 6, home: 4 },
+  },
+  productivity: {
+    hero: { workflow: 18, home: 16, detail: 10, settings: -4 },
+    middle: { workflow: 18, detail: 14, home: 8, feature: 6 },
+    closing: { detail: 12, settings: 10, paywall: 4 },
+    support: { workflow: 12, detail: 10, home: 6, settings: 4 },
+  },
+  social: {
+    hero: { communication: 26, home: 10, discovery: 10, settings: -10, paywall: -6 },
+    middle: { communication: 16, discovery: 14, home: 8, detail: 6 },
+    closing: { detail: 12, home: 8, paywall: 4, settings: 2 },
+    support: { communication: 14, discovery: 12, home: 6, detail: 4 },
+  },
+  creative: {
+    hero: { discovery: 18, detail: 16, home: 8, settings: -6 },
+    middle: { discovery: 18, detail: 16, feature: 10, home: 6 },
+    closing: { detail: 12, home: 8, paywall: 4 },
+    support: { discovery: 12, detail: 12, feature: 8, home: 4 },
+  },
+  games: {
+    hero: { detail: 16, discovery: 14, onboarding: 12, home: 8, settings: -8 },
+    middle: { detail: 18, discovery: 16, feature: 10, home: 6 },
+    closing: { paywall: 10, detail: 10, settings: 6, home: 4 },
+    support: { detail: 12, discovery: 10, onboarding: 8, paywall: 6 },
+  },
+  general: {
+    hero: { home: 8, workflow: 6, settings: -4 },
+    middle: { detail: 8, workflow: 6, feature: 4 },
+    closing: { detail: 8, settings: 6, paywall: 4 },
+    support: { detail: 6, workflow: 4, home: 4 },
+  },
+};
 
 function normalizeText(value: string): string {
   return value
@@ -1073,7 +1135,7 @@ export async function readImageMetadata(pathValue: string): Promise<ImageMetadat
   return { format: null, width: null, height: null };
 }
 
-export function inferCategory(appDescription: string, features: string[]): string {
+export function inferCategory(appDescription: string, features: string[]): AppCategory {
   const haystack = `${appDescription} ${features.join(' ')}`.toLowerCase();
   if (/(money|budget|bank|expense|invoice|finance|invest)/.test(haystack)) return 'finance';
   if (/(workout|health|sleep|fitness|habit|wellness|meditation)/.test(haystack)) return 'health';
@@ -1256,8 +1318,6 @@ export function buildCopyPlanningSignals(
   }));
 }
 
-type ConceptId = 'concept-a' | 'concept-b' | 'concept-c' | 'concept-d' | 'concept-e';
-
 function cropRank(value: CropSuitability): number {
   if (value === 'high') return 2;
   if (value === 'medium') return 1;
@@ -1282,20 +1342,68 @@ function edgeDensityRank(analysis: ScreenshotAnalysis): number {
   return analysis.pixelMetrics?.edgeDensity ?? (analysis.density === 'dense' ? 0.16 : analysis.density === 'minimal' ? 0.05 : 0.1);
 }
 
-function heroScoreForConcept(analysis: ScreenshotAnalysis, conceptId: ConceptId): number {
+function categoryRoleBonus(
+  category: AppCategory,
+  stage: SequenceStage,
+  role: ScreenshotRole,
+  conceptId: ConceptId,
+): number {
+  let bonus = CATEGORY_ROLE_WEIGHTS[category][stage][role] ?? 0;
+
+  if (category === 'social' && stage === 'hero' && conceptId === 'concept-b' && role === 'communication') {
+    bonus += 30;
+  }
+  if (category === 'finance' && stage === 'hero' && conceptId === 'concept-a' && role === 'home') {
+    bonus += 8;
+  }
+  if (category === 'creative' && stage === 'hero' && conceptId === 'concept-a' && role === 'discovery') {
+    bonus += 10;
+  }
+  if (category === 'games' && stage === 'hero' && conceptId === 'concept-b' && role === 'detail') {
+    bonus += 8;
+  }
+
+  return bonus;
+}
+
+function heroScoreForConcept(
+  analysis: ScreenshotAnalysis,
+  conceptId: ConceptId,
+  category: AppCategory,
+): number {
+  const categoryBonus = categoryRoleBonus(category, 'hero', analysis.role, conceptId);
   switch (conceptId) {
     case 'concept-b':
-      return analysis.heroPriority + (cropRank(analysis.cropSuitability) * 12) + (focusStrengthRank(analysis) * 14) - (quietRank(analysis) * 2);
+      return analysis.heroPriority
+        + (cropRank(analysis.cropSuitability) * 12)
+        + (focusStrengthRank(analysis) * 14)
+        - (quietRank(analysis) * 2)
+        + categoryBonus;
     case 'concept-c':
-      return analysis.heroPriority + (quietRank(analysis) * 20) - (densityRank(analysis.density) * 8) + (analysis.unsafeForTextOverlay ? -10 : 6);
+      return analysis.heroPriority
+        + (quietRank(analysis) * 20)
+        - (densityRank(analysis.density) * 8)
+        + (analysis.unsafeForTextOverlay ? -10 : 6)
+        + categoryBonus;
     case 'concept-d':
-      return analysis.heroPriority + (cropRank(analysis.cropSuitability) * 16) + (edgeDensityRank(analysis) * 30) + (focusStrengthRank(analysis) * 10);
+      return analysis.heroPriority
+        + (cropRank(analysis.cropSuitability) * 16)
+        + (edgeDensityRank(analysis) * 30)
+        + (focusStrengthRank(analysis) * 10)
+        + categoryBonus;
     default:
-      return analysis.heroPriority + (quietRank(analysis) * 12) - (densityRank(analysis.density) * 4);
+      return analysis.heroPriority
+        + (quietRank(analysis) * 12)
+        - (densityRank(analysis.density) * 4)
+        + categoryBonus;
   }
 }
 
-function closingScoreForConcept(analysis: ScreenshotAnalysis, conceptId: ConceptId): number {
+function closingScoreForConcept(
+  analysis: ScreenshotAnalysis,
+  conceptId: ConceptId,
+  category: AppCategory,
+): number {
   const orderWeight = analysis.inferredOrder ?? 0;
   const roleBonus =
     analysis.role === 'settings' || analysis.role === 'paywall'
@@ -1303,48 +1411,88 @@ function closingScoreForConcept(analysis: ScreenshotAnalysis, conceptId: Concept
       : analysis.role === 'detail' || analysis.role === 'communication'
         ? 10
         : 0;
+  const categoryBonus = categoryRoleBonus(category, 'closing', analysis.role, conceptId);
 
   switch (conceptId) {
     case 'concept-b':
-      return roleBonus + (densityRank(analysis.density) * 10) + (analysis.unsafeForTextOverlay ? 8 : 0) + orderWeight;
+      return roleBonus
+        + (densityRank(analysis.density) * 10)
+        + (analysis.unsafeForTextOverlay ? 8 : 0)
+        + orderWeight
+        + categoryBonus;
     case 'concept-c':
-      return roleBonus + (quietRank(analysis) * 10) + ((100 - analysis.heroPriority) * 0.14) + orderWeight;
+      return roleBonus
+        + (quietRank(analysis) * 10)
+        + ((100 - analysis.heroPriority) * 0.14)
+        + orderWeight
+        + categoryBonus;
     case 'concept-d':
-      return roleBonus + (densityRank(analysis.density) * 12) + (cropRank(analysis.cropSuitability) * 6) + orderWeight;
+      return roleBonus
+        + (densityRank(analysis.density) * 12)
+        + (cropRank(analysis.cropSuitability) * 6)
+        + orderWeight
+        + categoryBonus;
     default:
-      return roleBonus + ((100 - analysis.heroPriority) * 0.18) + (analysis.unsafeForTextOverlay ? 8 : 0) + orderWeight;
+      return roleBonus
+        + ((100 - analysis.heroPriority) * 0.18)
+        + (analysis.unsafeForTextOverlay ? 8 : 0)
+        + orderWeight
+        + categoryBonus;
   }
 }
 
-function middleScoreForConcept(analysis: ScreenshotAnalysis, conceptId: ConceptId): number {
+function middleScoreForConcept(
+  analysis: ScreenshotAnalysis,
+  conceptId: ConceptId,
+  category: AppCategory,
+): number {
+  const categoryBonus = categoryRoleBonus(category, 'middle', analysis.role, conceptId);
   switch (conceptId) {
     case 'concept-b':
-      return (cropRank(analysis.cropSuitability) * 18) + (focusStrengthRank(analysis) * 16) + (edgeDensityRank(analysis) * 24) + (analysis.heroPriority * 0.12);
+      return (cropRank(analysis.cropSuitability) * 18)
+        + (focusStrengthRank(analysis) * 16)
+        + (edgeDensityRank(analysis) * 24)
+        + (analysis.heroPriority * 0.12)
+        + categoryBonus;
     case 'concept-c':
-      return (quietRank(analysis) * 10) + (cropRank(analysis.cropSuitability) * 8) + ((analysis.inferredOrder ?? 0) * 0.8) - (edgeDensityRank(analysis) * 8);
+      return (quietRank(analysis) * 10)
+        + (cropRank(analysis.cropSuitability) * 8)
+        + ((analysis.inferredOrder ?? 0) * 0.8)
+        - (edgeDensityRank(analysis) * 8)
+        + categoryBonus;
     case 'concept-d':
-      return (cropRank(analysis.cropSuitability) * 16) + (edgeDensityRank(analysis) * 28) + (densityRank(analysis.density) * 8) + (focusStrengthRank(analysis) * 12);
+      return (cropRank(analysis.cropSuitability) * 16)
+        + (edgeDensityRank(analysis) * 28)
+        + (densityRank(analysis.density) * 8)
+        + (focusStrengthRank(analysis) * 12)
+        + categoryBonus;
     default:
-      return ((analysis.inferredOrder ?? 0) * 2) + (quietRank(analysis) * 4) + (analysis.heroPriority * 0.08);
+      return ((analysis.inferredOrder ?? 0) * 2)
+        + (quietRank(analysis) * 4)
+        + (analysis.heroPriority * 0.08)
+        + categoryBonus;
   }
 }
 
 function arrangeScreensForConcept(
   selected: ScreenshotAnalysis[],
   conceptId: ConceptId,
+  category: AppCategory,
 ): ScreenshotAnalysis[] {
   const ordered = sortAnalysesByInferredOrder(selected);
   if (ordered.length <= 2) return ordered;
 
-  const hero = ordered.slice().sort((left, right) => heroScoreForConcept(right, conceptId) - heroScoreForConcept(left, conceptId))[0]!;
+  const hero = ordered
+    .slice()
+    .sort((left, right) => heroScoreForConcept(right, conceptId, category) - heroScoreForConcept(left, conceptId, category))[0]!;
   const remainingAfterHero = ordered.filter((analysis) => analysis.path !== hero.path);
   const closing = remainingAfterHero
     .slice()
-    .sort((left, right) => closingScoreForConcept(right, conceptId) - closingScoreForConcept(left, conceptId))[0]!;
+    .sort((left, right) => closingScoreForConcept(right, conceptId, category) - closingScoreForConcept(left, conceptId, category))[0]!;
   const middle = remainingAfterHero
     .filter((analysis) => analysis.path !== closing.path)
     .slice()
-    .sort((left, right) => middleScoreForConcept(right, conceptId) - middleScoreForConcept(left, conceptId));
+    .sort((left, right) => middleScoreForConcept(right, conceptId, category) - middleScoreForConcept(left, conceptId, category));
 
   const sequence = [hero, ...middle, closing];
   const matchesNaturalOrder = sequence.every((analysis, index) => analysis.path === ordered[index]?.path);
@@ -1360,6 +1508,7 @@ function supportingScreensForComposition(
   current: ScreenshotAnalysis,
   maxCount: number,
   conceptId: ConceptId,
+  category: AppCategory,
   usageCounts: Map<string, number>,
 ): string[] {
   return selected
@@ -1371,6 +1520,7 @@ function supportingScreensForComposition(
         const hero = analysis.heroPriority * 0.05;
         const repetitionPenalty = (usageCounts.get(analysis.path) ?? 0) * 12;
         const roleContrast = analysis.role === current.role ? -8 : 6;
+        const categoryBonus = categoryRoleBonus(category, 'support', analysis.role, conceptId);
         const orderDistance = Math.abs((analysis.inferredOrder ?? 0) - (current.inferredOrder ?? 0));
         const conceptBonus =
           conceptId === 'concept-b'
@@ -1378,7 +1528,7 @@ function supportingScreensForComposition(
             : conceptId === 'concept-a'
               ? (quietRank(analysis) * 8)
               : (cropRank(analysis.cropSuitability) * 6);
-        return crop + focus + hero + roleContrast + orderDistance + conceptBonus - repetitionPenalty;
+        return crop + focus + hero + roleContrast + orderDistance + conceptBonus + categoryBonus - repetitionPenalty;
       };
 
       return supportScore(right) - supportScore(left);
@@ -1423,6 +1573,7 @@ function buildIndividualImplementationNote(args: {
 }
 
 function buildScreenCopyDirection(args: {
+  category: AppCategory;
   conceptId: ConceptId;
   slideRole: string;
   analysis: ScreenshotAnalysis;
@@ -1482,14 +1633,38 @@ function buildScreenCopyDirection(args: {
     parts.push('Let the wording feel broader than a literal feature caption because multiple screenshots share the frame.');
   }
 
+  switch (args.category) {
+    case 'finance':
+      parts.push('Keep the tone calm, credible, and precise.');
+      break;
+    case 'health':
+      parts.push('Keep the tone encouraging and steady, not intense.');
+      break;
+    case 'productivity':
+      parts.push('Keep the tone decisive and practical.');
+      break;
+    case 'social':
+      parts.push('Make the line feel active, human, and social.');
+      break;
+    case 'creative':
+      parts.push('Make the line feel expressive and visual, not utilitarian.');
+      break;
+    case 'games':
+      parts.push('Let the line feel energetic and immersive.');
+      break;
+    default:
+      break;
+  }
+
   return parts.join(' ');
 }
 
 function buildIndividualVariantScreens(args: {
+  category: AppCategory;
   conceptId: 'concept-a' | 'concept-b';
   selected: ScreenshotAnalysis[];
 }): PlannedIndividualScreen[] {
-  const sequence = arrangeScreensForConcept(args.selected, args.conceptId);
+  const sequence = arrangeScreensForConcept(args.selected, args.conceptId, args.category);
   const supportUsage = new Map<string, number>();
 
   return sequence.map((analysis, index) => {
@@ -1504,6 +1679,7 @@ function buildIndividualVariantScreens(args: {
           analysis,
           maxSupportingScreens,
           args.conceptId,
+          args.category,
           supportUsage,
         )
       : [];
@@ -1540,6 +1716,7 @@ function buildIndividualVariantScreens(args: {
           ? index === 0 ? 'primary-tint' : 'consistent-light'
           : index === 0 ? 'high-contrast-hero' : 'contrast-rhythm',
       copyDirection: buildScreenCopyDirection({
+        category: args.category,
         conceptId: args.conceptId,
         slideRole,
         analysis,
@@ -1565,7 +1742,307 @@ function buildGoalLine(goals: string[]): string {
   return goals.join(', ');
 }
 
+function buildCategoryGoalLine(category: AppCategory, goals: string[]): string {
+  if (goals.length > 0) {
+    switch (category) {
+      case 'finance':
+        return `${goals.join(', ')} with trust-first proof and calm hierarchy.`;
+      case 'health':
+        return `${goals.join(', ')} with supportive pacing and steady progress cues.`;
+      case 'social':
+        return `${goals.join(', ')} with community energy and clear interaction moments.`;
+      case 'creative':
+        return `${goals.join(', ')} with expressive hierarchy and showcase detail.`;
+      case 'games':
+        return `${goals.join(', ')} with cinematic energy and feature payoff.`;
+      default:
+        return buildGoalLine(goals);
+    }
+  }
+
+  switch (category) {
+    case 'finance':
+      return 'Trust-first panoramic story with clear proof and calm decision-making.';
+    case 'health':
+      return 'Supportive panoramic story built around routine, progress, and consistency.';
+    case 'productivity':
+      return 'Focused panoramic story built around flow, clarity, and forward motion.';
+    case 'social':
+      return 'Connected social story with conversation, community energy, and readable beats.';
+    case 'creative':
+      return 'Expressive showcase story with stronger detail, atmosphere, and visual hierarchy.';
+    case 'games':
+      return 'Cinematic panoramic story with strong progression, energy, and payoff.';
+    default:
+      return 'Clear benefit-led messaging';
+  }
+}
+
+function defaultEditorialElements(): PanoramicRequiredElement[] {
+  return [
+    { type: 'text', purpose: 'asymmetric editorial headline blocks' },
+    { type: 'device', purpose: 'screen continuity across frame boundaries' },
+    { type: 'group', purpose: 'paired crop-and-card systems for supporting proof clusters' },
+    { type: 'logo', purpose: 'brand mark or subtle supporting asset' },
+  ];
+}
+
+function defaultBoldElements(): PanoramicRequiredElement[] {
+  return [
+    { type: 'text', purpose: 'benefit-led headlines' },
+    { type: 'badge', purpose: 'campaign callout or featured-state badge' },
+    { type: 'proof-chip', purpose: 'ratings or trust proof chip' },
+    { type: 'device', purpose: 'hero and supporting product shots' },
+    { type: 'group', purpose: 'floating grouped crop-and-card clusters for momentum and proof' },
+    { type: 'logo', purpose: 'brand lockup or supporting graphic asset' },
+    { type: 'decoration', purpose: 'motion and depth' },
+  ];
+}
+
+function buildCategoryConceptSpecs(
+  category: AppCategory,
+  goals: string[],
+): Record<ConceptId, CategoryConceptSpec> {
+  const specs: Record<ConceptId, CategoryConceptSpec> = {
+    'concept-a': {
+      name: 'Clean Hero',
+      style: 'minimal',
+      recipe: 'clean-hero',
+      strategy:
+        'Use the clearest hero candidate first, keep layouts centered, and optimize for App Store thumbnail readability.',
+    },
+    'concept-b': {
+      name: 'Dynamic Individual',
+      style: 'bold',
+      recipe: 'layered-momentum',
+      strategy:
+        'Use stronger contrast, bolder pacing, and frameless rounded screenshots where they read cleaner than hardware frames.',
+    },
+    'concept-c': {
+      name: 'Editorial Panorama',
+      style: 'editorial',
+      recipe: 'editorial-panorama',
+      strategy:
+        'Build a connected editorial story with stronger whitespace, fewer elements, and slower pacing across frames.',
+      designGoal: 'Premium, connected sequence with strong hierarchy and intentional whitespace.',
+      requiredElements: defaultEditorialElements(),
+    },
+    'concept-d': {
+      name: 'Bold Panorama',
+      style: 'branded',
+      recipe: 'bold-panorama',
+      strategy:
+        'Use stronger brand color, bigger transitions, and more cinematic rhythm across the panoramic strip.',
+      designGoal: buildCategoryGoalLine(category, goals),
+      requiredElements: defaultBoldElements(),
+    },
+    'concept-e': {
+      name: 'Brand Poster',
+      style: 'branded',
+      recipe: 'brand-poster',
+      strategy:
+        'Poster-like concept centered on strong brand color, badge/image assets, and direct outcome copy.',
+      designGoal: 'Poster-like brand-led sequence with strong color blocking.',
+      requiredElements: [
+        { type: 'text', purpose: 'benefit headline' },
+        { type: 'badge', purpose: 'proof or ratings-style badge' },
+        { type: 'proof-chip', purpose: 'compact trust marker or rating chip' },
+        { type: 'device', purpose: 'product proof' },
+        { type: 'logo', purpose: 'brand lockup or ratings proof' },
+      ],
+    },
+  };
+
+  switch (category) {
+    case 'finance':
+      specs['concept-a'] = {
+        name: 'Trust Hero',
+        style: 'clean',
+        recipe: 'trust-led-hero',
+        strategy:
+          'Lead with the clearest trust-building screen, favor calm framing, and keep the hierarchy precise rather than hype-driven.',
+      };
+      specs['concept-b'] = {
+        name: 'Proof Motion',
+        style: 'minimal',
+        recipe: 'proof-led-momentum',
+        strategy:
+          'Use detail-heavy proof screens, measured contrast, and supporting crops to show confident money control.',
+      };
+      specs['concept-c'] = {
+        ...specs['concept-c'],
+        name: 'Editorial Confidence',
+        strategy:
+          'Build a premium, trust-led narrative with reporting proof, clean spacing, and a steadier editorial pace.',
+        designGoal: 'Premium finance story with calm hierarchy, clear balances, and credible proof moments.',
+        requiredElements: [
+          { type: 'text', purpose: 'calm, trust-first headline blocks' },
+          { type: 'device', purpose: 'clear product proof across the strip' },
+          { type: 'group', purpose: 'paired crop-and-card systems for proof and detail clusters' },
+          { type: 'logo', purpose: 'brand seal or supporting lockup' },
+        ],
+      };
+      specs['concept-d'] = {
+        ...specs['concept-d'],
+        name: 'Proof Panorama',
+        strategy:
+          'Use stronger proof moments, richer contrast, and a confident close while keeping the overall feel credible and controlled.',
+        designGoal: buildCategoryGoalLine(category, goals),
+      };
+      break;
+    case 'health':
+      specs['concept-a'] = {
+        name: 'Calm Hero',
+        style: 'minimal',
+        recipe: 'calm-hero',
+        strategy:
+          'Lead with the cleanest routine or progress screen and keep the layout supportive, calm, and easy to scan.',
+      };
+      specs['concept-b'] = {
+        name: 'Routine Momentum',
+        style: 'playful',
+        recipe: 'routine-momentum',
+        strategy:
+          'Use gentle movement, supportive contrast, and rounded screenshot groupings to make progress feel approachable.',
+      };
+      specs['concept-c'] = {
+        ...specs['concept-c'],
+        name: 'Wellness Panorama',
+        strategy:
+          'Build a slower, supportive story around routine, progress, and gentle proof instead of raw feature density.',
+        designGoal: 'Supportive wellness story with routine cues, progress proof, and generous whitespace.',
+      };
+      specs['concept-d'] = {
+        ...specs['concept-d'],
+        name: 'Progress Panorama',
+        strategy:
+          'Treat the strip like a momentum arc, using stronger color and pacing while keeping the tone steady and encouraging.',
+        designGoal: buildCategoryGoalLine(category, goals),
+      };
+      break;
+    case 'productivity':
+      specs['concept-a'] = {
+        name: 'Workflow Hero',
+        style: 'minimal',
+        recipe: 'workflow-hero',
+        strategy:
+          'Lead with the clearest workflow or overview screen and keep the message decisive, practical, and easy to scan.',
+      };
+      specs['concept-b'] = {
+        name: 'Focused Momentum',
+        style: 'bold',
+        recipe: 'focused-momentum',
+        strategy:
+          'Use stronger contrast and faster pacing to sell progress, control, and repeatable workflow moments.',
+      };
+      specs['concept-d'] = {
+        ...specs['concept-d'],
+        designGoal: buildCategoryGoalLine(category, goals),
+      };
+      break;
+    case 'social':
+      specs['concept-a'] = {
+        name: 'Connection Hero',
+        style: 'playful',
+        recipe: 'connection-hero',
+        strategy:
+          'Lead with the most social or active screen, keep the hierarchy punchy, and make the concept feel human rather than utility-led.',
+      };
+      specs['concept-b'] = {
+        name: 'Community Momentum',
+        style: 'bold',
+        recipe: 'community-momentum',
+        strategy:
+          'Use chat, feed, and discovery moments with faster pacing, contrast, and supporting screenshots to emphasize activity.',
+      };
+      specs['concept-c'] = {
+        ...specs['concept-c'],
+        name: 'Conversation Panorama',
+        strategy:
+          'Thread conversation, feed, and response moments into one connected social story with readable editorial pacing.',
+        designGoal: 'Connected social story with conversation, community energy, and readable hierarchy.',
+      };
+      specs['concept-d'] = {
+        ...specs['concept-d'],
+        name: 'Launch Panorama',
+        strategy:
+          'Treat the strip like a campaign for activity and response, with higher-energy transitions and stronger community proof.',
+        designGoal: buildCategoryGoalLine(category, goals),
+      };
+      break;
+    case 'creative':
+      specs['concept-a'] = {
+        name: 'Showcase Hero',
+        style: 'editorial',
+        recipe: 'showcase-hero',
+        strategy:
+          'Lead with the most visual screen and let the hierarchy feel showcase-led, spacious, and brand-conscious.',
+      };
+      specs['concept-b'] = {
+        name: 'Studio Momentum',
+        style: 'glow',
+        recipe: 'studio-montage',
+        strategy:
+          'Use richer contrast, layered screenshots, and more visual rhythm so the concept feels expressive instead of utilitarian.',
+      };
+      specs['concept-c'] = {
+        ...specs['concept-c'],
+        name: 'Gallery Panorama',
+        strategy:
+          'Build an expressive editorial strip that treats screenshots like a visual gallery with supporting crop stories.',
+        designGoal: 'Expressive showcase story with stronger detail, atmosphere, and visual hierarchy.',
+      };
+      specs['concept-d'] = {
+        ...specs['concept-d'],
+        name: 'Portfolio Panorama',
+        strategy:
+          'Use stronger contrast, campaign pacing, and visual payoff so the strip feels like a polished launch story.',
+        designGoal: buildCategoryGoalLine(category, goals),
+      };
+      break;
+    case 'games':
+      specs['concept-a'] = {
+        name: 'Gameplay Hero',
+        style: 'glow',
+        recipe: 'gameplay-hero',
+        strategy:
+          'Lead with the strongest moment of gameplay or progression and give the opening concept more energy and immediate payoff.',
+      };
+      specs['concept-b'] = {
+        name: 'Action Montage',
+        style: 'bold',
+        recipe: 'action-montage',
+        strategy:
+          'Use stronger motion, contrast, and layered screenshot groupings so the concept feels active and cinematic.',
+      };
+      specs['concept-c'] = {
+        ...specs['concept-c'],
+        name: 'World Panorama',
+        strategy:
+          'Build a connected world-and-progression story with moodier whitespace and clearer payoff beats across frames.',
+        designGoal: 'Cinematic panoramic story with strong progression, atmosphere, and reward moments.',
+      };
+      specs['concept-d'] = {
+        ...specs['concept-d'],
+        name: 'Cinematic Panorama',
+        strategy:
+          'Push transitions, contrast, and proof moments harder so the strip reads like a launch campaign for the game.',
+        designGoal: buildCategoryGoalLine(category, goals),
+      };
+      break;
+    default:
+      specs['concept-d'] = {
+        ...specs['concept-d'],
+        designGoal: buildCategoryGoalLine(category, goals),
+      };
+      break;
+  }
+
+  return specs;
+}
+
 function buildPanoramicCompositionFeatures(args: {
+  category: AppCategory;
   recipe: 'editorial-panorama' | 'bold-panorama';
   analysis: ScreenshotAnalysis;
   storyBeat: string;
@@ -1588,6 +2065,13 @@ function buildPanoramicCompositionFeatures(args: {
 
   if (args.storyBeat === 'trust' || args.storyBeat === 'summary') {
     features.push('proof-stack');
+  }
+
+  if (args.category === 'finance' && (args.storyBeat === 'hero' || args.storyBeat === 'differentiator')) {
+    features.push('proof-stack');
+  }
+  if (args.category === 'social' && args.storyBeat === 'hero') {
+    features.push('decorative-cluster');
   }
 
   return features;
@@ -1634,21 +2118,28 @@ function buildPanoramicCompositionNote(args: {
 
 function buildVariantEntries(
   selected: ScreenshotAnalysis[],
+  category: AppCategory,
   goals: string[],
   variantCount: number,
 ): PlannedVariant[] {
   const variants: PlannedVariant[] = [];
+  const conceptSpecs = buildCategoryConceptSpecs(category, goals);
+  const conceptA = conceptSpecs['concept-a'];
+  const conceptB = conceptSpecs['concept-b'];
+  const conceptC = conceptSpecs['concept-c'];
+  const conceptD = conceptSpecs['concept-d'];
+  const conceptE = conceptSpecs['concept-e'];
 
   variants.push({
     id: 'concept-a',
-    name: 'Clean Hero',
+    name: conceptA.name,
     currentCapabilityFit: 'supported_now',
     mode: 'individual',
-    style: 'minimal',
-    recipe: 'clean-hero',
-    strategy:
-      'Use the clearest hero candidate first, keep layouts centered, and optimize for App Store thumbnail readability.',
+    style: conceptA.style,
+    recipe: conceptA.recipe,
+    strategy: conceptA.strategy,
     screens: buildIndividualVariantScreens({
+      category,
       conceptId: 'concept-a',
       selected,
     }),
@@ -1657,14 +2148,14 @@ function buildVariantEntries(
   if (variantCount >= 2) {
     variants.push({
       id: 'concept-b',
-      name: 'Dynamic Individual',
+      name: conceptB.name,
       currentCapabilityFit: 'supported_now',
       mode: 'individual',
-      style: 'bold',
-      recipe: 'layered-momentum',
-      strategy:
-        'Use stronger contrast, bolder pacing, and frameless rounded screenshots where they read cleaner than hardware frames.',
+      style: conceptB.style,
+      recipe: conceptB.recipe,
+      strategy: conceptB.strategy,
       screens: buildIndividualVariantScreens({
+        category,
         conceptId: 'concept-b',
         selected,
       }),
@@ -1672,29 +2163,24 @@ function buildVariantEntries(
   }
 
   if (variantCount >= 3) {
-    const editorialSequence = arrangeScreensForConcept(selected, 'concept-c');
+    const editorialSequence = arrangeScreensForConcept(selected, 'concept-c', category);
     variants.push({
       id: 'concept-c',
-      name: 'Editorial Panorama',
+      name: conceptC.name,
       currentCapabilityFit: 'supported_now',
       mode: 'panoramic',
-      style: 'editorial',
-      recipe: 'editorial-panorama',
-      strategy:
-        'Build a connected editorial story with stronger whitespace, fewer elements, and slower pacing across frames.',
+      style: conceptC.style,
+      recipe: conceptC.recipe,
+      strategy: conceptC.strategy,
       canvasPlan: {
         frameCount: Math.max(4, selected.length),
-        designGoal: 'Premium, connected sequence with strong hierarchy and intentional whitespace.',
-        requiredElements: [
-          { type: 'text', purpose: 'asymmetric editorial headline blocks' },
-          { type: 'device', purpose: 'screen continuity across frame boundaries' },
-          { type: 'group', purpose: 'paired crop-and-card systems for supporting proof clusters' },
-          { type: 'logo', purpose: 'brand mark or subtle supporting asset' },
-        ],
+        designGoal: conceptC.designGoal ?? 'Premium, connected sequence with strong hierarchy and intentional whitespace.',
+        requiredElements: conceptC.requiredElements ?? defaultEditorialElements(),
       },
       frames: editorialSequence.map((analysis, index) => {
         const storyBeat = buildSlideRole(index, editorialSequence.length);
         const compositionFeatures = buildPanoramicCompositionFeatures({
+          category,
           recipe: 'editorial-panorama',
           analysis,
           storyBeat,
@@ -1728,32 +2214,24 @@ function buildVariantEntries(
   }
 
   if (variantCount >= 4) {
-    const boldSequence = arrangeScreensForConcept(selected, 'concept-d');
+    const boldSequence = arrangeScreensForConcept(selected, 'concept-d', category);
     variants.push({
       id: 'concept-d',
-      name: 'Bold Panorama',
+      name: conceptD.name,
       currentCapabilityFit: 'supported_now',
       mode: 'panoramic',
-      style: 'branded',
-      recipe: 'bold-panorama',
-      strategy:
-        'Use stronger brand color, bigger transitions, and more cinematic rhythm across the panoramic strip.',
+      style: conceptD.style,
+      recipe: conceptD.recipe,
+      strategy: conceptD.strategy,
       canvasPlan: {
         frameCount: Math.max(4, selected.length),
-        designGoal: buildGoalLine(goals),
-        requiredElements: [
-          { type: 'text', purpose: 'benefit-led headlines' },
-          { type: 'badge', purpose: 'campaign callout or featured-state badge' },
-          { type: 'proof-chip', purpose: 'ratings or trust proof chip' },
-          { type: 'device', purpose: 'hero and supporting product shots' },
-          { type: 'group', purpose: 'floating grouped crop-and-card clusters for momentum and proof' },
-          { type: 'logo', purpose: 'brand lockup or supporting graphic asset' },
-          { type: 'decoration', purpose: 'motion and depth' },
-        ],
+        designGoal: conceptD.designGoal ?? buildGoalLine(goals),
+        requiredElements: conceptD.requiredElements ?? defaultBoldElements(),
       },
       frames: boldSequence.map((analysis, index) => {
         const storyBeat = buildSlideRole(index, boldSequence.length);
         const compositionFeatures = buildPanoramicCompositionFeatures({
+          category,
           recipe: 'bold-panorama',
           analysis,
           storyBeat,
@@ -1787,23 +2265,16 @@ function buildVariantEntries(
   if (variantCount >= 5) {
     variants.push({
       id: 'concept-e',
-      name: 'Brand Poster',
+      name: conceptE.name,
       currentCapabilityFit: 'partially_supported',
       mode: 'panoramic',
-      style: 'branded',
-      recipe: 'brand-poster',
-      strategy:
-        'Poster-like concept centered on strong brand color, badge/image assets, and direct outcome copy.',
+      style: conceptE.style,
+      recipe: conceptE.recipe,
+      strategy: conceptE.strategy,
       canvasPlan: {
         frameCount: Math.max(3, selected.length),
-        designGoal: 'Poster-like brand-led sequence with strong color blocking.',
-        requiredElements: [
-          { type: 'text', purpose: 'benefit headline' },
-          { type: 'badge', purpose: 'proof or ratings-style badge' },
-          { type: 'proof-chip', purpose: 'compact trust marker or rating chip' },
-          { type: 'device', purpose: 'product proof' },
-          { type: 'logo', purpose: 'brand lockup or ratings proof' },
-        ],
+        designGoal: conceptE.designGoal ?? 'Poster-like brand-led sequence with strong color blocking.',
+        requiredElements: conceptE.requiredElements ?? [],
       },
     });
   }
@@ -1861,6 +2332,6 @@ export async function buildVariantSetPlan(args: {
       focus: analysis.focus,
       unsafeForTextOverlay: analysis.unsafeForTextOverlay,
     })),
-    variants: buildVariantEntries(selected, goals, args.variantCount ?? 4),
+    variants: buildVariantEntries(selected, category, goals, args.variantCount ?? 4),
   };
 }

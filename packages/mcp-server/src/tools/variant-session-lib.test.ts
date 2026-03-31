@@ -2,6 +2,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { VariantSetPlan } from './design-planning.js';
 
 vi.mock('@appframe/core', () => ({
   loadConfig: vi.fn(async (configPath: string) => ({
@@ -112,7 +113,7 @@ describe('createSessionFromManifest', () => {
       },
     };
 
-    const conceptPlan = {
+    const conceptPlan: VariantSetPlan = {
       app: {
         name: 'FocusFlow',
         description: 'Stay on top of your routine',

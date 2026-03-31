@@ -255,4 +255,92 @@ describe('design planning helpers', () => {
       expect(plan.variants[3].frames?.some((frame) => frame.compositionFeatures?.includes('proof-stack'))).toBe(true);
     }
   });
+
+  it('selects finance-specific concept recipes and planning tone', async () => {
+    const homePath = await makeSvgFile('home-dashboard.svg', 1290, 2796);
+    const detailPath = await makeSvgFile('weekly-report.svg', 1290, 2796);
+    const settingsPath = await makeSvgFile('settings-screen.svg', 1290, 2796);
+
+    const plan = await buildVariantSetPlan({
+      appName: 'Ledgerly',
+      appDescription: 'A personal finance app for budgets, spending, and money reports.',
+      platforms: ['ios'],
+      features: ['Budget tracking', 'Cash flow reports', 'Spending alerts'],
+      screenshots: [
+        { path: homePath, note: 'Main money dashboard' },
+        { path: detailPath, note: 'Weekly spending report' },
+        { path: settingsPath, note: 'Security settings' },
+      ],
+      goals: ['Build trust', 'Show clarity'],
+      variantCount: 4,
+      screenCount: 3,
+    });
+
+    expect(plan.app.category).toBe('finance');
+    expect(plan.variants[0]).toMatchObject({
+      id: 'concept-a',
+      name: 'Trust Hero',
+      style: 'clean',
+      recipe: 'trust-led-hero',
+    });
+    expect(plan.variants[3]).toMatchObject({
+      id: 'concept-d',
+      name: 'Proof Panorama',
+      recipe: 'bold-panorama',
+    });
+    if (plan.variants[0]?.mode === 'individual') {
+      expect(plan.variants[0].screens[0]?.sourceRole).toBe('home');
+      expect(plan.variants[0].screens[0]?.copyDirection).toContain('calm, credible, and precise');
+    }
+    if (plan.variants[2]?.mode === 'panoramic') {
+      expect(plan.variants[2].name).toBe('Editorial Confidence');
+      expect(plan.variants[2].canvasPlan.designGoal).toContain('finance');
+      expect(plan.variants[2].canvasPlan.requiredElements.some((element) => /proof/i.test(element.purpose))).toBe(true);
+    }
+  });
+
+  it('uses social category weighting to favor communication-led dynamic concepts', async () => {
+    const homePath = await makeSvgFile('home-feed.svg', 1290, 2796);
+    const chatPath = await makeSvgFile('chat-inbox.svg', 1290, 2796);
+    const discoveryPath = await makeSvgFile('discover-creators.svg', 1290, 2796);
+    const settingsPath = await makeSvgFile('settings-screen.svg', 1290, 2796);
+
+    const plan = await buildVariantSetPlan({
+      appName: 'Pulse',
+      appDescription: 'A social app for chat, creator communities, and shared moments.',
+      platforms: ['ios'],
+      features: ['Group chat', 'Creator feeds', 'Shared posts'],
+      screenshots: [
+        { path: homePath, note: 'Community home feed' },
+        { path: chatPath, note: 'Chat inbox' },
+        { path: discoveryPath, note: 'Discover creators' },
+        { path: settingsPath, note: 'Profile settings' },
+      ],
+      goals: ['Feel active', 'Show community'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    expect(plan.app.category).toBe('social');
+    expect(plan.variants[0]).toMatchObject({
+      id: 'concept-a',
+      name: 'Connection Hero',
+      recipe: 'connection-hero',
+    });
+    expect(plan.variants[1]).toMatchObject({
+      id: 'concept-b',
+      name: 'Community Momentum',
+      recipe: 'community-momentum',
+    });
+    if (plan.variants[1]?.mode === 'individual') {
+      const socialRoles = plan.variants[1].screens.map((screen) => screen.sourceRole);
+      expect(socialRoles).toContain('communication');
+      expect(plan.variants[1].screens[0]?.sourceRole).toBe('communication');
+      expect(plan.variants[1].screens.some((screen) => screen.copyDirection.includes('active, human, and social'))).toBe(true);
+    }
+    if (plan.variants[2]?.mode === 'panoramic') {
+      expect(plan.variants[2].name).toBe('Conversation Panorama');
+      expect(plan.variants[2].canvasPlan.designGoal).toContain('community energy');
+    }
+  });
 });

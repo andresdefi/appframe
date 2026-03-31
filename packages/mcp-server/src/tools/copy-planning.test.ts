@@ -87,4 +87,125 @@ describe('copy planning helpers', () => {
     const selected = selectCopySet(candidateSet);
     expect(selected.hero.headline.replace(/\n/g, ' ')).not.toMatch(/upgrade to pro/i);
   });
+
+  it('keeps the final selected copy set from collapsing onto repeated headlines', () => {
+    const selected = selectCopySet({
+      appName: 'Ledgerly',
+      category: 'finance',
+      generatedAt: new Date().toISOString(),
+      rules: [],
+      narrative: [],
+      slots: [
+        {
+          slot: 'hero',
+          candidates: [
+            {
+              id: 'hero-1',
+              slot: 'hero',
+              headline: 'Clear money\ndaily',
+              wordCount: 3,
+              score: 92,
+              rationale: [],
+              issues: [],
+            },
+          ],
+        },
+        {
+          slot: 'differentiator',
+          candidates: [
+            {
+              id: 'diff-1',
+              slot: 'differentiator',
+              headline: 'Clear budget\ndaily',
+              wordCount: 3,
+              score: 90,
+              rationale: [],
+              issues: [],
+            },
+            {
+              id: 'diff-2',
+              slot: 'differentiator',
+              headline: 'Budgets with\ncontext',
+              wordCount: 3,
+              score: 84,
+              rationale: [],
+              issues: [],
+            },
+          ],
+        },
+        {
+          slot: 'feature',
+          sourceFeature: 'Budget tracking',
+          candidates: [
+            {
+              id: 'feature-1',
+              slot: 'feature',
+              headline: 'Track every\nbudget',
+              sourceFeature: 'Budget tracking',
+              wordCount: 3,
+              score: 86,
+              rationale: [],
+              issues: [],
+            },
+          ],
+        },
+        {
+          slot: 'trust',
+          candidates: [
+            {
+              id: 'trust-1',
+              slot: 'trust',
+              headline: 'Built for\ndaily trust',
+              wordCount: 4,
+              score: 83,
+              rationale: [],
+              issues: [],
+            },
+          ],
+        },
+        {
+          slot: 'summary',
+          candidates: [
+            {
+              id: 'summary-1',
+              slot: 'summary',
+              headline: 'Clear money\ndaily',
+              wordCount: 3,
+              score: 91,
+              rationale: [],
+              issues: [],
+            },
+            {
+              id: 'summary-2',
+              slot: 'summary',
+              headline: 'Money moves\nwith clarity',
+              wordCount: 4,
+              score: 84,
+              rationale: [],
+              issues: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(selected.differentiator.headline).toBe('Budgets with\ncontext');
+    expect(selected.summary.headline).toBe('Money moves\nwith clarity');
+  });
+
+  it('adds category-specific finance hero phrasing to the candidate pool', () => {
+    const candidateSet = generateCopyCandidates({
+      appName: 'Ledgerly',
+      appDescription: 'Budgeting and cash flow tracking for everyday money decisions.',
+      category: 'finance',
+      features: ['Budget tracking', 'Cash flow reports', 'Spending alerts'],
+      screenshotCount: 4,
+    });
+
+    const heroHeadlines = candidateSet.slots
+      .find((slot) => slot.slot === 'hero')
+      ?.candidates.map((candidate) => candidate.headline.replace(/\n/g, ' ')) ?? [];
+
+    expect(heroHeadlines).toContain('See your money clearly');
+  });
 });

@@ -82,6 +82,23 @@ function formatCompositionFeature(feature: string): string {
   }
 }
 
+function formatSlugLabel(value: string): string {
+  return value.replace(/-/g, ' ');
+}
+
+function formatFrameTreatment(value: string): string {
+  switch (value) {
+    case 'framed':
+      return 'Framed';
+    case 'frameless':
+      return 'Frameless';
+    case 'mixed':
+      return 'Mixed';
+    default:
+      return formatSlugLabel(value);
+  }
+}
+
 function summarizePanoramicComposition(snapshot: VariantSnapshot): string[] {
   if (!snapshot.isPanoramic) return [];
 
@@ -672,6 +689,16 @@ export function VariantsTab() {
                           <div className="mt-1 text-[10px] text-text-dim">
                             Hero {entry.heroPriority}/100 · {entry.focus}
                           </div>
+                          {entry.embeddedTextSample?.length ? (
+                            <div className="mt-1 text-[10px] text-text-dim">
+                              OCR: {entry.embeddedTextSample.join(' · ')}
+                            </div>
+                          ) : null}
+                          {entry.textOccupiedRegions?.length ? (
+                            <div className="mt-1 text-[10px] text-text-dim">
+                              Occupied: {entry.textOccupiedRegions.map(formatSlugLabel).join(' · ')}
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                   </div>
@@ -712,6 +739,61 @@ export function VariantsTab() {
                     <div className="mt-1">{activePlanVariant.strategy}</div>
                   </div>
 
+                  {activePlanVariant.frameStrategy && (
+                    <div className="rounded-md border border-border bg-surface px-2.5 py-2">
+                      <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
+                        Frame Strategy
+                      </div>
+                      <div className="mt-1 text-text">
+                        {formatFrameTreatment(activePlanVariant.frameStrategy.defaultTreatment)}
+                      </div>
+                      <div className="mt-1">{activePlanVariant.frameStrategy.rationale}</div>
+                      {activePlanVariant.frameStrategy.framelessAllowedWhen.length ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {activePlanVariant.frameStrategy.framelessAllowedWhen.map((rule) => (
+                            <span
+                              key={`${activePlanVariant.id}-${rule}`}
+                              className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim"
+                            >
+                              {rule}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {activePlanVariant.screens?.length ? (
+                    <div className="space-y-2">
+                      {activePlanVariant.screens.map((screen) => (
+                        <div
+                          key={`${activePlanVariant.id}-screen-${screen.index}`}
+                          className="rounded-md border border-border bg-surface px-2.5 py-2"
+                        >
+                          <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
+                            Screen {screen.index} · {screen.slideRole} · {screen.sourceRole}
+                          </div>
+                          <div className="mt-1 text-[10px] text-text-dim">
+                            {basenameLabel(screen.sourcePath)} · {formatSlugLabel(screen.composition)} · {formatSlugLabel(screen.layout)}
+                          </div>
+                          <div className="mt-2 text-[11px] text-text">{screen.copyDirection}</div>
+                          {screen.cropPlan && (
+                            <div className="mt-2 rounded-md border border-border bg-bg/60 px-2 py-2 text-[10px] text-text-dim">
+                              Crop {formatSlugLabel(screen.cropPlan.usage)} · anchor {formatSlugLabel(screen.cropPlan.anchor)}
+                              {screen.cropPlan.avoidRegions.length
+                                ? ` · avoid ${screen.cropPlan.avoidRegions.map(formatSlugLabel).join(', ')}`
+                                : ''}
+                              <div className="mt-1">{screen.cropPlan.rationale}</div>
+                            </div>
+                          )}
+                          {screen.implementationNote && (
+                            <div className="mt-2 text-[10px] text-text-dim">{screen.implementationNote}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
                   {activePlanVariant.canvasPlan && (
                     <div className="rounded-md border border-border bg-surface px-2.5 py-2">
                       <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
@@ -744,6 +826,15 @@ export function VariantsTab() {
                           <div className="mt-1 text-[10px] text-text-dim">
                             {basenameLabel(frame.sourcePath)} · crop {frame.cropSuitability}
                           </div>
+                          {frame.cropPlan && (
+                            <div className="mt-2 rounded-md border border-border bg-bg/60 px-2 py-2 text-[10px] text-text-dim">
+                              Crop {formatSlugLabel(frame.cropPlan.usage)} · anchor {formatSlugLabel(frame.cropPlan.anchor)}
+                              {frame.cropPlan.avoidRegions.length
+                                ? ` · avoid ${frame.cropPlan.avoidRegions.map(formatSlugLabel).join(', ')}`
+                                : ''}
+                              <div className="mt-1">{frame.cropPlan.rationale}</div>
+                            </div>
+                          )}
                           {frame.compositionFeatures?.length ? (
                             <div className="mt-2 flex flex-wrap gap-1">
                               {frame.compositionFeatures.map((feature) => (

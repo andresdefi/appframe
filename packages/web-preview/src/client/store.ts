@@ -266,6 +266,23 @@ export interface AutopilotPlanVariant {
     framelessAllowedWhen: string[];
     rationale: string;
   };
+  screens?: Array<{
+    index: number;
+    sourcePath: string;
+    sourceRole: string;
+    slideRole: string;
+    layout: string;
+    composition: string;
+    backgroundStrategy: string;
+    copyDirection: string;
+    cropPlan?: {
+      usage: string;
+      anchor: string;
+      avoidRegions: string[];
+      rationale: string;
+    };
+    implementationNote?: string;
+  }>;
   canvasPlan?: {
     frameCount: number;
     designGoal: string;

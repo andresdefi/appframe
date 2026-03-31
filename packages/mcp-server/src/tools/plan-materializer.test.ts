@@ -6,6 +6,7 @@ import { deflateSync } from 'node:zlib';
 import { parse } from 'yaml';
 import { validateConfig } from '@appframe/core';
 import { buildVariantSetPlan } from './design-planning.js';
+import type { VariantSetPlan } from './design-planning.js';
 import { materializeVariantPlan } from './plan-materializer.js';
 
 const tempDirs: string[] = [];
@@ -157,7 +158,7 @@ describe('plan materializer', () => {
       if (variant.id === 'concept-b') {
         expect(parsed.screens.some((screen: { composition?: string }) => screen.composition && screen.composition !== 'single')).toBe(true);
         expect(parsed.screens.some((screen: { extraDevices?: unknown[] }) => (screen.extraDevices?.length ?? 0) > 0)).toBe(true);
-        expect(parsed.screens.some((screen: { loupe?: unknown }) => Boolean(screen.loupe))).toBe(true);
+        expect(parsed.screens.some((screen: { cornerRadius?: number }) => (screen.cornerRadius ?? 0) > 0)).toBe(true);
         expect(parsed.screens.some((screen: { overlays?: unknown[] }) => (screen.overlays?.length ?? 0) > 0)).toBe(true);
       }
       if (variant.id === 'concept-c' || variant.id === 'concept-d') {
@@ -186,5 +187,207 @@ describe('plan materializer', () => {
       variants: Array<{ id: string; configPath: string }>;
     };
     expect(manifest.variants).toHaveLength(3);
+  });
+
+  it('materializes crop and frame guidance into the generated configs', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-guidance-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-guidance-output-');
+
+    const homePath = await makePngFile(assetsDir, 'money-home.png', 120, 200, (x, y) => {
+      if (y < 44) return [248, 250, 252, 255];
+      if (x > 20 && x < 98 && y > 60 && y < 176) return [37, 99, 235, 255];
+      return [226, 232, 240, 255];
+    });
+    const detailPath = await makePngFile(assetsDir, 'money-detail.png', 120, 200, (x, y) => {
+      if (x > 18 && x < 104 && y > 58 && y < 170) return [16, 185, 129, 255];
+      return [241, 245, 249, 255];
+    });
+
+    const plan: VariantSetPlan = {
+      app: {
+        name: 'Ledgerly',
+        description: 'Budgeting and cash flow tracking for everyday money decisions.',
+        category: 'finance',
+        platforms: ['ios'],
+      },
+      goals: ['Build trust'],
+      analysisSummary: {
+        screenshotCount: 2,
+        selectedCount: 2,
+        roles: { home: 1, detail: 1 },
+        topHeroCandidate: homePath,
+        topHeroExplanation: ['Strong overview screen'],
+      },
+      selectedScreens: [
+        {
+          path: homePath,
+          role: 'home',
+          heroPriority: 92,
+          inferredOrder: 1,
+          focus: 'Money overview',
+          unsafeForTextOverlay: true,
+          embeddedTextSample: ['Upgrade to Pro'],
+          textOccupiedRegions: ['top'],
+        },
+        {
+          path: detailPath,
+          role: 'detail',
+          heroPriority: 76,
+          inferredOrder: 2,
+          focus: 'Budget detail',
+          unsafeForTextOverlay: false,
+          embeddedTextSample: ['Spending report'],
+          textOccupiedRegions: ['left'],
+        },
+      ],
+      variants: [
+        {
+          id: 'concept-b',
+          name: 'Dynamic Ledger',
+          currentCapabilityFit: 'supported_now',
+          mode: 'individual',
+          style: 'clean',
+          recipe: 'dynamic-individual',
+          strategy: 'Mix anchored devices with cropped support moments.',
+          frameStrategy: {
+            defaultTreatment: 'mixed',
+            framelessAllowedWhen: ['Supporting crops can go frameless.'],
+            rationale: 'Keep anchors framed and loosen crop-led support screens.',
+          },
+          screens: [
+            {
+              index: 1,
+              sourcePath: homePath,
+              sourceRole: 'home',
+              slideRole: 'hero',
+              layout: 'center',
+              composition: 'single',
+              backgroundStrategy: 'primary-tint',
+              copyDirection: 'Lead with clarity',
+              cropPlan: {
+                usage: 'loupe-detail',
+                anchor: 'lower-half',
+                avoidRegions: ['top'],
+                rationale: 'Bias the detail lower and keep copy away from the top UI.',
+              },
+              framing: 'framed',
+              dominantPalette: ['#F8FAFC'],
+            },
+            {
+              index: 2,
+              sourcePath: detailPath,
+              sourceRole: 'detail',
+              slideRole: 'feature',
+              layout: 'center',
+              composition: 'duo-split',
+              extraScreenshots: [homePath],
+              backgroundStrategy: 'contrast-rhythm',
+              copyDirection: 'Prove the detailed reporting flow',
+              cropPlan: {
+                usage: 'supporting-crop',
+                anchor: 'right-rail',
+                avoidRegions: ['left'],
+                rationale: 'Use a support crop to add motion without losing the main screen.',
+              },
+              framing: 'framed',
+              dominantPalette: ['#E2E8F0'],
+              implementationNote: 'Keep the support crop lighter than the main device.',
+            },
+          ],
+        },
+        {
+          id: 'concept-c',
+          name: 'Editorial Ledger',
+          currentCapabilityFit: 'supported_now',
+          mode: 'panoramic',
+          style: 'editorial',
+          recipe: 'editorial-panorama',
+          strategy: 'Alternate anchored devices with supporting editorial cards.',
+          frameStrategy: {
+            defaultTreatment: 'mixed',
+            framelessAllowedWhen: ['Story cards can use frameless crops between anchored devices.'],
+            rationale: 'Use crop cards between full devices to keep the strip airy.',
+          },
+          canvasPlan: {
+            frameCount: 2,
+            designGoal: 'Keep the sequence readable while varying support emphasis.',
+            requiredElements: [
+              { type: 'text', purpose: 'story' },
+              { type: 'device', purpose: 'product proof' },
+              { type: 'group', purpose: 'support card' },
+            ],
+          },
+          frames: [
+            {
+              frame: 1,
+              sourcePath: homePath,
+              sourceRole: 'home',
+              cropSuitability: 'high',
+              storyBeat: 'hero',
+              cropPlan: {
+                usage: 'full-device',
+                anchor: 'lower-half',
+                avoidRegions: ['top'],
+                rationale: 'Keep the full device and move the text below the busy top UI.',
+              },
+              compositionFeatures: ['floating-detail-card'],
+              compositionNote: 'Keep the hero support card typographic, not crop-led.',
+            },
+            {
+              frame: 2,
+              sourcePath: detailPath,
+              sourceRole: 'detail',
+              cropSuitability: 'high',
+              storyBeat: 'feature',
+              cropPlan: {
+                usage: 'supporting-crop',
+                anchor: 'right-rail',
+                avoidRegions: [],
+                rationale: 'Use a cropped support card to echo the strongest detail.',
+              },
+              compositionFeatures: ['floating-detail-card'],
+              compositionNote: 'Use a cropped detail card for the supporting proof.',
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = await materializeVariantPlan({
+      plan,
+      outputDir,
+    });
+
+    const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
+    const panoramicConfigPath = result.variants.find((variant) => variant.id === 'concept-c')?.configPath;
+    expect(individualConfigPath).toBeTruthy();
+    expect(panoramicConfigPath).toBeTruthy();
+
+    const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    expect(individual.frames.style).toBe('flat');
+    expect(individual.screens[0].subtitle).toBe('Turn complex money decisions into one clear story');
+    expect(individual.screens[0].loupe.displayY).toBeGreaterThan(70);
+    expect(individual.screens[0].loupe.sourceY).toBeGreaterThan(0);
+    expect(individual.screens[1].cornerRadius).toBe(24);
+    expect(individual.screens[1].extraDevices).toHaveLength(1);
+
+    const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const firstText = panoramic.panoramic.elements.find((element: { type: string }) => element.type === 'text');
+    expect(firstText?.y).toBeGreaterThan(6);
+
+    const supportGroups = panoramic.panoramic.elements.filter((element: { type: string; children?: Array<{ type: string }> }) =>
+      element.type === 'group' && (element.children ?? []).some((child: { type: string }) => child.type === 'card'),
+    );
+    expect(supportGroups).toHaveLength(2);
+    expect(
+      supportGroups.some((group: { children?: Array<{ type: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'card')
+        && !(group.children ?? []).some((child) => child.type === 'crop')),
+    ).toBe(true);
+    expect(
+      supportGroups.some((group: { children?: Array<{ type: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'card')
+        && (group.children ?? []).some((child) => child.type === 'crop')),
+    ).toBe(true);
   });
 });

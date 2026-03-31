@@ -196,6 +196,101 @@ function buildRoleAwarePhrases(signal: CopyScreenSignal | undefined, focusSource
   }
 }
 
+function buildCategoryHeroPhrases(
+  category: string,
+  focus: string,
+  appName: string,
+): string[] {
+  const lower = focus.toLowerCase();
+  switch (category) {
+    case 'finance':
+      return ['See your money clearly', `Run ${lower} with clarity`, 'Calm money decisions'];
+    case 'health':
+    case 'wellness':
+      return ['Build steady progress', `Keep ${lower} steady`, 'Feel your progress'];
+    case 'productivity':
+      return ['Run your day clearly', `Keep ${lower} moving`, 'Stay on top daily'];
+    case 'social':
+      return ['Keep every thread close', `Stay in ${lower}`, `${appName} keeps up`];
+    case 'creative':
+      return ['Shape ideas visually', `Bring ${lower} forward`, 'Create without drag'];
+    case 'games':
+      return ['Jump into the action', `Keep ${lower} flowing`, 'Stay in the game'];
+    default:
+      return [];
+  }
+}
+
+function buildCategoryDifferentiatorPhrases(
+  category: string,
+  firstFeature: string,
+  secondFeature: string,
+): string[] {
+  const secondLower = secondFeature.toLowerCase();
+  switch (category) {
+    case 'finance':
+      return [`${firstFeature} with confidence`, `${secondFeature} with context`];
+    case 'health':
+    case 'wellness':
+      return [`${firstFeature} with calm`, `${secondFeature} without pressure`];
+    case 'productivity':
+      return [`${firstFeature} with control`, `${secondFeature} without drift`];
+    case 'social':
+      return [`${firstFeature} with context`, `Keep ${secondLower} flowing`];
+    case 'creative':
+      return [`${firstFeature} with polish`, `See ${secondLower} clearly`];
+    case 'games':
+      return [`${firstFeature} with momentum`, `Keep ${secondLower} alive`];
+    default:
+      return [`${firstFeature} with clarity`, `Keep ${secondLower} moving`];
+  }
+}
+
+function buildCategoryFeaturePhrases(category: string, feature: string): string[] {
+  const lower = feature.toLowerCase();
+  switch (category) {
+    case 'finance':
+      return [`Keep ${lower} visible`, `${feature} with confidence`];
+    case 'health':
+    case 'wellness':
+      return [`Keep ${lower} steady`, `${feature} that sticks`];
+    case 'productivity':
+      return [`Move ${lower} faster`, `${feature} without drag`];
+    case 'social':
+      return [`Keep ${lower} active`, `${feature} in context`];
+    case 'creative':
+      return [`Show ${lower} beautifully`, `${feature} with polish`];
+    case 'games':
+      return [`Push ${lower} further`, `${feature} with momentum`];
+    default:
+      return [];
+  }
+}
+
+function buildCategorySummaryPhrases(
+  category: string,
+  first: string,
+  second: string,
+): string[] {
+  switch (category) {
+    case 'finance':
+      return ['All your money clarity', `${first} with calm`, `${second} with confidence`];
+    case 'health':
+    case 'wellness':
+      return ['Progress that feels steady', `${first} for every day`, `${second} with ease`];
+    case 'productivity':
+      return ['Everything stays on track', `${first} for the day`, `${second} with control`];
+    case 'social':
+      return ['Everything stays in sync', `${first} for every thread`, `${second} without lag`];
+    case 'creative':
+      return ['Everything stays in flow', `${first} for every idea`, `${second} with polish`];
+    case 'games':
+      return ['Everything stays in play', `${first} for the run`, `${second} with momentum`];
+    default:
+      return [];
+  }
+}
+
 function signalSlotForIndex(index: number, total: number): CopySlot {
   if (index === 0) return 'hero';
   if (index === 1) return 'differentiator';
@@ -235,6 +330,7 @@ function resolveSignalsBySlot(
 function buildHeroPhrases(
   appName: string,
   appDescription: string,
+  category: string,
   features: string[],
   signal?: CopyScreenSignal,
 ): string[] {
@@ -242,6 +338,7 @@ function buildHeroPhrases(
   const description = normalizePhrase(appDescription);
   return [
     ...buildRoleAwarePhrases(signal, firstFeature || appName),
+    ...buildCategoryHeroPhrases(category, firstFeature || appName, appName),
     `${appName} made clear`,
     `Your ${firstFeature.toLowerCase()}`,
     `${description.split(' ').slice(0, 4).join(' ')}`,
@@ -250,6 +347,7 @@ function buildHeroPhrases(
 }
 
 function buildDifferentiatorPhrases(
+  category: string,
   features: string[],
   goals: string[],
   signal?: CopyScreenSignal,
@@ -261,6 +359,7 @@ function buildDifferentiatorPhrases(
     ...(signal?.unsafeForTextOverlay ? [`${firstFeature} without clutter`] : []),
     ...(signal?.density === 'minimal' ? [`${firstFeature} without noise`] : []),
     ...buildRoleAwarePhrases(signal, firstFeature),
+    ...buildCategoryDifferentiatorPhrases(category, firstFeature, secondFeature),
     `${firstFeature} without friction`,
     `${firstFeature} with focus`,
     `${secondFeature} in context`,
@@ -268,11 +367,12 @@ function buildDifferentiatorPhrases(
   ];
 }
 
-function buildFeaturePhrases(feature: string, signal?: CopyScreenSignal): string[] {
+function buildFeaturePhrases(category: string, feature: string, signal?: CopyScreenSignal): string[] {
   const compact = resolveSignalFocus(signal, signal?.focus ?? feature, feature);
   const lower = compact.toLowerCase();
   return [
     ...buildRoleAwarePhrases(signal, compact),
+    ...buildCategoryFeaturePhrases(category, compact),
     `${compact}`,
     `${compact} at a glance`,
     signal?.unsafeForTextOverlay ? `${compact} without clutter` : `${compact} without noise`,
@@ -318,6 +418,7 @@ function buildTrustPhrases(category: string, appName: string, signal?: CopyScree
 }
 
 function buildSummaryPhrases(
+  category: string,
   features: string[],
   goals: string[],
   signal?: CopyScreenSignal,
@@ -329,6 +430,7 @@ function buildSummaryPhrases(
   const first = items[0] ?? 'Core features';
   const second = items[1] ?? 'everyday use';
   return [
+    ...buildCategorySummaryPhrases(category, first, second),
     ...(focus ? [`${first} in one place`] : []),
     `${first} and more`,
     `${first} in one place`,
@@ -452,7 +554,7 @@ export function generateCopyCandidates(args: {
       slot: 'hero',
       candidates: buildCandidates(
         'hero',
-        buildHeroPhrases(args.appName, args.appDescription, args.features, slotSignals.hero),
+        buildHeroPhrases(args.appName, args.appDescription, args.category, args.features, slotSignals.hero),
         undefined,
         slotSignals.hero,
       ),
@@ -461,7 +563,7 @@ export function generateCopyCandidates(args: {
       slot: 'differentiator',
       candidates: buildCandidates(
         'differentiator',
-        buildDifferentiatorPhrases(args.features, goals, slotSignals.differentiator),
+        buildDifferentiatorPhrases(args.category, args.features, goals, slotSignals.differentiator),
         undefined,
         slotSignals.differentiator,
       ),
@@ -473,7 +575,7 @@ export function generateCopyCandidates(args: {
         sourceFeature: feature,
         candidates: buildCandidates(
           'feature',
-          buildFeaturePhrases(feature, slotSignals.features[index]),
+          buildFeaturePhrases(args.category, feature, slotSignals.features[index]),
           feature,
           slotSignals.features[index],
         ),
@@ -492,7 +594,7 @@ export function generateCopyCandidates(args: {
       slot: 'summary',
       candidates: buildCandidates(
         'summary',
-        buildSummaryPhrases(args.features, goals, slotSignals.summary),
+        buildSummaryPhrases(args.category, args.features, goals, slotSignals.summary),
         undefined,
         slotSignals.summary,
       ),
@@ -509,15 +611,134 @@ export function generateCopyCandidates(args: {
   };
 }
 
+function normalizedHeadlineKey(headline: string): string {
+  return normalizePhrase(headline).toLowerCase();
+}
+
+function meaningfulLeadWord(headline: string): string | null {
+  return comparisonWords(headline)[0] ?? null;
+}
+
+function leadingBigram(headline: string): string {
+  return comparisonWords(headline).slice(0, 2).join(' ');
+}
+
+function lexicalOverlap(left: string, right: string): number {
+  const rightWords = new Set(comparisonWords(right));
+  return comparisonWords(left).filter((word) => rightWords.has(word)).length;
+}
+
+function normalizedSourceFeature(sourceFeature?: string): string {
+  return normalizePhrase(sourceFeature ?? '').toLowerCase();
+}
+
+function scoreSelectedCopyCombination(candidates: CopyCandidate[]): number {
+  let score = candidates.reduce((sum, candidate) => sum + candidate.score, 0);
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const current = candidates[index]!;
+    const currentHeadline = current.headline.replace(/\n/g, ' ');
+    const currentKey = normalizedHeadlineKey(currentHeadline);
+    const currentLeadWord = meaningfulLeadWord(currentHeadline);
+    const currentBigram = leadingBigram(currentHeadline);
+    const currentFeature = normalizedSourceFeature(current.sourceFeature);
+
+    for (let compareIndex = index + 1; compareIndex < candidates.length; compareIndex += 1) {
+      const compare = candidates[compareIndex]!;
+      const compareHeadline = compare.headline.replace(/\n/g, ' ');
+      const compareKey = normalizedHeadlineKey(compareHeadline);
+
+      if (currentKey && currentKey === compareKey) {
+        score -= 60;
+        continue;
+      }
+
+      const overlap = lexicalOverlap(currentHeadline, compareHeadline);
+      if (overlap >= 2) {
+        score -= overlap * 12;
+      } else if (
+        overlap === 1
+        && (current.slot === 'hero' || current.slot === 'summary' || compare.slot === 'hero' || compare.slot === 'summary')
+      ) {
+        score -= 6;
+      }
+
+      const compareLeadWord = meaningfulLeadWord(compareHeadline);
+      if (
+        currentLeadWord
+        && compareLeadWord
+        && currentLeadWord === compareLeadWord
+        && current.slot !== 'feature'
+        && compare.slot !== 'feature'
+      ) {
+        score -= 8;
+      }
+
+      const compareBigram = leadingBigram(compareHeadline);
+      if (currentBigram && compareBigram && currentBigram === compareBigram) {
+        score -= 10;
+      }
+
+      const compareFeature = normalizedSourceFeature(compare.sourceFeature);
+      if (currentFeature && compareFeature && currentFeature === compareFeature) {
+        score -= 8;
+      }
+    }
+  }
+
+  return score;
+}
+
 export function selectCopySet(candidateSet: CopyCandidateSet): SelectedCopySet {
-  const hero = candidateSet.slots.find((slot) => slot.slot === 'hero')?.candidates[0];
-  const differentiator = candidateSet.slots.find((slot) => slot.slot === 'differentiator')?.candidates[0];
-  const trust = candidateSet.slots.find((slot) => slot.slot === 'trust')?.candidates[0];
-  const summary = candidateSet.slots.find((slot) => slot.slot === 'summary')?.candidates[0];
-  const features = candidateSet.slots
-    .filter((slot) => slot.slot === 'feature')
-    .map((slot) => slot.candidates[0])
-    .filter((candidate): candidate is CopyCandidate => Boolean(candidate));
+  const orderedSlots = candidateSet.slots
+    .filter((slot) => slot.candidates.length > 0)
+    .sort((left, right) => {
+      const order = (slot: CopySlot): number => {
+        switch (slot) {
+          case 'hero':
+            return 0;
+          case 'differentiator':
+            return 1;
+          case 'feature':
+            return 2;
+          case 'trust':
+            return 3;
+          case 'summary':
+            return 4;
+        }
+      };
+      return order(left.slot) - order(right.slot);
+    });
+
+  let bestSelection: CopyCandidate[] | null = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  const search = (slotIndex: number, selected: CopyCandidate[]): void => {
+    if (slotIndex >= orderedSlots.length) {
+      const score = scoreSelectedCopyCombination(selected);
+      if (score > bestScore) {
+        bestScore = score;
+        bestSelection = [...selected];
+      }
+      return;
+    }
+
+    const slot = orderedSlots[slotIndex]!;
+    for (const candidate of slot.candidates) {
+      selected.push(candidate);
+      search(slotIndex + 1, selected);
+      selected.pop();
+    }
+  };
+
+  search(0, []);
+
+  const finalSelection: CopyCandidate[] = bestSelection ?? [];
+  const hero = finalSelection.find((candidate) => candidate.slot === 'hero');
+  const differentiator = finalSelection.find((candidate) => candidate.slot === 'differentiator');
+  const trust = finalSelection.find((candidate) => candidate.slot === 'trust');
+  const summary = finalSelection.find((candidate) => candidate.slot === 'summary');
+  const features = finalSelection.filter((candidate) => candidate.slot === 'feature');
 
   if (!hero || !differentiator || !summary || features.length === 0) {
     throw new Error('Copy candidate set is incomplete and cannot be selected.');

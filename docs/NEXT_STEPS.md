@@ -23,6 +23,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - preview rendering exists for generated sessions
 - heuristic scoring/recommendation exists
 - preview UI can display recommendation metadata and preview thumbnails
+- preview UI now surfaces active concept frame strategy, crop guidance, OCR occupied regions, and per-screen individual plan rationale
 - variant sessions now persist explicit per-concept copy-slot assignments
 - preview UI now exposes the selected copy plan for each concept
 - preview UI now supports optional AI-backed refinement planning that maps freeform prompts onto safe branch actions
@@ -33,9 +34,11 @@ AppFrame now has an initial autopilot pipeline implemented:
 - preview scoring now measures concept diversity across the full rendered concept set, explains concrete layout/copy issues, and can call a live model-assisted visual ranking pass behind optional AI credentials with safe fallback behavior
 - screenshot analysis now derives actual-pixel palette extraction, quiet text zones, and focal-point estimates from PNG screenshots
 - copy candidate generation can now use screenshot-derived slot signals from analysis to steer role-aware, focus-aware headline options and avoid echoing embedded OCR/vision UI text
+- copy selection now runs a final cross-slot anti-repetition pass and uses broader category-aware phrase banks across hero, differentiator, feature, and summary slots
 - planning/materialization now emit dynamic individual compositions with extra screenshots, loupes, overlays, and palette-informed backgrounds
 - planning now resequences screenshots per concept, diversifies lead/closing assignment across the concept set, and constrains shared support-screen reuse so concepts do not silently collapse onto the same screenshots
 - planning now emits explicit per-concept frame strategies plus per-screen/per-frame crop plans that react to focal points and OCR/text-occupied regions
+- materialization now consumes `frameStrategy` and `cropPlan` so generated configs react to plan-time framing, loupe anchoring, support-crop usage, and text-occupied-region avoidance
 - planning now selects category-aware concept recipes, naming, strategies, and role weighting for finance, health, productivity, social, creative, games, and general apps
 - the core renderer pipeline now passes multi-device compositions and screen effects through to template rendering
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
@@ -182,13 +185,13 @@ Recommended order:
 - [x] Use screenshot-derived slot signals to steer copy candidate phrasing.
 - [ ] Add subtitle candidate generation instead of mostly headline-only generation.
 - [ ] Add category-specific copy templates for:
-  - [ ] finance
-  - [ ] health/wellness
-  - [ ] productivity
-  - [ ] social
-  - [ ] creative
-  - [ ] games
-- [ ] Add anti-repetition checks across the full selected copy set.
+  - [x] finance
+  - [x] health/wellness
+  - [x] productivity
+  - [x] social
+  - [x] creative
+  - [x] games
+- [x] Add anti-repetition checks across the full selected copy set.
 - [x] Use OCR/text insights to avoid repeating embedded UI text in generated copy.
 - [ ] Add stronger "no feature list headline" detection.
 - [ ] If model-assisted copy returns, accept agent-provided outputs rather than bundling API-key-based generation inside AppFrame.
@@ -241,7 +244,8 @@ Recommended order:
 - [x] Add crop-level planning once crop primitives exist.
   Status: plans now emit per-screen/per-frame `cropPlan` metadata with crop usage, anchor, and OCR/text-avoidance regions.
 - [ ] Add support for alternate 5th concept families after renderer expansion.
-- [ ] Add richer plan output for the UI so users can inspect rationale concept-by-concept.
+- [x] Add richer plan output for the UI so users can inspect rationale concept-by-concept.
+  Status: preview now shows active concept frame strategy, crop guidance, OCR occupied regions, and per-screen/per-frame planning notes.
 
 ### 5. Materialization
 
@@ -249,6 +253,7 @@ Recommended order:
 - [x] Inject selected copy set into generated configs.
 - [x] Use frameless rounded treatment when requested by the plan.
 - [x] Materialize dynamic individual compositions with extra screenshots, loupes, overlays, and palette-aware backgrounds.
+- [x] Use `frameStrategy` and `cropPlan` during materialization so generated layouts respond to plan metadata.
 - [ ] Expand materializer for future primitives:
   - [x] `crop`
   - [x] `card`
@@ -260,6 +265,7 @@ Recommended order:
 - [ ] Add device frame selection logic beyond the current default.
 - [ ] Add better typography defaults per concept style.
 - [ ] Add concept-specific per-screen/per-frame composition rules.
+  Status: the materializer now responds to `cropPlan` and `frameStrategy`, but typography, background, and device-frame mapping still need a deeper pass.
 - [ ] Add richer panoramic element layout logic after new primitives land.
 
 ### 6. Variant Sessions
@@ -455,18 +461,18 @@ This is not fully implemented yet.
 
 If a future thread should continue immediately, the best next slice is:
 
-1. feed OCR/text insights deeper into screenshot-to-copy selection so copy avoids repeating embedded UI text
-2. add plan-time frame strategy and crop-level planning output using the richer screenshot understanding now available
-3. add more real-ish screenshot fixtures to validate OCR-aware role detection and overlay safety
-4. continue refinement flow polish after screenshot-to-plan intelligence catches up
+1. add subtitle candidate generation so copy planning selects full headline/subtitle systems instead of only headlines
+2. deepen category-specific copy coverage and let agent-provided copy merge back through heuristic rescoring
+3. expand materializer typography, background, and device-frame decisions beyond the current first pass on `frameStrategy` / `cropPlan`
+4. continue richer screenshot understanding and refinement flow polish after the plan-aware materialization slice
 
-That is the next quality step now that text-aware screenshot understanding no longer stops at pixel heuristics alone.
+That is the next quality step now that the planning metadata is no longer only emitted, but also consumed by the generated outputs.
 
 ## Suggested Concrete Next Task Prompt
 
 Use this to start a future thread:
 
-> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next screenshot-to-plan intelligence slice after OCR-aware analysis: use text insights to avoid repeating embedded UI copy, add explicit frame/crop strategy in planning, and add tests with more realistic screenshot fixtures.
+> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next post-materialization slice: add subtitle candidate generation, expand category-aware copy coverage and external-copy rescoring, and push `frameStrategy` / `cropPlan` further into typography, background, and device-frame decisions.
 
 ## Notes For Future Threads
 

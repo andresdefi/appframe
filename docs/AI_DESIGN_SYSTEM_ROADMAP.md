@@ -105,6 +105,7 @@ Current status:
 
 - OCR/vision text enrichment now feeds role detection, overlay safety, screenshot-to-copy de-duplication, and plan-time crop guidance without bundling built-in model dependencies
 - variant plans now emit explicit per-concept frame strategies plus per-screen/per-frame crop plans, including text-occupied-region avoidance and focal-point anchoring
+- materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, and safer text offsets
 
 ### 4. Generate-Then-Rank Loop
 
@@ -183,7 +184,7 @@ This roadmap now has three concrete pieces underway:
 - richer scene graph: panoramic `image`, `crop`, `card`, and `group` elements
 - real agent tooling: variant planning/materialization with file-backed autopilot sessions
 - generate-then-rank foundations: preview rendering plus heuristic scoring/recommendation
-- preview review surface: sessions now carry per-concept copy-slot assignments and the preview UI now supports concept filters, side-by-side comparison, and score breakdown review
+- preview review surface: sessions now carry per-concept copy-slot assignments and the preview UI now supports concept filters, side-by-side comparison, score breakdown review, frame strategy, crop guidance, and OCR occupied-region inspection
 - richer panoramic composition review: sessions now expose screenshot analysis, selected copy, concept-plan metadata, and composition summaries in the preview variants surface so layered-detail systems are inspectable without leaving the session
 - refinement review surface: preview sessions now support safe branch-and-refine actions, variant provenance/history, and panoramic continuity review without leaving the session flow
 - AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load
@@ -195,7 +196,10 @@ This roadmap now has three concrete pieces underway:
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot
 - screenshot-aware copy generation: copy candidates can now consume screenshot-derived slot signals so hero, differentiator, feature, trust, and summary lines respond to actual screen content instead of only the feature list
 - OCR-aware copy de-duplication: generated copy now avoids echoing embedded UI text discovered through OCR/vision sidecars or opt-in local OCR
+- final copy-set de-duplication: selection now runs a cross-slot anti-repetition pass so the chosen hero, differentiator, feature, trust, and summary lines do not collapse onto the same phrasing
+- broader category-aware copy templates: hero, differentiator, feature, and summary phrase banks now vary more by inferred app category while staying deterministic and local-first
 - explicit planning guidance: variant plans now include concept-level frame strategy plus crop-level usage/anchor/avoidance metadata for individual screens and panoramic frames
+- plan-aware materialization: generated individual and panoramic configs now consume `frameStrategy` / `cropPlan` instead of only storing them as metadata
 - design recipe selection now varies concept naming, supported recipe labels, strategies, panoramic goals, and screenshot role weighting by inferred app category instead of using one generic 4-concept set for every app
 - local-first product direction: core AppFrame behavior should prefer deterministic local logic and agent-provided outputs over bundling new API-key-based model dependencies directly into the app
 - autopilot hardening foundations: `appframe_run_autopilot` now persists a stage-by-stage run manifest with resume, forced rerun, stale-artifact detection, structured failure, and explicit preview-next-step metadata

@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import {
@@ -420,7 +420,7 @@ export interface RunAutopilotArgs {
   appDescription: string;
   platforms: Array<'ios' | 'android'>;
   features: string[];
-  screenshots: Array<{ path: string; note?: string }>;
+  screenshots: Array<{ path: string; note?: string; ocrJsonPath?: string }>;
   goals?: string[];
   primaryColor?: string;
   secondaryColor?: string;
@@ -472,6 +472,38 @@ async function getFileVersion(path: string): Promise<FileVersion> {
       mtimeMs: null,
     };
   }
+}
+
+function candidateOcrArtifactPaths(screenshot: {
+  path: string;
+  ocrJsonPath?: string;
+}): string[] {
+  const stem = screenshot.path.slice(0, Math.max(0, screenshot.path.length - extname(screenshot.path).length));
+  return [
+    screenshot.ocrJsonPath ?? '',
+    `${screenshot.path}.ocr.json`,
+    `${screenshot.path}.vision.json`,
+    `${stem}.ocr.json`,
+    `${stem}.vision.json`,
+  ].filter((value, index, values) => value.length > 0 && values.indexOf(value) === index);
+}
+
+async function buildScreenshotFingerprintEntry(screenshot: {
+  path: string;
+  note?: string;
+  ocrJsonPath?: string;
+}): Promise<{
+  path: string;
+  note: string | null;
+  version: FileVersion;
+  ocrArtifacts: FileVersion[];
+}> {
+  return {
+    path: screenshot.path,
+    note: screenshot.note ?? null,
+    version: await getFileVersion(screenshot.path),
+    ocrArtifacts: await Promise.all(candidateOcrArtifactPaths(screenshot).map((path) => getFileVersion(path))),
+  };
 }
 
 function hashValue(value: unknown): string {
@@ -543,11 +575,7 @@ async function buildStageFingerprint(args: {
   switch (stage) {
     case 'analysis': {
       const screenshots = await Promise.all(
-        autopilotArgs.screenshots.map(async (screenshot) => ({
-          path: screenshot.path,
-          note: screenshot.note ?? null,
-          version: await getFileVersion(screenshot.path),
-        })),
+        autopilotArgs.screenshots.map((screenshot) => buildScreenshotFingerprintEntry(screenshot)),
       );
       return hashValue({ stage, screenshots });
     }
@@ -563,11 +591,7 @@ async function buildStageFingerprint(args: {
       });
     case 'planning': {
       const screenshots = await Promise.all(
-        autopilotArgs.screenshots.map(async (screenshot) => ({
-          path: screenshot.path,
-          note: screenshot.note ?? null,
-          version: await getFileVersion(screenshot.path),
-        })),
+        autopilotArgs.screenshots.map((screenshot) => buildScreenshotFingerprintEntry(screenshot)),
       );
       return hashValue({
         stage,
@@ -1458,6 +1482,7 @@ export function registerSuggestionTools(server: McpServer): void {
           z.object({
             path: z.string().describe('Absolute path to a raw screenshot'),
             note: z.string().optional().describe('Optional note about what the screenshot shows'),
+            ocrJsonPath: z.string().optional().describe('Optional absolute path to OCR/vision JSON for this screenshot'),
           }),
         )
         .min(1)
@@ -1499,6 +1524,7 @@ export function registerSuggestionTools(server: McpServer): void {
           z.object({
             path: z.string().describe('Absolute path to a raw screenshot'),
             note: z.string().optional().describe('Optional note about what the screenshot shows'),
+            ocrJsonPath: z.string().optional().describe('Optional absolute path to OCR/vision JSON for this screenshot'),
           }),
         )
         .min(1)
@@ -1743,6 +1769,7 @@ export function registerSuggestionTools(server: McpServer): void {
           z.object({
             path: z.string().describe('Absolute path to a raw screenshot'),
             note: z.string().optional().describe('Optional note about what the screenshot shows'),
+            ocrJsonPath: z.string().optional().describe('Optional absolute path to OCR/vision JSON for this screenshot'),
           }),
         )
         .min(1)
@@ -1833,6 +1860,7 @@ export function registerSuggestionTools(server: McpServer): void {
           z.object({
             path: z.string().describe('Path to a raw app screenshot'),
             note: z.string().optional().describe('Optional note about what the screenshot shows'),
+            ocrJsonPath: z.string().optional().describe('Optional absolute path to OCR/vision JSON for this screenshot'),
           }),
         )
         .describe('Available raw screenshots'),

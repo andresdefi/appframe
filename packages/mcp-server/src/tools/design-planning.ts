@@ -1,10 +1,15 @@
 import { basename, extname } from 'node:path';
+import { execFile as execFileCallback } from 'node:child_process';
 import { readFile, stat } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import { inflateSync } from 'node:zlib';
+
+const execFile = promisify(execFileCallback);
 
 export interface ScreenshotInput {
   path: string;
   note?: string;
+  ocrJsonPath?: string;
 }
 
 export type ScreenshotRole =
@@ -53,6 +58,25 @@ export interface ScreenshotPixelMetrics {
   focusStrength: number;
 }
 
+export interface ScreenshotTextBlock {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  confidence?: number | null;
+}
+
+export interface ScreenshotTextInsights {
+  source: string;
+  text: string;
+  lineCount: number;
+  totalCoverage: number;
+  topCoverage: number;
+  roleHint?: ScreenshotRole;
+  blocks: ScreenshotTextBlock[];
+}
+
 export interface ScreenshotAnalysis {
   path: string;
   note?: string;
@@ -77,6 +101,7 @@ export interface ScreenshotAnalysis {
   cropSuitability: CropSuitability;
   recommendedUsage: RecommendedUsage;
   unsafeForTextOverlay: boolean;
+  textInsights?: ScreenshotTextInsights;
 }
 
 export interface VariantSetPlan {
@@ -272,23 +297,370 @@ function humanizeFileStem(pathValue: string): string {
   return stem || 'screen';
 }
 
-function inferRole(pathValue: string, note?: string): ScreenshotRole {
-  const haystack = normalizeText(`${humanizeFileStem(pathValue)} ${note ?? ''}`);
+const ROLE_SIGNAL_PATTERNS: Array<{ role: ScreenshotRole; pattern: RegExp; weight: number }> = [
+  { role: 'home', pattern: /\b(home|dashboard|overview|feed|main|today|wallet|balance|activity)\b/g, weight: 10 },
+  { role: 'onboarding', pattern: /\b(onboarding|welcome|intro|start|splash|get started|continue|skip|allow)\b/g, weight: 12 },
+  { role: 'communication', pattern: /\b(chat|message|messages|inbox|conversation|thread|reply|typing|dm)\b/g, weight: 12 },
+  { role: 'discovery', pattern: /\b(search|discover|explore|browse|find|trending|for you)\b/g, weight: 10 },
+  { role: 'workflow', pattern: /\b(calendar|plan|task|workflow|schedule|editor|compose|create|checklist|project)\b/g, weight: 10 },
+  { role: 'detail', pattern: /\b(detail|profile|report|analytics|stats|insight|summary|progress|revenue|spending|results?)\b/g, weight: 10 },
+  { role: 'settings', pattern: /\b(settings|account|preferences|privacy|notifications|security|manage|general)\b/g, weight: 12 },
+  { role: 'paywall', pattern: /\b(pricing|upgrade|paywall|subscribe|subscription|checkout|cart|payment|trial|premium|unlock)\b/g, weight: 12 },
+  { role: 'feature', pattern: /\b(feature|screen|tab|list)\b/g, weight: 4 },
+];
 
-  if (/(home|dashboard|overview|feed|main)/.test(haystack)) return 'home';
-  if (/(onboarding|welcome|intro|start|splash)/.test(haystack)) return 'onboarding';
-  if (/(chat|message|inbox|conversation|dm)/.test(haystack)) return 'communication';
-  if (/(search|discover|explore|browse|find)/.test(haystack)) return 'discovery';
-  if (/(calendar|plan|task|workflow|schedule|editor|compose)/.test(haystack)) return 'workflow';
-  if (/(detail|profile|report|analytics|stats|insight|summary)/.test(haystack)) return 'detail';
-  if (/(settings|account|profile edit|preferences)/.test(haystack)) return 'settings';
-  if (/(pricing|upgrade|paywall|subscribe|checkout|cart|payment)/.test(haystack)) return 'paywall';
-  if (/(feature|screen|tab|list)/.test(haystack)) return 'feature';
-  return 'unknown';
+const ROLE_TIEBREAK_ORDER: ScreenshotRole[] = [
+  'home',
+  'workflow',
+  'detail',
+  'communication',
+  'discovery',
+  'onboarding',
+  'settings',
+  'paywall',
+  'feature',
+  'unknown',
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function inferDensity(role: ScreenshotRole, pathValue: string, note?: string): ScreenshotDensity {
+function countRegexMatches(value: string, pattern: RegExp): number {
+  const matches = value.match(pattern);
+  return matches?.length ?? 0;
+}
+
+function addRoleScores(
+  scores: Record<ScreenshotRole, number>,
+  haystack: string,
+  multiplier: number,
+): void {
+  for (const signal of ROLE_SIGNAL_PATTERNS) {
+    const count = countRegexMatches(haystack, signal.pattern);
+    if (count > 0) {
+      scores[signal.role] += count * signal.weight * multiplier;
+    }
+  }
+}
+
+function bestRoleFromScores(scores: Record<ScreenshotRole, number>): ScreenshotRole {
+  let bestRole: ScreenshotRole = 'unknown';
+  let bestScore = 0;
+
+  for (const role of ROLE_TIEBREAK_ORDER) {
+    const score = scores[role] ?? 0;
+    if (score > bestScore) {
+      bestRole = role;
+      bestScore = score;
+    }
+  }
+
+  return bestScore > 0 ? bestRole : 'unknown';
+}
+
+function normalizeRoleHint(value: unknown): ScreenshotRole | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = normalizeText(value);
+  return ROLE_TIEBREAK_ORDER.find((role) => role === normalized);
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function normalizeAxisValue(value: number | null, dimension: number | null): number | null {
+  if (value === null) return null;
+  if (value >= 0 && value <= 1) return clamp(value * 100, 0, 100);
+  if (dimension && dimension > 0) return clamp((value / dimension) * 100, 0, 100);
+  return clamp(value, 0, 100);
+}
+
+function normalizeAxisLength(
+  value: number | null,
+  dimension: number | null,
+  start: number,
+): number | null {
+  if (value === null) return null;
+  if (value >= 0 && value <= 1) return clamp(value * 100, 0, 100 - start);
+  if (dimension && dimension > 0) return clamp((value / dimension) * 100, 0, 100 - start);
+  return clamp(value, 0, 100 - start);
+}
+
+function normalizeTextBlock(
+  value: unknown,
+  width: number | null,
+  height: number | null,
+): ScreenshotTextBlock | null {
+  if (!isRecord(value)) return null;
+
+  const rawText = typeof value.text === 'string' ? value.text.trim() : '';
+  if (!rawText) return null;
+
+  const nestedBounds = isRecord(value.bbox) ? value.bbox : isRecord(value.bounds) ? value.bounds : null;
+  const xValue = toFiniteNumber(value.x) ?? toFiniteNumber(value.left) ?? toFiniteNumber(nestedBounds?.x) ?? toFiniteNumber(nestedBounds?.left);
+  const yValue = toFiniteNumber(value.y) ?? toFiniteNumber(value.top) ?? toFiniteNumber(nestedBounds?.y) ?? toFiniteNumber(nestedBounds?.top);
+  const widthValue =
+    toFiniteNumber(value.width)
+    ?? toFiniteNumber(nestedBounds?.width)
+    ?? (() => {
+      const right = toFiniteNumber(value.right) ?? toFiniteNumber(nestedBounds?.right);
+      return right !== null && xValue !== null ? right - xValue : null;
+    })();
+  const heightValue =
+    toFiniteNumber(value.height)
+    ?? toFiniteNumber(nestedBounds?.height)
+    ?? (() => {
+      const bottom = toFiniteNumber(value.bottom) ?? toFiniteNumber(nestedBounds?.bottom);
+      return bottom !== null && yValue !== null ? bottom - yValue : null;
+    })();
+
+  const x = normalizeAxisValue(xValue, width);
+  const y = normalizeAxisValue(yValue, height);
+  if (x === null || y === null) return null;
+
+  const normalizedWidth = normalizeAxisLength(widthValue, width, x);
+  const normalizedHeight = normalizeAxisLength(heightValue, height, y);
+  if (normalizedWidth === null || normalizedHeight === null || normalizedWidth <= 0 || normalizedHeight <= 0) {
+    return null;
+  }
+
+  const confidence = toFiniteNumber(value.confidence);
+  return {
+    text: rawText,
+    x: Number(x.toFixed(1)),
+    y: Number(y.toFixed(1)),
+    width: Number(normalizedWidth.toFixed(1)),
+    height: Number(normalizedHeight.toFixed(1)),
+    confidence: confidence === null ? undefined : Number(confidence.toFixed(3)),
+  };
+}
+
+function buildTextInsights(args: {
+  source: string;
+  roleHint?: ScreenshotRole;
+  text?: string;
+  blocks: ScreenshotTextBlock[];
+}): ScreenshotTextInsights | null {
+  const cleanedBlocks = args.blocks
+    .map((block) => ({
+      ...block,
+      text: block.text.trim(),
+    }))
+    .filter((block) => block.text.length > 0)
+    .slice(0, 32);
+  const text = typeof args.text === 'string' && args.text.trim().length > 0
+    ? args.text.trim()
+    : cleanedBlocks.map((block) => block.text).join('\n');
+  if (!text && cleanedBlocks.length === 0) return null;
+
+  const totalCoverage = cleanedBlocks.reduce((sum, block) => sum + ((block.width * block.height) / 10_000), 0);
+  const topBandHeight = 30;
+  const topCoverage = cleanedBlocks.reduce((sum, block) => {
+    const overlapHeight = Math.max(0, Math.min(block.y + block.height, topBandHeight) - block.y);
+    if (overlapHeight <= 0) return sum;
+    return sum + ((block.width * overlapHeight) / (100 * topBandHeight));
+  }, 0);
+
+  return {
+    source: args.source,
+    text,
+    lineCount: cleanedBlocks.length > 0
+      ? cleanedBlocks.length
+      : text.split(/\n+/).map((line) => line.trim()).filter(Boolean).length,
+    totalCoverage: Number(Math.min(totalCoverage, 1).toFixed(3)),
+    topCoverage: Number(Math.min(topCoverage, 1).toFixed(3)),
+    roleHint: args.roleHint,
+    blocks: cleanedBlocks,
+  };
+}
+
+function parseScreenshotTextInsights(
+  rawJson: string,
+  width: number | null,
+  height: number | null,
+  fallbackSource: string,
+): ScreenshotTextInsights | null {
+  const parsed = JSON.parse(rawJson) as unknown;
+  const roleHint = isRecord(parsed) ? normalizeRoleHint(parsed.roleHint) : undefined;
+
+  if (Array.isArray(parsed)) {
+    return buildTextInsights({
+      source: fallbackSource,
+      roleHint,
+      blocks: parsed
+        .map((entry) => normalizeTextBlock(entry, width, height))
+        .filter((entry): entry is ScreenshotTextBlock => entry !== null),
+    });
+  }
+
+  if (!isRecord(parsed)) return null;
+  const blockSource = Array.isArray(parsed.blocks) ? parsed.blocks : Array.isArray(parsed.lines) ? parsed.lines : [];
+  const blocks = blockSource
+    .map((entry) => normalizeTextBlock(entry, width, height))
+    .filter((entry): entry is ScreenshotTextBlock => entry !== null);
+
+  return buildTextInsights({
+    source: typeof parsed.source === 'string' && parsed.source.trim().length > 0
+      ? parsed.source.trim()
+      : fallbackSource,
+    roleHint,
+    text: typeof parsed.text === 'string' ? parsed.text : undefined,
+    blocks,
+  });
+}
+
+function candidateOcrJsonPaths(pathValue: string, explicitPath?: string): string[] {
+  const stem = pathValue.slice(0, Math.max(0, pathValue.length - extname(pathValue).length));
+  return [
+    explicitPath ?? '',
+    `${pathValue}.ocr.json`,
+    `${pathValue}.vision.json`,
+    `${stem}.ocr.json`,
+    `${stem}.vision.json`,
+  ].filter((value, index, values) => value.length > 0 && values.indexOf(value) === index);
+}
+
+async function readScreenshotTextInsightsFromSidecar(args: {
+  pathValue: string;
+  ocrJsonPath?: string;
+  width: number | null;
+  height: number | null;
+}): Promise<ScreenshotTextInsights | null> {
+  for (const candidatePath of candidateOcrJsonPaths(args.pathValue, args.ocrJsonPath)) {
+    try {
+      const rawJson = await readFile(candidatePath, 'utf8');
+      const parsed = parseScreenshotTextInsights(
+        rawJson,
+        args.width,
+        args.height,
+        `sidecar:${basename(candidatePath)}`,
+      );
+      if (parsed) return parsed;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function isTesseractEnabled(): boolean {
+  const value = process.env.APPFRAME_ENABLE_TESSERACT_OCR;
+  return value === '1' || value === 'true' || value === 'yes';
+}
+
+function parseTesseractTsv(
+  stdout: string,
+  width: number | null,
+  height: number | null,
+): ScreenshotTextInsights | null {
+  const lines = stdout.split(/\r?\n/);
+  if (lines.length <= 1) return null;
+
+  const blocks: ScreenshotTextBlock[] = [];
+  for (const line of lines.slice(1)) {
+    if (!line.trim()) continue;
+    const parts = line.split('\t');
+    if (parts.length < 12) continue;
+    const level = Number(parts[0]);
+    const confidence = Number(parts[10]);
+    const text = parts[11]?.trim();
+    if (!text || !Number.isFinite(level) || level < 5) continue;
+    if (Number.isFinite(confidence) && confidence < 20) continue;
+
+    const block = normalizeTextBlock({
+      text,
+      confidence: Number.isFinite(confidence) ? confidence / 100 : undefined,
+      left: Number(parts[6]),
+      top: Number(parts[7]),
+      width: Number(parts[8]),
+      height: Number(parts[9]),
+    }, width, height);
+    if (block) blocks.push(block);
+  }
+
+  return buildTextInsights({
+    source: 'tesseract',
+    blocks,
+  });
+}
+
+async function readScreenshotTextInsightsFromTesseract(args: {
+  pathValue: string;
+  width: number | null;
+  height: number | null;
+}): Promise<ScreenshotTextInsights | null> {
+  if (!isTesseractEnabled()) return null;
+
+  try {
+    const { stdout } = await execFile(
+      process.env.APPFRAME_TESSERACT_BINARY ?? 'tesseract',
+      [
+        args.pathValue,
+        'stdout',
+        '-l',
+        process.env.APPFRAME_TESSERACT_LANG ?? 'eng',
+        '--psm',
+        '11',
+        'tsv',
+      ],
+      {
+        encoding: 'utf8',
+        maxBuffer: 4 * 1024 * 1024,
+      },
+    );
+    return parseTesseractTsv(stdout, args.width, args.height);
+  } catch {
+    return null;
+  }
+}
+
+async function readScreenshotTextInsights(args: {
+  pathValue: string;
+  ocrJsonPath?: string;
+  width: number | null;
+  height: number | null;
+}): Promise<ScreenshotTextInsights | null> {
+  return (
+    await readScreenshotTextInsightsFromSidecar(args)
+    ?? await readScreenshotTextInsightsFromTesseract(args)
+  );
+}
+
+function inferRole(pathValue: string, note?: string, textInsights?: ScreenshotTextInsights): ScreenshotRole {
+  const scores: Record<ScreenshotRole, number> = {
+    home: 0,
+    onboarding: 0,
+    detail: 0,
+    communication: 0,
+    discovery: 0,
+    workflow: 0,
+    settings: 0,
+    paywall: 0,
+    feature: 0,
+    unknown: 0,
+  };
+
+  addRoleScores(scores, normalizeText(`${humanizeFileStem(pathValue)} ${note ?? ''}`), 1);
+  if (textInsights?.text) addRoleScores(scores, normalizeText(textInsights.text), 1.2);
+  if (textInsights?.roleHint) scores[textInsights.roleHint] += 24;
+
+  return bestRoleFromScores(scores);
+}
+
+function inferDensity(
+  role: ScreenshotRole,
+  pathValue: string,
+  note?: string,
+  textInsights?: ScreenshotTextInsights,
+): ScreenshotDensity {
   const haystack = normalizeText(`${humanizeFileStem(pathValue)} ${note ?? ''}`);
+
+  if (textInsights) {
+    if (textInsights.totalCoverage >= 0.2 || textInsights.lineCount >= 10) return 'dense';
+    if (textInsights.totalCoverage <= 0.04 && textInsights.lineCount <= 2) return 'minimal';
+  }
 
   if (role === 'onboarding') return 'minimal';
   if (role === 'settings' || role === 'communication') return 'dense';
@@ -367,6 +739,95 @@ function inferUnsafeForTextOverlay(
 ): boolean {
   const maxZoneArea = Math.max(0, ...safeTextZones.map((zone) => zone.width * zone.height));
   return density === 'dense' || role === 'communication' || role === 'settings' || maxZoneArea < 1200;
+}
+
+function maxTextRisk(left: TextRisk, right: TextRisk): TextRisk {
+  const order: TextRisk[] = ['low', 'medium', 'high'];
+  return order[Math.max(order.indexOf(left), order.indexOf(right))] ?? 'medium';
+}
+
+function liftTextRiskFromInsights(
+  baseRisk: TextRisk,
+  textInsights?: ScreenshotTextInsights,
+): TextRisk {
+  if (!textInsights) return baseRisk;
+  if (
+    textInsights.topCoverage >= 0.12
+    || textInsights.totalCoverage >= 0.24
+    || textInsights.lineCount >= 12
+  ) {
+    return 'high';
+  }
+  if (
+    textInsights.topCoverage >= 0.04
+    || textInsights.totalCoverage >= 0.1
+    || textInsights.lineCount >= 4
+  ) {
+    return maxTextRisk(baseRisk, 'medium');
+  }
+  return baseRisk;
+}
+
+function zoneTextOverlapRatio(
+  zone: SafeTextZone,
+  textInsights?: ScreenshotTextInsights,
+): number {
+  if (!textInsights || textInsights.blocks.length === 0) return 0;
+
+  const zoneArea = Math.max(zone.width * zone.height, 1);
+  const overlapArea = textInsights.blocks.reduce((sum, block) => {
+    const overlapWidth = Math.max(
+      0,
+      Math.min(zone.x + zone.width, block.x + block.width) - Math.max(zone.x, block.x),
+    );
+    const overlapHeight = Math.max(
+      0,
+      Math.min(zone.y + zone.height, block.y + block.height) - Math.max(zone.y, block.y),
+    );
+    return sum + (overlapWidth * overlapHeight);
+  }, 0);
+
+  return overlapArea / zoneArea;
+}
+
+function uniqueSafeTextZones(zones: SafeTextZone[]): SafeTextZone[] {
+  const seen = new Set<string>();
+  return zones.filter((zone) => {
+    const key = `${zone.label}:${zone.x}:${zone.y}:${zone.width}:${zone.height}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function filterSafeTextZonesWithText(
+  safeTextZones: SafeTextZone[],
+  fallbackZones: SafeTextZone[],
+  textInsights?: ScreenshotTextInsights,
+): SafeTextZone[] {
+  if (!textInsights || textInsights.blocks.length === 0) return safeTextZones;
+
+  const candidates = uniqueSafeTextZones([...safeTextZones, ...fallbackZones]);
+  const filtered = candidates.filter((zone) => zoneTextOverlapRatio(zone, textInsights) < 0.14);
+  if (filtered.length > 0) return filtered.slice(0, Math.max(3, safeTextZones.length));
+  return safeTextZones;
+}
+
+function hasTopTextCollision(textInsights?: ScreenshotTextInsights): boolean {
+  return Boolean(textInsights && (textInsights.topCoverage >= 0.08 || textInsights.lineCount >= 8));
+}
+
+function adjustHeroPriorityForText(
+  heroPriority: number,
+  textInsights?: ScreenshotTextInsights,
+): number {
+  if (!textInsights) return heroPriority;
+  let adjusted = heroPriority;
+  if (textInsights.topCoverage >= 0.14) adjusted -= 12;
+  else if (textInsights.topCoverage >= 0.08) adjusted -= 6;
+  if (textInsights.totalCoverage >= 0.25) adjusted -= 8;
+  else if (textInsights.totalCoverage <= 0.03 && textInsights.lineCount <= 1) adjusted += 3;
+  return clamp(adjusted, 0, 100);
 }
 
 function computeHeroPriority(
@@ -482,6 +943,7 @@ function buildHeroExplanation(args: {
   recommendedUsage: RecommendedUsage;
   topQuietRatio?: number;
   focusStrength?: number;
+  textInsights?: ScreenshotTextInsights;
 }): string[] {
   const reasons: string[] = [];
 
@@ -521,6 +983,17 @@ function buildHeroExplanation(args: {
 
   if (typeof args.focusStrength === 'number' && args.focusStrength >= 0.5) {
     reasons.push('The screenshot has a strong focal region for tighter crops or supporting detail treatments.');
+  }
+
+  if (args.textInsights) {
+    if (args.textInsights.roleHint && args.textInsights.roleHint === args.role) {
+      reasons.push(`Text enrichment also points to a ${args.role} screen.`);
+    }
+    if (args.textInsights.topCoverage >= 0.1) {
+      reasons.push('OCR/vision text blocks occupy the top band, so overlay copy needs more caution.');
+    } else if (args.textInsights.lineCount > 0 && args.textInsights.totalCoverage <= 0.04) {
+      reasons.push('OCR/vision enrichment found only light embedded UI text, so the screen stays flexible.');
+    }
   }
 
   reasons.push(`Computed hero priority: ${args.heroPriority}/100.`);
@@ -1153,10 +1626,19 @@ export async function analyzeScreenshotSet(
   const baseAnalyses = await Promise.all(
     inputs.map(async (input) => {
       const metadata = await readImageMetadata(input.path);
-      const rasterSignals = await analyzeRasterSignals(input.path);
-      const fileStat = await stat(input.path).catch(() => null);
-      const role = inferRole(input.path, input.note);
-      const inferredDensity = inferDensity(role, input.path, input.note);
+      const [rasterSignals, fileStat, textInsights] = await Promise.all([
+        analyzeRasterSignals(input.path),
+        stat(input.path).catch(() => null),
+        readScreenshotTextInsights({
+          pathValue: input.path,
+          ocrJsonPath: input.ocrJsonPath,
+          width: metadata.width,
+          height: metadata.height,
+        }),
+      ]);
+      const resolvedTextInsights = textInsights ?? undefined;
+      const role = inferRole(input.path, input.note, resolvedTextInsights);
+      const inferredDensity = inferDensity(role, input.path, input.note, resolvedTextInsights);
       const density = rasterSignals?.density ?? inferredDensity;
       const focus = inferFocus(input.path, input.note, role);
       const inferredCropSuitability = inferCropSuitability(role, density);
@@ -1167,9 +1649,14 @@ export async function analyzeScreenshotSet(
               ? 'medium'
               : 'low')
         : inferredCropSuitability;
-      const safeTextZones = rasterSignals?.safeTextZones?.length
+      const baseSafeTextZones = rasterSignals?.safeTextZones?.length
         ? rasterSignals.safeTextZones
         : inferSafeTextZones(role, density);
+      const safeTextZones = filterSafeTextZonesWithText(
+        baseSafeTextZones,
+        inferSafeTextZones(role, density),
+        resolvedTextInsights,
+      );
       let heroPriority = computeHeroPriority(
         role,
         density,
@@ -1179,12 +1666,22 @@ export async function analyzeScreenshotSet(
         input.note,
       );
       heroPriority = clamp(heroPriority + (rasterSignals?.heroPriorityAdjustment ?? 0), 0, 100);
+      heroPriority = adjustHeroPriorityForText(heroPriority, resolvedTextInsights);
       const recommendedUsage = inferRecommendedUsage(role, heroPriority, cropSuitability);
-      const textRisk = rasterSignals?.textRisk
-        ?? inferTextRisk(density);
+      const textRisk = liftTextRiskFromInsights(
+        rasterSignals?.textRisk ?? inferTextRisk(density),
+        resolvedTextInsights,
+      );
       const unsafeForTextOverlay = rasterSignals
-        ? (rasterSignals.unsafeForTextOverlay || inferUnsafeForTextOverlay(role, density, safeTextZones))
-        : inferUnsafeForTextOverlay(role, density, safeTextZones);
+        ? (
+            rasterSignals.unsafeForTextOverlay
+            || inferUnsafeForTextOverlay(role, density, safeTextZones)
+            || hasTopTextCollision(resolvedTextInsights)
+          )
+        : (
+            inferUnsafeForTextOverlay(role, density, safeTextZones)
+            || hasTopTextCollision(resolvedTextInsights)
+          );
 
       return {
         path: input.path,
@@ -1211,6 +1708,7 @@ export async function analyzeScreenshotSet(
           recommendedUsage,
           topQuietRatio: rasterSignals?.pixelMetrics.topQuietRatio,
           focusStrength: rasterSignals?.focalPoint.strength,
+          textInsights: resolvedTextInsights,
         }),
         inferredOrder: null,
         orderingConfidence: 'low' as const,
@@ -1229,6 +1727,7 @@ export async function analyzeScreenshotSet(
         cropSuitability,
         recommendedUsage,
         unsafeForTextOverlay,
+        textInsights: resolvedTextInsights,
         statMtimeMs: fileStat?.mtimeMs ?? null,
       };
     }),

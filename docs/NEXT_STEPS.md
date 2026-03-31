@@ -46,6 +46,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - panoramic planning/materialization now emits `badge` and `logo` elements in generated panoramic concepts
 - panoramic planning/materialization now emits layered backgrounds and proof chips in generated panoramic concepts
 - screenshot analysis now includes ordering inference, hero explanations, and unsafe text-overlay flags
+- screenshot analysis now supports optional OCR/vision text enrichment from local sidecars or opt-in local Tesseract, feeding role detection and overlay safety without bundling built-in model dependencies
 - the AppFrame skill has been rewritten around the autopilot flow
 
 The current default concept contract is:
@@ -55,7 +56,7 @@ The current default concept contract is:
 - `concept-c`: `panoramic` / Editorial Panorama
 - `concept-d`: `panoramic` / Bold Panorama
 
-This means the minimum viable AI flow now exists, but it is still a first version. Quality is now less constrained by basic composition and pixel analysis, but still limited by OCR/vision depth, screenshot-to-plan intelligence, copy sophistication, and refinement tooling.
+This means the minimum viable AI flow now exists, but it is still a first version. Quality is now less constrained by basic composition, pixel analysis, and text-aware screenshot understanding, but still limited by deeper scene semantics, screenshot-to-plan intelligence, copy sophistication, and refinement tooling.
 
 ## Files Added Or Extended
 
@@ -70,6 +71,7 @@ Primary MCP/autopilot files:
 
 Tests:
 - [design-planning.test.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/design-planning.test.ts)
+- [suggestion-tools.test.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/suggestion-tools.test.ts)
 - [plan-materializer.test.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/plan-materializer.test.ts)
 - [copy-planning.test.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/copy-planning.test.ts)
 - [preview-scoring.test.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/preview-scoring.test.ts)
@@ -122,11 +124,8 @@ pnpm --filter @appframe/core typecheck
 pnpm --filter @appframe/mcp-server typecheck
 pnpm --filter @appframe/web-preview typecheck
 pnpm vitest run packages/mcp-server/src/tools/design-planning.test.ts \
-  packages/mcp-server/src/tools/plan-materializer.test.ts \
-  packages/mcp-server/src/tools/copy-planning.test.ts \
-  packages/mcp-server/src/tools/preview-scoring.test.ts \
-  packages/mcp-server/src/tools/variant-session-tools.test.ts \
-  packages/core/src/renderer/pipeline.test.ts
+  packages/mcp-server/src/tools/suggestion-tools.test.ts \
+  packages/mcp-server/src/tools/plan-materializer.test.ts
 ```
 
 Run these again after any work in the touched areas.
@@ -136,7 +135,7 @@ Run these again after any work in the touched areas.
 The current implementation is not yet the full target product. The biggest remaining gaps are:
 
 1. broader screenshot-to-plan and screenshot-to-copy intelligence
-2. OCR/vision enrichment beyond current pixel heuristics
+2. deeper OCR/vision enrichment beyond text-aware heuristics
 3. refinement actions inside the preview flow
 4. tighter orchestration with preview launch/open behavior
 5. more capable panoramic and layered compositions
@@ -147,7 +146,7 @@ The current implementation is not yet the full target product. The biggest remai
 Recommended order:
 
 1. Screenshot-to-plan and screenshot-to-copy intelligence
-2. Better screenshot understanding and AI-assisted analysis
+2. Better screenshot understanding and pluggable OCR/vision enrichment
 3. Preview UI refinement actions + session history
 4. Full autopilot polish and resume/retry behavior
 5. Better before.click-style recipe coverage
@@ -205,7 +204,8 @@ Recommended order:
 - [x] Add safe text zones.
 - [x] Add crop suitability.
 - [x] Add recommended usage.
-- [ ] Add OCR-based detection of in-screenshot text.
+- [x] Add OCR-based detection of in-screenshot text.
+  Status: `analyzeScreenshotSet` now accepts optional `ocrJsonPath` sidecars, auto-discovers local `.ocr.json` / `.vision.json` files, and can use opt-in local Tesseract via `APPFRAME_ENABLE_TESSERACT_OCR=1` without bundling a built-in model dependency.
 - [x] Add heuristics for actual whitespace/empty-region detection from pixels.
 - [x] Add focal-point estimation based on simple saliency/image heuristics.
 - [x] Add screenshot color extraction from actual image contents instead of role heuristics only.
@@ -216,6 +216,7 @@ Recommended order:
   - [ ] settings
   - [ ] communication/chat
   - [ ] data-heavy dashboard/reporting
+  Status: text-aware role scoring now improves these cases when OCR/vision text is available, but broader scene-graph understanding is still incomplete.
 - [x] Add screenshot ordering inference from filenames, timestamps, and roles.
 - [x] Add "best screenshot for hero" explanation fields in analysis output.
 - [x] Add "unsafe for text overlay" flags.
@@ -452,18 +453,18 @@ This is not fully implemented yet.
 
 If a future thread should continue immediately, the best next slice is:
 
-1. add preview UI refinement actions for common edits
-2. add refine-with-AI actions in session-aware autopilot flows
-3. continue autopilot hardening around resume, stale detection, and structured run status
-4. add tests for refinement-session updates and save/load round-tripping
+1. feed OCR/text insights deeper into screenshot-to-copy selection so copy avoids repeating embedded UI text
+2. add plan-time frame strategy and crop-level planning output using the richer screenshot understanding now available
+3. add more real-ish screenshot fixtures to validate OCR-aware role detection and overlay safety
+4. continue refinement flow polish after screenshot-to-plan intelligence catches up
 
-That is the next quality step now that local branch-and-refine actions, session history, and continuity review are in place.
+That is the next quality step now that text-aware screenshot understanding no longer stops at pixel heuristics alone.
 
 ## Suggested Concrete Next Task Prompt
 
 Use this to start a future thread:
 
-> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next refinement slice after local branch-and-refine support: add refine-with-AI actions in the preview UI, persist/refine session history more explicitly, and add tests that round-trip branched/refined variants through save/load without losing provenance or editor state.
+> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next screenshot-to-plan intelligence slice after OCR-aware analysis: use text insights to avoid repeating embedded UI copy, add explicit frame/crop strategy in planning, and add tests with more realistic screenshot fixtures.
 
 ## Notes For Future Threads
 
@@ -471,6 +472,6 @@ Use this to start a future thread:
 - Existing manual variant workflows still matter; preserve backward compatibility where possible.
 - Session compatibility matters now that sessions can be created from both manual configs and autopilot manifests.
 - The current scoring system is now partly visual and can optionally use live model ranking, but it is still not a full art-direction loop.
-- The current screenshot understanding now includes real pixel heuristics, but it is still not OCR/vision-driven.
+- The current screenshot understanding now includes real pixel heuristics plus optional OCR/vision text enrichment, but richer semantic scene understanding is still open.
 - The current renderer is broader than the original single-device flow, but it still limits how close AppFrame can get to before.click-style layouts.
 - Prefer local deterministic logic or agent-provided model outputs over adding new built-in API-key dependencies inside AppFrame itself.

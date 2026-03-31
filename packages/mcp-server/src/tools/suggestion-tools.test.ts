@@ -429,13 +429,15 @@ describe('runAutopilotPipeline', () => {
     const dir = await mkdtemp(join(tmpdir(), 'appframe-autopilot-'));
     tempDirs.push(dir);
     const [homePath, detailPath] = await makeScreenshotSet(dir);
+    const homeOcrPath = join(dir, 'home.ocr.json');
+    await writeFile(homeOcrPath, '{}', 'utf-8');
 
     const result = await runAutopilotPipeline({
       appName: 'FocusFlow',
       appDescription: 'Plan your week without losing momentum.',
       platforms: ['ios'],
       features: ['Daily planning'],
-      screenshots: [{ path: homePath }, { path: detailPath }],
+      screenshots: [{ path: homePath, ocrJsonPath: homeOcrPath }, { path: detailPath }],
       outputDir: dir,
     });
 
@@ -453,6 +455,10 @@ describe('runAutopilotPipeline', () => {
     expect(persisted.stages.some((stage) => stage.reused)).toBe(false);
     expect(persisted.result?.previewArtifacts).toHaveLength(2);
     expect(designPlanningMocks.analyzeScreenshotSet).toHaveBeenCalledTimes(1);
+    expect(designPlanningMocks.analyzeScreenshotSet).toHaveBeenCalledWith([
+      { path: homePath, ocrJsonPath: homeOcrPath },
+      { path: detailPath },
+    ]);
     expect(variantSessionToolMocks.scoreVariantPreviews).toHaveBeenCalledTimes(1);
   });
 
@@ -565,6 +571,42 @@ describe('runAutopilotPipeline', () => {
     expect(analysisStage?.staleReason).toContain('current inputs');
     expect(copyStage?.stale).toBe(true);
     expect(copyStage?.reused).toBe(false);
+  });
+
+  it('detects stale OCR sidecar inputs and reruns the pipeline from analysis forward', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'appframe-autopilot-stale-ocr-'));
+    tempDirs.push(dir);
+    const [homePath, detailPath] = await makeScreenshotSet(dir);
+    const homeOcrPath = join(dir, 'home.ocr.json');
+    await writeFile(homeOcrPath, '{"version":1}', 'utf-8');
+
+    const baseArgs = {
+      appName: 'FocusFlow',
+      appDescription: 'Plan your week without losing momentum.',
+      platforms: ['ios' as const],
+      features: ['Daily planning'],
+      screenshots: [{ path: homePath, ocrJsonPath: homeOcrPath }, { path: detailPath }],
+      outputDir: dir,
+    };
+
+    await runAutopilotPipeline(baseArgs);
+    clearMockCalls();
+    await writeFile(homeOcrPath, '{"version":2}', 'utf-8');
+
+    await runAutopilotPipeline(baseArgs);
+
+    expect(designPlanningMocks.analyzeScreenshotSet).toHaveBeenCalledTimes(1);
+    expect(copyPlanningMocks.generateCopyCandidates).toHaveBeenCalledTimes(1);
+
+    const persisted = JSON.parse(await readFile(join(dir, 'autopilot-run.json'), 'utf-8')) as {
+      stages: Array<{ stage: string; stale?: boolean; staleReason?: string; reused?: boolean }>;
+    };
+    const analysisStage = persisted.stages.find((stage) => stage.stage === 'analysis');
+    const planningStage = persisted.stages.find((stage) => stage.stage === 'planning');
+
+    expect(analysisStage?.stale).toBe(true);
+    expect(analysisStage?.staleReason).toContain('current inputs');
+    expect(planningStage?.reused).toBe(false);
   });
 
   it('detects stale session config changes and rerenders previews before rescoring', async () => {

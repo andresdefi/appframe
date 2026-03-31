@@ -87,6 +87,14 @@ async function makePngFile(
   return filePath;
 }
 
+async function makeJsonFile(name: string, payload: unknown): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), 'appframe-design-plan-json-'));
+  tempDirs.push(dir);
+  const filePath = join(dir, name);
+  await writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
+  return filePath;
+}
+
 describe('design planning helpers', () => {
   it('reads SVG metadata and infers screenshot roles', async () => {
     const homePath = await makeSvgFile('home-screen.svg', 1290, 2796);
@@ -126,6 +134,34 @@ describe('design planning helpers', () => {
     expect(first.pixelMetrics?.topQuietRatio ?? 0).toBeGreaterThan(0.6);
     expect(first.focalPoint?.x ?? 0).toBeGreaterThan(45);
     expect(first.focalPoint?.y ?? 0).toBeGreaterThan(35);
+  });
+
+  it('uses optional OCR sidecars to improve role and text-overlay understanding', async () => {
+    const screenPath = await makePngFile('screen-2.png', 120, 200, (x, y) => {
+      if (y < 46) return [250, 250, 252, 255];
+      if (x > 26 && x < 96 && y > 68 && y < 176) return [99, 102, 241, 255];
+      return [241, 245, 249, 255];
+    });
+    const ocrPath = await makeJsonFile('screen-2.ocr.json', {
+      source: 'agent-vision',
+      roleHint: 'paywall',
+      blocks: [
+        { text: 'Upgrade to Pro', x: 12, y: 10, width: 58, height: 10, confidence: 0.98 },
+        { text: 'Start 7 day trial', x: 10, y: 24, width: 72, height: 8, confidence: 0.95 },
+      ],
+    });
+
+    const analysis = await analyzeScreenshotSet([{ path: screenPath, ocrJsonPath: ocrPath }]);
+    const first = analysis[0]!;
+
+    expect(first.role).toBe('paywall');
+    expect(first.textInsights?.source).toBe('agent-vision');
+    expect(first.textInsights?.lineCount).toBe(2);
+    expect(first.textInsights?.topCoverage ?? 0).toBeGreaterThan(0.15);
+    expect(first.safeTextZones.some((zone) => zone.label === 'top')).toBe(false);
+    expect(first.textRisk).toBe('high');
+    expect(first.unsafeForTextOverlay).toBe(true);
+    expect(first.heroExplanation.some((line) => line.includes('OCR/vision'))).toBe(true);
   });
 
   it('infers screenshot ordering from filenames and carries it into the plan', async () => {

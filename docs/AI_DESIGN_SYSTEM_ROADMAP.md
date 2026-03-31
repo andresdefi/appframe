@@ -98,7 +98,7 @@ Implementation order:
 
 1. Add screenshot metadata model
 2. Add heuristic screenshot analysis
-3. Add AI-assisted screenshot analysis for ambiguous cases
+3. Add pluggable OCR/vision enrichment for ambiguous cases via local tools, sidecars, or agent-provided outputs
 4. Feed analysis into recipe selection and ranking
 
 ### 4. Generate-Then-Rank Loop
@@ -184,6 +184,7 @@ This roadmap now has three concrete pieces underway:
 - AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load
 - manual refinement path: users can now approve the recommended concept, persist manual edits back into the active variant session, export the selected variant as a standalone config, and materialize the approved concept into an export-ready artifact directory without depending on an AI agent for every change
 - screenshot understanding foundations: analysis now includes inferred screen ordering, hero-candidate explanations, unsafe-overlay flags, and PNG-derived palette / quiet-zone / focal-point signals
+- screenshot understanding now also supports optional OCR/vision text enrichment through local sidecars and opt-in local Tesseract, improving role detection and text-overlay safety without bundling a built-in model dependency
 - individual composition breadth: dynamic individual concepts now materialize multi-device compositions, supporting screenshots, loupes, overlays, and palette-aware backgrounds instead of staying inside a single-device layout
 - deterministic concept planning: concepts now resequence screenshots differently, constrain support-screen reuse, and derive per-screen copy direction from screenshot role, density, quiet-space, and focal cues instead of sharing one generic ordering/story pass
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot

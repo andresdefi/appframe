@@ -343,4 +343,65 @@ describe('design planning helpers', () => {
       expect(plan.variants[2].canvasPlan.designGoal).toContain('community energy');
     }
   });
+
+  it('diversifies lead screenshot assignment across concepts when enough screens exist', async () => {
+    const homePath = await makePngFile('home-feed.png', 120, 200, (x, y) => {
+      if (y < 52) return [248, 250, 252, 255];
+      if (x > 28 && x < 88 && y > 58 && y < 184) return [59, 130, 246, 255];
+      return [226, 232, 240, 255];
+    });
+    const chatPath = await makePngFile('chat-inbox.png', 120, 200, (x, y) => {
+      const tone = (Math.floor(x / 6) + Math.floor(y / 8)) % 2 === 0 ? 214 : 168;
+      if (x > 14 && x < 106 && y > 44 && y < 176 && y % 18 < 10) return [37, 99, 235, 255];
+      return [tone, tone, tone + 10, 255];
+    });
+    const discoveryPath = await makePngFile('discover-creators.png', 120, 200, (x, y) => {
+      if (y < 48) return [250, 246, 240, 255];
+      if (x > 18 && x < 100 && y > 70 && y < 164) return [249, 115, 22, 255];
+      return [255, 237, 213, 255];
+    });
+    const detailPath = await makePngFile('detail-story.png', 120, 200, (x, y) => {
+      if (y < 34) return [244, 246, 248, 255];
+      if ((x > 20 && x < 102 && y > 62 && y < 82) || (x > 32 && x < 110 && y > 110 && y < 170)) {
+        return [16, 185, 129, 255];
+      }
+      return [203, 213, 225, 255];
+    });
+    const settingsPath = await makePngFile('settings-screen.png', 120, 200, (x, y) => {
+      const tone = (Math.floor(x / 8) + Math.floor(y / 8)) % 2 === 0 ? 210 : 176;
+      return [tone, tone, tone + 8, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'Pulse',
+      appDescription: 'A social app for chat, creator communities, and shared moments.',
+      platforms: ['ios'],
+      features: ['Group chat', 'Creator feeds', 'Shared posts'],
+      screenshots: [
+        { path: homePath, note: 'Community home feed' },
+        { path: chatPath, note: 'Chat inbox' },
+        { path: discoveryPath, note: 'Discover creators' },
+        { path: detailPath, note: 'Story detail' },
+        { path: settingsPath, note: 'Profile settings' },
+      ],
+      goals: ['Feel active', 'Show community'],
+      variantCount: 4,
+      screenCount: 5,
+    });
+
+    const conceptLeadPaths = plan.variants.map((variant) =>
+      variant.mode === 'individual'
+        ? variant.screens[0]?.sourcePath
+        : variant.frames?.[0]?.sourcePath,
+    );
+    const conceptLeadRoles = plan.variants.map((variant) =>
+      variant.mode === 'individual'
+        ? variant.screens[0]?.sourceRole
+        : variant.frames?.[0]?.sourceRole,
+    );
+    const uniqueLeadPaths = new Set(conceptLeadPaths.filter((value): value is string => Boolean(value)));
+
+    expect(uniqueLeadPaths.size).toBe(4);
+    expect(conceptLeadRoles).toContain('communication');
+  });
 });

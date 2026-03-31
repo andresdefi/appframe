@@ -34,7 +34,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - screenshot analysis now derives actual-pixel palette extraction, quiet text zones, and focal-point estimates from PNG screenshots
 - copy candidate generation can now use screenshot-derived slot signals from analysis to steer role-aware, focus-aware headline options
 - planning/materialization now emit dynamic individual compositions with extra screenshots, loupes, overlays, and palette-informed backgrounds
-- planning now resequences screenshots per concept and adds basic support-screen reuse constraints so concepts do not silently collapse to the same order
+- planning now resequences screenshots per concept, diversifies lead/closing assignment across the concept set, and constrains shared support-screen reuse so concepts do not silently collapse onto the same screenshots
 - planning now selects category-aware concept recipes, naming, strategies, and role weighting for finance, health, productivity, social, creative, games, and general apps
 - the core renderer pipeline now passes multi-device compositions and screen effects through to template rendering
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
@@ -233,8 +233,8 @@ Recommended order:
   - [ ] which concepts must use frames
   - [ ] which concepts may go frameless
   - [ ] why frameless is allowed
-- [ ] Add plan-time screenshot assignment constraints to avoid overusing the same screenshot.
-  Status: support-screen reuse is now constrained inside dynamic individual concepts, but cross-concept assignment strategy is still basic.
+- [x] Add plan-time screenshot assignment constraints to avoid overusing the same screenshot.
+  Status: planning now penalizes repeated lead/closing emphasis across concepts and shares support-screen reuse tracking across individual concepts, while still keeping a deterministic local-first assignment pass.
 - [ ] Add crop-level planning once crop primitives exist.
   Status: basic crop usage now exists in panoramic planning/materialization, but not explicit crop-by-crop planning output.
 - [ ] Add support for alternate 5th concept families after renderer expansion.

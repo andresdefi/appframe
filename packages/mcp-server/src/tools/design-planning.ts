@@ -1474,33 +1474,102 @@ function middleScoreForConcept(
   }
 }
 
+interface CrossConceptAssignmentState {
+  heroUsage: Map<string, number>;
+  closingUsage: Map<string, number>;
+  earlyUsage: Map<string, number>;
+  supportUsage: Map<string, number>;
+}
+
+function createCrossConceptAssignmentState(): CrossConceptAssignmentState {
+  return {
+    heroUsage: new Map<string, number>(),
+    closingUsage: new Map<string, number>(),
+    earlyUsage: new Map<string, number>(),
+    supportUsage: new Map<string, number>(),
+  };
+}
+
+function usageCount(map: Map<string, number>, pathValue: string): number {
+  return map.get(pathValue) ?? 0;
+}
+
+function incrementUsage(map: Map<string, number>, pathValue: string): void {
+  map.set(pathValue, usageCount(map, pathValue) + 1);
+}
+
 function arrangeScreensForConcept(
   selected: ScreenshotAnalysis[],
   conceptId: ConceptId,
   category: AppCategory,
+  assignmentState?: CrossConceptAssignmentState,
 ): ScreenshotAnalysis[] {
   const ordered = sortAnalysesByInferredOrder(selected);
   if (ordered.length <= 2) return ordered;
+  const heroUsage = assignmentState?.heroUsage ?? new Map<string, number>();
+  const closingUsage = assignmentState?.closingUsage ?? new Map<string, number>();
+  const earlyUsage = assignmentState?.earlyUsage ?? new Map<string, number>();
+  const heroReusePenalty = conceptId === 'concept-d' ? 42 : conceptId === 'concept-c' ? 34 : 28;
+  const earlyReusePenalty = conceptId === 'concept-d' ? 18 : 14;
+  const unusedLeadBonus = conceptId === 'concept-a' ? 0 : 8;
 
   const hero = ordered
     .slice()
-    .sort((left, right) => heroScoreForConcept(right, conceptId, category) - heroScoreForConcept(left, conceptId, category))[0]!;
+    .sort((left, right) => {
+      const rightScore = heroScoreForConcept(right, conceptId, category)
+        - (usageCount(heroUsage, right.path) * heroReusePenalty)
+        - (usageCount(earlyUsage, right.path) * earlyReusePenalty)
+        - (usageCount(closingUsage, right.path) * 8)
+        + (usageCount(heroUsage, right.path) === 0 ? unusedLeadBonus : 0);
+      const leftScore = heroScoreForConcept(left, conceptId, category)
+        - (usageCount(heroUsage, left.path) * heroReusePenalty)
+        - (usageCount(earlyUsage, left.path) * earlyReusePenalty)
+        - (usageCount(closingUsage, left.path) * 8)
+        + (usageCount(heroUsage, left.path) === 0 ? unusedLeadBonus : 0);
+      return rightScore - leftScore;
+    })[0]!;
   const remainingAfterHero = ordered.filter((analysis) => analysis.path !== hero.path);
   const closing = remainingAfterHero
     .slice()
-    .sort((left, right) => closingScoreForConcept(right, conceptId, category) - closingScoreForConcept(left, conceptId, category))[0]!;
+    .sort((left, right) => {
+      const rightScore = closingScoreForConcept(right, conceptId, category)
+        - (usageCount(closingUsage, right.path) * 26)
+        - (usageCount(heroUsage, right.path) * 10)
+        - (usageCount(earlyUsage, right.path) * 6);
+      const leftScore = closingScoreForConcept(left, conceptId, category)
+        - (usageCount(closingUsage, left.path) * 26)
+        - (usageCount(heroUsage, left.path) * 10)
+        - (usageCount(earlyUsage, left.path) * 6);
+      return rightScore - leftScore;
+    })[0]!;
   const middle = remainingAfterHero
     .filter((analysis) => analysis.path !== closing.path)
     .slice()
-    .sort((left, right) => middleScoreForConcept(right, conceptId, category) - middleScoreForConcept(left, conceptId, category));
+    .sort((left, right) => {
+      const rightScore = middleScoreForConcept(right, conceptId, category)
+        - (usageCount(earlyUsage, right.path) * 12)
+        - (usageCount(heroUsage, right.path) * 6);
+      const leftScore = middleScoreForConcept(left, conceptId, category)
+        - (usageCount(earlyUsage, left.path) * 12)
+        - (usageCount(heroUsage, left.path) * 6);
+      return rightScore - leftScore;
+    });
 
   const sequence = [hero, ...middle, closing];
   const matchesNaturalOrder = sequence.every((analysis, index) => analysis.path === ordered[index]?.path);
-  if (conceptId !== 'concept-a' && matchesNaturalOrder && sequence.length >= 3) {
-    return [sequence[1]!, sequence[0]!, ...sequence.slice(2)];
+  const finalSequence = conceptId !== 'concept-a' && matchesNaturalOrder && sequence.length >= 3
+    ? [sequence[1]!, sequence[0]!, ...sequence.slice(2)]
+    : sequence;
+
+  if (assignmentState) {
+    incrementUsage(assignmentState.heroUsage, finalSequence[0]!.path);
+    incrementUsage(assignmentState.closingUsage, finalSequence[finalSequence.length - 1]!.path);
+    finalSequence.slice(0, Math.min(2, finalSequence.length)).forEach((analysis) => {
+      incrementUsage(assignmentState.earlyUsage, analysis.path);
+    });
   }
 
-  return sequence;
+  return finalSequence;
 }
 
 function supportingScreensForComposition(
@@ -1662,32 +1731,30 @@ function buildScreenCopyDirection(args: {
 function buildIndividualVariantScreens(args: {
   category: AppCategory;
   conceptId: 'concept-a' | 'concept-b';
-  selected: ScreenshotAnalysis[];
+  sequence: ScreenshotAnalysis[];
+  supportUsage: Map<string, number>;
 }): PlannedIndividualScreen[] {
-  const sequence = arrangeScreensForConcept(args.selected, args.conceptId, args.category);
-  const supportUsage = new Map<string, number>();
-
-  return sequence.map((analysis, index) => {
-    const slideRole = buildSlideRole(index, sequence.length);
+  return args.sequence.map((analysis, index) => {
+    const slideRole = buildSlideRole(index, args.sequence.length);
     const maxSupportingScreens =
       args.conceptId === 'concept-b'
-        ? (index === 0 || index === sequence.length - 1 ? 2 : 1)
+        ? (index === 0 || index === args.sequence.length - 1 ? 2 : 1)
         : (index > 0 && analysis.cropSuitability === 'high' ? 1 : 0);
     const supportingScreens = maxSupportingScreens > 0
       ? supportingScreensForComposition(
-          sequence,
+          args.sequence,
           analysis,
           maxSupportingScreens,
           args.conceptId,
           args.category,
-          supportUsage,
+          args.supportUsage,
         )
       : [];
     const composition = args.conceptId === 'concept-b'
       ? chooseDynamicIndividualComposition({
           analysis,
           index,
-          total: sequence.length,
+          total: args.sequence.length,
           supportingScreens,
         })
       : index === 0
@@ -2124,6 +2191,19 @@ function buildVariantEntries(
 ): PlannedVariant[] {
   const variants: PlannedVariant[] = [];
   const conceptSpecs = buildCategoryConceptSpecs(category, goals);
+  const assignmentState = createCrossConceptAssignmentState();
+  const conceptSequences = {
+    'concept-a': arrangeScreensForConcept(selected, 'concept-a', category, assignmentState),
+    'concept-b': variantCount >= 2
+      ? arrangeScreensForConcept(selected, 'concept-b', category, assignmentState)
+      : [],
+    'concept-c': variantCount >= 3
+      ? arrangeScreensForConcept(selected, 'concept-c', category, assignmentState)
+      : [],
+    'concept-d': variantCount >= 4
+      ? arrangeScreensForConcept(selected, 'concept-d', category, assignmentState)
+      : [],
+  } satisfies Record<'concept-a' | 'concept-b' | 'concept-c' | 'concept-d', ScreenshotAnalysis[]>;
   const conceptA = conceptSpecs['concept-a'];
   const conceptB = conceptSpecs['concept-b'];
   const conceptC = conceptSpecs['concept-c'];
@@ -2141,7 +2221,8 @@ function buildVariantEntries(
     screens: buildIndividualVariantScreens({
       category,
       conceptId: 'concept-a',
-      selected,
+      sequence: conceptSequences['concept-a'],
+      supportUsage: assignmentState.supportUsage,
     }),
   });
 
@@ -2157,13 +2238,14 @@ function buildVariantEntries(
       screens: buildIndividualVariantScreens({
         category,
         conceptId: 'concept-b',
-        selected,
+        sequence: conceptSequences['concept-b'],
+        supportUsage: assignmentState.supportUsage,
       }),
     });
   }
 
   if (variantCount >= 3) {
-    const editorialSequence = arrangeScreensForConcept(selected, 'concept-c', category);
+    const editorialSequence = conceptSequences['concept-c'];
     variants.push({
       id: 'concept-c',
       name: conceptC.name,
@@ -2214,7 +2296,7 @@ function buildVariantEntries(
   }
 
   if (variantCount >= 4) {
-    const boldSequence = arrangeScreensForConcept(selected, 'concept-d', category);
+    const boldSequence = conceptSequences['concept-d'];
     variants.push({
       id: 'concept-d',
       name: conceptD.name,

@@ -32,9 +32,10 @@ AppFrame now has an initial autopilot pipeline implemented:
 - preview scoring now inspects rendered PNG previews for contrast, text-zone safety, whitespace balance, clutter, and panoramic seam continuity
 - preview scoring now measures concept diversity across the full rendered concept set, explains concrete layout/copy issues, and can call a live model-assisted visual ranking pass behind optional AI credentials with safe fallback behavior
 - screenshot analysis now derives actual-pixel palette extraction, quiet text zones, and focal-point estimates from PNG screenshots
-- copy candidate generation can now use screenshot-derived slot signals from analysis to steer role-aware, focus-aware headline options
+- copy candidate generation can now use screenshot-derived slot signals from analysis to steer role-aware, focus-aware headline options and avoid echoing embedded OCR/vision UI text
 - planning/materialization now emit dynamic individual compositions with extra screenshots, loupes, overlays, and palette-informed backgrounds
 - planning now resequences screenshots per concept, diversifies lead/closing assignment across the concept set, and constrains shared support-screen reuse so concepts do not silently collapse onto the same screenshots
+- planning now emits explicit per-concept frame strategies plus per-screen/per-frame crop plans that react to focal points and OCR/text-occupied regions
 - planning now selects category-aware concept recipes, naming, strategies, and role weighting for finance, health, productivity, social, creative, games, and general apps
 - the core renderer pipeline now passes multi-device compositions and screen effects through to template rendering
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
@@ -120,12 +121,11 @@ Legacy/manual session tools still exist:
 These passed after the latest implementation:
 
 ```bash
-pnpm --filter @appframe/core typecheck
 pnpm --filter @appframe/mcp-server typecheck
 pnpm --filter @appframe/web-preview typecheck
 pnpm vitest run packages/mcp-server/src/tools/design-planning.test.ts \
-  packages/mcp-server/src/tools/suggestion-tools.test.ts \
-  packages/mcp-server/src/tools/plan-materializer.test.ts
+  packages/mcp-server/src/tools/copy-planning.test.ts \
+  packages/mcp-server/src/tools/suggestion-tools.test.ts
 ```
 
 Run these again after any work in the touched areas.
@@ -189,6 +189,7 @@ Recommended order:
   - [ ] creative
   - [ ] games
 - [ ] Add anti-repetition checks across the full selected copy set.
+- [x] Use OCR/text insights to avoid repeating embedded UI text in generated copy.
 - [ ] Add stronger "no feature list headline" detection.
 - [ ] If model-assisted copy returns, accept agent-provided outputs rather than bundling API-key-based generation inside AppFrame.
 - [ ] Add fallback merging logic so externally generated copy can be rescored by the heuristic system before selection.
@@ -220,7 +221,7 @@ Recommended order:
 - [x] Add screenshot ordering inference from filenames, timestamps, and roles.
 - [x] Add "best screenshot for hero" explanation fields in analysis output.
 - [x] Add "unsafe for text overlay" flags.
-- [ ] Add tests with real-ish sample screenshots instead of only SVG fixtures.
+- [x] Add tests with real-ish sample screenshots instead of only SVG fixtures.
 
 ### 4. Planning System
 
@@ -230,14 +231,15 @@ Recommended order:
 - [ ] Add explicit concept diversity constraints so two concepts cannot collapse into minor recolors.
   Status: concept-specific screenshot resequencing now exists, but recipe/style diversity is still narrower than the target quality bar.
 - [x] Add plan-time recipe selection based on app category.
-- [ ] Add plan-time frame strategy:
-  - [ ] which concepts must use frames
-  - [ ] which concepts may go frameless
-  - [ ] why frameless is allowed
+- [x] Add plan-time frame strategy:
+  - [x] which concepts must use frames
+  - [x] which concepts may go frameless
+  - [x] why frameless is allowed
+  Status: plans now include explicit per-concept `frameStrategy` metadata with framed/frameless rules and rationale.
 - [x] Add plan-time screenshot assignment constraints to avoid overusing the same screenshot.
   Status: planning now penalizes repeated lead/closing emphasis across concepts and shares support-screen reuse tracking across individual concepts, while still keeping a deterministic local-first assignment pass.
-- [ ] Add crop-level planning once crop primitives exist.
-  Status: basic crop usage now exists in panoramic planning/materialization, but not explicit crop-by-crop planning output.
+- [x] Add crop-level planning once crop primitives exist.
+  Status: plans now emit per-screen/per-frame `cropPlan` metadata with crop usage, anchor, and OCR/text-avoidance regions.
 - [ ] Add support for alternate 5th concept families after renderer expansion.
 - [ ] Add richer plan output for the UI so users can inspect rationale concept-by-concept.
 

@@ -101,6 +101,11 @@ Implementation order:
 3. Add pluggable OCR/vision enrichment for ambiguous cases via local tools, sidecars, or agent-provided outputs
 4. Feed analysis into recipe selection and ranking
 
+Current status:
+
+- OCR/vision text enrichment now feeds role detection, overlay safety, screenshot-to-copy de-duplication, and plan-time crop guidance without bundling built-in model dependencies
+- variant plans now emit explicit per-concept frame strategies plus per-screen/per-frame crop plans, including text-occupied-region avoidance and focal-point anchoring
+
 ### 4. Generate-Then-Rank Loop
 
 The system should generate many candidates, then filter.
@@ -189,6 +194,8 @@ This roadmap now has three concrete pieces underway:
 - deterministic concept planning: concepts now resequence screenshots differently, constrain support-screen reuse, and derive per-screen copy direction from screenshot role, density, quiet-space, and focal cues instead of sharing one generic ordering/story pass
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot
 - screenshot-aware copy generation: copy candidates can now consume screenshot-derived slot signals so hero, differentiator, feature, trust, and summary lines respond to actual screen content instead of only the feature list
+- OCR-aware copy de-duplication: generated copy now avoids echoing embedded UI text discovered through OCR/vision sidecars or opt-in local OCR
+- explicit planning guidance: variant plans now include concept-level frame strategy plus crop-level usage/anchor/avoidance metadata for individual screens and panoramic frames
 - design recipe selection now varies concept naming, supported recipe labels, strategies, panoramic goals, and screenshot role weighting by inferred app category instead of using one generic 4-concept set for every app
 - local-first product direction: core AppFrame behavior should prefer deterministic local logic and agent-provided outputs over bundling new API-key-based model dependencies directly into the app
 - autopilot hardening foundations: `appframe_run_autopilot` now persists a stage-by-stage run manifest with resume, forced rerun, stale-artifact detection, structured failure, and explicit preview-next-step metadata

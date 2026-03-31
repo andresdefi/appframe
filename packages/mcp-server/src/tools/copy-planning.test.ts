@@ -55,4 +55,36 @@ describe('copy planning helpers', () => {
     expect(heroHeadlines.some((headline) => /plan your day fast/i.test(headline))).toBe(true);
     expect(featureHeadlines.some((headline) => /habit streaks/i.test(headline))).toBe(true);
   });
+
+  it('avoids repeating embedded UI text when OCR-derived text is present', () => {
+    const candidateSet = generateCopyCandidates({
+      appName: 'Pulse+',
+      appDescription: 'A premium chat app for creator communities and group conversations.',
+      category: 'social',
+      features: ['Creator communities', 'Group chat', 'Shared posts'],
+      screenshotCount: 5,
+      screenSignals: [
+        {
+          slot: 'hero',
+          sourceRole: 'paywall',
+          focus: 'Upgrade to Pro',
+          embeddedText: ['Upgrade to Pro', 'Start 7 day trial'],
+          unsafeForTextOverlay: true,
+        },
+        { slot: 'differentiator', sourceRole: 'communication', focus: 'group chat' },
+        { slot: 'feature', sourceRole: 'detail', focus: 'creator communities' },
+        { slot: 'trust', sourceRole: 'detail', focus: 'premium access' },
+        { slot: 'summary', sourceRole: 'home', focus: 'creator communities' },
+      ],
+    });
+
+    const heroHeadlines = candidateSet.slots
+      .find((slot) => slot.slot === 'hero')
+      ?.candidates.map((candidate) => candidate.headline.replace(/\n/g, ' ')) ?? [];
+
+    expect(heroHeadlines.some((headline) => /upgrade to pro/i.test(headline))).toBe(false);
+
+    const selected = selectCopySet(candidateSet);
+    expect(selected.hero.headline.replace(/\n/g, ' ')).not.toMatch(/upgrade to pro/i);
+  });
 });

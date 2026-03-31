@@ -261,6 +261,11 @@ export interface AutopilotPlanVariant {
   style: string;
   recipe: string;
   strategy: string;
+  frameStrategy?: {
+    defaultTreatment: string;
+    framelessAllowedWhen: string[];
+    rationale: string;
+  };
   canvasPlan?: {
     frameCount: number;
     designGoal: string;
@@ -275,6 +280,12 @@ export interface AutopilotPlanVariant {
     sourceRole: string;
     cropSuitability: string;
     storyBeat: string;
+    cropPlan?: {
+      usage: string;
+      anchor: string;
+      avoidRegions: string[];
+      rationale: string;
+    };
     compositionFeatures?: string[];
     compositionNote?: string;
   }>;
@@ -292,6 +303,8 @@ export interface AutopilotConceptPlan {
     role: string;
     inferredOrder: number | null;
     unsafeForTextOverlay: boolean;
+    embeddedTextSample?: string[];
+    textOccupiedRegions?: string[];
   }>;
   variants: AutopilotPlanVariant[];
 }

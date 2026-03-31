@@ -30,6 +30,9 @@ export type CropSuitability = 'low' | 'medium' | 'high';
 export type RecommendedUsage = 'hero-device' | 'secondary-device' | 'crop-card' | 'support-only';
 export type OrderingConfidence = 'low' | 'medium' | 'high';
 export type AppCategory = 'finance' | 'health' | 'productivity' | 'social' | 'creative' | 'games' | 'general';
+export type CropAnchor = 'focal-point' | 'upper-half' | 'lower-half' | 'left-rail' | 'right-rail' | 'center';
+export type PlannedCropUsage = 'full-device' | 'loupe-detail' | 'supporting-crop' | 'layered-extract';
+export type PlannedFrameTreatment = 'framed' | 'frameless' | 'mixed';
 export type PanoramicCompositionFeature =
   | 'layered-detail-extract'
   | 'floating-detail-card'
@@ -104,6 +107,19 @@ export interface ScreenshotAnalysis {
   textInsights?: ScreenshotTextInsights;
 }
 
+export interface PlannedFrameStrategy {
+  defaultTreatment: PlannedFrameTreatment;
+  framelessAllowedWhen: string[];
+  rationale: string;
+}
+
+export interface PlannedCropPlan {
+  usage: PlannedCropUsage;
+  anchor: CropAnchor;
+  avoidRegions: SafeTextZone['label'][];
+  rationale: string;
+}
+
 export interface VariantSetPlan {
   app: {
     name: string;
@@ -126,6 +142,8 @@ export interface VariantSetPlan {
     inferredOrder: number | null;
     focus: string;
     unsafeForTextOverlay: boolean;
+    embeddedTextSample?: string[];
+    textOccupiedRegions?: SafeTextZone['label'][];
   }>;
   variants: PlannedVariant[];
 }
@@ -136,6 +154,8 @@ export interface CopyPlanningSignal {
   role: ScreenshotRole;
   density: ScreenshotDensity;
   focus: string;
+  textRisk: TextRisk;
+  embeddedText?: string[];
   unsafeForTextOverlay: boolean;
   topQuietRatio: number;
   focusStrength: number;
@@ -151,6 +171,7 @@ export interface PlannedIndividualScreen {
   extraScreenshots?: string[];
   backgroundStrategy: string;
   copyDirection: string;
+  cropPlan?: PlannedCropPlan;
   framing: 'framed' | 'frameless-rounded';
   dominantPalette?: string[];
   focalPoint?: FocalPoint;
@@ -165,6 +186,7 @@ export interface PlannedPanoramicFrame {
   focalPoint?: FocalPoint;
   cropSuitability: CropSuitability;
   storyBeat: string;
+  cropPlan?: PlannedCropPlan;
   assetGuidance?: string;
   pacing?: string;
   compositionFeatures?: PanoramicCompositionFeature[];
@@ -198,6 +220,7 @@ export interface PlannedIndividualVariant {
   style: string;
   recipe: string;
   strategy: string;
+  frameStrategy?: PlannedFrameStrategy;
   screens: PlannedIndividualScreen[];
 }
 
@@ -209,6 +232,7 @@ export interface PlannedPanoramicVariant {
   style: string;
   recipe: string;
   strategy: string;
+  frameStrategy?: PlannedFrameStrategy;
   canvasPlan: PlannedPanoramicCanvasPlan;
   frames?: PlannedPanoramicFrame[];
 }
@@ -626,6 +650,61 @@ async function readScreenshotTextInsights(args: {
     await readScreenshotTextInsightsFromSidecar(args)
     ?? await readScreenshotTextInsightsFromTesseract(args)
   );
+}
+
+function compactTextPhrase(value: string): string {
+  return value
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .slice(0, 4)
+    .join(' ');
+}
+
+function sampleEmbeddedTextPhrases(
+  textInsights?: ScreenshotTextInsights,
+  limit = 2,
+): string[] {
+  if (!textInsights) return [];
+
+  const rankedBlocks = [...textInsights.blocks]
+    .sort((left, right) => {
+      const leftScore = (left.width * left.height) * (left.confidence ?? 1);
+      const rightScore = (right.width * right.height) * (right.confidence ?? 1);
+      return rightScore - leftScore;
+    })
+    .map((block) => block.text);
+  const fallbackLines = textInsights.text.split(/\n+/).map((line) => line.trim());
+  const seen = new Set<string>();
+
+  return [...rankedBlocks, ...fallbackLines]
+    .map((value) => compactTextPhrase(value))
+    .filter((value) => /[a-z]/i.test(value) && value.length >= 4)
+    .filter((value) => {
+      const normalized = normalizeText(value);
+      if (!normalized || seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+function inferTextOccupiedRegions(textInsights?: ScreenshotTextInsights): SafeTextZone['label'][] {
+  if (!textInsights || textInsights.blocks.length === 0) return [];
+
+  const seen = new Set<SafeTextZone['label']>();
+  for (const block of textInsights.blocks) {
+    const centerX = block.x + (block.width / 2);
+    const centerY = block.y + (block.height / 2);
+
+    if (block.y < 30 || centerY < 22) seen.add('top');
+    if (block.y + block.height > 70 || centerY > 78) seen.add('bottom');
+    if (block.x < 24 || centerX < 22) seen.add('left');
+    if (block.x + block.width > 76 || centerX > 78) seen.add('right');
+    if (centerX >= 28 && centerX <= 72 && centerY >= 24 && centerY <= 76) seen.add('center');
+  }
+
+  return ['top', 'bottom', 'left', 'right', 'center'].filter((label) => seen.has(label as SafeTextZone['label'])) as SafeTextZone['label'][];
 }
 
 function inferRole(pathValue: string, note?: string, textInsights?: ScreenshotTextInsights): ScreenshotRole {
@@ -1811,6 +1890,8 @@ export function buildCopyPlanningSignals(
     role: analysis.role,
     density: analysis.density,
     focus: analysis.focus,
+    textRisk: analysis.textRisk,
+    embeddedText: sampleEmbeddedTextPhrases(analysis.textInsights, 3),
     unsafeForTextOverlay: analysis.unsafeForTextOverlay,
     topQuietRatio: analysis.pixelMetrics?.topQuietRatio ?? (analysis.density === 'minimal' ? 0.72 : 0.5),
     focusStrength: analysis.pixelMetrics?.focusStrength ?? analysis.focalPoint?.strength ?? 0.3,
@@ -1839,6 +1920,141 @@ function focusStrengthRank(analysis: ScreenshotAnalysis): number {
 
 function edgeDensityRank(analysis: ScreenshotAnalysis): number {
   return analysis.pixelMetrics?.edgeDensity ?? (analysis.density === 'dense' ? 0.16 : analysis.density === 'minimal' ? 0.05 : 0.1);
+}
+
+function inferCropAnchor(analysis: ScreenshotAnalysis): CropAnchor {
+  const occupiedRegions = inferTextOccupiedRegions(analysis.textInsights);
+
+  if (analysis.focalPoint && analysis.cropSuitability !== 'low') return 'focal-point';
+  if (occupiedRegions.includes('top')) return 'lower-half';
+  if (quietRank(analysis) >= 0.68) return 'upper-half';
+  if (occupiedRegions.includes('left') && !occupiedRegions.includes('right')) return 'right-rail';
+  if (occupiedRegions.includes('right') && !occupiedRegions.includes('left')) return 'left-rail';
+  return 'center';
+}
+
+function buildCropPlan(args: {
+  analysis: ScreenshotAnalysis;
+  composition?: PlannedIndividualScreen['composition'];
+  storyBeat?: string;
+  compositionFeatures?: PanoramicCompositionFeature[];
+}): PlannedCropPlan {
+  const occupiedRegions = inferTextOccupiedRegions(args.analysis.textInsights);
+  const anchor = inferCropAnchor(args.analysis);
+  let usage: PlannedCropUsage = 'full-device';
+
+  if (args.compositionFeatures?.includes('layered-detail-extract')) {
+    usage = 'layered-extract';
+  } else if (
+    args.composition
+    && args.composition !== 'single'
+    && args.analysis.cropSuitability !== 'low'
+  ) {
+    usage = 'supporting-crop';
+  } else if (args.analysis.focalPoint && args.analysis.cropSuitability !== 'low') {
+    usage = 'loupe-detail';
+  }
+
+  const reasons: string[] = [];
+  if (usage === 'full-device') {
+    reasons.push('Keep the full screenshot readable as the dominant device.');
+  } else if (usage === 'loupe-detail') {
+    reasons.push('Use one tighter crop or loupe to pull forward a specific product detail.');
+  } else if (usage === 'supporting-crop') {
+    reasons.push('Use supporting crops to widen the frame without losing the main device.');
+  } else {
+    reasons.push('Extract one layered detail so the panorama can reuse UI without duplicating the full device.');
+  }
+
+  if (anchor === 'focal-point' && args.analysis.focalPoint) {
+    reasons.push(
+      `Bias the crop toward ${Math.round(args.analysis.focalPoint.x)}%/${Math.round(args.analysis.focalPoint.y)}%.`,
+    );
+  } else if (anchor === 'lower-half') {
+    reasons.push('Bias the crop lower because OCR-detected UI text already occupies the top band.');
+  } else if (anchor === 'upper-half') {
+    reasons.push('Favor the upper half because the screenshot leaves cleaner copy space there.');
+  }
+
+  if (occupiedRegions.length > 0) {
+    reasons.push(`Avoid text-heavy regions: ${occupiedRegions.join(', ')}.`);
+  }
+
+  if (args.storyBeat === 'trust' || args.storyBeat === 'summary') {
+    reasons.push('Leave extra room for close-out proof or summary copy.');
+  }
+
+  return {
+    usage,
+    anchor,
+    avoidRegions: occupiedRegions,
+    rationale: reasons.join(' '),
+  };
+}
+
+function buildConceptFrameStrategy(args: {
+  conceptId: ConceptId;
+  mode: 'individual' | 'panoramic';
+  sequence: ScreenshotAnalysis[];
+}): PlannedFrameStrategy {
+  const cropFriendlyCount = args.sequence.filter((analysis) =>
+    analysis.cropSuitability === 'high' || analysis.recommendedUsage === 'crop-card').length;
+  const topTextCount = args.sequence.filter((analysis) =>
+    inferTextOccupiedRegions(analysis.textInsights).includes('top')).length;
+
+  switch (args.conceptId) {
+    case 'concept-a':
+      return {
+        defaultTreatment: 'framed',
+        framelessAllowedWhen: [],
+        rationale: 'Keep every screen framed so the clean hero concept stays stable and store-legible.',
+      };
+    case 'concept-b':
+      return {
+        defaultTreatment: cropFriendlyCount > 0 ? 'mixed' : 'framed',
+        framelessAllowedWhen: cropFriendlyCount > 0
+          ? [
+              'Detail-led screens with high crop suitability can go frameless to add motion.',
+              ...(topTextCount > 0
+                ? ['Screens with embedded top-band UI text can move copy outside the device silhouette.']
+                : []),
+            ]
+          : [],
+        rationale: cropFriendlyCount > 0
+          ? 'Use framed anchors for clarity, then loosen detail-led supporting screens where tighter crops create momentum.'
+          : 'Keep the sequence framed because the current screenshots do not support tighter frameless crops cleanly.',
+      };
+    case 'concept-c':
+      return {
+        defaultTreatment: 'mixed',
+        framelessAllowedWhen: [
+          'Editorial support crops and floating detail cards can go frameless between anchored hero devices.',
+          ...(topTextCount > 0
+            ? ['Frames with embedded top text should keep typography outside the device and use frameless extracts instead.']
+            : []),
+        ],
+        rationale: 'Editorial panoramas should alternate dominant framed devices with quieter frameless extracts to keep the strip airy.',
+      };
+    case 'concept-d':
+      return {
+        defaultTreatment: 'mixed',
+        framelessAllowedWhen: [
+          'High-energy detail punches and proof moments can go frameless to increase contrast.',
+          ...(topTextCount > 0
+            ? ['Frames with embedded UI text near the top can shift to frameless crops so campaign copy stays clear.']
+            : []),
+        ],
+        rationale: 'Bold panoramas work best when framed hero devices are broken up by frameless detail layers and proof moments.',
+      };
+    default:
+      return {
+        defaultTreatment: args.mode === 'panoramic' ? 'mixed' : 'framed',
+        framelessAllowedWhen: cropFriendlyCount > 0
+          ? ['Use frameless crops only when the screenshot has clear focal detail worth isolating.']
+          : [],
+        rationale: 'Default to framed devices unless the screenshot set clearly supports cleaner isolated crops.',
+      };
+  }
 }
 
 function categoryRoleBonus(
@@ -2148,6 +2364,8 @@ function buildScreenCopyDirection(args: {
   composition: PlannedIndividualScreen['composition'];
 }): string {
   const parts: string[] = [];
+  const embeddedText = sampleEmbeddedTextPhrases(args.analysis.textInsights, 2);
+  const occupiedRegions = inferTextOccupiedRegions(args.analysis.textInsights);
 
   switch (args.slideRole) {
     case 'hero':
@@ -2195,6 +2413,14 @@ function buildScreenCopyDirection(args: {
     parts.push('Keep it extra short because the UI is already busy.');
   } else if (quietRank(args.analysis) >= 0.66) {
     parts.push('Use a clean top-led statement because the screenshot has open copy space.');
+  }
+
+  if (embeddedText.length > 0) {
+    parts.push(`Avoid reusing embedded UI text like "${embeddedText.join('" or "')}".`);
+  }
+
+  if (occupiedRegions.includes('top')) {
+    parts.push('Keep headline copy away from the occupied top band.');
   }
 
   if (args.composition !== 'single') {
@@ -2287,6 +2513,11 @@ function buildIndividualVariantScreens(args: {
         slideRole,
         analysis,
         composition,
+      }),
+      cropPlan: buildCropPlan({
+        analysis,
+        composition,
+        storyBeat: slideRole,
       }),
       framing:
         args.conceptId === 'concept-b' && analysis.recommendedUsage === 'crop-card'
@@ -2708,6 +2939,31 @@ function buildVariantEntries(
   const conceptC = conceptSpecs['concept-c'];
   const conceptD = conceptSpecs['concept-d'];
   const conceptE = conceptSpecs['concept-e'];
+  const conceptAFrameStrategy = buildConceptFrameStrategy({
+    conceptId: 'concept-a',
+    mode: 'individual',
+    sequence: conceptSequences['concept-a'],
+  });
+  const conceptBFrameStrategy = buildConceptFrameStrategy({
+    conceptId: 'concept-b',
+    mode: 'individual',
+    sequence: conceptSequences['concept-b'],
+  });
+  const conceptCFrameStrategy = buildConceptFrameStrategy({
+    conceptId: 'concept-c',
+    mode: 'panoramic',
+    sequence: conceptSequences['concept-c'],
+  });
+  const conceptDFrameStrategy = buildConceptFrameStrategy({
+    conceptId: 'concept-d',
+    mode: 'panoramic',
+    sequence: conceptSequences['concept-d'],
+  });
+  const conceptEFrameStrategy = buildConceptFrameStrategy({
+    conceptId: 'concept-e',
+    mode: 'panoramic',
+    sequence: selected,
+  });
 
   variants.push({
     id: 'concept-a',
@@ -2717,6 +2973,7 @@ function buildVariantEntries(
     style: conceptA.style,
     recipe: conceptA.recipe,
     strategy: conceptA.strategy,
+    frameStrategy: conceptAFrameStrategy,
     screens: buildIndividualVariantScreens({
       category,
       conceptId: 'concept-a',
@@ -2734,6 +2991,7 @@ function buildVariantEntries(
       style: conceptB.style,
       recipe: conceptB.recipe,
       strategy: conceptB.strategy,
+      frameStrategy: conceptBFrameStrategy,
       screens: buildIndividualVariantScreens({
         category,
         conceptId: 'concept-b',
@@ -2753,6 +3011,7 @@ function buildVariantEntries(
       style: conceptC.style,
       recipe: conceptC.recipe,
       strategy: conceptC.strategy,
+      frameStrategy: conceptCFrameStrategy,
       canvasPlan: {
         frameCount: Math.max(4, selected.length),
         designGoal: conceptC.designGoal ?? 'Premium, connected sequence with strong hierarchy and intentional whitespace.',
@@ -2776,6 +3035,11 @@ function buildVariantEntries(
           focalPoint: analysis.focalPoint,
           cropSuitability: analysis.cropSuitability,
           storyBeat,
+          cropPlan: buildCropPlan({
+            analysis,
+            storyBeat,
+            compositionFeatures,
+          }),
           pacing:
             index === 0
               ? 'open strong'
@@ -2804,6 +3068,7 @@ function buildVariantEntries(
       style: conceptD.style,
       recipe: conceptD.recipe,
       strategy: conceptD.strategy,
+      frameStrategy: conceptDFrameStrategy,
       canvasPlan: {
         frameCount: Math.max(4, selected.length),
         designGoal: conceptD.designGoal ?? buildGoalLine(goals),
@@ -2827,6 +3092,11 @@ function buildVariantEntries(
           focalPoint: analysis.focalPoint,
           cropSuitability: analysis.cropSuitability,
           storyBeat,
+          cropPlan: buildCropPlan({
+            analysis,
+            storyBeat,
+            compositionFeatures,
+          }),
           assetGuidance:
             analysis.cropSuitability === 'high'
               ? 'Pair the full screenshot with cropped support details or a floating image asset.'
@@ -2852,6 +3122,7 @@ function buildVariantEntries(
       style: conceptE.style,
       recipe: conceptE.recipe,
       strategy: conceptE.strategy,
+      frameStrategy: conceptEFrameStrategy,
       canvasPlan: {
         frameCount: Math.max(3, selected.length),
         designGoal: conceptE.designGoal ?? 'Poster-like brand-led sequence with strong color blocking.',
@@ -2912,6 +3183,8 @@ export async function buildVariantSetPlan(args: {
       inferredOrder: analysis.inferredOrder,
       focus: analysis.focus,
       unsafeForTextOverlay: analysis.unsafeForTextOverlay,
+      embeddedTextSample: sampleEmbeddedTextPhrases(analysis.textInsights, 2),
+      textOccupiedRegions: inferTextOccupiedRegions(analysis.textInsights),
     })),
     variants: buildVariantEntries(selected, category, goals, args.variantCount ?? 4),
   };

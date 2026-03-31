@@ -164,6 +164,37 @@ describe('design planning helpers', () => {
     expect(first.heroExplanation.some((line) => line.includes('OCR/vision'))).toBe(true);
   });
 
+  it('uses denser OCR text fixtures to infer communication screens and overlay risk', async () => {
+    const chatPath = await makePngFile('chat-thread.png', 120, 200, (x, y) => {
+      if (y < 32) return [244, 246, 248, 255];
+      if ((x > 10 && x < 78 && y > 48 && y < 68) || (x > 42 && x < 110 && y > 84 && y < 104)) {
+        return [59, 130, 246, 255];
+      }
+      if ((x > 12 && x < 94 && y > 120 && y < 138) || (x > 24 && x < 108 && y > 154 && y < 172)) {
+        return [191, 219, 254, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const ocrPath = await makeJsonFile('chat-thread.vision.json', {
+      source: 'agent-vision',
+      blocks: [
+        { text: 'Messages', x: 10, y: 6, width: 28, height: 8, confidence: 0.99 },
+        { text: 'Search messages', x: 42, y: 18, width: 42, height: 8, confidence: 0.97 },
+        { text: 'Reply with a voice note', x: 12, y: 52, width: 54, height: 8, confidence: 0.97 },
+        { text: 'See who is typing live', x: 42, y: 88, width: 50, height: 8, confidence: 0.94 },
+        { text: 'Pinned community updates', x: 18, y: 124, width: 58, height: 8, confidence: 0.93 },
+      ],
+    });
+
+    const analysis = await analyzeScreenshotSet([{ path: chatPath, ocrJsonPath: ocrPath }]);
+    const first = analysis[0]!;
+
+    expect(first.role).toBe('communication');
+    expect(first.textRisk).toBe('high');
+    expect(first.unsafeForTextOverlay).toBe(true);
+    expect(first.textInsights?.topCoverage ?? 0).toBeGreaterThan(0.12);
+  });
+
   it('infers screenshot ordering from filenames and carries it into the plan', async () => {
     const settingsPath = await makeSvgFile('screen-3-settings.svg', 1290, 2796);
     const detailPath = await makeSvgFile('screen-2-detail.svg', 1290, 2796);
@@ -254,10 +285,13 @@ describe('design planning helpers', () => {
         : [];
       const conceptBPaths = plan.variants[1].screens.map((screen) => screen.sourcePath);
       expect(conceptBPaths).not.toEqual(conceptAPaths);
+      expect(plan.variants[1].frameStrategy?.defaultTreatment).toBe('mixed');
+      expect(plan.variants[1].frameStrategy?.framelessAllowedWhen.length ?? 0).toBeGreaterThan(0);
       expect(plan.variants[1].screens.some((screen) => screen.composition !== 'single')).toBe(true);
       expect(plan.variants[1].screens.some((screen) => (screen.extraScreenshots?.length ?? 0) > 0)).toBe(true);
       expect(plan.variants[1].screens.some((screen) => Boolean(screen.focalPoint))).toBe(true);
       expect(plan.variants[1].screens.some((screen) => screen.copyDirection.includes('Keep it extra short') || screen.copyDirection.includes('broader than a literal feature caption'))).toBe(true);
+      expect(plan.variants[1].screens.every((screen) => Boolean(screen.cropPlan))).toBe(true);
     }
     expect(plan.variants[2]).toMatchObject({
       id: 'concept-c',
@@ -270,10 +304,12 @@ describe('design planning helpers', () => {
         : [];
       const conceptCPaths = plan.variants[2].frames?.map((frame) => frame.sourcePath) ?? [];
       expect(conceptCPaths).not.toEqual(conceptAPaths);
+      expect(plan.variants[2].frameStrategy?.defaultTreatment).toBe('mixed');
       expect(plan.variants[2].frames?.some((frame) => Boolean(frame.focalPoint))).toBe(true);
       expect(plan.variants[2].canvasPlan.requiredElements.some((el) => el.type === 'group')).toBe(true);
       expect(plan.variants[2].canvasPlan.requiredElements.some((el) => el.type === 'logo')).toBe(true);
       expect(plan.variants[2].frames?.every((frame) => frame.cropSuitability)).toBe(true);
+      expect(plan.variants[2].frames?.every((frame) => Boolean(frame.cropPlan))).toBe(true);
       expect(plan.variants[2].frames?.some((frame) => frame.compositionFeatures?.includes('layered-detail-extract'))).toBe(true);
       expect(plan.variants[2].frames?.every((frame) => frame.compositionFeatures?.includes('floating-detail-card'))).toBe(true);
       expect(plan.variants[2].frames?.some((frame) => frame.compositionNote && frame.compositionNote.length > 20)).toBe(true);
@@ -439,5 +475,67 @@ describe('design planning helpers', () => {
 
     expect(uniqueLeadPaths.size).toBe(4);
     expect(conceptLeadRoles).toContain('communication');
+  });
+
+  it('adds OCR-aware copy and crop guidance into the variant plan output', async () => {
+    const heroPath = await makePngFile('home-overview.png', 120, 200, (x, y) => {
+      if (y < 46) return [246, 247, 250, 255];
+      if (x > 28 && x < 92 && y > 58 && y < 178) return [37, 99, 235, 255];
+      return [226, 232, 240, 255];
+    });
+    const paywallPath = await makePngFile('premium-offer.png', 120, 200, (x, y) => {
+      if (y < 40) return [17, 24, 39, 255];
+      if (x > 18 && x < 102 && y > 56 && y < 176) return [99, 102, 241, 255];
+      return [30, 41, 59, 255];
+    });
+    const detailPath = await makePngFile('insights-detail.png', 120, 200, (x, y) => {
+      if (y < 34) return [244, 246, 248, 255];
+      if ((x > 18 && x < 104 && y > 64 && y < 86) || (x > 24 && x < 98 && y > 114 && y < 164)) {
+        return [16, 185, 129, 255];
+      }
+      return [203, 213, 225, 255];
+    });
+    const paywallOcrPath = await makeJsonFile('premium-offer.ocr.json', {
+      source: 'agent-vision',
+      roleHint: 'paywall',
+      blocks: [
+        { text: 'Upgrade to Pro', x: 12, y: 8, width: 60, height: 10, confidence: 0.99 },
+        { text: 'Start 7 day trial', x: 12, y: 22, width: 70, height: 8, confidence: 0.97 },
+      ],
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'Pulse+',
+      appDescription: 'A premium social app for creator communities and shared conversations.',
+      platforms: ['ios'],
+      features: ['Creator communities', 'Premium chat', 'Shared posts'],
+      screenshots: [
+        { path: heroPath, note: 'Community overview' },
+        { path: paywallPath, ocrJsonPath: paywallOcrPath },
+        { path: detailPath, note: 'Post insights' },
+      ],
+      goals: ['Feel premium', 'Stay readable'],
+      variantCount: 4,
+      screenCount: 3,
+    });
+
+    const paywallSummary = plan.selectedScreens.find((screen) => screen.path === paywallPath);
+    expect(paywallSummary?.embeddedTextSample).toContain('Upgrade to Pro');
+    expect(paywallSummary?.textOccupiedRegions).toContain('top');
+
+    const conceptA = plan.variants[0];
+    expect(conceptA?.frameStrategy?.defaultTreatment).toBe('framed');
+
+    if (plan.variants[1]?.mode === 'individual') {
+      const paywallScreen = plan.variants[1].screens.find((screen) => screen.sourcePath === paywallPath);
+      expect(paywallScreen?.copyDirection).toContain('Avoid reusing embedded UI text');
+      expect(paywallScreen?.cropPlan?.avoidRegions).toContain('top');
+    }
+
+    if (plan.variants[2]?.mode === 'panoramic') {
+      const paywallFrame = plan.variants[2].frames?.find((frame) => frame.sourcePath === paywallPath);
+      expect(paywallFrame?.cropPlan?.avoidRegions).toContain('top');
+      expect(paywallFrame?.cropPlan?.rationale).toContain('Avoid text-heavy regions');
+    }
   });
 });

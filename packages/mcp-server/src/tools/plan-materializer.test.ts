@@ -465,4 +465,70 @@ describe('plan materializer', () => {
         && (group.children ?? []).some((child) => child.type === 'crop')),
     ).toBe(true);
   });
+
+  it('materializes role-aware background strategies for richer individual concepts', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-role-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-role-output-');
+
+    const onboardingPath = await makePngFile(assetsDir, 'welcome-flow.png', 120, 200, (x, y) => {
+      if (y < 54) return [250, 250, 252, 255];
+      if (x > 26 && x < 94 && y > 64 && y < 146) return [99, 102, 241, 255];
+      if (x > 24 && x < 96 && y > 162 && y < 184) return [16, 185, 129, 255];
+      return [241, 245, 249, 255];
+    });
+    const paywallPath = await makePngFile(assetsDir, 'premium-offer.png', 120, 200, (x, y) => {
+      if (x > 14 && x < 106 && y > 42 && y < 166) return [79, 70, 229, 255];
+      if (x > 24 && x < 96 && y > 170 && y < 190) return [245, 158, 11, 255];
+      return [15, 23, 42, 255];
+    });
+    const chatPath = await makePngFile(assetsDir, 'chat-thread.png', 120, 200, (x, y) => {
+      if (y < 32) return [244, 246, 248, 255];
+      if ((x > 8 && x < 74 && y > 48 && y < 66)
+        || (x > 44 && x < 112 && y > 78 && y < 98)
+        || (x > 10 && x < 72 && y > 114 && y < 132)
+        || (x > 46 && x < 110 && y > 146 && y < 164)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const settingsPath = await makePngFile(assetsDir, 'controls-screen.png', 120, 200, (x, y) => {
+      if (y < 30) return [244, 246, 248, 255];
+      const inRow = y > 42 && y < 182 && y % 22 < 12;
+      if (inRow && x > 10 && x < 110) return [203, 213, 225, 255];
+      return [226, 232, 240, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'Pulse+',
+      appDescription: 'A premium social app for creator communities and shared conversations.',
+      platforms: ['ios'],
+      features: ['Onboarding', 'Premium chat', 'Settings'],
+      screenshots: [
+        { path: onboardingPath },
+        { path: paywallPath },
+        { path: chatPath },
+        { path: settingsPath },
+      ],
+      goals: ['Feel premium', 'Stay readable'],
+      variantCount: 2,
+      screenCount: 4,
+    });
+
+    const result = await materializeVariantPlan({
+      plan,
+      outputDir,
+      primaryColor: '#2563EB',
+      secondaryColor: '#7C3AED',
+    });
+
+    const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
+    expect(individualConfigPath).toBeTruthy();
+
+    const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const backgrounds = individual.screens.map((screen: { background?: string }) => screen.background).filter(Boolean);
+
+    expect(backgrounds.length).toBeGreaterThan(0);
+    expect(new Set(backgrounds).size).toBeGreaterThan(1);
+    expect(backgrounds).not.toContain('#FFFFFF');
+  });
 });

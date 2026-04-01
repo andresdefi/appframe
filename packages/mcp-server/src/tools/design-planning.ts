@@ -99,6 +99,7 @@ export interface ScreenshotAnalysis {
   focus: string;
   dominantPalette: string[];
   safeTextZones: SafeTextZone[];
+  occupiedRegions: SafeTextZone['label'][];
   focalPoint?: FocalPoint;
   pixelMetrics?: ScreenshotPixelMetrics;
   cropSuitability: CropSuitability;
@@ -468,6 +469,8 @@ function applySemanticRoleScores(
   if (!textInsights) return;
 
   const signals = deriveTextSemanticSignals(textInsights);
+  const dashboardLike = isLikelyDataHeavyDashboard(signals);
+  const reportingLike = isLikelyReportingScreen(signals);
 
   if (isLikelyOnboardingScreen(signals, textInsights)) {
     scores.onboarding += 26;
@@ -481,11 +484,11 @@ function applySemanticRoleScores(
   if (isLikelyCommunicationScreen(signals, textInsights)) {
     scores.communication += 20;
   }
-  if (isLikelyDataHeavyDashboard(signals)) {
-    scores.home += 18;
+  if (dashboardLike) {
+    scores.home += 18 + (signals.dashboardSignalCount >= signals.reportingSignalCount ? 4 : 0);
   }
-  if (isLikelyReportingScreen(signals)) {
-    scores.detail += 22;
+  if (reportingLike) {
+    scores.detail += dashboardLike && signals.dashboardSignalCount >= signals.reportingSignalCount ? 10 : 22;
   }
 }
 
@@ -828,7 +831,52 @@ function inferTextOccupiedRegions(textInsights?: ScreenshotTextInsights): SafeTe
   return ['top', 'bottom', 'left', 'right', 'center'].filter((label) => seen.has(label as SafeTextZone['label'])) as SafeTextZone['label'][];
 }
 
-function inferRole(pathValue: string, note?: string, textInsights?: ScreenshotTextInsights): ScreenshotRole {
+function mergeOccupiedRegions(
+  ...regions: Array<SafeTextZone['label'][] | undefined>
+): SafeTextZone['label'][] {
+  const seen = new Set<SafeTextZone['label']>();
+  for (const list of regions) {
+    for (const label of list ?? []) {
+      seen.add(label);
+    }
+  }
+
+  return ['top', 'bottom', 'left', 'right', 'center'].filter((label) =>
+    seen.has(label as SafeTextZone['label'])) as SafeTextZone['label'][];
+}
+
+function applyRasterRoleScores(
+  scores: Record<ScreenshotRole, number>,
+  semanticSignals?: RasterSemanticSignals,
+): void {
+  if (!semanticSignals) return;
+
+  if (semanticSignals.onboardingScore >= 4) {
+    scores.onboarding += 10;
+  }
+  if (semanticSignals.paywallScore >= 4) {
+    scores.paywall += 24;
+  }
+  if (semanticSignals.settingsScore >= 4) {
+    scores.settings += 22;
+  }
+  if (semanticSignals.communicationScore >= 4) {
+    scores.communication += 20;
+  }
+  if (semanticSignals.dashboardScore >= 4) {
+    scores.home += 18;
+  }
+  if (semanticSignals.reportingScore >= 4) {
+    scores.detail += 20;
+  }
+}
+
+function inferRole(
+  pathValue: string,
+  note?: string,
+  textInsights?: ScreenshotTextInsights,
+  rasterSemanticSignals?: RasterSemanticSignals,
+): ScreenshotRole {
   const scores: Record<ScreenshotRole, number> = {
     home: 0,
     onboarding: 0,
@@ -845,6 +893,7 @@ function inferRole(pathValue: string, note?: string, textInsights?: ScreenshotTe
   addRoleScores(scores, normalizeText(`${humanizeFileStem(pathValue)} ${note ?? ''}`), 1);
   if (textInsights?.text) addRoleScores(scores, normalizeText(textInsights.text), 1.2);
   applySemanticRoleScores(scores, textInsights);
+  applyRasterRoleScores(scores, rasterSemanticSignals);
   if (textInsights?.roleHint) scores[textInsights.roleHint] += 24;
 
   return bestRoleFromScores(scores);
@@ -855,6 +904,7 @@ function inferDensity(
   pathValue: string,
   note?: string,
   textInsights?: ScreenshotTextInsights,
+  rasterSemanticSignals?: RasterSemanticSignals,
 ): ScreenshotDensity {
   const haystack = normalizeText(`${humanizeFileStem(pathValue)} ${note ?? ''}`);
   const semanticSignals = deriveTextSemanticSignals(textInsights);
@@ -868,6 +918,13 @@ function inferDensity(
     }
     if (textInsights.totalCoverage >= 0.2 || textInsights.lineCount >= 10) return 'dense';
     if (textInsights.totalCoverage <= 0.04 && textInsights.lineCount <= 2) return 'minimal';
+  }
+
+  if (rasterSemanticSignals) {
+    if (rasterSemanticSignals.onboardingScore >= 4) return 'minimal';
+    if (rasterSemanticSignals.settingsScore >= 4 || rasterSemanticSignals.communicationScore >= 4) return 'dense';
+    if (rasterSemanticSignals.dashboardScore >= 4 || rasterSemanticSignals.reportingScore >= 4) return 'dense';
+    if (rasterSemanticSignals.paywallScore >= 4) return role === 'paywall' ? 'balanced' : 'dense';
   }
 
   if (role === 'onboarding') return 'minimal';
@@ -1028,17 +1085,25 @@ function filterSafeTextZonesWithText(
   safeTextZones: SafeTextZone[],
   fallbackZones: SafeTextZone[],
   textInsights?: ScreenshotTextInsights,
+  occupiedRegions?: SafeTextZone['label'][],
 ): SafeTextZone[] {
-  if (!textInsights || textInsights.blocks.length === 0) return safeTextZones;
-
   const candidates = uniqueSafeTextZones([...safeTextZones, ...fallbackZones]);
-  const filtered = candidates.filter((zone) => zoneTextOverlapRatio(zone, textInsights) < 0.14);
+  const filteredByOccupied = candidates.filter((zone) => !(occupiedRegions ?? []).includes(zone.label));
+  const filtered = filteredByOccupied.filter((zone) => {
+    if (!textInsights || textInsights.blocks.length === 0) return true;
+    return zoneTextOverlapRatio(zone, textInsights) < 0.14;
+  });
   if (filtered.length > 0) return filtered.slice(0, Math.max(3, safeTextZones.length));
+  if (filteredByOccupied.length > 0) return filteredByOccupied.slice(0, Math.max(3, safeTextZones.length));
   return safeTextZones;
 }
 
-function hasTopTextCollision(textInsights?: ScreenshotTextInsights): boolean {
-  return Boolean(textInsights && (textInsights.topCoverage >= 0.08 || textInsights.lineCount >= 8));
+function hasTopTextCollision(
+  textInsights?: ScreenshotTextInsights,
+  occupiedRegions?: SafeTextZone['label'][],
+): boolean {
+  return (occupiedRegions ?? []).includes('top')
+    || Boolean(textInsights && (textInsights.topCoverage >= 0.08 || textInsights.lineCount >= 8));
 }
 
 function adjustHeroPriorityForText(
@@ -1168,6 +1233,8 @@ function buildHeroExplanation(args: {
   topQuietRatio?: number;
   focusStrength?: number;
   textInsights?: ScreenshotTextInsights;
+  occupiedRegions?: SafeTextZone['label'][];
+  rasterSemanticSignals?: RasterSemanticSignals;
 }): string[] {
   const reasons: string[] = [];
 
@@ -1228,6 +1295,23 @@ function buildHeroExplanation(args: {
     if (isLikelyReportingScreen(semanticSignals) || isLikelyDataHeavyDashboard(semanticSignals)) {
       reasons.push('OCR/vision text suggests a data-heavy reporting view, so crop-led proof is stronger than oversized overlay copy.');
     }
+  } else if (args.rasterSemanticSignals) {
+    if (args.rasterSemanticSignals.onboardingScore >= 4) {
+      reasons.push('Raster layout suggests an onboarding-style screen with a quiet top band and a staged CTA.');
+    }
+    if (args.rasterSemanticSignals.communicationScore >= 4) {
+      reasons.push('Raster layout suggests a chat-style screen, so copy should stay brief and off the busiest message lanes.');
+    }
+    if (args.rasterSemanticSignals.settingsScore >= 4) {
+      reasons.push('Raster layout suggests a settings/list screen, which is better used as supporting proof than a wide-open hero.');
+    }
+    if (args.rasterSemanticSignals.dashboardScore >= 4 || args.rasterSemanticSignals.reportingScore >= 4) {
+      reasons.push('Raster layout suggests dashboard/reporting structure, so tighter proof crops are stronger than oversized claims.');
+    }
+  }
+
+  if ((args.occupiedRegions ?? []).includes('top') && !args.textInsights) {
+    reasons.push('Raster analysis found occupied structure near the top band, so overlay copy needs more caution even without OCR.');
   }
 
   reasons.push(`Computed hero priority: ${args.heroPriority}/100.`);
@@ -1416,9 +1500,20 @@ interface DecodedPng {
   data: Uint8Array;
 }
 
+interface RasterSemanticSignals {
+  occupiedRegions: SafeTextZone['label'][];
+  onboardingScore: number;
+  paywallScore: number;
+  settingsScore: number;
+  communicationScore: number;
+  dashboardScore: number;
+  reportingScore: number;
+}
+
 interface RasterSignals {
   dominantPalette: string[];
   safeTextZones: SafeTextZone[];
+  occupiedRegions: SafeTextZone['label'][];
   focalPoint: FocalPoint;
   density: ScreenshotDensity;
   textRisk: TextRisk;
@@ -1426,6 +1521,7 @@ interface RasterSignals {
   unsafeForTextOverlay: boolean;
   heroPriorityAdjustment: number;
   pixelMetrics: ScreenshotPixelMetrics;
+  semanticSignals: RasterSemanticSignals;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -1614,6 +1710,184 @@ function rankZonesByQuietScore(args: {
   }).sort((left, right) => right.quietScore - left.quietScore);
 }
 
+function segmentColumns(
+  rowDensities: number[],
+  threshold: number,
+): Array<{ start: number; end: number; width: number }> {
+  const segments: Array<{ start: number; end: number; width: number }> = [];
+  let start: number | null = null;
+
+  rowDensities.forEach((density, column) => {
+    if (density >= threshold) {
+      if (start === null) start = column;
+      return;
+    }
+    if (start !== null) {
+      segments.push({ start, end: column - 1, width: column - start });
+      start = null;
+    }
+  });
+
+  if (start !== null) {
+    segments.push({ start, end: rowDensities.length - 1, width: rowDensities.length - start });
+  }
+
+  return segments;
+}
+
+function inferRasterSemanticSignals(args: {
+  blockColumns: number;
+  blockRows: number;
+  blockDensities: number[];
+  blockLuminances: number[];
+  averageEdgeDensity: number;
+  topQuietRatio: number;
+  focusStrength: number;
+  averageLuminance: number;
+}): RasterSemanticSignals {
+  const rowAverages = new Array<number>(args.blockRows).fill(0);
+  const rowSegments: Array<Array<{ start: number; end: number; width: number }>> = [];
+  const activeThreshold = Math.max(args.averageEdgeDensity * 1.05, 0.075);
+  let topDenseRows = 0;
+  let bottomDenseRows = 0;
+  let leftRailRows = 0;
+  let rightRailRows = 0;
+  let splitRows = 0;
+  let centeredPanelRows = 0;
+  let fullWidthRows = 0;
+  let cardGridRows = 0;
+  let wideCenterRows = 0;
+  let lowerCtaRows = 0;
+  let alternatingConversationRows = 0;
+  let lowerHalfDenseRows = 0;
+  let previousBubbleSide: 'left' | 'right' | null = null;
+
+  for (let row = 0; row < args.blockRows; row += 1) {
+    const rowValues = args.blockDensities.slice(
+      row * args.blockColumns,
+      (row + 1) * args.blockColumns,
+    );
+    const rowLuminances = args.blockLuminances.slice(
+      row * args.blockColumns,
+      (row + 1) * args.blockColumns,
+    );
+    const rowContrastValues = rowLuminances.map((value) => Math.abs(value - args.averageLuminance) / 255);
+    const rowAverage = rowValues.reduce((sum, value) => sum + value, 0) / Math.max(rowValues.length, 1);
+    const segments = segmentColumns(rowValues, activeThreshold);
+    const contrastSegments = segmentColumns(rowContrastValues, 0.09);
+    const combinedSegments = [...segments, ...contrastSegments];
+    rowAverages[row] = rowAverage;
+    rowSegments[row] = segments;
+
+    const rowCenter = (row + 0.5) / args.blockRows;
+    if (rowCenter <= 0.26 && rowAverage >= activeThreshold) topDenseRows += 1;
+    if (rowCenter >= 0.72 && rowAverage >= activeThreshold) bottomDenseRows += 1;
+    if (rowCenter >= 0.48 && rowAverage >= activeThreshold) lowerHalfDenseRows += 1;
+
+    if (segments.length >= 2) splitRows += 1;
+
+    const hasWideCenterSegment = combinedSegments.some((segment) =>
+      segment.width >= 5 && segment.start <= 3 && segment.end >= args.blockColumns - 4);
+    if (hasWideCenterSegment) {
+      wideCenterRows += 1;
+      if (rowCenter >= 0.34 && rowCenter <= 0.84) fullWidthRows += 1;
+    }
+
+    const centeredSegment = combinedSegments.some((segment) => {
+      const center = (segment.start + segment.end + 1) / 2;
+      return center >= 4 && center <= 8 && segment.width >= 4 && segment.width <= 8;
+    });
+    if (centeredSegment) centeredPanelRows += 1;
+
+    const hasCardPair = segments.length >= 2 && segments.every((segment) => segment.width >= 2 && segment.width <= 4);
+    if (hasCardPair && rowCenter >= 0.22 && rowCenter <= 0.7) cardGridRows += 1;
+
+    const leftRail = combinedSegments.some((segment) =>
+      segment.start <= 1 && segment.width >= 2 && segment.width <= 8);
+    const rightRail = combinedSegments.some((segment) =>
+      segment.end >= args.blockColumns - 2 && segment.width >= 2 && segment.width <= 8);
+    if (leftRail && rowCenter >= 0.14 && rowCenter <= 0.82) leftRailRows += 1;
+    if (rightRail && rowCenter >= 0.14 && rowCenter <= 0.82) rightRailRows += 1;
+
+    if (rowCenter >= 0.7) {
+      const centeredBottomSegment = combinedSegments.some((segment) => {
+        const center = (segment.start + segment.end + 1) / 2;
+        return center >= 3.8 && center <= 8.2 && segment.width >= 3 && segment.width <= 9;
+      });
+      if (centeredBottomSegment) lowerCtaRows += 1;
+    }
+
+    const bubbleSegments = combinedSegments.filter((segment) => segment.width >= 2 && segment.width <= 8);
+    if (bubbleSegments.length === 1 && rowCenter >= 0.2 && rowCenter <= 0.82) {
+      const bubbleCenter = (bubbleSegments[0]!.start + bubbleSegments[0]!.end + 1) / 2;
+      const bubbleSide = bubbleCenter < args.blockColumns / 2 ? 'left' : 'right';
+      if (previousBubbleSide && previousBubbleSide !== bubbleSide) {
+        alternatingConversationRows += 1;
+      }
+      previousBubbleSide = bubbleSide;
+    }
+  }
+
+  const occupiedRegions = mergeOccupiedRegions(
+    topDenseRows >= 2 && args.topQuietRatio < 0.56 ? ['top'] : [],
+    bottomDenseRows >= 2 || lowerCtaRows >= 1 ? ['bottom'] : [],
+    leftRailRows >= 3 || alternatingConversationRows >= 2 ? ['left'] : [],
+    rightRailRows >= 3 || alternatingConversationRows >= 2 ? ['right'] : [],
+    centeredPanelRows >= 4 || wideCenterRows >= 3 ? ['center'] : [],
+  );
+
+  const onboardingScore = (
+    (args.topQuietRatio >= 0.66 && args.averageLuminance >= 150 ? 2 : 0)
+    + (centeredPanelRows >= 4 ? 2 : 0)
+    + (lowerCtaRows >= 1 ? 2 : 0)
+    + (splitRows <= 1 && fullWidthRows <= 2 ? 1 : 0)
+    + (args.focusStrength >= 0.42 ? 1 : 0)
+    + (args.averageLuminance >= 165 ? 1 : 0)
+  );
+  const paywallScore = (
+    (lowerCtaRows >= 1 ? 1 : 0)
+    + (centeredPanelRows >= 4 ? 1 : 0)
+    + (args.averageLuminance <= 148 ? 2 : 0)
+    + (args.focusStrength >= 0.48 ? 1 : 0)
+    + (args.topQuietRatio <= 0.6 ? 1 : 0)
+  );
+  const settingsScore = (
+    (leftRailRows >= 3 ? 1 : 0)
+    + (fullWidthRows >= 5 ? 3 : 0)
+    + (splitRows <= 2 ? 1 : 0)
+    + (args.topQuietRatio <= 0.46 ? 1 : 0)
+  );
+  const communicationScore = (
+    (alternatingConversationRows >= 2 ? 2 : 0)
+    + (leftRailRows >= 2 ? 1 : 0)
+    + (rightRailRows >= 2 ? 1 : 0)
+    + (splitRows >= 3 ? 1 : 0)
+  );
+  const dashboardScore = (
+    (cardGridRows >= 2 ? 2 : 0)
+    + (splitRows >= 2 ? 1 : 0)
+    + (centeredPanelRows >= 2 ? 1 : 0)
+    + (lowerHalfDenseRows >= 3 ? 1 : 0)
+  );
+  const reportingScore = (
+    (wideCenterRows >= 3 ? 2 : 0)
+    + (fullWidthRows >= 4 ? 1 : 0)
+    + (splitRows <= 1 ? 1 : 0)
+    + (lowerHalfDenseRows >= 3 ? 1 : 0)
+    + (args.focusStrength >= 0.5 ? 1 : 0)
+  );
+
+  return {
+    occupiedRegions,
+    onboardingScore,
+    paywallScore,
+    settingsScore,
+    communicationScore,
+    dashboardScore,
+    reportingScore,
+  };
+}
+
 async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | null> {
   try {
     const buffer = await readFile(pathValue);
@@ -1625,11 +1899,15 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
     const step = Math.max(1, Math.floor(Math.sqrt((decoded.width * decoded.height) / 220_000)));
     const blockEdgeCounts = new Array<number>(blockColumns * blockRows).fill(0);
     const blockEdgeComparisons = new Array<number>(blockColumns * blockRows).fill(0);
+    const blockLuminanceTotals = new Array<number>(blockColumns * blockRows).fill(0);
+    const blockLuminanceSamples = new Array<number>(blockColumns * blockRows).fill(0);
     const colorCounts = new Map<string, { count: number; r: number; g: number; b: number; saturation: number }>();
     let edgeCount = 0;
     let edgeComparisons = 0;
     let weightedFocusX = 0;
     let focusWeightTotal = 0;
+    let luminanceTotal = 0;
+    let luminanceSamples = 0;
 
     const luminanceAt = (x: number, y: number): number => {
       const index = (y * decoded.width + x) * 4;
@@ -1665,6 +1943,10 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
         const blockIndex = Math.min(blockRows - 1, Math.floor((y / decoded.height) * blockRows)) * blockColumns
           + Math.min(blockColumns - 1, Math.floor((x / decoded.width) * blockColumns));
         const luminance = luminanceAt(x, y);
+        blockLuminanceTotals[blockIndex] = (blockLuminanceTotals[blockIndex] ?? 0) + luminance;
+        blockLuminanceSamples[blockIndex] = (blockLuminanceSamples[blockIndex] ?? 0) + 1;
+        luminanceTotal += luminance;
+        luminanceSamples += 1;
 
         if (x + step < decoded.width) {
           const difference = Math.abs(luminance - luminanceAt(x + step, y));
@@ -1690,6 +1972,10 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
     const blockDensities = blockEdgeCounts.map((count, index) => {
       const comparisons = blockEdgeComparisons[index] ?? 0;
       return comparisons > 0 ? count / comparisons : 0;
+    });
+    const blockAverageLuminances = blockLuminanceTotals.map((total, index) => {
+      const samples = blockLuminanceSamples[index] ?? 0;
+      return samples > 0 ? total / samples : 0;
     });
     const averageEdgeDensity = edgeComparisons > 0 ? edgeCount / edgeComparisons : 0;
     const focusThreshold = Math.max(averageEdgeDensity * 0.85, 0.03);
@@ -1755,6 +2041,17 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
       .map((entry) => rgbToHex(entry.r, entry.g, entry.b))
       .filter((value, index, list) => list.indexOf(value) === index)
       .slice(0, 3);
+    const averageLuminance = luminanceTotal / Math.max(luminanceSamples, 1);
+    const semanticSignals = inferRasterSemanticSignals({
+      blockColumns,
+      blockRows,
+      blockDensities,
+      blockLuminances: blockAverageLuminances,
+      averageEdgeDensity,
+      topQuietRatio,
+      focusStrength,
+      averageLuminance,
+    });
 
     const rowFocusWeightTotal = rowFocusScores.reduce((sum, value) => sum + value, 0);
     const focalPoint: FocalPoint = {
@@ -1783,7 +2080,9 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
       : focusStrength >= 0.3
         ? 'medium'
         : 'low';
-    const unsafeForTextOverlay = topQuietRatio < 0.46 || (safeTextZones.length === 0 && density === 'dense');
+    const unsafeForTextOverlay = topQuietRatio < 0.46
+      || (safeTextZones.length === 0 && density === 'dense')
+      || semanticSignals.occupiedRegions.includes('top');
 
     let heroPriorityAdjustment = 0;
     if (topQuietRatio >= 0.72) heroPriorityAdjustment += 8;
@@ -1791,10 +2090,14 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
     if (density === 'minimal') heroPriorityAdjustment += 4;
     else if (density === 'dense') heroPriorityAdjustment -= 4;
     if (focusStrength >= 0.48) heroPriorityAdjustment += 3;
+    if (semanticSignals.onboardingScore >= 4) heroPriorityAdjustment += 4;
+    if (semanticSignals.paywallScore >= 4 || semanticSignals.settingsScore >= 4) heroPriorityAdjustment -= 6;
+    if (semanticSignals.dashboardScore >= 4 || semanticSignals.reportingScore >= 4) heroPriorityAdjustment -= 4;
 
     return {
       dominantPalette: dominantPalette.length > 0 ? dominantPalette : ['#F8FAFC', '#94A3B8', '#0F172A'],
       safeTextZones: safeTextZones.length > 0 ? safeTextZones : zoneScores.slice(0, 2).map((entry) => entry.zone),
+      occupiedRegions: semanticSignals.occupiedRegions,
       focalPoint,
       density,
       textRisk,
@@ -1808,6 +2111,7 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
         quietZoneCoverage: Number(quietZoneCoverage.toFixed(2)),
         focusStrength: Number(focusStrength.toFixed(2)),
       },
+      semanticSignals,
     };
   } catch {
     return null;
@@ -1872,8 +2176,23 @@ export async function analyzeScreenshotSet(
       ]);
       const resolvedTextInsights = textInsights ?? undefined;
       const semanticSignals = deriveTextSemanticSignals(resolvedTextInsights);
-      const role = inferRole(input.path, input.note, resolvedTextInsights);
-      const inferredDensity = inferDensity(role, input.path, input.note, resolvedTextInsights);
+      const textOccupiedRegions = inferTextOccupiedRegions(resolvedTextInsights);
+      const occupiedRegions = textOccupiedRegions.length > 0
+        ? textOccupiedRegions
+        : mergeOccupiedRegions(textOccupiedRegions, rasterSignals?.occupiedRegions);
+      const role = inferRole(
+        input.path,
+        input.note,
+        resolvedTextInsights,
+        rasterSignals?.semanticSignals,
+      );
+      const inferredDensity = inferDensity(
+        role,
+        input.path,
+        input.note,
+        resolvedTextInsights,
+        rasterSignals?.semanticSignals,
+      );
       const density = resolvedTextInsights
         ? mergeDensitySignals(rasterSignals?.density, inferredDensity)
         : (rasterSignals?.density ?? inferredDensity);
@@ -1895,6 +2214,7 @@ export async function analyzeScreenshotSet(
         baseSafeTextZones,
         inferSafeTextZones(role, density),
         resolvedTextInsights,
+        occupiedRegions,
       );
       let heroPriority = computeHeroPriority(
         role,
@@ -1915,11 +2235,11 @@ export async function analyzeScreenshotSet(
         ? (
             rasterSignals.unsafeForTextOverlay
             || inferUnsafeForTextOverlay(role, density, safeTextZones)
-            || hasTopTextCollision(resolvedTextInsights)
+            || hasTopTextCollision(resolvedTextInsights, occupiedRegions)
           )
         : (
             inferUnsafeForTextOverlay(role, density, safeTextZones)
-            || hasTopTextCollision(resolvedTextInsights)
+            || hasTopTextCollision(resolvedTextInsights, occupiedRegions)
           );
 
       return {
@@ -1948,6 +2268,8 @@ export async function analyzeScreenshotSet(
           topQuietRatio: rasterSignals?.pixelMetrics.topQuietRatio,
           focusStrength: rasterSignals?.focalPoint.strength,
           textInsights: resolvedTextInsights,
+          occupiedRegions,
+          rasterSemanticSignals: rasterSignals?.semanticSignals,
         }),
         inferredOrder: null,
         orderingConfidence: 'low' as const,
@@ -1955,6 +2277,7 @@ export async function analyzeScreenshotSet(
         focus,
         dominantPalette: rasterSignals?.dominantPalette ?? inferDominantPalette(role, density),
         safeTextZones,
+        occupiedRegions,
         focalPoint: rasterSignals?.focalPoint,
         pixelMetrics: rasterSignals?.pixelMetrics ?? {
           source: 'heuristic',
@@ -2083,7 +2406,7 @@ function edgeDensityRank(analysis: ScreenshotAnalysis): number {
 }
 
 function inferCropAnchor(analysis: ScreenshotAnalysis): CropAnchor {
-  const occupiedRegions = inferTextOccupiedRegions(analysis.textInsights);
+  const occupiedRegions = analysis.occupiedRegions;
 
   if (analysis.focalPoint && analysis.cropSuitability !== 'low') return 'focal-point';
   if (occupiedRegions.includes('top')) return 'lower-half';
@@ -2099,7 +2422,7 @@ function buildCropPlan(args: {
   storyBeat?: string;
   compositionFeatures?: PanoramicCompositionFeature[];
 }): PlannedCropPlan {
-  const occupiedRegions = inferTextOccupiedRegions(args.analysis.textInsights);
+  const occupiedRegions = args.analysis.occupiedRegions;
   const anchor = inferCropAnchor(args.analysis);
   let usage: PlannedCropUsage = 'full-device';
 
@@ -2160,7 +2483,7 @@ function buildConceptFrameStrategy(args: {
   const cropFriendlyCount = args.sequence.filter((analysis) =>
     analysis.cropSuitability === 'high' || analysis.recommendedUsage === 'crop-card').length;
   const topTextCount = args.sequence.filter((analysis) =>
-    inferTextOccupiedRegions(analysis.textInsights).includes('top')).length;
+    analysis.occupiedRegions.includes('top')).length;
 
   switch (args.conceptId) {
     case 'concept-a':
@@ -2384,9 +2707,9 @@ function arrangeScreensForConcept(
   const heroUsage = assignmentState?.heroUsage ?? new Map<string, number>();
   const closingUsage = assignmentState?.closingUsage ?? new Map<string, number>();
   const earlyUsage = assignmentState?.earlyUsage ?? new Map<string, number>();
-  const heroReusePenalty = conceptId === 'concept-d' ? 42 : conceptId === 'concept-c' ? 34 : 28;
+  const heroReusePenalty = conceptId === 'concept-d' ? 52 : conceptId === 'concept-c' ? 42 : 32;
   const earlyReusePenalty = conceptId === 'concept-d' ? 18 : 14;
-  const unusedLeadBonus = conceptId === 'concept-a' ? 0 : 8;
+  const unusedLeadBonus = conceptId === 'concept-a' ? 0 : 20;
 
   const hero = ordered
     .slice()
@@ -2490,6 +2813,11 @@ function chooseDynamicIndividualComposition(args: {
   total: number;
   supportingScreens: string[];
 }): PlannedIndividualScreen['composition'] {
+  if (args.analysis.role === 'communication' && args.supportingScreens.length >= 2) return 'fanned-cards';
+  if (args.analysis.role === 'communication' && args.supportingScreens.length >= 1) return 'duo-overlap';
+  if (args.analysis.role === 'settings' && args.supportingScreens.length >= 1) return 'duo-split';
+  if (args.analysis.role === 'onboarding' && args.index === 0 && args.supportingScreens.length >= 1) return 'hero-tilt';
+  if (args.analysis.role === 'paywall' && args.supportingScreens.length >= 1) return 'hero-tilt';
   if (args.supportingScreens.length >= 2 && args.index === 0) return 'hero-tilt';
   if (args.supportingScreens.length >= 2 && args.index === args.total - 1) return 'fanned-cards';
   if (args.supportingScreens.length >= 2 && args.analysis.cropSuitability === 'high') return 'fanned-cards';
@@ -2513,6 +2841,13 @@ function buildIndividualImplementationNote(args: {
   if (args.analysis.focalPoint && args.analysis.cropSuitability !== 'low') {
     parts.push(`Bias any detail zoom toward ${Math.round(args.analysis.focalPoint.x)}%/${Math.round(args.analysis.focalPoint.y)}%.`);
   }
+  if (args.analysis.role === 'communication') {
+    parts.push('Keep message lanes readable by staggering support crops away from the densest chat columns.');
+  } else if (args.analysis.role === 'settings') {
+    parts.push('Treat the settings screen like supporting proof, not the loudest visual beat.');
+  } else if (args.analysis.role === 'onboarding' || args.analysis.role === 'paywall') {
+    parts.push('Leave enough breathing room around the CTA-driven portion of the screen.');
+  }
   return parts.length > 0 ? parts.join(' ') : undefined;
 }
 
@@ -2525,7 +2860,7 @@ function buildScreenCopyDirection(args: {
 }): string {
   const parts: string[] = [];
   const embeddedText = sampleEmbeddedTextPhrases(args.analysis.textInsights, 2);
-  const occupiedRegions = inferTextOccupiedRegions(args.analysis.textInsights);
+  const occupiedRegions = args.analysis.occupiedRegions;
 
   switch (args.slideRole) {
     case 'hero':
@@ -2596,6 +2931,9 @@ function buildScreenCopyDirection(args: {
   if (occupiedRegions.includes('top')) {
     parts.push('Keep headline copy away from the occupied top band.');
   }
+  if (occupiedRegions.includes('bottom')) {
+    parts.push('Do not lean on bottom-anchored copy because the lower UI already carries important structure.');
+  }
 
   if (args.composition !== 'single') {
     parts.push('Let the wording feel broader than a literal feature caption because multiple screenshots share the frame.');
@@ -2625,6 +2963,33 @@ function buildScreenCopyDirection(args: {
   }
 
   return parts.join(' ');
+}
+
+function buildIndividualBackgroundStrategy(args: {
+  conceptId: 'concept-a' | 'concept-b';
+  analysis: ScreenshotAnalysis;
+  index: number;
+}): string {
+  if (args.analysis.role === 'settings') return 'quiet-surface';
+  if (args.analysis.role === 'onboarding' && args.index === 0) return 'airy-spotlight';
+  if (args.analysis.role === 'paywall') {
+    return args.conceptId === 'concept-b' ? 'premium-spotlight' : 'proof-tint';
+  }
+  if (args.analysis.role === 'communication' && args.conceptId === 'concept-b') {
+    return 'conversation-glow';
+  }
+  if (
+    (args.analysis.role === 'home' || args.analysis.role === 'detail')
+    && args.analysis.cropSuitability === 'high'
+  ) {
+    return args.conceptId === 'concept-b' ? 'proof-grid' : 'proof-tint';
+  }
+
+  if (args.conceptId === 'concept-a') {
+    return args.index === 0 ? 'primary-tint' : 'consistent-light';
+  }
+
+  return args.index === 0 ? 'high-contrast-hero' : 'contrast-rhythm';
 }
 
 function buildIndividualVariantScreens(args: {
@@ -2677,10 +3042,11 @@ function buildIndividualVariantScreens(args: {
       extraScreenshots: composition === 'single'
         ? []
         : supportingScreens.slice(0, composition === 'fanned-cards' ? 2 : 1),
-      backgroundStrategy:
-        args.conceptId === 'concept-a'
-          ? index === 0 ? 'primary-tint' : 'consistent-light'
-          : index === 0 ? 'high-contrast-hero' : 'contrast-rhythm',
+      backgroundStrategy: buildIndividualBackgroundStrategy({
+        conceptId: args.conceptId,
+        analysis,
+        index,
+      }),
       copyDirection: buildScreenCopyDirection({
         category: args.category,
         conceptId: args.conceptId,
@@ -3038,6 +3404,16 @@ function buildPanoramicCompositionFeatures(args: {
     features.push('proof-stack');
   }
 
+  if (args.analysis.role === 'paywall') {
+    features.push('proof-stack');
+    features.push('decorative-cluster');
+  }
+  if (args.analysis.role === 'communication') {
+    features.push('decorative-cluster');
+  }
+  if (args.analysis.role === 'settings' && args.storyBeat !== 'hero') {
+    features.push('proof-stack');
+  }
   if (args.category === 'finance' && (args.storyBeat === 'hero' || args.storyBeat === 'differentiator')) {
     features.push('proof-stack');
   }
@@ -3045,7 +3421,7 @@ function buildPanoramicCompositionFeatures(args: {
     features.push('decorative-cluster');
   }
 
-  return features;
+  return [...new Set(features)];
 }
 
 function buildPanoramicCompositionNote(args: {
@@ -3082,6 +3458,16 @@ function buildPanoramicCompositionNote(args: {
         ? 'Keep the full screenshot dominant and let typography carry the frame.'
         : `Support the ${args.storyBeat} beat with one tighter product detail.`,
     );
+  }
+
+  if (args.analysis.role === 'communication') {
+    parts.push('Preserve the alternating message rhythm instead of flattening it into one generic crop.');
+  } else if (args.analysis.role === 'settings') {
+    parts.push('Use settings rows as structured proof panels, not as noisy decoration.');
+  } else if (args.analysis.role === 'onboarding') {
+    parts.push('Keep the onboarding frame open so the benefit and CTA hierarchy still read clearly.');
+  } else if (args.analysis.role === 'paywall') {
+    parts.push('Treat the premium moment like a focused offer with stronger contrast and proof cues.');
   }
 
   return parts.join(' ');
@@ -3358,7 +3744,7 @@ export async function buildVariantSetPlan(args: {
       focus: analysis.focus,
       unsafeForTextOverlay: analysis.unsafeForTextOverlay,
       embeddedTextSample: sampleEmbeddedTextPhrases(analysis.textInsights, 2),
-      textOccupiedRegions: inferTextOccupiedRegions(analysis.textInsights),
+      textOccupiedRegions: analysis.occupiedRegions,
     })),
     variants: buildVariantEntries(selected, category, goals, args.variantCount ?? 4),
   };

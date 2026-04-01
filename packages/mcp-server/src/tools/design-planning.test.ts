@@ -292,6 +292,89 @@ describe('design planning helpers', () => {
     expect(byPath.get(reportPath)?.heroExplanation.some((line) => line.includes('data-heavy reporting view'))).toBe(true);
   });
 
+  it('infers screenshot semantics and occupied regions from raster layout when OCR is absent', async () => {
+    const onboardingPath = await makePngFile('welcome-flow.png', 120, 200, (x, y) => {
+      if (y < 54) return [250, 250, 252, 255];
+      if (x > 26 && x < 94 && y > 64 && y < 146) return [99, 102, 241, 255];
+      if (x > 24 && x < 96 && y > 162 && y < 184) return [16, 185, 129, 255];
+      return [241, 245, 249, 255];
+    });
+    const paywallPath = await makePngFile('premium-offer.png', 120, 200, (x, y) => {
+      if (x > 14 && x < 106 && y > 42 && y < 166) return [79, 70, 229, 255];
+      if (x > 24 && x < 96 && y > 170 && y < 190) return [245, 158, 11, 255];
+      return [15, 23, 42, 255];
+    });
+    const settingsPath = await makePngFile('settings-screen.png', 120, 200, (x, y) => {
+      if (y < 30) return [244, 246, 248, 255];
+      const inRow = y > 42 && y < 182 && y % 22 < 12;
+      if (inRow && x > 10 && x < 110) return [203, 213, 225, 255];
+      return [226, 232, 240, 255];
+    });
+    const chatPath = await makePngFile('chat-thread.png', 120, 200, (x, y) => {
+      if (y < 32) return [244, 246, 248, 255];
+      if ((x > 8 && x < 74 && y > 48 && y < 66)
+        || (x > 44 && x < 112 && y > 78 && y < 98)
+        || (x > 10 && x < 72 && y > 114 && y < 132)
+        || (x > 46 && x < 110 && y > 146 && y < 164)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const dashboardPath = await makePngFile('dashboard-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 52 && y < 88)
+        || (x > 68 && x < 108 && y > 52 && y < 88)
+        || (x > 12 && x < 52 && y > 104 && y < 140)
+        || (x > 68 && x < 108 && y > 104 && y < 140)) {
+        return [37, 99, 235, 255];
+      }
+      if (x > 16 && x < 104 && y > 154 && y < 180) return [16, 185, 129, 255];
+      return [226, 232, 240, 255];
+    });
+    const reportPath = await makePngFile('weekly-report.png', 120, 200, (x, y) => {
+      if (y < 32) return [244, 246, 248, 255];
+      if ((x > 16 && x < 104 && y > 54 && y < 78)
+        || (x > 16 && x < 104 && y > 96 && y < 124)
+        || (x > 18 && x < 102 && y > 138 && y < 176)) {
+        return [16, 185, 129, 255];
+      }
+      return [203, 213, 225, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: onboardingPath },
+      { path: paywallPath },
+      { path: settingsPath },
+      { path: chatPath },
+      { path: dashboardPath },
+      { path: reportPath },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(onboardingPath)?.role).toBe('onboarding');
+    expect(byPath.get(onboardingPath)?.recommendedUsage).toBe('hero-device');
+    expect(byPath.get(onboardingPath)?.occupiedRegions).toContain('bottom');
+
+    expect(byPath.get(paywallPath)?.role).toBe('paywall');
+    expect(byPath.get(paywallPath)?.occupiedRegions).toContain('center');
+    expect(byPath.get(paywallPath)?.occupiedRegions).toContain('bottom');
+
+    expect(byPath.get(settingsPath)?.role).toBe('settings');
+    expect(byPath.get(settingsPath)?.recommendedUsage).toBe('support-only');
+    expect(byPath.get(settingsPath)?.unsafeForTextOverlay).toBe(true);
+
+    expect(byPath.get(chatPath)?.role).toBe('communication');
+    expect(byPath.get(chatPath)?.occupiedRegions).toEqual(expect.arrayContaining(['left', 'right']));
+    expect(byPath.get(chatPath)?.unsafeForTextOverlay).toBe(true);
+
+    expect(byPath.get(dashboardPath)?.role).toBe('home');
+    expect(byPath.get(dashboardPath)?.cropSuitability).toBe('high');
+
+    expect(byPath.get(reportPath)?.role).toBe('detail');
+    expect(byPath.get(reportPath)?.cropSuitability).toBe('high');
+    expect(byPath.get(reportPath)?.heroExplanation.some((line) => line.includes('Raster layout suggests dashboard/reporting structure'))).toBe(true);
+  });
+
   it('infers screenshot ordering from filenames and carries it into the plan', async () => {
     const settingsPath = await makeSvgFile('screen-3-settings.svg', 1290, 2796);
     const detailPath = await makeSvgFile('screen-2-detail.svg', 1290, 2796);
@@ -633,6 +716,82 @@ describe('design planning helpers', () => {
       const paywallFrame = plan.variants[2].frames?.find((frame) => frame.sourcePath === paywallPath);
       expect(paywallFrame?.cropPlan?.avoidRegions).toContain('top');
       expect(paywallFrame?.cropPlan?.rationale).toContain('Avoid text-heavy regions');
+    }
+  });
+
+  it('uses raster-only semantics to drive occupied-region output and richer per-role planning', async () => {
+    const onboardingPath = await makePngFile('welcome-flow.png', 120, 200, (x, y) => {
+      if (y < 54) return [250, 250, 252, 255];
+      if (x > 26 && x < 94 && y > 64 && y < 146) return [99, 102, 241, 255];
+      if (x > 24 && x < 96 && y > 162 && y < 184) return [16, 185, 129, 255];
+      return [241, 245, 249, 255];
+    });
+    const paywallPath = await makePngFile('premium-offer.png', 120, 200, (x, y) => {
+      if (x > 14 && x < 106 && y > 42 && y < 166) return [79, 70, 229, 255];
+      if (x > 24 && x < 96 && y > 170 && y < 190) return [245, 158, 11, 255];
+      return [15, 23, 42, 255];
+    });
+    const chatPath = await makePngFile('chat-thread.png', 120, 200, (x, y) => {
+      if (y < 32) return [244, 246, 248, 255];
+      if ((x > 8 && x < 74 && y > 48 && y < 66)
+        || (x > 44 && x < 112 && y > 78 && y < 98)
+        || (x > 10 && x < 72 && y > 114 && y < 132)
+        || (x > 46 && x < 110 && y > 146 && y < 164)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const settingsPath = await makePngFile('settings-screen.png', 120, 200, (x, y) => {
+      if (y < 30) return [244, 246, 248, 255];
+      const inRow = y > 42 && y < 182 && y % 22 < 12;
+      if (inRow && x > 10 && x < 110) return [203, 213, 225, 255];
+      return [226, 232, 240, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'Pulse+',
+      appDescription: 'A premium social app for creator communities, onboarding, and shared conversations.',
+      platforms: ['ios'],
+      features: ['Creator communities', 'Premium chat', 'Shared posts'],
+      screenshots: [
+        { path: onboardingPath },
+        { path: paywallPath },
+        { path: chatPath },
+        { path: settingsPath },
+      ],
+      goals: ['Feel premium', 'Stay readable'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const selectedPaywall = plan.selectedScreens.find((screen) => screen.path === paywallPath);
+    const selectedChat = plan.selectedScreens.find((screen) => screen.path === chatPath);
+    expect(selectedPaywall?.textOccupiedRegions).toContain('bottom');
+    expect(selectedChat?.textOccupiedRegions).toEqual(expect.arrayContaining(['left', 'right']));
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const onboardingScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === onboardingPath);
+      const paywallScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === paywallPath);
+      const chatScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === chatPath);
+      const settingsScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === settingsPath);
+
+      expect(onboardingScreen?.backgroundStrategy).toBe('airy-spotlight');
+      expect(paywallScreen?.backgroundStrategy).toBe('premium-spotlight');
+      expect(chatScreen?.copyDirection).toContain('Keep the message social and immediate');
+      expect(chatScreen?.implementationNote).toContain('message lanes readable');
+      expect(settingsScreen?.composition).toBe('duo-split');
+    }
+
+    const editorialConcept = plan.variants[2];
+    expect(editorialConcept?.mode).toBe('panoramic');
+    if (editorialConcept?.mode === 'panoramic') {
+      const paywallFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === paywallPath);
+      const chatFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === chatPath);
+
+      expect(paywallFrame?.compositionFeatures).toContain('proof-stack');
+      expect(chatFrame?.compositionNote).toContain('alternating message rhythm');
     }
   });
 

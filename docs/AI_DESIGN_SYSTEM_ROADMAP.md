@@ -105,8 +105,9 @@ Current status:
 
 - OCR/vision text enrichment now feeds role detection, overlay safety, screenshot-to-copy de-duplication, and plan-time crop guidance without bundling built-in model dependencies
 - OCR/layout semantics now better distinguish onboarding, paywall, settings, communication, and data-heavy dashboard/reporting screens when text enrichment is available, improving density, crop, and copy-direction decisions
+- raster layout heuristics now extend those occupied-region and screen-type cues to non-OCR screenshots, so local analysis can still infer onboarding/paywall/settings/chat/dashboard-style structure without sidecars
 - variant plans now emit explicit per-concept frame strategies plus per-screen/per-frame crop plans, including text-occupied-region avoidance and focal-point anchoring
-- materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, safer text offsets, palette-led backgrounds, and deeper device-frame treatment
+- materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, safer text offsets, palette-led backgrounds, deeper device-frame treatment, and role-aware composition/background reactions for onboarding/paywall/settings/chat/reporting-style screens
 
 ### 4. Generate-Then-Rank Loop
 
@@ -193,7 +194,9 @@ This roadmap now has three concrete pieces underway:
 - screenshot understanding foundations: analysis now includes inferred screen ordering, hero-candidate explanations, unsafe-overlay flags, and PNG-derived palette / quiet-zone / focal-point signals
 - screenshot understanding now also supports optional OCR/vision text enrichment through local sidecars and opt-in local Tesseract, improving role detection and text-overlay safety without bundling a built-in model dependency
 - screenshot understanding now also uses OCR/layout semantics to better read onboarding, paywall, settings, chat, and data-heavy dashboard/reporting screenshots instead of treating them as mostly generic dense screens
+- screenshot understanding now also derives raster-only occupied-region and semantic layout cues so non-OCR screenshots can still drive crop avoidance, copy direction, and role-aware planning deterministically
 - individual composition breadth: dynamic individual concepts now materialize multi-device compositions, supporting screenshots, loupes, overlays, and palette-aware backgrounds instead of staying inside a single-device layout
+- recipe-specific composition/background reactions now respond more explicitly to onboarding, paywall, settings, chat, and reporting-style screens instead of only generic frame/crop signals
 - deterministic concept planning: concepts now resequence screenshots differently, constrain support-screen reuse, and derive per-screen copy direction from screenshot role, density, quiet-space, and focal cues instead of sharing one generic ordering/story pass
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot
 - screenshot-aware copy generation: copy candidates can now consume screenshot-derived slot signals so hero, differentiator, feature, trust, and summary lines respond to actual screen content instead of only the feature list

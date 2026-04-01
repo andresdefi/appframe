@@ -122,6 +122,35 @@ function buildPalette(
   return palette;
 }
 
+function hexToRgb(value: string): { r: number; g: number; b: number } | null {
+  const normalized = value.trim().replace(/^#/, '');
+  const expanded = normalized.length === 3
+    ? normalized.split('').map((char) => `${char}${char}`).join('')
+    : normalized;
+  if (!/^[0-9a-f]{6}$/i.test(expanded)) return null;
+
+  return {
+    r: Number.parseInt(expanded.slice(0, 2), 16),
+    g: Number.parseInt(expanded.slice(2, 4), 16),
+    b: Number.parseInt(expanded.slice(4, 6), 16),
+  };
+}
+
+function mixHexColors(primary: string, secondary: string, weight = 0.5): string | null {
+  const left = hexToRgb(primary);
+  const right = hexToRgb(secondary);
+  if (!left || !right) return null;
+  const clampedWeight = Math.max(0, Math.min(1, weight));
+  const mixChannel = (leftValue: number, rightValue: number) =>
+    Math.round((leftValue * (1 - clampedWeight)) + (rightValue * clampedWeight));
+
+  return `#${[
+    mixChannel(left.r, right.r),
+    mixChannel(left.g, right.g),
+    mixChannel(left.b, right.b),
+  ].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+}
+
 function lightPaletteColor(palette: string[] | undefined): string | undefined {
   return palette?.find((value) => /^#(?:f|e|d|c|b|a|9)/i.test(value));
 }
@@ -373,6 +402,27 @@ function buildIndividualBackground(args: {
   resolvedFraming: PlannedIndividualScreen['framing'];
 }): Pick<AppframeConfig['screens'][number], 'background'> {
   const backgroundFromPalette = lightPaletteColor(args.screen.dominantPalette);
+  const accent = args.screen.dominantPalette?.[0] ?? args.colors.primary;
+  const mixedBackground = (base: string | undefined, overlay: string, weight: number): string | undefined =>
+    mixHexColors(base ?? args.colors.background, overlay, weight) ?? base ?? args.colors.background;
+
+  switch (args.screen.backgroundStrategy) {
+    case 'airy-spotlight':
+      return { background: mixedBackground(backgroundFromPalette, '#FFFFFF', 0.5) };
+    case 'quiet-surface':
+      return { background: mixedBackground(backgroundFromPalette, args.colors.subtitle, 0.12) };
+    case 'premium-spotlight':
+      return { background: mixedBackground(accent, args.colors.secondary, 0.3) };
+    case 'conversation-glow':
+      return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.18) };
+    case 'proof-grid':
+      return { background: mixedBackground(backgroundFromPalette, args.colors.secondary, 0.16) };
+    case 'proof-tint':
+      return { background: mixedBackground(backgroundFromPalette, accent, 0.14) };
+    default:
+      break;
+  }
+
   if (args.screen.backgroundStrategy === 'primary-tint') {
     return { background: backgroundFromPalette ?? args.colors.background };
   }

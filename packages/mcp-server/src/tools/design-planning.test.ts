@@ -416,6 +416,41 @@ describe('design planning helpers', () => {
     expect(plan.selectedScreens[2]?.unsafeForTextOverlay).toBe(true);
   });
 
+  it('extends deterministic non-OCR semantic inference to workflow and discovery layouts', async () => {
+    const workflowPath = await makePngFile('workflow-builder.png', 120, 200, (x, y) => {
+      if (x > 18 && x < 74 && y > 10 && y < 22) return [148, 163, 184, 255];
+      if (y < 28) return [241, 245, 249, 255];
+      if (x > 22 && x < 98 && y > 34 && y < 48) return [203, 213, 225, 255];
+      if (x > 34 && x < 86 && y > 60 && y < 148) return [99, 102, 241, 255];
+      if ((x > 40 && x < 80 && y > 76 && y < 90) || (x > 40 && x < 80 && y > 100 && y < 114)) return [165, 180, 252, 255];
+      if (x > 26 && x < 94 && y > 164 && y < 186) return [16, 185, 129, 255];
+      return [226, 232, 240, 255];
+    });
+    const discoveryPath = await makePngFile('discover-feed.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if (x > 16 && x < 104 && y > 34 && y < 48) return [226, 232, 240, 255];
+      const inCardRow =
+        ((x > 10 && x < 54) || (x > 66 && x < 110))
+        && ((y > 58 && y < 92) || (y > 104 && y < 138) || (y > 150 && y < 184));
+      if (inCardRow) return [59, 130, 246, 255];
+      return [241, 245, 249, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: workflowPath, note: 'Project workflow' },
+      { path: discoveryPath, note: 'Template discovery feed' },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(workflowPath)?.role).toBe('workflow');
+    expect(byPath.get(workflowPath)?.density).toBe('minimal');
+    expect(byPath.get(workflowPath)?.heroExplanation.some((line) => line.includes('Workflow screens often explain the core value quickly'))).toBe(true);
+
+    expect(byPath.get(discoveryPath)?.role).toBe('discovery');
+    expect(byPath.get(discoveryPath)?.cropSuitability).toBe('high');
+    expect(byPath.get(discoveryPath)?.heroExplanation.some((line) => line.includes('Discovery screens can sell breadth and exploration'))).toBe(true);
+  });
+
   it('builds a variant set plan with current-capability concepts', async () => {
     const homePath = await makePngFile('home-screen.png', 120, 200, (x, y) => {
       if (y < 46) return [246, 247, 250, 255];
@@ -792,6 +827,90 @@ describe('design planning helpers', () => {
 
       expect(paywallFrame?.compositionFeatures).toContain('proof-stack');
       expect(chatFrame?.compositionNote).toContain('alternating message rhythm');
+    }
+  });
+
+  it('adds workflow and discovery-specific planning reactions from deterministic non-OCR screenshots', async () => {
+    const workflowPath = await makePngFile('workflow-builder.png', 120, 200, (x, y) => {
+      if (x > 18 && x < 74 && y > 10 && y < 22) return [148, 163, 184, 255];
+      if (y < 28) return [241, 245, 249, 255];
+      if (x > 22 && x < 98 && y > 34 && y < 48) return [203, 213, 225, 255];
+      if (x > 34 && x < 86 && y > 60 && y < 148) return [99, 102, 241, 255];
+      if ((x > 40 && x < 80 && y > 76 && y < 90) || (x > 40 && x < 80 && y > 100 && y < 114)) return [165, 180, 252, 255];
+      if (x > 26 && x < 94 && y > 164 && y < 186) return [16, 185, 129, 255];
+      return [226, 232, 240, 255];
+    });
+    const discoveryPath = await makePngFile('discover-feed.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if (x > 16 && x < 104 && y > 34 && y < 48) return [226, 232, 240, 255];
+      const inCardRow =
+        ((x > 10 && x < 54) || (x > 66 && x < 110))
+        && ((y > 58 && y < 92) || (y > 104 && y < 138) || (y > 150 && y < 184));
+      if (inCardRow) return [59, 130, 246, 255];
+      return [241, 245, 249, 255];
+    });
+    const reportPath = await makePngFile('screen-13.png', 120, 200, (x, y) => {
+      if (y < 32) return [244, 246, 248, 255];
+      if ((x > 16 && x < 104 && y > 54 && y < 78)
+        || (x > 16 && x < 104 && y > 96 && y < 124)
+        || (x > 18 && x < 102 && y > 138 && y < 176)) {
+        return [16, 185, 129, 255];
+      }
+      return [203, 213, 225, 255];
+    });
+    const homePath = await makePngFile('screen-14.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 52 && y < 88)
+        || (x > 68 && x < 108 && y > 52 && y < 88)
+        || (x > 12 && x < 52 && y > 104 && y < 140)
+        || (x > 68 && x < 108 && y > 104 && y < 140)) {
+        return [37, 99, 235, 255];
+      }
+      if (x > 16 && x < 104 && y > 154 && y < 180) return [16, 185, 129, 255];
+      return [226, 232, 240, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'Flowboard',
+      appDescription: 'A productivity app for planning work, browsing templates, and tracking progress.',
+      platforms: ['ios'],
+      features: ['Project planning', 'Template discovery', 'Progress reporting'],
+      screenshots: [
+        { path: workflowPath, note: 'Project workflow' },
+        { path: discoveryPath, note: 'Template discovery feed' },
+        { path: reportPath },
+        { path: homePath },
+      ],
+      goals: ['Feel focused', 'Show breadth'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const workflowScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === workflowPath);
+      const discoveryScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === discoveryPath);
+
+      expect(workflowScreen?.backgroundStrategy).toBe('workflow-surface');
+      expect(workflowScreen?.composition).not.toBe('single');
+      expect(workflowScreen?.implementationNote).toContain('action path');
+
+      expect(discoveryScreen?.backgroundStrategy).toBe('discovery-glow');
+      expect(discoveryScreen?.copyDirection).toContain('exploratory and broad');
+      expect(discoveryScreen?.implementationNote).toContain('browse cards');
+    }
+
+    const editorialConcept = plan.variants[2];
+    expect(editorialConcept?.mode).toBe('panoramic');
+    if (editorialConcept?.mode === 'panoramic') {
+      const workflowFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === workflowPath);
+      const discoveryFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === discoveryPath);
+
+      expect(workflowFrame?.compositionFeatures).toContain('proof-stack');
+      expect(workflowFrame?.compositionNote).toContain('action path');
+      expect(discoveryFrame?.compositionFeatures).toContain('decorative-cluster');
+      expect(discoveryFrame?.compositionNote).toContain('browse cards');
     }
   });
 

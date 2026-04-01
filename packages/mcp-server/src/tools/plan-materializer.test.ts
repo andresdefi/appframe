@@ -531,4 +531,83 @@ describe('plan materializer', () => {
     expect(new Set(backgrounds).size).toBeGreaterThan(1);
     expect(backgrounds).not.toContain('#FFFFFF');
   });
+
+  it('materializes workflow and discovery-aware backgrounds for raster-only productivity screenshots', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-workflow-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-workflow-output-');
+
+    const workflowPath = await makePngFile(assetsDir, 'workflow-builder.png', 120, 200, (x, y) => {
+      if (x > 18 && x < 74 && y > 10 && y < 22) return [148, 163, 184, 255];
+      if (y < 28) return [241, 245, 249, 255];
+      if (x > 22 && x < 98 && y > 34 && y < 48) return [203, 213, 225, 255];
+      if (x > 34 && x < 86 && y > 60 && y < 148) return [99, 102, 241, 255];
+      if ((x > 40 && x < 80 && y > 76 && y < 90) || (x > 40 && x < 80 && y > 100 && y < 114)) return [165, 180, 252, 255];
+      if (x > 26 && x < 94 && y > 164 && y < 186) return [16, 185, 129, 255];
+      return [226, 232, 240, 255];
+    });
+    const discoveryPath = await makePngFile(assetsDir, 'discover-feed.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if (x > 16 && x < 104 && y > 34 && y < 48) return [226, 232, 240, 255];
+      const inCardRow =
+        ((x > 10 && x < 54) || (x > 66 && x < 110))
+        && ((y > 58 && y < 92) || (y > 104 && y < 138) || (y > 150 && y < 184));
+      if (inCardRow) return [59, 130, 246, 255];
+      return [241, 245, 249, 255];
+    });
+    const reportPath = await makePngFile(assetsDir, 'screen-23.png', 120, 200, (x, y) => {
+      if (y < 32) return [244, 246, 248, 255];
+      if ((x > 16 && x < 104 && y > 54 && y < 78)
+        || (x > 16 && x < 104 && y > 96 && y < 124)
+        || (x > 18 && x < 102 && y > 138 && y < 176)) {
+        return [16, 185, 129, 255];
+      }
+      return [203, 213, 225, 255];
+    });
+    const homePath = await makePngFile(assetsDir, 'screen-24.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 52 && y < 88)
+        || (x > 68 && x < 108 && y > 52 && y < 88)
+        || (x > 12 && x < 52 && y > 104 && y < 140)
+        || (x > 68 && x < 108 && y > 104 && y < 140)) {
+        return [37, 99, 235, 255];
+      }
+      if (x > 16 && x < 104 && y > 154 && y < 180) return [16, 185, 129, 255];
+      return [226, 232, 240, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'Flowboard',
+      appDescription: 'A productivity app for planning work, browsing templates, and tracking progress.',
+      platforms: ['ios'],
+      features: ['Project planning', 'Template discovery', 'Progress reporting'],
+      screenshots: [
+        { path: workflowPath, note: 'Project workflow' },
+        { path: discoveryPath, note: 'Template discovery feed' },
+        { path: reportPath },
+        { path: homePath },
+      ],
+      goals: ['Feel focused', 'Show breadth'],
+      variantCount: 2,
+      screenCount: 4,
+    });
+
+    const result = await materializeVariantPlan({
+      plan,
+      outputDir,
+      primaryColor: '#2563EB',
+      secondaryColor: '#7C3AED',
+    });
+
+    const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
+    expect(individualConfigPath).toBeTruthy();
+
+    const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const workflowScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('workflow-builder.png'));
+    const discoveryScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('discover-feed.png'));
+
+    expect(workflowScreen?.background).toBeTruthy();
+    expect(discoveryScreen?.background).toBeTruthy();
+    expect(workflowScreen?.background).not.toBe(discoveryScreen?.background);
+    expect([workflowScreen?.background, discoveryScreen?.background]).not.toContain('#FFFFFF');
+  });
 });

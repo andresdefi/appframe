@@ -413,6 +413,10 @@ function buildIndividualBackground(args: {
       return { background: mixedBackground(backgroundFromPalette, args.colors.subtitle, 0.12) };
     case 'premium-spotlight':
       return { background: mixedBackground(accent, args.colors.secondary, 0.3) };
+    case 'workflow-surface':
+      return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.1) };
+    case 'discovery-glow':
+      return { background: mixedBackground(accent, '#FFFFFF', 0.38) };
     case 'conversation-glow':
       return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.18) };
     case 'proof-grid':

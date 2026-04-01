@@ -57,7 +57,9 @@ AppFrame now has an initial autopilot pipeline implemented:
 - screenshot analysis now supports optional OCR/vision text enrichment from local sidecars or opt-in local Tesseract, feeding role detection and overlay safety without bundling built-in model dependencies
 - screenshot analysis now uses OCR/layout semantics to better distinguish onboarding, paywall, settings, communication, and data-heavy dashboard/reporting screens, feeding denser overlay-risk, crop-suitability, and copy-direction guidance
 - screenshot analysis now also derives raster-only occupied-region and semantic layout signals when OCR/text enrichment is absent, so onboarding/paywall/settings/chat/dashboard-style screenshots still feed role, crop, and copy guidance deterministically
+- screenshot analysis now also broadens deterministic non-OCR understanding for workflow/action and discovery/browse screens, and local ambiguity guards reduce some raster-only false positives where wide panels previously collapsed into settings or reporting
 - dynamic individual planning/materialization now reacts more explicitly to onboarding, paywall, settings, chat, and reporting-style screens with role-aware composition/background strategies instead of only generic frameStrategy/cropPlan behavior
+- dynamic individual planning/materialization now also reacts more explicitly to workflow and discovery screens with dedicated composition/background treatments instead of folding them back into generic proof-grid behavior
 - the AppFrame skill has been rewritten around the autopilot flow
 
 The current default concept contract is:
@@ -230,7 +232,9 @@ Recommended order:
   - [x] settings
   - [x] communication/chat
   - [x] data-heavy dashboard/reporting
-  Status: OCR/layout semantics now improve these cases when text enrichment is available, and raster-layout heuristics now cover the same screen families when OCR is absent; broader scene-graph understanding is still incomplete.
+  - [x] workflow/action
+  - [x] discovery/browse/template-library
+  Status: OCR/layout semantics now improve these cases when text enrichment is available, raster/non-OCR deterministic logic now covers the same families plus workflow/discovery, and ambiguity guards now cut some settings/reporting false positives; broader scene-graph understanding is still incomplete.
 - [x] Add raster-only occupied-region heuristics when OCR/text enrichment is absent.
   Status: screenshot analysis now infers top/bottom/left/right/center occupancy from local PNG structure, and those regions feed crop avoidance plus copy/planning guidance even without OCR sidecars.
 - [x] Add screenshot ordering inference from filenames, timestamps, and roles.
@@ -474,9 +478,9 @@ This is not fully implemented yet.
 
 If a future thread should continue immediately, the best next slice is:
 
-1. improve screenshot understanding so plans react more confidently to onboarding, paywall, settings, chat, and data-heavy reporting screens
-2. keep expanding screenshot-understanding quality beyond the current raster-layout heuristics so non-OCR analysis keeps improving without regressing into false positives
-3. keep expanding recipe-specific composition and background mapping now that role-aware onboarding/paywall/settings/chat/reporting reactions are landed
+1. improve screenshot understanding so plans react more confidently to onboarding, paywall, settings, chat, workflow, discovery, and data-heavy reporting screens
+2. keep expanding screenshot-understanding quality beyond the current raster-layout heuristics and local note/filename cues so non-OCR analysis keeps improving without regressing into false positives
+3. keep expanding recipe-specific composition and background mapping now that role-aware onboarding/paywall/settings/chat/reporting/workflow/discovery reactions are landed
 4. continue refinement flow polish and richer panoramic composition systems after the screenshot-intelligence slice
 
 That is the next quality step now that the planning metadata is no longer only emitted, but also consumed by the generated outputs.
@@ -485,7 +489,7 @@ That is the next quality step now that the planning metadata is no longer only e
 
 Use this to start a future thread:
 
-> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next screenshot-intelligence slice after the raster-layout pass: reduce remaining non-OCR false positives, broaden semantic coverage beyond the current onboarding/paywall/settings/chat/dashboard heuristics, and keep expanding recipe-specific composition/background mapping for both individual and panoramic concepts.
+> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next screenshot-intelligence slice after the current ambiguity-guard pass: reduce remaining non-OCR false positives, broaden semantic coverage beyond the current onboarding/paywall/settings/chat/dashboard/workflow/discovery heuristics, and keep expanding recipe-specific composition/background mapping for both individual and panoramic concepts.
 
 ## Notes For Future Threads
 

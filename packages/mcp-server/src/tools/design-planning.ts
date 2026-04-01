@@ -326,7 +326,7 @@ const ROLE_SIGNAL_PATTERNS: Array<{ role: ScreenshotRole; pattern: RegExp; weigh
   { role: 'home', pattern: /\b(home|dashboard|overview|feed|main|today|wallet|balance|activity)\b/g, weight: 10 },
   { role: 'onboarding', pattern: /\b(onboarding|welcome|intro|start|splash|get started|continue|skip|allow)\b/g, weight: 12 },
   { role: 'communication', pattern: /\b(chat|message|messages|inbox|conversation|thread|reply|typing|dm)\b/g, weight: 12 },
-  { role: 'discovery', pattern: /\b(search|discover|explore|browse|find|trending|for you)\b/g, weight: 10 },
+  { role: 'discovery', pattern: /\b(search|discover|explore|browse|find|trending|for you|template|templates|library|libraries)\b/g, weight: 12 },
   { role: 'workflow', pattern: /\b(calendar|plan|task|workflow|schedule|editor|compose|create|checklist|project)\b/g, weight: 10 },
   { role: 'detail', pattern: /\b(detail|profile|report|analytics|stats|insight|summary|progress|revenue|spending|results?)\b/g, weight: 10 },
   { role: 'settings', pattern: /\b(settings|account|preferences|privacy|notifications|security|manage|general)\b/g, weight: 12 },
@@ -374,6 +374,8 @@ interface TextSemanticSignals {
   paywallSignalCount: number;
   settingsSignalCount: number;
   communicationSignalCount: number;
+  workflowSignalCount: number;
+  discoverySignalCount: number;
   dashboardSignalCount: number;
   reportingSignalCount: number;
   numericTokenCount: number;
@@ -413,6 +415,14 @@ function deriveTextSemanticSignals(
     communicationSignalCount: countRegexMatches(
       normalized,
       /\b(chat|message|messages|reply|typing|thread|threads|inbox|send|voice note|call|channel|channels|members|group|dm|unread)\b/g,
+    ),
+    workflowSignalCount: countRegexMatches(
+      normalized,
+      /\b(calendar|plan|planner|task|tasks|workflow|schedule|scheduled|editor|compose|create|creator|draft|publish|checklist|project|projects)\b/g,
+    ),
+    discoverySignalCount: countRegexMatches(
+      normalized,
+      /\b(search|discover|discovery|explore|browse|find|trending|for you|categories|collections|popular|template|templates|library|libraries)\b/g,
     ),
     dashboardSignalCount: countRegexMatches(
       normalized,
@@ -454,6 +464,17 @@ function isLikelyCommunicationScreen(
     || (signals.alternatingConversationColumns && textInsights.blocks.length >= 4);
 }
 
+function isLikelyWorkflowScreen(signals: TextSemanticSignals): boolean {
+  return signals.workflowSignalCount >= 2
+    && signals.settingsSignalCount <= 1
+    && signals.discoverySignalCount <= 1;
+}
+
+function isLikelyDiscoveryScreen(signals: TextSemanticSignals): boolean {
+  return signals.discoverySignalCount >= 2
+    && signals.communicationSignalCount <= 1;
+}
+
 function isLikelyDataHeavyDashboard(signals: TextSemanticSignals): boolean {
   return signals.dashboardSignalCount >= 1 && signals.numericTokenCount >= 4;
 }
@@ -483,6 +504,12 @@ function applySemanticRoleScores(
   }
   if (isLikelyCommunicationScreen(signals, textInsights)) {
     scores.communication += 20;
+  }
+  if (isLikelyWorkflowScreen(signals)) {
+    scores.workflow += 18;
+  }
+  if (isLikelyDiscoveryScreen(signals)) {
+    scores.discovery += 18;
   }
   if (dashboardLike) {
     scores.home += 18 + (signals.dashboardSignalCount >= signals.reportingSignalCount ? 4 : 0);
@@ -845,28 +872,77 @@ function mergeOccupiedRegions(
     seen.has(label as SafeTextZone['label'])) as SafeTextZone['label'][];
 }
 
+function scoreDominates(
+  score: number,
+  competitors: number[],
+  minMargin = 1,
+): boolean {
+  return score >= 4 && score >= (Math.max(0, ...competitors) + minMargin);
+}
+
 function applyRasterRoleScores(
   scores: Record<ScreenshotRole, number>,
   semanticSignals?: RasterSemanticSignals,
 ): void {
   if (!semanticSignals) return;
 
-  if (semanticSignals.onboardingScore >= 4) {
+  if (scoreDominates(
+    semanticSignals.onboardingScore,
+    [semanticSignals.paywallScore, semanticSignals.workflowScore, semanticSignals.settingsScore],
+  )) {
     scores.onboarding += 10;
   }
-  if (semanticSignals.paywallScore >= 4) {
+  if (scoreDominates(
+    semanticSignals.paywallScore,
+    [semanticSignals.onboardingScore, semanticSignals.workflowScore, semanticSignals.discoveryScore],
+  )) {
     scores.paywall += 24;
   }
-  if (semanticSignals.settingsScore >= 4) {
-    scores.settings += 22;
+  if (scoreDominates(
+    semanticSignals.settingsScore,
+    [semanticSignals.communicationScore, semanticSignals.dashboardScore, semanticSignals.discoveryScore],
+  )) {
+    scores.settings += 18;
   }
-  if (semanticSignals.communicationScore >= 4) {
+  if (scoreDominates(
+    semanticSignals.communicationScore,
+    [semanticSignals.settingsScore, semanticSignals.discoveryScore],
+  )) {
     scores.communication += 20;
   }
-  if (semanticSignals.dashboardScore >= 4) {
+  if (scoreDominates(
+    semanticSignals.workflowScore,
+    [semanticSignals.onboardingScore, semanticSignals.paywallScore, semanticSignals.settingsScore],
+  )) {
+    scores.workflow += 22;
+  }
+  if (scoreDominates(
+    semanticSignals.discoveryScore,
+    [semanticSignals.dashboardScore, semanticSignals.communicationScore, semanticSignals.settingsScore],
+  )) {
+    scores.discovery += 18;
+  }
+  if (scoreDominates(
+    semanticSignals.dashboardScore,
+    [
+      semanticSignals.reportingScore,
+      semanticSignals.discoveryScore,
+      semanticSignals.settingsScore,
+      semanticSignals.workflowScore,
+    ],
+    semanticSignals.reportingScore >= semanticSignals.dashboardScore ? 2 : 1,
+  )) {
     scores.home += 18;
   }
-  if (semanticSignals.reportingScore >= 4) {
+  if (scoreDominates(
+    semanticSignals.reportingScore,
+    [
+      semanticSignals.dashboardScore,
+      semanticSignals.discoveryScore,
+      semanticSignals.workflowScore,
+      semanticSignals.paywallScore,
+    ],
+  )) {
     scores.detail += 20;
   }
 }
@@ -912,6 +988,7 @@ function inferDensity(
   if (textInsights) {
     if (isLikelyOnboardingScreen(semanticSignals, textInsights)) return 'minimal';
     if (isLikelySettingsScreen(semanticSignals) || isLikelyCommunicationScreen(semanticSignals, textInsights)) return 'dense';
+    if (isLikelyWorkflowScreen(semanticSignals) || isLikelyDiscoveryScreen(semanticSignals)) return 'balanced';
     if (isLikelyDataHeavyDashboard(semanticSignals) || isLikelyReportingScreen(semanticSignals)) return 'dense';
     if (isLikelyPaywallScreen(semanticSignals)) {
       return textInsights.totalCoverage >= 0.14 || textInsights.lineCount >= 6 ? 'dense' : 'balanced';
@@ -923,12 +1000,14 @@ function inferDensity(
   if (rasterSemanticSignals) {
     if (rasterSemanticSignals.onboardingScore >= 4) return 'minimal';
     if (rasterSemanticSignals.settingsScore >= 4 || rasterSemanticSignals.communicationScore >= 4) return 'dense';
+    if (rasterSemanticSignals.workflowScore >= 5 || rasterSemanticSignals.discoveryScore >= 5) return 'balanced';
     if (rasterSemanticSignals.dashboardScore >= 4 || rasterSemanticSignals.reportingScore >= 4) return 'dense';
     if (rasterSemanticSignals.paywallScore >= 4) return role === 'paywall' ? 'balanced' : 'dense';
   }
 
   if (role === 'onboarding') return 'minimal';
   if (role === 'settings' || role === 'communication') return 'dense';
+  if (role === 'workflow' || role === 'discovery') return 'balanced';
   if (/(list|feed|table|settings|calendar|report|analytics|chat)/.test(haystack)) return 'dense';
   if (/(welcome|splash|intro|hero)/.test(haystack)) return 'minimal';
   return 'balanced';
@@ -992,6 +1071,7 @@ function inferSafeTextZones(role: ScreenshotRole, density: ScreenshotDensity): S
 
 function inferCropSuitability(role: ScreenshotRole, density: ScreenshotDensity): CropSuitability {
   if (role === 'settings') return 'low';
+  if (role === 'workflow') return density === 'dense' ? 'medium' : 'high';
   if (role === 'detail' || role === 'discovery' || role === 'paywall') return 'high';
   if (density === 'dense') return 'medium';
   return 'low';
@@ -1242,6 +1322,8 @@ function buildHeroExplanation(args: {
     reasons.push('Home/dashboard content usually makes the clearest opening hero.');
   } else if (args.role === 'workflow') {
     reasons.push('Workflow screens often explain the core value quickly.');
+  } else if (args.role === 'discovery') {
+    reasons.push('Discovery screens can sell breadth and exploration when the layout stays readable.');
   } else if (args.role === 'onboarding') {
     reasons.push('Onboarding screens often have cleaner whitespace for hero use.');
   } else if (args.role === 'communication') {
@@ -1292,6 +1374,12 @@ function buildHeroExplanation(args: {
     } else if (args.textInsights.lineCount > 0 && args.textInsights.totalCoverage <= 0.04) {
       reasons.push('OCR/vision enrichment found only light embedded UI text, so the screen stays flexible.');
     }
+    if (isLikelyWorkflowScreen(semanticSignals)) {
+      reasons.push('OCR/vision text suggests a workflow or creator screen, so copy should foreground the action or progress payoff.');
+    }
+    if (isLikelyDiscoveryScreen(semanticSignals)) {
+      reasons.push('OCR/vision text suggests a discovery or browse surface, so copy should sell breadth instead of repeating category labels.');
+    }
     if (isLikelyReportingScreen(semanticSignals) || isLikelyDataHeavyDashboard(semanticSignals)) {
       reasons.push('OCR/vision text suggests a data-heavy reporting view, so crop-led proof is stronger than oversized overlay copy.');
     }
@@ -1304,6 +1392,12 @@ function buildHeroExplanation(args: {
     }
     if (args.rasterSemanticSignals.settingsScore >= 4) {
       reasons.push('Raster layout suggests a settings/list screen, which is better used as supporting proof than a wide-open hero.');
+    }
+    if (args.rasterSemanticSignals.workflowScore >= 5) {
+      reasons.push('Raster layout suggests a workflow-style screen with one primary action path, so copy should sell the completed action rather than every control.');
+    }
+    if (args.rasterSemanticSignals.discoveryScore >= 5) {
+      reasons.push('Raster layout suggests a browse/discovery surface, so broader category copy works better than literal UI labels.');
     }
     if (args.rasterSemanticSignals.dashboardScore >= 4 || args.rasterSemanticSignals.reportingScore >= 4) {
       reasons.push('Raster layout suggests dashboard/reporting structure, so tighter proof crops are stronger than oversized claims.');
@@ -1506,6 +1600,8 @@ interface RasterSemanticSignals {
   paywallScore: number;
   settingsScore: number;
   communicationScore: number;
+  workflowScore: number;
+  discoveryScore: number;
   dashboardScore: number;
   reportingScore: number;
 }
@@ -1760,6 +1856,7 @@ function inferRasterSemanticSignals(args: {
   let lowerCtaRows = 0;
   let alternatingConversationRows = 0;
   let lowerHalfDenseRows = 0;
+  let topInsetBarRows = 0;
   let previousBubbleSide: 'left' | 'right' | null = null;
 
   for (let row = 0; row < args.blockRows; row += 1) {
@@ -1798,6 +1895,12 @@ function inferRasterSemanticSignals(args: {
       return center >= 4 && center <= 8 && segment.width >= 4 && segment.width <= 8;
     });
     if (centeredSegment) centeredPanelRows += 1;
+
+    const insetTopBar = combinedSegments.some((segment) => {
+      const center = (segment.start + segment.end + 1) / 2;
+      return center >= 4 && center <= 8 && segment.width >= 3 && segment.width <= 9;
+    });
+    if (insetTopBar && rowCenter >= 0.12 && rowCenter <= 0.28) topInsetBarRows += 1;
 
     const hasCardPair = segments.length >= 2 && segments.every((segment) => segment.width >= 2 && segment.width <= 4);
     if (hasCardPair && rowCenter >= 0.22 && rowCenter <= 0.7) cardGridRows += 1;
@@ -1852,10 +1955,11 @@ function inferRasterSemanticSignals(args: {
     + (args.topQuietRatio <= 0.6 ? 1 : 0)
   );
   const settingsScore = (
-    (leftRailRows >= 3 ? 1 : 0)
-    + (fullWidthRows >= 5 ? 3 : 0)
+    (leftRailRows >= 3 ? 2 : 0)
+    + (fullWidthRows >= 5 && centeredPanelRows <= 2 && topInsetBarRows === 0 && cardGridRows <= 1 ? 3 : 0)
     + (splitRows <= 2 ? 1 : 0)
     + (args.topQuietRatio <= 0.46 ? 1 : 0)
+    + (centeredPanelRows <= 2 ? 1 : 0)
   );
   const communicationScore = (
     (alternatingConversationRows >= 2 ? 2 : 0)
@@ -1863,11 +1967,29 @@ function inferRasterSemanticSignals(args: {
     + (rightRailRows >= 2 ? 1 : 0)
     + (splitRows >= 3 ? 1 : 0)
   );
+  const workflowScore = (
+    (centeredPanelRows >= 4 ? 2 : 0)
+    + (topInsetBarRows >= 1 ? 1 : 0)
+    + (lowerCtaRows >= 1 ? 1 : 0)
+    + (splitRows <= 2 ? 1 : 0)
+    + (fullWidthRows <= 3 ? 1 : 0)
+    + (lowerHalfDenseRows >= 3 ? 1 : 0)
+  );
+  const discoveryScore = (
+    (topInsetBarRows >= 1 ? 1 : 0)
+    + (cardGridRows >= 2 ? 2 : 0)
+    + (splitRows >= 3 ? 1 : 0)
+    + (fullWidthRows <= 2 ? 1 : 0)
+    + (leftRailRows <= 2 && rightRailRows <= 2 ? 1 : 0)
+    + (lowerCtaRows === 0 ? 1 : 0)
+  );
   const dashboardScore = (
     (cardGridRows >= 2 ? 2 : 0)
+    + (cardGridRows >= 4 ? 1 : 0)
     + (splitRows >= 2 ? 1 : 0)
     + (centeredPanelRows >= 2 ? 1 : 0)
     + (lowerHalfDenseRows >= 3 ? 1 : 0)
+    + (topInsetBarRows === 0 ? 1 : 0)
   );
   const reportingScore = (
     (wideCenterRows >= 3 ? 2 : 0)
@@ -1883,6 +2005,8 @@ function inferRasterSemanticSignals(args: {
     paywallScore,
     settingsScore,
     communicationScore,
+    workflowScore,
+    discoveryScore,
     dashboardScore,
     reportingScore,
   };
@@ -2091,6 +2215,8 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
     else if (density === 'dense') heroPriorityAdjustment -= 4;
     if (focusStrength >= 0.48) heroPriorityAdjustment += 3;
     if (semanticSignals.onboardingScore >= 4) heroPriorityAdjustment += 4;
+    if (semanticSignals.workflowScore >= 5) heroPriorityAdjustment += 2;
+    if (semanticSignals.discoveryScore >= 5) heroPriorityAdjustment += 1;
     if (semanticSignals.paywallScore >= 4 || semanticSignals.settingsScore >= 4) heroPriorityAdjustment -= 6;
     if (semanticSignals.dashboardScore >= 4 || semanticSignals.reportingScore >= 4) heroPriorityAdjustment -= 4;
 
@@ -2815,6 +2941,9 @@ function chooseDynamicIndividualComposition(args: {
 }): PlannedIndividualScreen['composition'] {
   if (args.analysis.role === 'communication' && args.supportingScreens.length >= 2) return 'fanned-cards';
   if (args.analysis.role === 'communication' && args.supportingScreens.length >= 1) return 'duo-overlap';
+  if (args.analysis.role === 'discovery' && args.supportingScreens.length >= 2) return 'fanned-cards';
+  if (args.analysis.role === 'discovery' && args.supportingScreens.length >= 1) return 'duo-overlap';
+  if (args.analysis.role === 'workflow' && args.supportingScreens.length >= 1) return 'duo-split';
   if (args.analysis.role === 'settings' && args.supportingScreens.length >= 1) return 'duo-split';
   if (args.analysis.role === 'onboarding' && args.index === 0 && args.supportingScreens.length >= 1) return 'hero-tilt';
   if (args.analysis.role === 'paywall' && args.supportingScreens.length >= 1) return 'hero-tilt';
@@ -2843,6 +2972,10 @@ function buildIndividualImplementationNote(args: {
   }
   if (args.analysis.role === 'communication') {
     parts.push('Keep message lanes readable by staggering support crops away from the densest chat columns.');
+  } else if (args.analysis.role === 'discovery') {
+    parts.push('Let the supporting screenshots feel like browse cards so the frame sells breadth instead of one isolated tile.');
+  } else if (args.analysis.role === 'workflow') {
+    parts.push('Use the supporting screenshot to reinforce the action path or outcome instead of duplicating one form state.');
   } else if (args.analysis.role === 'settings') {
     parts.push('Treat the settings screen like supporting proof, not the loudest visual beat.');
   } else if (args.analysis.role === 'onboarding' || args.analysis.role === 'paywall') {
@@ -2974,6 +3107,12 @@ function buildIndividualBackgroundStrategy(args: {
   if (args.analysis.role === 'onboarding' && args.index === 0) return 'airy-spotlight';
   if (args.analysis.role === 'paywall') {
     return args.conceptId === 'concept-b' ? 'premium-spotlight' : 'proof-tint';
+  }
+  if (args.analysis.role === 'workflow') {
+    return args.conceptId === 'concept-b' ? 'workflow-surface' : 'proof-tint';
+  }
+  if (args.analysis.role === 'discovery') {
+    return args.conceptId === 'concept-b' ? 'discovery-glow' : 'proof-tint';
   }
   if (args.analysis.role === 'communication' && args.conceptId === 'concept-b') {
     return 'conversation-glow';
@@ -3411,6 +3550,12 @@ function buildPanoramicCompositionFeatures(args: {
   if (args.analysis.role === 'communication') {
     features.push('decorative-cluster');
   }
+  if (args.analysis.role === 'discovery') {
+    features.push('decorative-cluster');
+  }
+  if (args.analysis.role === 'workflow' && args.storyBeat !== 'summary') {
+    features.push('proof-stack');
+  }
   if (args.analysis.role === 'settings' && args.storyBeat !== 'hero') {
     features.push('proof-stack');
   }
@@ -3462,6 +3607,10 @@ function buildPanoramicCompositionNote(args: {
 
   if (args.analysis.role === 'communication') {
     parts.push('Preserve the alternating message rhythm instead of flattening it into one generic crop.');
+  } else if (args.analysis.role === 'discovery') {
+    parts.push('Treat the supporting crops like browse cards so the frame still feels expansive and exploratory.');
+  } else if (args.analysis.role === 'workflow') {
+    parts.push('Keep the action path legible so the frame reads like one decisive workflow, not scattered utility UI.');
   } else if (args.analysis.role === 'settings') {
     parts.push('Use settings rows as structured proof panels, not as noisy decoration.');
   } else if (args.analysis.role === 'onboarding') {

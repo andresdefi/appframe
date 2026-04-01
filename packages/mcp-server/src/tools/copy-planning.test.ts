@@ -31,6 +31,16 @@ describe('copy planning helpers', () => {
     expect(weak.issues.some((issue) => issue.includes('"and"'))).toBe(true);
   });
 
+  it('penalizes feature-list and feature-label headlines', () => {
+    const weakList = scoreHeadline('Tasks habits reminders', 'hero');
+    const weakLabel = scoreHeadline('Budget tracking', 'feature', 'Budget tracking');
+    const strong = scoreHeadline('See your money clearly', 'hero');
+
+    expect(weakList.score).toBeLessThan(strong.score);
+    expect(weakList.issues.some((issue) => issue.includes('feature list'))).toBe(true);
+    expect(weakLabel.issues.some((issue) => issue.includes('feature label'))).toBe(true);
+  });
+
   it('uses screenshot-derived slot signals to steer candidate phrases', () => {
     const candidateSet = generateCopyCandidates({
       appName: 'Planit',
@@ -319,5 +329,21 @@ describe('copy planning helpers', () => {
       ?.candidates.map((candidate) => candidate.headline.replace(/\n/g, ' ')) ?? [];
 
     expect(heroHeadlines).toContain('See your money clearly');
+  });
+
+  it('keeps benefit-led feature headlines ahead of raw feature labels', () => {
+    const candidateSet = generateCopyCandidates({
+      appName: 'Ledgerly',
+      appDescription: 'Budgeting and cash flow tracking for everyday money decisions.',
+      category: 'finance',
+      features: ['Budget tracking', 'Cash flow reports', 'Spending alerts'],
+      screenshotCount: 4,
+    });
+
+    const featureCandidates = candidateSet.slots.find((slot) => slot.slot === 'feature')?.candidates ?? [];
+    const normalizedHeadlines = featureCandidates.map((candidate) => candidate.headline.replace(/\n/g, ' '));
+
+    expect(normalizedHeadlines[0]).not.toBe('Budget tracking');
+    expect(normalizedHeadlines).not.toContain('Budget tracking');
   });
 });

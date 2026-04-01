@@ -195,6 +195,103 @@ describe('design planning helpers', () => {
     expect(first.textInsights?.topCoverage ?? 0).toBeGreaterThan(0.12);
   });
 
+  it('uses OCR semantics to distinguish onboarding, settings, and data-heavy reporting screens', async () => {
+    const onboardingPath = await makePngFile('welcome-flow.png', 120, 200, (x, y) => {
+      if (y < 52) return [250, 250, 252, 255];
+      if (x > 26 && x < 94 && y > 68 && y < 150) return [99, 102, 241, 255];
+      return [241, 245, 249, 255];
+    });
+    const settingsPath = await makePngFile('screen-2.png', 120, 200, (_x, y) => {
+      const tone = y % 16 < 8 ? 232 : 214;
+      return [tone, tone, tone + 6, 255];
+    });
+    const dashboardPath = await makePngFile('screen-3.png', 120, 200, (x, y) => {
+      if (y < 40) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 86) || (x > 68 && x < 108 && y > 54 && y < 86)) {
+        return [37, 99, 235, 255];
+      }
+      if ((x > 12 && x < 108 && y > 108 && y < 170) && y % 14 < 7) {
+        return [16, 185, 129, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const reportPath = await makePngFile('screen-4.png', 120, 200, (x, y) => {
+      if (y < 36) return [244, 246, 248, 255];
+      if ((x > 18 && x < 102 && y > 60 && y < 88) || (x > 24 && x < 98 && y > 110 && y < 176)) {
+        return [16, 185, 129, 255];
+      }
+      return [203, 213, 225, 255];
+    });
+
+    const onboardingOcrPath = await makeJsonFile('welcome-flow.ocr.json', {
+      source: 'agent-vision',
+      blocks: [
+        { text: 'Welcome to FocusFlow', x: 16, y: 12, width: 56, height: 10, confidence: 0.99 },
+        { text: 'Turn plans into calmer days', x: 14, y: 28, width: 74, height: 10, confidence: 0.97 },
+        { text: 'Allow notifications', x: 22, y: 146, width: 48, height: 8, confidence: 0.96 },
+        { text: 'Continue', x: 40, y: 166, width: 28, height: 8, confidence: 0.98 },
+      ],
+    });
+    const settingsOcrPath = await makeJsonFile('settings-screen.ocr.json', {
+      source: 'agent-vision',
+      blocks: [
+        { text: 'Account', x: 12, y: 18, width: 24, height: 8, confidence: 0.99 },
+        { text: 'Notifications', x: 12, y: 42, width: 36, height: 8, confidence: 0.98 },
+        { text: 'Privacy', x: 12, y: 66, width: 22, height: 8, confidence: 0.98 },
+        { text: 'Appearance', x: 12, y: 90, width: 28, height: 8, confidence: 0.97 },
+        { text: 'Billing', x: 12, y: 114, width: 20, height: 8, confidence: 0.97 },
+      ],
+    });
+    const dashboardOcrPath = await makeJsonFile('dashboard.ocr.json', {
+      source: 'agent-vision',
+      blocks: [
+        { text: 'Dashboard', x: 12, y: 10, width: 30, height: 8, confidence: 0.99 },
+        { text: 'Balance $12,430', x: 14, y: 52, width: 44, height: 8, confidence: 0.98 },
+        { text: 'Spending $1,280', x: 70, y: 52, width: 40, height: 8, confidence: 0.98 },
+        { text: 'Savings 18%', x: 16, y: 76, width: 32, height: 8, confidence: 0.97 },
+        { text: 'Weekly activity', x: 14, y: 112, width: 40, height: 8, confidence: 0.96 },
+        { text: 'Revenue 24%', x: 14, y: 136, width: 36, height: 8, confidence: 0.96 },
+      ],
+    });
+    const reportOcrPath = await makeJsonFile('report.ocr.json', {
+      source: 'agent-vision',
+      blocks: [
+        { text: 'Weekly report', x: 12, y: 10, width: 34, height: 8, confidence: 0.99 },
+        { text: 'Revenue $18,240', x: 16, y: 58, width: 42, height: 8, confidence: 0.98 },
+        { text: 'Conversion 8.4%', x: 16, y: 84, width: 42, height: 8, confidence: 0.97 },
+        { text: 'Spending -12%', x: 16, y: 118, width: 38, height: 8, confidence: 0.97 },
+        { text: 'Trend up 3.2%', x: 16, y: 146, width: 36, height: 8, confidence: 0.96 },
+      ],
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: onboardingPath, ocrJsonPath: onboardingOcrPath },
+      { path: settingsPath, note: 'Profile and controls', ocrJsonPath: settingsOcrPath },
+      { path: dashboardPath, note: 'Main finance view', ocrJsonPath: dashboardOcrPath },
+      { path: reportPath, note: 'Weekly finance screen', ocrJsonPath: reportOcrPath },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(onboardingPath)?.role).toBe('onboarding');
+    expect(byPath.get(onboardingPath)?.density).toBe('minimal');
+    expect(byPath.get(onboardingPath)?.recommendedUsage).toBe('hero-device');
+
+    expect(byPath.get(settingsPath)?.role).toBe('settings');
+    expect(byPath.get(settingsPath)?.density).toBe('dense');
+    expect(byPath.get(settingsPath)?.cropSuitability).toBe('low');
+    expect(byPath.get(settingsPath)?.recommendedUsage).toBe('support-only');
+
+    expect(byPath.get(dashboardPath)?.role).toBe('home');
+    expect(byPath.get(dashboardPath)?.density).toBe('dense');
+    expect(byPath.get(dashboardPath)?.cropSuitability).toBe('high');
+    expect(byPath.get(dashboardPath)?.unsafeForTextOverlay).toBe(true);
+
+    expect(byPath.get(reportPath)?.role).toBe('detail');
+    expect(byPath.get(reportPath)?.density).toBe('dense');
+    expect(byPath.get(reportPath)?.cropSuitability).toBe('high');
+    expect(byPath.get(reportPath)?.heroExplanation.some((line) => line.includes('data-heavy reporting view'))).toBe(true);
+  });
+
   it('infers screenshot ordering from filenames and carries it into the plan', async () => {
     const settingsPath = await makeSvgFile('screen-3-settings.svg', 1290, 2796);
     const detailPath = await makeSvgFile('screen-2-detail.svg', 1290, 2796);
@@ -537,5 +634,79 @@ describe('design planning helpers', () => {
       expect(paywallFrame?.cropPlan?.avoidRegions).toContain('top');
       expect(paywallFrame?.cropPlan?.rationale).toContain('Avoid text-heavy regions');
     }
+  });
+
+  it('adds role-specific copy guidance for onboarding, settings, and reporting-heavy screens', async () => {
+    const onboardingPath = await makeSvgFile('welcome-screen.svg', 1290, 2796);
+    const dashboardPath = await makeSvgFile('finance-home.svg', 1290, 2796);
+    const settingsPath = await makeSvgFile('controls-screen.svg', 1290, 2796);
+    const reportPath = await makeSvgFile('report-screen.svg', 1290, 2796);
+
+    const onboardingOcrPath = await makeJsonFile('welcome-screen.ocr.json', {
+      source: 'agent-vision',
+      blocks: [
+        { text: 'Welcome to FocusFlow', x: 0.12, y: 0.08, width: 0.42, height: 0.04, confidence: 0.99 },
+        { text: 'Allow notifications', x: 0.2, y: 0.74, width: 0.34, height: 0.03, confidence: 0.97 },
+        { text: 'Continue', x: 0.34, y: 0.84, width: 0.18, height: 0.03, confidence: 0.98 },
+      ],
+    });
+    const settingsOcrPath = await makeJsonFile('controls-screen.ocr.json', {
+      source: 'agent-vision',
+      blocks: [
+        { text: 'Account', x: 0.08, y: 0.14, width: 0.18, height: 0.03, confidence: 0.98 },
+        { text: 'Notifications', x: 0.08, y: 0.24, width: 0.26, height: 0.03, confidence: 0.98 },
+        { text: 'Privacy', x: 0.08, y: 0.34, width: 0.16, height: 0.03, confidence: 0.97 },
+        { text: 'Appearance', x: 0.08, y: 0.44, width: 0.2, height: 0.03, confidence: 0.97 },
+      ],
+    });
+    const dashboardOcrPath = await makeJsonFile('finance-home.ocr.json', {
+      source: 'agent-vision',
+      blocks: [
+        { text: 'Dashboard', x: 0.08, y: 0.06, width: 0.2, height: 0.03, confidence: 0.99 },
+        { text: 'Balance $12,430', x: 0.1, y: 0.22, width: 0.28, height: 0.03, confidence: 0.98 },
+        { text: 'Spending $1,280', x: 0.56, y: 0.22, width: 0.26, height: 0.03, confidence: 0.98 },
+        { text: 'Savings 18%', x: 0.1, y: 0.34, width: 0.2, height: 0.03, confidence: 0.97 },
+        { text: 'Weekly activity', x: 0.1, y: 0.5, width: 0.24, height: 0.03, confidence: 0.97 },
+      ],
+    });
+    const reportOcrPath = await makeJsonFile('report-screen.ocr.json', {
+      source: 'agent-vision',
+      blocks: [
+        { text: 'Weekly report', x: 0.08, y: 0.06, width: 0.22, height: 0.03, confidence: 0.99 },
+        { text: 'Revenue $18,240', x: 0.12, y: 0.22, width: 0.26, height: 0.03, confidence: 0.98 },
+        { text: 'Conversion 8.4%', x: 0.12, y: 0.32, width: 0.26, height: 0.03, confidence: 0.97 },
+        { text: 'Trend up 3.2%', x: 0.12, y: 0.42, width: 0.22, height: 0.03, confidence: 0.97 },
+      ],
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'Ledgerly',
+      appDescription: 'Budgeting and reporting for money decisions.',
+      platforms: ['ios'],
+      features: ['Budget tracking', 'Cash flow reporting', 'Security controls'],
+      screenshots: [
+        { path: onboardingPath, ocrJsonPath: onboardingOcrPath },
+        { path: dashboardPath, note: 'Main dashboard', ocrJsonPath: dashboardOcrPath },
+        { path: settingsPath, note: 'Settings and preferences', ocrJsonPath: settingsOcrPath },
+        { path: reportPath, note: 'Weekly finance report', ocrJsonPath: reportOcrPath },
+      ],
+      goals: ['Feel clear', 'Build trust'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const individualScreens = plan.variants
+      .filter((variant) => variant.mode === 'individual')
+      .flatMap((variant) => variant.screens);
+
+    expect(individualScreens.find((screen) => screen.sourcePath === onboardingPath)?.copyDirection).toContain(
+      'permission or tutorial UI itself',
+    );
+    expect(individualScreens.find((screen) => screen.sourcePath === settingsPath)?.copyDirection).toContain(
+      'Sell control, privacy, or personalization',
+    );
+    expect(individualScreens.find((screen) => screen.sourcePath === reportPath)?.copyDirection).toContain(
+      'decision-ready payoff',
+    );
   });
 });

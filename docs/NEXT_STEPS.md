@@ -37,6 +37,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - copy selection now runs a final cross-slot anti-repetition pass and uses broader category-aware phrase banks across hero, differentiator, feature, and summary slots
 - copy generation/selection now builds real subtitle candidates, persists subtitle-aware selected copy through sessions, and exposes subtitle context in the preview UI
 - copy tools and autopilot now accept agent-provided/external copy candidates, rescore them locally, and merge them back into final selection without bundling built-in model generation
+- copy scoring now penalizes raw feature-list / feature-label headlines more aggressively, and weak-copy rejection coverage now includes those patterns explicitly
 - planning/materialization now emit dynamic individual compositions with extra screenshots, loupes, overlays, and palette-informed backgrounds
 - planning now resequences screenshots per concept, diversifies lead/closing assignment across the concept set, and constrains shared support-screen reuse so concepts do not silently collapse onto the same screenshots
 - planning now emits explicit per-concept frame strategies plus per-screen/per-frame crop plans that react to focal points and OCR/text-occupied regions
@@ -53,6 +54,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - panoramic planning/materialization now emits layered backgrounds and proof chips in generated panoramic concepts
 - screenshot analysis now includes ordering inference, hero explanations, and unsafe text-overlay flags
 - screenshot analysis now supports optional OCR/vision text enrichment from local sidecars or opt-in local Tesseract, feeding role detection and overlay safety without bundling built-in model dependencies
+- screenshot analysis now uses OCR/layout semantics to better distinguish onboarding, paywall, settings, communication, and data-heavy dashboard/reporting screens, feeding denser overlay-risk, crop-suitability, and copy-direction guidance
 - the AppFrame skill has been rewritten around the autopilot flow
 
 The current default concept contract is:
@@ -197,11 +199,11 @@ Recommended order:
   - [x] games
 - [x] Add anti-repetition checks across the full selected copy set.
 - [x] Use OCR/text insights to avoid repeating embedded UI text in generated copy.
-- [ ] Add stronger "no feature list headline" detection.
+- [x] Add stronger "no feature list headline" detection.
 - [x] If model-assisted copy returns, accept agent-provided outputs rather than bundling API-key-based generation inside AppFrame.
 - [x] Add fallback merging logic so externally generated copy can be rescored by the heuristic system before selection.
 - [ ] Add locale-aware copy generation.
-- [ ] Add tests covering weak copy rejection patterns.
+- [x] Add tests covering weak copy rejection patterns.
 
 ### 3. Screenshot Understanding
 
@@ -219,12 +221,12 @@ Recommended order:
 - [x] Add screenshot color extraction from actual image contents instead of role heuristics only.
 - [ ] Add optional vision-model enrichment when AI credentials are present.
 - [ ] Add better role detection for:
-  - [ ] onboarding
-  - [ ] paywall
-  - [ ] settings
-  - [ ] communication/chat
-  - [ ] data-heavy dashboard/reporting
-  Status: text-aware role scoring now improves these cases when OCR/vision text is available, but broader scene-graph understanding is still incomplete.
+  - [x] onboarding
+  - [x] paywall
+  - [x] settings
+  - [x] communication/chat
+  - [x] data-heavy dashboard/reporting
+  Status: OCR/layout semantics now improve these cases when text enrichment is available, but broader scene-graph understanding is still incomplete.
 - [x] Add screenshot ordering inference from filenames, timestamps, and roles.
 - [x] Add "best screenshot for hero" explanation fields in analysis output.
 - [x] Add "unsafe for text overlay" flags.

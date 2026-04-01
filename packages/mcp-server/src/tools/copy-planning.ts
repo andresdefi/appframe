@@ -89,6 +89,111 @@ const OVERLAP_STOP_WORDS = new Set([
   'your',
 ]);
 
+const ACTION_WORDS = new Set([
+  'be',
+  'bring',
+  'brings',
+  'build',
+  'built',
+  'chat',
+  'choose',
+  'clear',
+  'close',
+  'create',
+  'crafted',
+  'do',
+  'designed',
+  'explore',
+  'feel',
+  'feels',
+  'find',
+  'focus',
+  'keep',
+  'keeps',
+  'make',
+  'made',
+  'move',
+  'moves',
+  'open',
+  'own',
+  'plan',
+  'run',
+  'see',
+  'shape',
+  'show',
+  'shows',
+  'solve',
+  'stay',
+  'stays',
+  'track',
+  'turn',
+  'turns',
+  'unlock',
+  'use',
+]);
+
+const STRUCTURE_WORDS = new Set([
+  'a',
+  'an',
+  'around',
+  'as',
+  'at',
+  'by',
+  'for',
+  'from',
+  'in',
+  'into',
+  'of',
+  'on',
+  'that',
+  'the',
+  'through',
+  'to',
+  'with',
+  'without',
+  'your',
+]);
+
+const BENEFIT_WORDS = new Set([
+  'active',
+  'all',
+  'better',
+  'bright',
+  'calm',
+  'clear',
+  'clarity',
+  'close',
+  'confident',
+  'confidence',
+  'context',
+  'control',
+  'daily',
+  'easy',
+  'easier',
+  'fast',
+  'faster',
+  'focus',
+  'focused',
+  'gentle',
+  'human',
+  'immersive',
+  'matters',
+  'momentum',
+  'moving',
+  'one',
+  'polished',
+  'progress',
+  'quickly',
+  'readable',
+  'ready',
+  'steady',
+  'trust',
+  'visible',
+  'view',
+  'everything',
+  'every',
+]);
+
 const SLOT_RULES = [
   'One idea per headline.',
   'Pair each headline with a supporting subtitle when possible.',
@@ -157,6 +262,47 @@ function normalizedEmbeddedPhrases(signal: CopyScreenSignal | undefined): string
       return true;
     })
     .slice(0, 4);
+}
+
+function labelLikeWords(value: string): string[] {
+  return normalizePhrase(value)
+    .toLowerCase()
+    .split(' ')
+    .filter((word) => word.length >= 3)
+    .filter((word) => !ACTION_WORDS.has(word) && !STRUCTURE_WORDS.has(word) && !BENEFIT_WORDS.has(word));
+}
+
+function pluralLabelCount(words: string[]): number {
+  return words.filter((word) => word.endsWith('s') && !word.endsWith('ss')).length;
+}
+
+function readsLikeFeatureListHeadline(headline: string): boolean {
+  const words = normalizePhrase(headline).toLowerCase().split(' ').filter(Boolean);
+  if (words.length < 3) return false;
+
+  const labelWords = labelLikeWords(headline);
+  if (labelWords.length < Math.max(2, words.length - 1)) return false;
+
+  return pluralLabelCount(labelWords) >= 2 || labelWords.length === words.length;
+}
+
+function readsLikeFeatureLabelHeadline(headline: string, sourceFeature?: string): boolean {
+  const normalizedHeadline = normalizePhrase(headline).toLowerCase();
+  if (!normalizedHeadline) return false;
+
+  const words = normalizedHeadline.split(' ').filter(Boolean);
+  const labelWords = labelLikeWords(headline);
+  const matchesSourceFeature = Boolean(
+    sourceFeature
+    && normalizedHeadline === normalizePhrase(sourceFeature).toLowerCase(),
+  );
+
+  return matchesSourceFeature
+    || (
+      words.length >= 2
+      && labelWords.length >= words.length - 1
+      && !readsLikeFeatureListHeadline(headline)
+    );
 }
 
 function repeatsEmbeddedText(headline: string, signal: CopyScreenSignal | undefined): boolean {
@@ -654,6 +800,14 @@ export function scoreHeadline(
   if (lowered.includes('and')) {
     issues.push('Uses "and", which usually joins multiple ideas.');
     score -= 18;
+  }
+
+  if (readsLikeFeatureListHeadline(normalized)) {
+    issues.push('Reads like a feature list instead of a benefit-led headline.');
+    score -= 30;
+  } else if (readsLikeFeatureLabelHeadline(normalized, sourceFeature)) {
+    issues.push('Reads like a feature label instead of a clear value statement.');
+    score -= 16;
   }
 
   const genericCount = lowered.filter((word) => GENERIC_WORDS.has(word)).length;

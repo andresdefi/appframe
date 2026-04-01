@@ -104,6 +104,7 @@ Implementation order:
 Current status:
 
 - OCR/vision text enrichment now feeds role detection, overlay safety, screenshot-to-copy de-duplication, and plan-time crop guidance without bundling built-in model dependencies
+- OCR/layout semantics now better distinguish onboarding, paywall, settings, communication, and data-heavy dashboard/reporting screens when text enrichment is available, improving density, crop, and copy-direction decisions
 - variant plans now emit explicit per-concept frame strategies plus per-screen/per-frame crop plans, including text-occupied-region avoidance and focal-point anchoring
 - materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, safer text offsets, palette-led backgrounds, and deeper device-frame treatment
 
@@ -191,6 +192,7 @@ This roadmap now has three concrete pieces underway:
 - manual refinement path: users can now approve the recommended concept, persist manual edits back into the active variant session, export the selected variant as a standalone config, and materialize the approved concept into an export-ready artifact directory without depending on an AI agent for every change
 - screenshot understanding foundations: analysis now includes inferred screen ordering, hero-candidate explanations, unsafe-overlay flags, and PNG-derived palette / quiet-zone / focal-point signals
 - screenshot understanding now also supports optional OCR/vision text enrichment through local sidecars and opt-in local Tesseract, improving role detection and text-overlay safety without bundling a built-in model dependency
+- screenshot understanding now also uses OCR/layout semantics to better read onboarding, paywall, settings, chat, and data-heavy dashboard/reporting screenshots instead of treating them as mostly generic dense screens
 - individual composition breadth: dynamic individual concepts now materialize multi-device compositions, supporting screenshots, loupes, overlays, and palette-aware backgrounds instead of staying inside a single-device layout
 - deterministic concept planning: concepts now resequence screenshots differently, constrain support-screen reuse, and derive per-screen copy direction from screenshot role, density, quiet-space, and focal cues instead of sharing one generic ordering/story pass
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot
@@ -199,6 +201,7 @@ This roadmap now has three concrete pieces underway:
 - OCR-aware copy de-duplication: generated copy now avoids echoing embedded UI text discovered through OCR/vision sidecars or opt-in local OCR
 - final copy-set de-duplication: selection now runs a cross-slot anti-repetition pass so the chosen hero, differentiator, feature, trust, and summary lines do not collapse onto the same phrasing
 - broader category-aware copy templates: hero, differentiator, feature, and summary phrase banks now vary more by inferred app category while staying deterministic and local-first
+- weak-copy rejection now penalizes raw feature-list / feature-label headlines more aggressively instead of letting them compete with benefit-led lines
 - agent-provided copy merging: external or model-assisted copy can now be merged back into the local candidate pool, heuristically rescored, and selected without bundling built-in API-key dependencies
 - explicit planning guidance: variant plans now include concept-level frame strategy plus crop-level usage/anchor/avoidance metadata for individual screens and panoramic frames
 - plan-aware materialization: generated individual and panoramic configs now consume `frameStrategy` / `cropPlan` instead of only storing them as metadata, including typography/background/device-frame responses

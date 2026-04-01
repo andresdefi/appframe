@@ -368,6 +368,127 @@ function addRoleScores(
   }
 }
 
+interface TextSemanticSignals {
+  onboardingSignalCount: number;
+  paywallSignalCount: number;
+  settingsSignalCount: number;
+  communicationSignalCount: number;
+  dashboardSignalCount: number;
+  reportingSignalCount: number;
+  numericTokenCount: number;
+  shortLabelCount: number;
+  leftRailLabelCount: number;
+  alternatingConversationColumns: boolean;
+}
+
+function countNumericTokens(value: string): number {
+  return value.match(/\b[$€£]?\d+(?:[.,]\d+)?%?\b/g)?.length ?? 0;
+}
+
+function deriveTextSemanticSignals(
+  textInsights?: ScreenshotTextInsights,
+): TextSemanticSignals {
+  const normalized = normalizeText(textInsights?.text ?? '');
+  const blocks = textInsights?.blocks ?? [];
+  const shortLabelCount = blocks.filter((block) => compactTextPhrase(block.text).split(' ').filter(Boolean).length <= 4).length;
+  const leftRailLabelCount = blocks.filter((block) =>
+    block.x <= 28 && compactTextPhrase(block.text).split(' ').filter(Boolean).length <= 4).length;
+  const leftColumnCount = blocks.filter((block) => block.x <= 26).length;
+  const rightColumnCount = blocks.filter((block) => block.x >= 44).length;
+
+  return {
+    onboardingSignalCount: countRegexMatches(
+      normalized,
+      /\b(onboarding|welcome|intro|start|continue|next|skip|allow|enable|permission|permissions|notifications|camera|location|contacts|microphone|tracking)\b/g,
+    ),
+    paywallSignalCount: countRegexMatches(
+      normalized,
+      /\b(upgrade|premium|pro|subscribe|subscription|trial|yearly|monthly|month|year|plan|plans|billing|restore|unlock)\b/g,
+    ),
+    settingsSignalCount: countRegexMatches(
+      normalized,
+      /\b(settings|account|profile|preferences|privacy|notifications|security|appearance|theme|language|devices|billing|help|support|manage)\b/g,
+    ),
+    communicationSignalCount: countRegexMatches(
+      normalized,
+      /\b(chat|message|messages|reply|typing|thread|threads|inbox|send|voice note|call|channel|channels|members|group|dm|unread)\b/g,
+    ),
+    dashboardSignalCount: countRegexMatches(
+      normalized,
+      /\b(home|dashboard|overview|summary|today|activity|wallet|balance)\b/g,
+    ),
+    reportingSignalCount: countRegexMatches(
+      normalized,
+      /\b(report|reports|analytics|stats|insight|insights|trend|trends|revenue|spending|expense|expenses|cash flow|performance|conversion)\b/g,
+    ),
+    numericTokenCount: countNumericTokens(normalized),
+    shortLabelCount,
+    leftRailLabelCount,
+    alternatingConversationColumns: leftColumnCount >= 2 && rightColumnCount >= 1,
+  };
+}
+
+function isLikelyOnboardingScreen(
+  signals: TextSemanticSignals,
+  textInsights?: ScreenshotTextInsights,
+): boolean {
+  if (!textInsights) return false;
+  return signals.onboardingSignalCount >= 2 && textInsights.lineCount <= 6 && textInsights.totalCoverage <= 0.16;
+}
+
+function isLikelyPaywallScreen(signals: TextSemanticSignals): boolean {
+  return signals.paywallSignalCount >= 2;
+}
+
+function isLikelySettingsScreen(signals: TextSemanticSignals): boolean {
+  return signals.settingsSignalCount >= 2 || signals.leftRailLabelCount >= 4;
+}
+
+function isLikelyCommunicationScreen(
+  signals: TextSemanticSignals,
+  textInsights?: ScreenshotTextInsights,
+): boolean {
+  if (!textInsights) return false;
+  return signals.communicationSignalCount >= 2
+    || (signals.alternatingConversationColumns && textInsights.blocks.length >= 4);
+}
+
+function isLikelyDataHeavyDashboard(signals: TextSemanticSignals): boolean {
+  return signals.dashboardSignalCount >= 1 && signals.numericTokenCount >= 4;
+}
+
+function isLikelyReportingScreen(signals: TextSemanticSignals): boolean {
+  return signals.reportingSignalCount >= 1 && signals.numericTokenCount >= 4;
+}
+
+function applySemanticRoleScores(
+  scores: Record<ScreenshotRole, number>,
+  textInsights?: ScreenshotTextInsights,
+): void {
+  if (!textInsights) return;
+
+  const signals = deriveTextSemanticSignals(textInsights);
+
+  if (isLikelyOnboardingScreen(signals, textInsights)) {
+    scores.onboarding += 26;
+  }
+  if (isLikelyPaywallScreen(signals)) {
+    scores.paywall += 24 + Math.min(12, signals.paywallSignalCount * 2);
+  }
+  if (isLikelySettingsScreen(signals)) {
+    scores.settings += 22;
+  }
+  if (isLikelyCommunicationScreen(signals, textInsights)) {
+    scores.communication += 20;
+  }
+  if (isLikelyDataHeavyDashboard(signals)) {
+    scores.home += 18;
+  }
+  if (isLikelyReportingScreen(signals)) {
+    scores.detail += 22;
+  }
+}
+
 function bestRoleFromScores(scores: Record<ScreenshotRole, number>): ScreenshotRole {
   let bestRole: ScreenshotRole = 'unknown';
   let bestScore = 0;
@@ -723,6 +844,7 @@ function inferRole(pathValue: string, note?: string, textInsights?: ScreenshotTe
 
   addRoleScores(scores, normalizeText(`${humanizeFileStem(pathValue)} ${note ?? ''}`), 1);
   if (textInsights?.text) addRoleScores(scores, normalizeText(textInsights.text), 1.2);
+  applySemanticRoleScores(scores, textInsights);
   if (textInsights?.roleHint) scores[textInsights.roleHint] += 24;
 
   return bestRoleFromScores(scores);
@@ -735,8 +857,15 @@ function inferDensity(
   textInsights?: ScreenshotTextInsights,
 ): ScreenshotDensity {
   const haystack = normalizeText(`${humanizeFileStem(pathValue)} ${note ?? ''}`);
+  const semanticSignals = deriveTextSemanticSignals(textInsights);
 
   if (textInsights) {
+    if (isLikelyOnboardingScreen(semanticSignals, textInsights)) return 'minimal';
+    if (isLikelySettingsScreen(semanticSignals) || isLikelyCommunicationScreen(semanticSignals, textInsights)) return 'dense';
+    if (isLikelyDataHeavyDashboard(semanticSignals) || isLikelyReportingScreen(semanticSignals)) return 'dense';
+    if (isLikelyPaywallScreen(semanticSignals)) {
+      return textInsights.totalCoverage >= 0.14 || textInsights.lineCount >= 6 ? 'dense' : 'balanced';
+    }
     if (textInsights.totalCoverage >= 0.2 || textInsights.lineCount >= 10) return 'dense';
     if (textInsights.totalCoverage <= 0.04 && textInsights.lineCount <= 2) return 'minimal';
   }
@@ -752,6 +881,16 @@ function inferTextRisk(density: ScreenshotDensity): TextRisk {
   if (density === 'minimal') return 'low';
   if (density === 'dense') return 'high';
   return 'medium';
+}
+
+function mergeDensitySignals(
+  rasterDensity: ScreenshotDensity | undefined,
+  inferredDensity: ScreenshotDensity,
+): ScreenshotDensity {
+  if (!rasterDensity) return inferredDensity;
+  if (rasterDensity === 'dense' || inferredDensity === 'dense') return 'dense';
+  if (rasterDensity === 'minimal' && inferredDensity === 'minimal') return 'minimal';
+  return inferredDensity === 'balanced' ? 'balanced' : rasterDensity;
 }
 
 function inferFocus(pathValue: string, note?: string, role?: ScreenshotRole): string {
@@ -795,6 +934,7 @@ function inferSafeTextZones(role: ScreenshotRole, density: ScreenshotDensity): S
 }
 
 function inferCropSuitability(role: ScreenshotRole, density: ScreenshotDensity): CropSuitability {
+  if (role === 'settings') return 'low';
   if (role === 'detail' || role === 'discovery' || role === 'paywall') return 'high';
   if (density === 'dense') return 'medium';
   return 'low';
@@ -805,6 +945,7 @@ function inferRecommendedUsage(
   heroPriority: number,
   cropSuitability: CropSuitability,
 ): RecommendedUsage {
+  if (role === 'onboarding' && heroPriority >= 70) return 'hero-device';
   if (heroPriority >= 78) return 'hero-device';
   if (cropSuitability === 'high') return 'crop-card';
   if (role === 'settings') return 'support-only';
@@ -817,7 +958,11 @@ function inferUnsafeForTextOverlay(
   safeTextZones: SafeTextZone[],
 ): boolean {
   const maxZoneArea = Math.max(0, ...safeTextZones.map((zone) => zone.width * zone.height));
-  return density === 'dense' || role === 'communication' || role === 'settings' || maxZoneArea < 1200;
+  return density === 'dense'
+    || role === 'communication'
+    || role === 'settings'
+    || role === 'paywall'
+    || maxZoneArea < 1200;
 }
 
 function maxTextRisk(left: TextRisk, right: TextRisk): TextRisk {
@@ -1032,6 +1177,12 @@ function buildHeroExplanation(args: {
     reasons.push('Workflow screens often explain the core value quickly.');
   } else if (args.role === 'onboarding') {
     reasons.push('Onboarding screens often have cleaner whitespace for hero use.');
+  } else if (args.role === 'communication') {
+    reasons.push('Communication screens can carry social energy, but they usually need shorter overlay copy.');
+  } else if (args.role === 'settings') {
+    reasons.push('Settings screens usually work better as support or closing proof than the opening claim.');
+  } else if (args.role === 'paywall') {
+    reasons.push('Paywall screens are better at framing premium value late in the story than opening the set.');
   }
 
   if (args.density === 'minimal') {
@@ -1065,6 +1216,7 @@ function buildHeroExplanation(args: {
   }
 
   if (args.textInsights) {
+    const semanticSignals = deriveTextSemanticSignals(args.textInsights);
     if (args.textInsights.roleHint && args.textInsights.roleHint === args.role) {
       reasons.push(`Text enrichment also points to a ${args.role} screen.`);
     }
@@ -1072,6 +1224,9 @@ function buildHeroExplanation(args: {
       reasons.push('OCR/vision text blocks occupy the top band, so overlay copy needs more caution.');
     } else if (args.textInsights.lineCount > 0 && args.textInsights.totalCoverage <= 0.04) {
       reasons.push('OCR/vision enrichment found only light embedded UI text, so the screen stays flexible.');
+    }
+    if (isLikelyReportingScreen(semanticSignals) || isLikelyDataHeavyDashboard(semanticSignals)) {
+      reasons.push('OCR/vision text suggests a data-heavy reporting view, so crop-led proof is stronger than oversized overlay copy.');
     }
   }
 
@@ -1716,11 +1871,16 @@ export async function analyzeScreenshotSet(
         }),
       ]);
       const resolvedTextInsights = textInsights ?? undefined;
+      const semanticSignals = deriveTextSemanticSignals(resolvedTextInsights);
       const role = inferRole(input.path, input.note, resolvedTextInsights);
       const inferredDensity = inferDensity(role, input.path, input.note, resolvedTextInsights);
-      const density = rasterSignals?.density ?? inferredDensity;
+      const density = resolvedTextInsights
+        ? mergeDensitySignals(rasterSignals?.density, inferredDensity)
+        : (rasterSignals?.density ?? inferredDensity);
       const focus = inferFocus(input.path, input.note, role);
-      const inferredCropSuitability = inferCropSuitability(role, density);
+      const inferredCropSuitability = isLikelyReportingScreen(semanticSignals) || isLikelyDataHeavyDashboard(semanticSignals)
+        ? 'high'
+        : inferCropSuitability(role, density);
       const cropSuitability = rasterSignals
         ? (rasterSignals.cropSuitability === 'high' || inferredCropSuitability === 'high'
             ? 'high'
@@ -2390,23 +2550,37 @@ function buildScreenCopyDirection(args: {
   }
 
   switch (args.analysis.role) {
+    case 'home':
+      parts.push('Lead with the clearest overview or system state, not a raw dashboard label.');
+      break;
+    case 'onboarding':
+      parts.push('Sell the first promised outcome, not the permission or tutorial UI itself.');
+      break;
     case 'workflow':
       parts.push('Anchor the line in the main action the user completes here.');
       break;
     case 'detail':
-      parts.push('Call out the result or proof shown inside the screen.');
+      parts.push('Turn the result or reporting proof into one clear insight, not a metric list.');
       break;
     case 'discovery':
       parts.push('Make the line feel exploratory and broad, not mechanical.');
       break;
     case 'communication':
-      parts.push('Keep the message social and immediate.');
+      parts.push('Keep the message social and immediate instead of naming inbox chrome or reply UI.');
+      break;
+    case 'settings':
+      parts.push('Sell control, privacy, or personalization instead of enumerating toggles.');
       break;
     case 'paywall':
-      parts.push('Frame the value clearly instead of describing pricing UI.');
+      parts.push('Frame the premium outcome clearly instead of describing plans, trials, or pricing UI.');
       break;
     default:
       break;
+  }
+
+  const semanticSignals = deriveTextSemanticSignals(args.analysis.textInsights);
+  if (isLikelyReportingScreen(semanticSignals) || isLikelyDataHeavyDashboard(semanticSignals)) {
+    parts.push('Translate the numbers into a decision-ready payoff instead of stacking more metrics in the headline.');
   }
 
   if (args.analysis.unsafeForTextOverlay || args.analysis.density === 'dense') {

@@ -31,6 +31,14 @@ describe('copy planning helpers', () => {
     expect(weak.issues.some((issue) => issue.includes('"and"'))).toBe(true);
   });
 
+  it('penalizes locale-specific joiner words when scoring non-English headlines', () => {
+    const weak = scoreHeadline('Rutinas y progreso', 'hero', undefined, 'es-ES');
+    const strong = scoreHeadline('Tu rutina clara', 'hero', undefined, 'es-ES');
+
+    expect(weak.score).toBeLessThan(strong.score);
+    expect(weak.issues.some((issue) => issue.includes('"y"'))).toBe(true);
+  });
+
   it('penalizes feature-list and feature-label headlines', () => {
     const weakList = scoreHeadline('Tasks habits reminders', 'hero');
     const weakLabel = scoreHeadline('Budget tracking', 'feature', 'Budget tracking');
@@ -313,6 +321,66 @@ describe('copy planning helpers', () => {
 
     expect(selected.hero.headline).toBe('Own your budget');
     expect(selected.hero.subtitle).toBe('See cash flow budgets and spending in one calmer view');
+  });
+
+  it('generates locale-aware copy candidates for supported locales', () => {
+    const candidateSet = generateCopyCandidates({
+      appName: 'Planit',
+      appDescription: 'Daily planning with tasks, habits, and reminders.',
+      category: 'productivity',
+      locale: 'es-ES',
+      features: ['Tu día', 'Widgets', 'Rutinas'],
+      screenshotCount: 5,
+      screenSignals: [
+        { slot: 'hero', sourceRole: 'workflow', focus: 'tu día', density: 'minimal', topQuietRatio: 0.82 },
+        { slot: 'differentiator', sourceRole: 'home', focus: 'todo en un lugar', density: 'balanced' },
+        { slot: 'feature', sourceRole: 'detail', focus: 'rutinas', unsafeForTextOverlay: true },
+        { slot: 'trust', sourceRole: 'detail', focus: 'uso diario' },
+        { slot: 'summary', sourceRole: 'home', focus: 'tu día' },
+      ],
+    });
+
+    const heroHeadlines = candidateSet.slots
+      .find((slot) => slot.slot === 'hero')
+      ?.candidates.map((candidate) => candidate.headline.replace(/\n/g, ' ')) ?? [];
+    const heroSubtitles = candidateSet.slots
+      .find((slot) => slot.slot === 'hero')
+      ?.candidates.map((candidate) => candidate.subtitle ?? '') ?? [];
+
+    expect(candidateSet.locale).toBe('es-ES');
+    expect(candidateSet.requestedLocale).toBe('es-ES');
+    expect(candidateSet.usesLocaleFallback).toBe(false);
+    expect(heroHeadlines.some((headline) => /tu día en orden|planifica tu día rápido|todo en un lugar/i.test(headline))).toBe(true);
+    expect(heroSubtitles.some((subtitle) => /beneficio principal|mensaje corto|primera promesa/i.test(subtitle))).toBe(true);
+
+    const selected = selectCopySet(candidateSet);
+    expect(selected.locale).toBe('es-ES');
+    expect(selected.hero.headline.length).toBeGreaterThan(0);
+  });
+
+  it('falls back to English generation when a locale pack is not implemented', () => {
+    const candidateSet = generateCopyCandidates({
+      appName: 'Ledgerly',
+      appDescription: 'Budgeting and cash flow tracking for everyday money decisions.',
+      category: 'finance',
+      locale: 'ja',
+      features: ['Budget tracking', 'Cash flow reports', 'Spending alerts'],
+      screenshotCount: 4,
+    });
+
+    expect(candidateSet.locale).toBe('en');
+    expect(candidateSet.requestedLocale).toBe('ja');
+    expect(candidateSet.usesLocaleFallback).toBe(true);
+
+    const heroHeadlines = candidateSet.slots
+      .find((slot) => slot.slot === 'hero')
+      ?.candidates.map((candidate) => candidate.headline.replace(/\n/g, ' ')) ?? [];
+    expect(heroHeadlines).toContain('See your money clearly');
+
+    const selected = selectCopySet(candidateSet);
+    expect(selected.locale).toBe('en');
+    expect(selected.requestedLocale).toBe('ja');
+    expect(selected.usesLocaleFallback).toBe(true);
   });
 
   it('adds category-specific finance hero phrasing to the candidate pool', () => {

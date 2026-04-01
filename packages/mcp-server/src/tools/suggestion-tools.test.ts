@@ -437,6 +437,7 @@ describe('runAutopilotPipeline', () => {
       appDescription: 'Plan your week without losing momentum.',
       platforms: ['ios'],
       features: ['Daily planning'],
+      locale: 'es-ES',
       screenshots: [{ path: homePath, ocrJsonPath: homeOcrPath }, { path: detailPath }],
       outputDir: dir,
     });
@@ -459,6 +460,9 @@ describe('runAutopilotPipeline', () => {
       { path: homePath, ocrJsonPath: homeOcrPath },
       { path: detailPath },
     ]);
+    expect(copyPlanningMocks.generateCopyCandidates).toHaveBeenCalledWith(expect.objectContaining({
+      locale: 'es-ES',
+    }));
     expect(variantSessionToolMocks.scoreVariantPreviews).toHaveBeenCalledTimes(1);
   });
 

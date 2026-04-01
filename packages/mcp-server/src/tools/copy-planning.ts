@@ -23,6 +23,9 @@ export interface CopySlotCandidates {
 export interface CopyCandidateSet {
   appName: string;
   category: string;
+  locale?: string;
+  requestedLocale?: string;
+  usesLocaleFallback?: boolean;
   generatedAt: string;
   rules: string[];
   narrative: string[];
@@ -50,6 +53,9 @@ export interface CopyScreenSignal {
 }
 
 export interface SelectedCopySet {
+  locale?: string;
+  requestedLocale?: string;
+  usesLocaleFallback?: boolean;
   hero: CopyCandidate;
   differentiator: CopyCandidate;
   features: CopyCandidate[];
@@ -57,7 +63,25 @@ export interface SelectedCopySet {
   summary: CopyCandidate;
 }
 
-const GENERIC_WORDS = new Set([
+type SupportedCopyLanguage = 'en' | 'es' | 'fr' | 'de' | 'pt';
+
+interface CopyLocaleInfo {
+  locale: string;
+  requestedLocale: string;
+  language: SupportedCopyLanguage;
+  usesFallback: boolean;
+}
+
+interface CopyLexicon {
+  genericWords: Set<string>;
+  overlapStopWords: Set<string>;
+  actionWords: Set<string>;
+  structureWords: Set<string>;
+  benefitWords: Set<string>;
+  joinWords: Set<string>;
+}
+
+const EN_GENERIC_WORDS = [
   'better',
   'best',
   'amazing',
@@ -68,9 +92,9 @@ const GENERIC_WORDS = new Set([
   'ultimate',
   'easy',
   'seamless',
-]);
+];
 
-const OVERLAP_STOP_WORDS = new Set([
+const EN_OVERLAP_STOP_WORDS = [
   'a',
   'an',
   'and',
@@ -87,9 +111,9 @@ const OVERLAP_STOP_WORDS = new Set([
   'up',
   'with',
   'your',
-]);
+];
 
-const ACTION_WORDS = new Set([
+const EN_ACTION_WORDS = [
   'be',
   'bring',
   'brings',
@@ -130,9 +154,9 @@ const ACTION_WORDS = new Set([
   'turns',
   'unlock',
   'use',
-]);
+];
 
-const STRUCTURE_WORDS = new Set([
+const EN_STRUCTURE_WORDS = [
   'a',
   'an',
   'around',
@@ -152,9 +176,9 @@ const STRUCTURE_WORDS = new Set([
   'with',
   'without',
   'your',
-]);
+];
 
-const BENEFIT_WORDS = new Set([
+const EN_BENEFIT_WORDS = [
   'active',
   'all',
   'better',
@@ -192,7 +216,50 @@ const BENEFIT_WORDS = new Set([
   'view',
   'everything',
   'every',
-]);
+];
+
+const LOCALE_LEXICONS: Record<SupportedCopyLanguage, CopyLexicon> = {
+  en: {
+    genericWords: new Set(EN_GENERIC_WORDS),
+    overlapStopWords: new Set(EN_OVERLAP_STOP_WORDS),
+    actionWords: new Set(EN_ACTION_WORDS),
+    structureWords: new Set(EN_STRUCTURE_WORDS),
+    benefitWords: new Set(EN_BENEFIT_WORDS),
+    joinWords: new Set(['and']),
+  },
+  es: {
+    genericWords: new Set(['mejor', 'increible', 'increíble', 'potente', 'simple', 'inteligente', 'facil', 'fácil']),
+    overlapStopWords: new Set(['a', 'al', 'con', 'de', 'del', 'el', 'en', 'la', 'las', 'lo', 'los', 'para', 'por', 'sin', 'tu', 'un', 'una', 'y']),
+    actionWords: new Set(['abre', 'activa', 'avanza', 'chatea', 'crea', 'descubre', 'encuentra', 'entra', 'haz', 'mueve', 'planifica', 'sigue', 'usa', 've']),
+    structureWords: new Set(['a', 'al', 'con', 'de', 'del', 'el', 'en', 'la', 'las', 'lo', 'los', 'para', 'por', 'sin', 'tu', 'un', 'una', 'y']),
+    benefitWords: new Set(['calma', 'clara', 'claro', 'claridad', 'confianza', 'contexto', 'diario', 'facil', 'fácil', 'flujo', 'rapido', 'rápido', 'seguro', 'visible']),
+    joinWords: new Set(['e', 'y']),
+  },
+  fr: {
+    genericWords: new Set(['fluide', 'incroyable', 'intelligent', 'meilleur', 'puissant', 'simple']),
+    overlapStopWords: new Set(['a', 'au', 'aux', 'avec', 'dans', 'de', 'des', 'du', 'en', 'et', 'la', 'le', 'les', 'pour', 'sans', 'sur', 'un', 'une', 'votre']),
+    actionWords: new Set(['avance', 'cree', 'crée', 'decouvre', 'découvre', 'entre', 'garde', 'ouvre', 'planifie', 'reste', 'suis', 'utilise', 'vois']),
+    structureWords: new Set(['a', 'au', 'aux', 'avec', 'dans', 'de', 'des', 'du', 'en', 'et', 'la', 'le', 'les', 'pour', 'sans', 'sur', 'un', 'une', 'votre']),
+    benefitWords: new Set(['calme', 'clair', 'claire', 'clarte', 'clarté', 'confiance', 'contexte', 'fluide', 'net', 'rapide', 'visible']),
+    joinWords: new Set(['et']),
+  },
+  de: {
+    genericWords: new Set(['besser', 'beste', 'einfach', 'nahtlos', 'powerful', 'smart', 'stark']),
+    overlapStopWords: new Set(['am', 'an', 'auf', 'aus', 'bei', 'das', 'dein', 'dem', 'den', 'der', 'die', 'ein', 'eine', 'für', 'im', 'in', 'mit', 'ohne', 'und', 'zu']),
+    actionWords: new Set(['chatte', 'entdecke', 'halte', 'mach', 'nutze', 'öffne', 'plane', 'schaffe', 'sieh', 'spiele', 'starte', 'bleib']),
+    structureWords: new Set(['am', 'an', 'auf', 'aus', 'bei', 'das', 'dein', 'dem', 'den', 'der', 'die', 'ein', 'eine', 'für', 'im', 'in', 'mit', 'ohne', 'und', 'zu']),
+    benefitWords: new Set(['alltag', 'fokus', 'klar', 'klarheit', 'kontext', 'ruhig', 'schnell', 'sichtbar', 'vertrauen']),
+    joinWords: new Set(['und']),
+  },
+  pt: {
+    genericWords: new Set(['fluido', 'incrivel', 'incrível', 'inteligente', 'melhor', 'poderoso', 'simples']),
+    overlapStopWords: new Set(['a', 'as', 'com', 'da', 'das', 'de', 'do', 'dos', 'e', 'em', 'no', 'nos', 'na', 'nas', 'o', 'os', 'para', 'por', 'sem', 'seu', 'sua', 'um', 'uma']),
+    actionWords: new Set(['abra', 'avance', 'ache', 'chateie', 'crie', 'descubra', 'entre', 'faça', 'faca', 'mantenha', 'planeje', 'siga', 'use', 'veja']),
+    structureWords: new Set(['a', 'as', 'com', 'da', 'das', 'de', 'do', 'dos', 'e', 'em', 'no', 'nos', 'na', 'nas', 'o', 'os', 'para', 'por', 'sem', 'seu', 'sua', 'um', 'uma']),
+    benefitWords: new Set(['calma', 'claro', 'clareza', 'confianca', 'confiança', 'contexto', 'diario', 'diário', 'fluxo', 'rapido', 'rápido', 'visivel', 'visível']),
+    joinWords: new Set(['e']),
+  },
+};
 
 const SLOT_RULES = [
   'One idea per headline.',
@@ -203,8 +270,36 @@ const SLOT_RULES = [
   'Optimize for thumbnail readability.',
 ];
 
+function normalizeLocaleTag(locale: string | undefined): string {
+  const normalized = (locale ?? 'en').trim().replace(/_/g, '-');
+  return normalized.length > 0 ? normalized : 'en';
+}
+
+function resolveCopyLocale(locale: string | undefined): CopyLocaleInfo {
+  const requestedLocale = normalizeLocaleTag(locale);
+  const languageCode = requestedLocale.split('-')[0]?.toLowerCase() ?? 'en';
+  const language = (['en', 'es', 'fr', 'de', 'pt'] as const).includes(languageCode as SupportedCopyLanguage)
+    ? (languageCode as SupportedCopyLanguage)
+    : 'en';
+
+  return {
+    locale: language === 'en'
+      ? (languageCode === 'en' ? requestedLocale : 'en')
+      : requestedLocale,
+    requestedLocale,
+    language,
+    usesFallback: language === 'en' && languageCode !== 'en',
+  };
+}
+
+function getCopyLexicon(locale: string | undefined): CopyLexicon {
+  return LOCALE_LEXICONS[resolveCopyLocale(locale).language];
+}
+
 function slugify(value: string): string {
   const slug = value
+    .normalize('NFKD')
+    .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -213,8 +308,9 @@ function slugify(value: string): string {
 
 function normalizePhrase(value: string): string {
   return value
+    .normalize('NFKC')
     .replace(/[_-]+/g, ' ')
-    .replace(/[^\w\s]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -242,11 +338,12 @@ function compactFeature(feature: string): string {
   return words.slice(0, 4).join(' ');
 }
 
-function comparisonWords(value: string): string[] {
+function comparisonWords(value: string, locale?: string): string[] {
+  const lexicon = getCopyLexicon(locale);
   return normalizePhrase(value)
     .toLowerCase()
     .split(' ')
-    .filter((word) => word.length > 2 && !OVERLAP_STOP_WORDS.has(word));
+    .filter((word) => word.length > 2 && !lexicon.overlapStopWords.has(word));
 }
 
 function normalizedEmbeddedPhrases(signal: CopyScreenSignal | undefined): string[] {
@@ -264,34 +361,35 @@ function normalizedEmbeddedPhrases(signal: CopyScreenSignal | undefined): string
     .slice(0, 4);
 }
 
-function labelLikeWords(value: string): string[] {
+function labelLikeWords(value: string, locale?: string): string[] {
+  const lexicon = getCopyLexicon(locale);
   return normalizePhrase(value)
     .toLowerCase()
     .split(' ')
     .filter((word) => word.length >= 3)
-    .filter((word) => !ACTION_WORDS.has(word) && !STRUCTURE_WORDS.has(word) && !BENEFIT_WORDS.has(word));
+    .filter((word) => !lexicon.actionWords.has(word) && !lexicon.structureWords.has(word) && !lexicon.benefitWords.has(word));
 }
 
 function pluralLabelCount(words: string[]): number {
   return words.filter((word) => word.endsWith('s') && !word.endsWith('ss')).length;
 }
 
-function readsLikeFeatureListHeadline(headline: string): boolean {
+function readsLikeFeatureListHeadline(headline: string, locale?: string): boolean {
   const words = normalizePhrase(headline).toLowerCase().split(' ').filter(Boolean);
   if (words.length < 3) return false;
 
-  const labelWords = labelLikeWords(headline);
+  const labelWords = labelLikeWords(headline, locale);
   if (labelWords.length < Math.max(2, words.length - 1)) return false;
 
   return pluralLabelCount(labelWords) >= 2 || labelWords.length === words.length;
 }
 
-function readsLikeFeatureLabelHeadline(headline: string, sourceFeature?: string): boolean {
+function readsLikeFeatureLabelHeadline(headline: string, sourceFeature?: string, locale?: string): boolean {
   const normalizedHeadline = normalizePhrase(headline).toLowerCase();
   if (!normalizedHeadline) return false;
 
   const words = normalizedHeadline.split(' ').filter(Boolean);
-  const labelWords = labelLikeWords(headline);
+  const labelWords = labelLikeWords(headline, locale);
   const matchesSourceFeature = Boolean(
     sourceFeature
     && normalizedHeadline === normalizePhrase(sourceFeature).toLowerCase(),
@@ -301,15 +399,15 @@ function readsLikeFeatureLabelHeadline(headline: string, sourceFeature?: string)
     || (
       words.length >= 2
       && labelWords.length >= words.length - 1
-      && !readsLikeFeatureListHeadline(headline)
+      && !readsLikeFeatureListHeadline(headline, locale)
     );
 }
 
-function repeatsEmbeddedText(headline: string, signal: CopyScreenSignal | undefined): boolean {
+function repeatsEmbeddedText(headline: string, signal: CopyScreenSignal | undefined, locale?: string): boolean {
   const headlineNormalized = normalizePhrase(headline).toLowerCase();
   if (!headlineNormalized) return false;
 
-  const headlineWords = new Set(comparisonWords(headlineNormalized));
+  const headlineWords = new Set(comparisonWords(headlineNormalized, locale));
   return normalizedEmbeddedPhrases(signal).some((phrase) => {
     const normalizedPhrase = normalizePhrase(phrase).toLowerCase();
     if (!normalizedPhrase) return false;
@@ -321,7 +419,7 @@ function repeatsEmbeddedText(headline: string, signal: CopyScreenSignal | undefi
       return true;
     }
 
-    const phraseWords = comparisonWords(normalizedPhrase);
+    const phraseWords = comparisonWords(normalizedPhrase, locale);
     if (phraseWords.length === 0 || headlineWords.size === 0) return false;
     const overlap = phraseWords.filter((word) => headlineWords.has(word)).length;
     return overlap >= Math.min(2, phraseWords.length) && overlap >= Math.min(2, headlineWords.size);
@@ -454,6 +552,488 @@ function buildCategorySummaryPhrases(
   }
 }
 
+function buildLocalizedRoleAwarePhrases(
+  locale: string | undefined,
+  signal: CopyScreenSignal | undefined,
+  focusSource: string,
+): string[] {
+  const { language } = resolveCopyLocale(locale);
+  if (language === 'en') return [];
+
+  const focus = compactFeature(focusSource);
+  const lower = focus.toLowerCase();
+  switch (language) {
+    case 'es':
+      switch (signal?.sourceRole) {
+        case 'workflow':
+          return [`Planifica ${lower} rápido`, `${focus} sin fricción`];
+        case 'detail':
+          return [`${focus} de un vistazo`, `Ve ${lower} claro`];
+        case 'discovery':
+          return [`Descubre ${lower} rápido`, `Encuentra ${lower} fácil`];
+        case 'communication':
+          return ['Habla con contexto', `${focus} en tiempo real`];
+        case 'paywall':
+          return [`Desbloquea ${lower} claro`, 'Ve el valor rápido'];
+        case 'home':
+          return ['Todo en un lugar', `${focus} en un lugar`];
+        default:
+          return [`${focus}`, `${focus} en foco`];
+      }
+    case 'fr':
+      switch (signal?.sourceRole) {
+        case 'workflow':
+          return [`Planifie ${lower} vite`, `${focus} sans friction`];
+        case 'detail':
+          return [`${focus} d un coup`, `Vois ${lower} net`];
+        case 'discovery':
+          return [`Trouve ${lower} vite`, `Découvre ${lower} mieux`];
+        case 'communication':
+          return ['Échange avec contexte', `${focus} en direct`];
+        case 'paywall':
+          return [`Débloque ${lower} vite`, 'Vois la valeur vite'];
+        case 'home':
+          return ['Tout en un lieu', `${focus} au même endroit`];
+        default:
+          return [`${focus}`, `${focus} au centre`];
+      }
+    case 'de':
+      switch (signal?.sourceRole) {
+        case 'workflow':
+          return [`Plane ${lower} schnell`, `${focus} ohne Reibung`];
+        case 'detail':
+          return [`${focus} auf einen Blick`, `Sieh ${lower} klar`];
+        case 'discovery':
+          return [`Finde ${lower} schnell`, `Entdecke ${lower} klar`];
+        case 'communication':
+          return ['Chat mit Kontext', `${focus} in Echtzeit`];
+        case 'paywall':
+          return [`Schalte ${lower} frei`, 'Wert sofort sehen'];
+        case 'home':
+          return ['Alles an einem Ort', `${focus} im Blick`];
+        default:
+          return [`${focus}`, `${focus} im Fokus`];
+      }
+    case 'pt':
+      switch (signal?.sourceRole) {
+        case 'workflow':
+          return [`Planeje ${lower} rápido`, `${focus} sem atrito`];
+        case 'detail':
+          return [`${focus} num relance`, `Veja ${lower} claro`];
+        case 'discovery':
+          return [`Descubra ${lower} rápido`, `Encontre ${lower} fácil`];
+        case 'communication':
+          return ['Converse com contexto', `${focus} em tempo real`];
+        case 'paywall':
+          return [`Desbloqueie ${lower} fácil`, 'Veja o valor rápido'];
+        case 'home':
+          return ['Tudo em um lugar', `${focus} em um lugar`];
+        default:
+          return [`${focus}`, `${focus} em foco`];
+      }
+  }
+}
+
+function buildLocalizedCategoryHeroPhrases(
+  locale: string | undefined,
+  category: string,
+  focus: string,
+  appName: string,
+): string[] {
+  const { language } = resolveCopyLocale(locale);
+  const lower = focus.toLowerCase();
+  switch (language) {
+    case 'es':
+      switch (category) {
+        case 'finance':
+          return ['Ve tu dinero claro', `Mueve ${lower} con calma`, 'Decide con confianza'];
+        case 'health':
+        case 'wellness':
+          return ['Tu progreso sigue firme', `Mantén ${lower} en calma`, 'Cada paso cuenta'];
+        case 'productivity':
+          return ['Tu día en orden', `Haz ${lower} sin ruido`, 'Todo sigue claro'];
+        case 'social':
+          return ['Tu comunidad activa', `Sigue ${lower} de cerca`, `${appName} no se pierde`];
+        case 'creative':
+          return ['Ideas en movimiento', `Da forma a ${lower}`, 'Crea con claridad'];
+        case 'games':
+          return ['Entra en la acción', `Mantén ${lower} vivo`, 'Juega con ritmo'];
+        default:
+          return [];
+      }
+    case 'fr':
+      switch (category) {
+        case 'finance':
+          return ['Vois ton argent net', `Gère ${lower} au calme`, 'Décide avec confiance'];
+        case 'health':
+        case 'wellness':
+          return ['Le progrès tient bon', `Garde ${lower} serein`, 'Chaque pas compte'];
+        case 'productivity':
+          return ['Ta journée reste claire', `Gère ${lower} sans bruit`, 'Tout reste net'];
+        case 'social':
+          return ['La communauté reste proche', `Suis ${lower} en direct`, `${appName} suit le rythme`];
+        case 'creative':
+          return ['Les idées prennent forme', `Fais avancer ${lower}`, 'Crée avec clarté'];
+        case 'games':
+          return ['Entre dans l action', `Garde ${lower} vivant`, 'Joue avec rythme'];
+        default:
+          return [];
+      }
+    case 'de':
+      switch (category) {
+        case 'finance':
+          return ['Sieh Geld ganz klar', `Steuere ${lower} ruhig`, 'Entscheide mit Vertrauen'];
+        case 'health':
+        case 'wellness':
+          return ['Fortschritt bleibt stabil', `Halte ${lower} ruhig`, 'Jeder Schritt zählt'];
+        case 'productivity':
+          return ['Dein Tag bleibt klar', `Halte ${lower} im Fluss`, 'Alles bleibt im Blick'];
+        case 'social':
+          return ['Nähe in jedem Thread', `Bleib bei ${lower}`, `${appName} bleibt dran`];
+        case 'creative':
+          return ['Ideen nehmen Form an', `Bring ${lower} nach vorn`, 'Gestalte mit Klarheit'];
+        case 'games':
+          return ['Direkt in die Action', `Halte ${lower} am Leben`, 'Spiel mit Tempo'];
+        default:
+          return [];
+      }
+    case 'pt':
+      switch (category) {
+        case 'finance':
+          return ['Veja seu dinheiro claro', `Cuide de ${lower} calmo`, 'Decida com confiança'];
+        case 'health':
+        case 'wellness':
+          return ['Seu progresso segue firme', `Mantenha ${lower} leve`, 'Cada passo conta'];
+        case 'productivity':
+          return ['Seu dia em ordem', `Toque ${lower} sem ruído`, 'Tudo fica claro'];
+        case 'social':
+          return ['Sua comunidade por perto', `Acompanhe ${lower} ao vivo`, `${appName} acompanha tudo`];
+        case 'creative':
+          return ['Ideias em movimento', `Dê forma a ${lower}`, 'Crie com clareza'];
+        case 'games':
+          return ['Entre na ação', `Mantenha ${lower} vivo`, 'Jogue com ritmo'];
+        default:
+          return [];
+      }
+    default:
+      return [];
+  }
+}
+
+function buildLocalizedCategoryDifferentiatorPhrases(
+  locale: string | undefined,
+  category: string,
+  firstFeature: string,
+  secondFeature: string,
+): string[] {
+  const { language } = resolveCopyLocale(locale);
+  const firstLower = firstFeature.toLowerCase();
+  const secondLower = secondFeature.toLowerCase();
+  switch (language) {
+    case 'es':
+      switch (category) {
+        case 'finance':
+          return [`${firstFeature} con contexto`, `${secondFeature} con confianza`];
+        case 'health':
+        case 'wellness':
+          return [`${firstFeature} sin presión`, `${secondFeature} con calma`];
+        case 'productivity':
+          return [`${firstFeature} bajo control`, `${secondFeature} sin desvíos`];
+        default:
+          return [`${firstFeature} con claridad`, `Mantén ${secondLower} en marcha`];
+      }
+    case 'fr':
+      switch (category) {
+        case 'finance':
+          return [`${firstFeature} avec contexte`, `${secondFeature} avec confiance`];
+        case 'health':
+        case 'wellness':
+          return [`${firstFeature} sans pression`, `${secondFeature} avec calme`];
+        case 'productivity':
+          return [`${firstFeature} sous contrôle`, `${secondFeature} sans détour`];
+        default:
+          return [`${firstFeature} avec clarté`, `Garde ${secondLower} en mouvement`];
+      }
+    case 'de':
+      switch (category) {
+        case 'finance':
+          return [`${firstFeature} mit Kontext`, `${secondFeature} mit Vertrauen`];
+        case 'health':
+        case 'wellness':
+          return [`${firstFeature} ohne Druck`, `${secondFeature} mit Ruhe`];
+        case 'productivity':
+          return [`${firstFeature} unter Kontrolle`, `${secondFeature} ohne Drift`];
+        default:
+          return [`${firstFeature} mit Klarheit`, `Halte ${secondLower} im Fluss`];
+      }
+    case 'pt':
+      switch (category) {
+        case 'finance':
+          return [`${firstFeature} com contexto`, `${secondFeature} com confiança`];
+        case 'health':
+        case 'wellness':
+          return [`${firstFeature} sem pressão`, `${secondFeature} com calma`];
+        case 'productivity':
+          return [`${firstFeature} sob controle`, `${secondFeature} sem desvio`];
+        default:
+          return [`${firstFeature} com clareza`, `Mantenha ${secondLower} fluindo`];
+      }
+    default:
+      return [`${firstFeature} ${firstLower}`, `${secondFeature} ${secondLower}`];
+  }
+}
+
+function buildLocalizedCategoryFeaturePhrases(
+  locale: string | undefined,
+  category: string,
+  feature: string,
+): string[] {
+  const { language } = resolveCopyLocale(locale);
+  const lower = feature.toLowerCase();
+  switch (language) {
+    case 'es':
+      switch (category) {
+        case 'finance':
+          return [`${feature} con confianza`, `Mantén ${lower} visible`];
+        case 'health':
+        case 'wellness':
+          return [`${feature} que acompaña`, `Mantén ${lower} estable`];
+        case 'productivity':
+          return [`${feature} sin fricción`, `Mueve ${lower} más rápido`];
+        default:
+          return [`${feature} con claridad`, `${feature} al instante`];
+      }
+    case 'fr':
+      switch (category) {
+        case 'finance':
+          return [`${feature} avec confiance`, `Garde ${lower} visible`];
+        case 'health':
+        case 'wellness':
+          return [`${feature} qui tient`, `Garde ${lower} stable`];
+        case 'productivity':
+          return [`${feature} sans friction`, `Fais avancer ${lower}`];
+        default:
+          return [`${feature} avec clarté`, `${feature} en un coup`];
+      }
+    case 'de':
+      switch (category) {
+        case 'finance':
+          return [`${feature} mit Vertrauen`, `Halte ${lower} sichtbar`];
+        case 'health':
+        case 'wellness':
+          return [`${feature} die bleibt`, `Halte ${lower} stabil`];
+        case 'productivity':
+          return [`${feature} ohne Reibung`, `Bring ${lower} voran`];
+        default:
+          return [`${feature} mit Klarheit`, `${feature} sofort sehen`];
+      }
+    case 'pt':
+      switch (category) {
+        case 'finance':
+          return [`${feature} com confiança`, `Mantenha ${lower} visível`];
+        case 'health':
+        case 'wellness':
+          return [`${feature} que permanece`, `Mantenha ${lower} estável`];
+        case 'productivity':
+          return [`${feature} sem atrito`, `Faça ${lower} andar`];
+        default:
+          return [`${feature} com clareza`, `${feature} num relance`];
+      }
+    default:
+      return [];
+  }
+}
+
+function buildLocalizedCategorySummaryPhrases(
+  locale: string | undefined,
+  category: string,
+  first: string,
+  second: string,
+): string[] {
+  const { language } = resolveCopyLocale(locale);
+  switch (language) {
+    case 'es':
+      switch (category) {
+        case 'finance':
+          return ['Todo tu dinero claro', `${first} con calma`, `${second} con confianza`];
+        case 'health':
+        case 'wellness':
+          return ['Todo sigue en ritmo', `${first} cada día`, `${second} con calma`];
+        case 'productivity':
+          return ['Todo sigue en curso', `${first} para el día`, `${second} bajo control`];
+        default:
+          return ['Todo lo que importa', `${first} y más`, `${second} en un lugar`];
+      }
+    case 'fr':
+      switch (category) {
+        case 'finance':
+          return ['Tout l argent clair', `${first} au calme`, `${second} avec confiance`];
+        case 'health':
+        case 'wellness':
+          return ['Tout garde le rythme', `${first} chaque jour`, `${second} avec calme`];
+        case 'productivity':
+          return ['Tout reste en cours', `${first} pour la journée`, `${second} sous contrôle`];
+        default:
+          return ['Tout ce qui compte', `${first} et plus`, `${second} au même endroit`];
+      }
+    case 'de':
+      switch (category) {
+        case 'finance':
+          return ['Dein Geld ganz klar', `${first} mit Ruhe`, `${second} mit Vertrauen`];
+        case 'health':
+        case 'wellness':
+          return ['Alles bleibt im Takt', `${first} jeden Tag`, `${second} mit Ruhe`];
+        case 'productivity':
+          return ['Alles bleibt im Fluss', `${first} für den Tag`, `${second} unter Kontrolle`];
+        default:
+          return ['Alles was zählt', `${first} und mehr`, `${second} an einem Ort`];
+      }
+    case 'pt':
+      switch (category) {
+        case 'finance':
+          return ['Seu dinheiro mais claro', `${first} com calma`, `${second} com confiança`];
+        case 'health':
+        case 'wellness':
+          return ['Tudo segue no ritmo', `${first} todo dia`, `${second} com calma`];
+        case 'productivity':
+          return ['Tudo segue fluindo', `${first} para o dia`, `${second} sob controle`];
+        default:
+          return ['Tudo que importa', `${first} e mais`, `${second} em um lugar`];
+      }
+    default:
+      return [];
+  }
+}
+
+function buildLocalizedSubtitles(args: {
+  locale: string | undefined;
+  slot: CopySlot;
+  category: string;
+  focus: string;
+  appName?: string;
+  signal?: CopyScreenSignal;
+}): string[] {
+  const { language } = resolveCopyLocale(args.locale);
+  if (language === 'en') return [];
+
+  const lower = args.focus.toLowerCase();
+  const dense = args.signal?.unsafeForTextOverlay ?? false;
+  switch (language) {
+    case 'es':
+      switch (args.slot) {
+        case 'hero':
+          return [
+            `Abre con ${lower} y deja claro el beneficio principal.`,
+            dense ? 'Mantén el mensaje corto para no chocar con la interfaz.' : `Usa ${lower} para que la primera promesa sea obvia.`,
+          ];
+        case 'differentiator':
+          return [
+            `Haz que ${lower} demuestre por qué el producto se siente distinto.`,
+            'Muestra control, contexto y ritmo sin caer en una lista.',
+          ];
+        case 'feature':
+          return [
+            `Aterriza la prueba en ${lower} sin llenar toda la pantalla.`,
+            `Mantén el detalle centrado en ${lower} y su beneficio real.`,
+          ];
+        case 'trust':
+          return [
+            `Haz que ${lower} se sienta confiable para volver cada día.`,
+            'Cierra con credibilidad y madurez de producto, no con relleno.',
+          ];
+        case 'summary':
+          return [
+            'Cierra con el beneficio amplio en vez de repetir la apertura.',
+            dense ? 'Usa una línea breve para mantener despejada la UI.' : `Usa ${lower} para resumir el valor que aún queda.`,
+          ];
+      }
+    case 'fr':
+      switch (args.slot) {
+        case 'hero':
+          return [
+            `Ouvre avec ${lower} et rends la promesse centrale évidente.`,
+            dense ? 'Garde la ligne courte pour éviter la collision avec l interface.' : `Utilise ${lower} pour rendre le premier bénéfice immédiat.`,
+          ];
+        case 'differentiator':
+          return [
+            `Laisse ${lower} prouver pourquoi le produit paraît plus net.`,
+            'Montre contrôle, contexte et rythme sans liste de fonctions.',
+          ];
+        case 'feature':
+          return [
+            `Ancre la preuve dans ${lower} sans surcharger l écran.`,
+            `Garde le détail centré sur ${lower} et son vrai usage.`,
+          ];
+        case 'trust':
+          return [
+            `Fais sentir que ${lower} mérite un retour chaque jour.`,
+            'Termine sur la crédibilité et la maturité produit.',
+          ];
+        case 'summary':
+          return [
+            'Ferme sur le bénéfice large plutôt que répéter l ouverture.',
+            dense ? 'Garde la dernière ligne courte pour laisser respirer l écran.' : `Utilise ${lower} pour résumer la valeur restante.`,
+          ];
+      }
+    case 'de':
+      switch (args.slot) {
+        case 'hero':
+          return [
+            `Starte mit ${lower} und mache das Hauptversprechen sofort klar.`,
+            dense ? 'Halte die Zeile kurz damit die UI frei bleibt.' : `Nutze ${lower} damit der erste Nutzen direkt lesbar ist.`,
+          ];
+        case 'differentiator':
+          return [
+            `Lass ${lower} zeigen warum das Produkt bewusster wirkt.`,
+            'Zeig Kontrolle, Kontext und Tempo statt einer Funktionsliste.',
+          ];
+        case 'feature':
+          return [
+            `Verankere den Beweis in ${lower} ohne den Screen zu füllen.`,
+            `Halte das Detail bei ${lower} und dem echten Nutzen.`,
+          ];
+        case 'trust':
+          return [
+            `Lass ${lower} vertrauenswürdig für den Alltag wirken.`,
+            'Schließe mit Glaubwürdigkeit und Produktreife ab.',
+          ];
+        case 'summary':
+          return [
+            'Schließe mit dem breiten Nutzen statt die Eröffnung zu wiederholen.',
+            dense ? 'Halte die Schlusszeile kurz damit die UI frei bleibt.' : `Nutze ${lower} für den restlichen Gesamtwert.`,
+          ];
+      }
+    case 'pt':
+      switch (args.slot) {
+        case 'hero':
+          return [
+            `Abra com ${lower} e deixe a promessa principal evidente.`,
+            dense ? 'Mantenha a linha curta para não disputar com a interface.' : `Use ${lower} para tornar o primeiro benefício imediato.`,
+          ];
+        case 'differentiator':
+          return [
+            `Deixe ${lower} provar por que o produto parece mais intencional.`,
+            'Mostre controle, contexto e ritmo sem lista de recursos.',
+          ];
+        case 'feature':
+          return [
+            `Puxe a prova de ${lower} sem lotar a tela.`,
+            `Mantenha o detalhe focado em ${lower} e no benefício real.`,
+          ];
+        case 'trust':
+          return [
+            `Faça ${lower} parecer confiável para voltar todo dia.`,
+            'Feche com credibilidade e maturidade de produto.',
+          ];
+        case 'summary':
+          return [
+            'Feche com o benefício amplo em vez de repetir a abertura.',
+            dense ? 'Use uma linha curta para preservar o respiro da UI.' : `Use ${lower} para resumir o valor que ainda resta.`,
+          ];
+      }
+  }
+}
+
 function signalSlotForIndex(index: number, total: number): CopySlot {
   if (index === 0) return 'hero';
   if (index === 1) return 'differentiator';
@@ -495,9 +1075,31 @@ function buildHeroPhrases(
   appDescription: string,
   category: string,
   features: string[],
+  locale?: string,
   signal?: CopyScreenSignal,
 ): string[] {
   const firstFeature = resolveSignalFocus(signal, signal?.focus ?? features[0] ?? '', features[0] ?? appName);
+  if (resolveCopyLocale(locale).language !== 'en') {
+    return [
+      ...buildLocalizedRoleAwarePhrases(locale, signal, firstFeature || appName),
+      ...buildLocalizedCategoryHeroPhrases(locale, category, firstFeature || appName, appName),
+      `${appName} ${resolveCopyLocale(locale).language === 'de' ? 'ganz klar' : resolveCopyLocale(locale).language === 'fr' ? 'plus clair' : resolveCopyLocale(locale).language === 'pt' ? 'mais claro' : 'más claro'}`,
+      resolveCopyLocale(locale).language === 'de'
+        ? `${firstFeature} im Blick`
+        : resolveCopyLocale(locale).language === 'fr'
+          ? `${firstFeature} bien visible`
+          : resolveCopyLocale(locale).language === 'pt'
+            ? `${firstFeature} em destaque`
+            : `${firstFeature} bien claro`,
+      resolveCopyLocale(locale).language === 'de'
+        ? `Mehr ${firstFeature.toLowerCase()} sofort`
+        : resolveCopyLocale(locale).language === 'fr'
+          ? `${firstFeature} plus vite`
+          : resolveCopyLocale(locale).language === 'pt'
+            ? `${firstFeature} mais rápido`
+            : `${firstFeature} más rápido`,
+    ];
+  }
   const description = normalizePhrase(appDescription);
   return [
     ...buildRoleAwarePhrases(signal, firstFeature || appName),
@@ -513,11 +1115,39 @@ function buildDifferentiatorPhrases(
   category: string,
   features: string[],
   goals: string[],
+  locale?: string,
   signal?: CopyScreenSignal,
 ): string[] {
   const fallbackFeature = features[0] ?? goals[0] ?? 'Core workflow';
   const firstFeature = resolveSignalFocus(signal, signal?.focus ?? fallbackFeature, fallbackFeature);
   const secondFeature = compactFeature(features[1] ?? goals[1] ?? firstFeature);
+  if (resolveCopyLocale(locale).language !== 'en') {
+    const language = resolveCopyLocale(locale).language;
+    return [
+      ...(signal?.unsafeForTextOverlay
+        ? [language === 'de' ? `${firstFeature} ohne Chaos` : language === 'fr' ? `${firstFeature} sans bruit` : language === 'pt' ? `${firstFeature} sem ruído` : `${firstFeature} sin ruido`]
+        : []),
+      ...(signal?.density === 'minimal'
+        ? [language === 'de' ? `${firstFeature} ohne Ablenkung` : language === 'fr' ? `${firstFeature} sans distraction` : language === 'pt' ? `${firstFeature} sem distração` : `${firstFeature} sin distracción`]
+        : []),
+      ...buildLocalizedRoleAwarePhrases(locale, signal, firstFeature),
+      ...buildLocalizedCategoryDifferentiatorPhrases(locale, category, firstFeature, secondFeature),
+      language === 'de'
+        ? `${firstFeature} mit Fokus`
+        : language === 'fr'
+          ? `${firstFeature} avec focus`
+          : language === 'pt'
+            ? `${firstFeature} com foco`
+            : `${firstFeature} con foco`,
+      language === 'de'
+        ? `${secondFeature} mit Kontext`
+        : language === 'fr'
+          ? `${secondFeature} avec contexte`
+          : language === 'pt'
+            ? `${secondFeature} com contexto`
+            : `${secondFeature} con contexto`,
+    ];
+  }
   return [
     ...(signal?.unsafeForTextOverlay ? [`${firstFeature} without clutter`] : []),
     ...(signal?.density === 'minimal' ? [`${firstFeature} without noise`] : []),
@@ -530,9 +1160,46 @@ function buildDifferentiatorPhrases(
   ];
 }
 
-function buildFeaturePhrases(category: string, feature: string, signal?: CopyScreenSignal): string[] {
+function buildFeaturePhrases(category: string, feature: string, locale?: string, signal?: CopyScreenSignal): string[] {
   const compact = resolveSignalFocus(signal, signal?.focus ?? feature, feature);
   const lower = compact.toLowerCase();
+  if (resolveCopyLocale(locale).language !== 'en') {
+    const language = resolveCopyLocale(locale).language;
+    return [
+      ...buildLocalizedRoleAwarePhrases(locale, signal, compact),
+      ...buildLocalizedCategoryFeaturePhrases(locale, category, compact),
+      `${compact}`,
+      language === 'de'
+        ? `${compact} im Blick`
+        : language === 'fr'
+          ? `${compact} d un coup`
+          : language === 'pt'
+            ? `${compact} num relance`
+            : `${compact} al instante`,
+      signal?.unsafeForTextOverlay
+        ? (language === 'de'
+          ? `${compact} ohne Chaos`
+          : language === 'fr'
+            ? `${compact} sans foule`
+            : language === 'pt'
+              ? `${compact} sem ruído`
+              : `${compact} sin ruido`)
+        : (language === 'de'
+          ? `${compact} ohne Lärm`
+          : language === 'fr'
+            ? `${compact} sans bruit`
+            : language === 'pt'
+              ? `${compact} sem ruído`
+              : `${compact} sin ruido`),
+      language === 'de'
+        ? `Mehr ${lower} sofort`
+        : language === 'fr'
+          ? `Plus de ${lower} vite`
+          : language === 'pt'
+            ? `Mais ${lower} já`
+            : `Más ${lower} ya`,
+    ];
+  }
   return [
     ...buildRoleAwarePhrases(signal, compact),
     ...buildCategoryFeaturePhrases(category, compact),
@@ -543,10 +1210,43 @@ function buildFeaturePhrases(category: string, feature: string, signal?: CopyScr
   ];
 }
 
-function buildTrustPhrases(category: string, appName: string, signal?: CopyScreenSignal): string[] {
+function buildTrustPhrases(category: string, appName: string, locale?: string, signal?: CopyScreenSignal): string[] {
   const focus = signal?.focus
     ? resolveSignalFocus(signal, signal.focus, appName)
     : '';
+  if (resolveCopyLocale(locale).language !== 'en') {
+    const language = resolveCopyLocale(locale).language;
+    switch (language) {
+      case 'es':
+        return [
+          ...(focus ? [`${focus} para cada día`] : []),
+          'Hecho para volver',
+          'Confianza en cada paso',
+          `${appName} se siente sólido`,
+        ];
+      case 'fr':
+        return [
+          ...(focus ? [`${focus} chaque jour`] : []),
+          'Conçu pour revenir',
+          'Confiance à chaque pas',
+          `${appName} paraît solide`,
+        ];
+      case 'de':
+        return [
+          ...(focus ? [`${focus} jeden Tag`] : []),
+          'Gemacht zum Wiederkommen',
+          'Vertrauen bei jedem Schritt',
+          `${appName} wirkt solide`,
+        ];
+      case 'pt':
+        return [
+          ...(focus ? [`${focus} todo dia`] : []),
+          'Feito para voltar',
+          'Confiança em cada passo',
+          `${appName} parece sólido`,
+        ];
+    }
+  }
   switch (category) {
     case 'finance':
       return [
@@ -584,6 +1284,7 @@ function buildSummaryPhrases(
   category: string,
   features: string[],
   goals: string[],
+  locale?: string,
   signal?: CopyScreenSignal,
 ): string[] {
   const focus = signal?.focus
@@ -592,6 +1293,32 @@ function buildSummaryPhrases(
   const items = [focus, ...features, ...goals].map(compactFeature).filter(Boolean);
   const first = items[0] ?? 'Core features';
   const second = items[1] ?? 'everyday use';
+  if (resolveCopyLocale(locale).language !== 'en') {
+    return [
+      ...buildLocalizedCategorySummaryPhrases(locale, category, first, second),
+      ...(focus ? [resolveCopyLocale(locale).language === 'de'
+        ? `${first} an einem Ort`
+        : resolveCopyLocale(locale).language === 'fr'
+          ? `${first} au même endroit`
+          : resolveCopyLocale(locale).language === 'pt'
+            ? `${first} em um lugar`
+            : `${first} en un lugar`] : []),
+      resolveCopyLocale(locale).language === 'de'
+        ? `${first} und mehr`
+        : resolveCopyLocale(locale).language === 'fr'
+          ? `${first} et plus`
+          : resolveCopyLocale(locale).language === 'pt'
+            ? `${first} e mais`
+            : `${first} y más`,
+      resolveCopyLocale(locale).language === 'de'
+        ? 'Alles was zählt'
+        : resolveCopyLocale(locale).language === 'fr'
+          ? 'Tout ce qui compte'
+          : resolveCopyLocale(locale).language === 'pt'
+            ? 'Tudo que importa'
+            : 'Todo lo que importa',
+    ];
+  }
   return [
     ...buildCategorySummaryPhrases(category, first, second),
     ...(focus ? [`${first} in one place`] : []),
@@ -605,9 +1332,19 @@ function buildSummaryPhrases(
 function buildHeroSubtitles(
   category: string,
   features: string[],
+  locale?: string,
   signal?: CopyScreenSignal,
 ): string[] {
   const focus = resolveSignalFocus(signal, signal?.focus ?? features[0] ?? 'core workflow', features[0] ?? 'core workflow');
+  if (resolveCopyLocale(locale).language !== 'en') {
+    return buildLocalizedSubtitles({
+      locale,
+      slot: 'hero',
+      category,
+      focus,
+      signal,
+    });
+  }
   const lower = focus.toLowerCase();
   switch (category) {
     case 'finance':
@@ -653,10 +1390,20 @@ function buildDifferentiatorSubtitles(
   category: string,
   features: string[],
   goals: string[],
+  locale?: string,
   signal?: CopyScreenSignal,
 ): string[] {
   const fallback = goals[0] ?? features[0] ?? 'core workflow';
   const focus = resolveSignalFocus(signal, signal?.focus ?? fallback, fallback);
+  if (resolveCopyLocale(locale).language !== 'en') {
+    return buildLocalizedSubtitles({
+      locale,
+      slot: 'differentiator',
+      category,
+      focus,
+      signal,
+    });
+  }
   const lower = focus.toLowerCase();
   switch (category) {
     case 'finance':
@@ -686,9 +1433,19 @@ function buildDifferentiatorSubtitles(
 function buildFeatureSubtitles(
   category: string,
   feature: string,
+  locale?: string,
   signal?: CopyScreenSignal,
 ): string[] {
   const focus = resolveSignalFocus(signal, signal?.focus ?? feature, feature);
+  if (resolveCopyLocale(locale).language !== 'en') {
+    return buildLocalizedSubtitles({
+      locale,
+      slot: 'feature',
+      category,
+      focus,
+      signal,
+    });
+  }
   const lower = focus.toLowerCase();
   switch (category) {
     case 'finance':
@@ -718,11 +1475,22 @@ function buildFeatureSubtitles(
 function buildTrustSubtitles(
   category: string,
   appName: string,
+  locale?: string,
   signal?: CopyScreenSignal,
 ): string[] {
   const focus = signal?.focus
     ? resolveSignalFocus(signal, signal.focus, appName)
     : appName;
+  if (resolveCopyLocale(locale).language !== 'en') {
+    return buildLocalizedSubtitles({
+      locale,
+      slot: 'trust',
+      category,
+      focus,
+      appName,
+      signal,
+    });
+  }
   const lower = focus.toLowerCase();
   switch (category) {
     case 'finance':
@@ -748,11 +1516,21 @@ function buildSummarySubtitles(
   category: string,
   features: string[],
   goals: string[],
+  locale?: string,
   signal?: CopyScreenSignal,
 ): string[] {
   const focus = signal?.focus
     ? resolveSignalFocus(signal, signal.focus, features[0] ?? goals[0] ?? 'the product')
     : compactFeature(features[0] ?? goals[0] ?? 'the product');
+  if (resolveCopyLocale(locale).language !== 'en') {
+    return buildLocalizedSubtitles({
+      locale,
+      slot: 'summary',
+      category,
+      focus,
+      signal,
+    });
+  }
   const avoidBusyUi = signal?.unsafeForTextOverlay ?? false;
   switch (category) {
     case 'finance':
@@ -781,7 +1559,9 @@ export function scoreHeadline(
   headline: string,
   slot: CopySlot,
   sourceFeature?: string,
+  locale?: string,
 ): Omit<CopyCandidate, 'id' | 'slot' | 'headline' | 'sourceFeature'> {
+  const lexicon = getCopyLexicon(locale);
   const normalized = headline.replace(/\n/g, ' ').trim();
   const words = normalized.split(/\s+/).filter(Boolean);
   const lowered = words.map((word) => word.toLowerCase());
@@ -797,20 +1577,21 @@ export function scoreHeadline(
     score -= Math.abs(4 - words.length) * 7;
   }
 
-  if (lowered.includes('and')) {
-    issues.push('Uses "and", which usually joins multiple ideas.');
+  const joinWord = lowered.find((word) => lexicon.joinWords.has(word));
+  if (joinWord) {
+    issues.push(`Uses "${joinWord}", which usually joins multiple ideas.`);
     score -= 18;
   }
 
-  if (readsLikeFeatureListHeadline(normalized)) {
+  if (readsLikeFeatureListHeadline(normalized, locale)) {
     issues.push('Reads like a feature list instead of a benefit-led headline.');
     score -= 30;
-  } else if (readsLikeFeatureLabelHeadline(normalized, sourceFeature)) {
+  } else if (readsLikeFeatureLabelHeadline(normalized, sourceFeature, locale)) {
     issues.push('Reads like a feature label instead of a clear value statement.');
     score -= 16;
   }
 
-  const genericCount = lowered.filter((word) => GENERIC_WORDS.has(word)).length;
+  const genericCount = lowered.filter((word) => lexicon.genericWords.has(word)).length;
   if (genericCount > 0) {
     issues.push('Contains generic marketing language.');
     score -= genericCount * 10;
@@ -852,6 +1633,7 @@ function scoreSubtitle(args: {
   slot: CopySlot;
   sourceFeature?: string;
   signal?: CopyScreenSignal;
+  locale?: string;
 }): {
   subtitle?: string;
   subtitleWordCount?: number;
@@ -872,6 +1654,7 @@ function scoreSubtitle(args: {
 
   const words = subtitle.split(/\s+/).filter(Boolean);
   const lowered = words.map((word) => word.toLowerCase());
+  const lexicon = getCopyLexicon(args.locale);
   const issues: string[] = [];
   const rationale: string[] = [];
   let scoreAdjustment = 0;
@@ -884,7 +1667,7 @@ function scoreSubtitle(args: {
     scoreAdjustment -= Math.abs(8 - words.length) * 2;
   }
 
-  const overlap = lexicalOverlap(args.headline.replace(/\n/g, ' '), subtitle);
+  const overlap = lexicalOverlap(args.headline.replace(/\n/g, ' '), subtitle, args.locale);
   if (overlap >= 3) {
     issues.push('Subtitle repeats too much of the headline.');
     scoreAdjustment -= overlap * 5;
@@ -897,7 +1680,7 @@ function scoreSubtitle(args: {
     scoreAdjustment -= 8;
   }
 
-  const genericCount = lowered.filter((word) => GENERIC_WORDS.has(word)).length;
+  const genericCount = lowered.filter((word) => lexicon.genericWords.has(word)).length;
   if (genericCount > 0) {
     issues.push('Subtitle uses generic marketing language.');
     scoreAdjustment -= genericCount * 6;
@@ -920,7 +1703,7 @@ function scoreSubtitle(args: {
     scoreAdjustment -= 4;
   }
 
-  if (repeatsEmbeddedText(subtitle, args.signal)) {
+  if (repeatsEmbeddedText(subtitle, args.signal, args.locale)) {
     issues.push('Subtitle repeats embedded UI text instead of reframing the benefit.');
     scoreAdjustment -= 18;
   }
@@ -940,8 +1723,9 @@ export function scoreCopyCandidate(args: {
   slot: CopySlot;
   sourceFeature?: string;
   signal?: CopyScreenSignal;
+  locale?: string;
 }): Omit<CopyCandidate, 'id' | 'slot' | 'headline' | 'sourceFeature' | 'origin'> & { subtitle?: string } {
-  const headlineScore = scoreHeadline(args.headline, args.slot, args.sourceFeature);
+  const headlineScore = scoreHeadline(args.headline, args.slot, args.sourceFeature, args.locale);
   const subtitleScore = scoreSubtitle(args);
 
   return {
@@ -959,6 +1743,7 @@ function buildCandidates(
   headlinePhrases: string[],
   subtitlePhrases: string[],
   sourceFeature?: string,
+  locale?: string,
   signal?: CopyScreenSignal,
 ): CopyCandidate[] {
   const dedupedHeadlines = Array.from(new Set(headlinePhrases.map((phrase) => toHeadline(phrase)).filter(Boolean)));
@@ -972,9 +1757,10 @@ function buildCandidates(
         subtitle,
         slot,
         sourceFeature,
+        locale,
         signal,
       });
-      if (repeatsEmbeddedText(headline, signal)) {
+      if (repeatsEmbeddedText(headline, signal, locale)) {
         scored.score = Math.max(0, scored.score - 24);
         scored.issues = [
           ...scored.issues,
@@ -1012,6 +1798,7 @@ function scoreExternalCandidate(args: {
   external: ExternalCopyCandidateInput;
   slotSourceFeature?: string;
   signal?: CopyScreenSignal;
+  locale?: string;
   index: number;
 }): CopyCandidate {
   const sourceFeature = args.external.sourceFeature ?? args.slotSourceFeature;
@@ -1021,6 +1808,7 @@ function scoreExternalCandidate(args: {
     subtitle: args.external.subtitle,
     slot: args.external.slot,
     sourceFeature,
+    locale: args.locale,
     signal: args.signal,
   });
 
@@ -1080,6 +1868,7 @@ export function mergeExternalCopyCandidates(
         external,
         slotSourceFeature: slotGroup.sourceFeature,
         signal,
+        locale: candidateSet.locale,
         index,
       }));
 
@@ -1107,29 +1896,97 @@ export function generateCopyCandidates(args: {
   appDescription: string;
   category: string;
   features: string[];
+  locale?: string;
   goals?: string[];
   screenshotCount?: number;
   screenSignals?: CopyScreenSignal[];
   externalCopy?: ExternalCopyCandidateInput[];
 }): CopyCandidateSet {
+  const localeInfo = resolveCopyLocale(args.locale);
   const goals = args.goals ?? [];
   const featureSlots = Math.max(1, Math.min(args.features.length || 1, Math.max((args.screenshotCount ?? 4) - 3, 1)));
   const slotSignals = resolveSignalsBySlot(args.screenSignals, featureSlots);
-  const narrative = [
-    'Lead with the primary outcome.',
-    'Reinforce the differentiator.',
-    'Spend the middle slides on feature proof.',
-    'Close with trust and a concise summary.',
-  ];
+  const narrative = localeInfo.language === 'en'
+    ? [
+        'Lead with the primary outcome.',
+        'Reinforce the differentiator.',
+        'Spend the middle slides on feature proof.',
+        'Close with trust and a concise summary.',
+      ]
+    : localeInfo.language === 'de'
+      ? [
+          'Starte mit dem Hauptnutzen.',
+          'Stärke danach den Unterschied.',
+          'Nutze die Mitte für echten Produktbeweis.',
+          'Schließe mit Vertrauen und einer klaren Zusammenfassung.',
+        ]
+      : localeInfo.language === 'fr'
+        ? [
+            'Ouvre avec le bénéfice principal.',
+            'Renforce ensuite le différenciateur.',
+            'Garde le milieu pour la preuve produit.',
+            'Ferme avec confiance et un résumé net.',
+          ]
+        : localeInfo.language === 'pt'
+          ? [
+              'Abra com o principal benefício.',
+              'Reforce depois o diferencial.',
+              'Use o meio para a prova do produto.',
+              'Feche com confiança e um resumo claro.',
+            ]
+          : [
+              'Abre con el beneficio principal.',
+              'Refuerza después el diferenciador.',
+              'Usa el centro para la prueba de producto.',
+              'Cierra con confianza y un resumen claro.',
+            ];
+  const rules = localeInfo.language === 'en'
+    ? SLOT_RULES
+    : localeInfo.language === 'de'
+      ? [
+          'Eine Idee pro Headline.',
+          'Füge wenn möglich eine stützende Unterzeile hinzu.',
+          'Bevorzuge 3 bis 5 Wörter.',
+          'Vermeide Verknüpfer für zwei Vorteile.',
+          'Lehne vage Füllsprache ab.',
+          'Optimiere für gute Lesbarkeit im Thumbnail.',
+        ]
+      : localeInfo.language === 'fr'
+        ? [
+            'Une idée par titre.',
+            'Ajoute une sous-ligne utile quand c est possible.',
+            'Privilégie 3 à 5 mots.',
+            'Évite les liaisons qui vendent deux bénéfices.',
+            'Écarte le flou marketing.',
+            'Optimise pour la lisibilité en miniature.',
+          ]
+        : localeInfo.language === 'pt'
+          ? [
+              'Uma ideia por título.',
+              'Adicione uma linha de apoio quando fizer sentido.',
+              'Prefira 3 a 5 palavras.',
+              'Evite conectivos que juntam dois benefícios.',
+              'Rejeite linguagem vaga.',
+              'Otimize para leitura em miniatura.',
+            ]
+          : [
+              'Una idea por titular.',
+              'Añade un subtítulo de apoyo cuando sea posible.',
+              'Prefiere 3 a 5 palabras.',
+              'Evita conectores que unan dos beneficios.',
+              'Rechaza el relleno vago.',
+              'Optimiza la lectura en miniatura.',
+            ];
 
   const slots: CopySlotCandidates[] = [
     {
       slot: 'hero',
       candidates: buildCandidates(
         'hero',
-        buildHeroPhrases(args.appName, args.appDescription, args.category, args.features, slotSignals.hero),
-        buildHeroSubtitles(args.category, args.features, slotSignals.hero),
+        buildHeroPhrases(args.appName, args.appDescription, args.category, args.features, localeInfo.locale, slotSignals.hero),
+        buildHeroSubtitles(args.category, args.features, localeInfo.locale, slotSignals.hero),
         undefined,
+        localeInfo.locale,
         slotSignals.hero,
       ),
     },
@@ -1137,9 +1994,10 @@ export function generateCopyCandidates(args: {
       slot: 'differentiator',
       candidates: buildCandidates(
         'differentiator',
-        buildDifferentiatorPhrases(args.category, args.features, goals, slotSignals.differentiator),
-        buildDifferentiatorSubtitles(args.category, args.features, goals, slotSignals.differentiator),
+        buildDifferentiatorPhrases(args.category, args.features, goals, localeInfo.locale, slotSignals.differentiator),
+        buildDifferentiatorSubtitles(args.category, args.features, goals, localeInfo.locale, slotSignals.differentiator),
         undefined,
+        localeInfo.locale,
         slotSignals.differentiator,
       ),
     },
@@ -1150,9 +2008,10 @@ export function generateCopyCandidates(args: {
         sourceFeature: feature,
         candidates: buildCandidates(
           'feature',
-          buildFeaturePhrases(args.category, feature, slotSignals.features[index]),
-          buildFeatureSubtitles(args.category, feature, slotSignals.features[index]),
+          buildFeaturePhrases(args.category, feature, localeInfo.locale, slotSignals.features[index]),
+          buildFeatureSubtitles(args.category, feature, localeInfo.locale, slotSignals.features[index]),
           feature,
+          localeInfo.locale,
           slotSignals.features[index],
         ),
       };
@@ -1161,9 +2020,10 @@ export function generateCopyCandidates(args: {
       slot: 'trust',
       candidates: buildCandidates(
         'trust',
-        buildTrustPhrases(args.category, args.appName, slotSignals.trust),
-        buildTrustSubtitles(args.category, args.appName, slotSignals.trust),
+        buildTrustPhrases(args.category, args.appName, localeInfo.locale, slotSignals.trust),
+        buildTrustSubtitles(args.category, args.appName, localeInfo.locale, slotSignals.trust),
         undefined,
+        localeInfo.locale,
         slotSignals.trust,
       ),
     },
@@ -1171,9 +2031,10 @@ export function generateCopyCandidates(args: {
       slot: 'summary',
       candidates: buildCandidates(
         'summary',
-        buildSummaryPhrases(args.category, args.features, goals, slotSignals.summary),
-        buildSummarySubtitles(args.category, args.features, goals, slotSignals.summary),
+        buildSummaryPhrases(args.category, args.features, goals, localeInfo.locale, slotSignals.summary),
+        buildSummarySubtitles(args.category, args.features, goals, localeInfo.locale, slotSignals.summary),
         undefined,
+        localeInfo.locale,
         slotSignals.summary,
       ),
     },
@@ -1182,8 +2043,11 @@ export function generateCopyCandidates(args: {
   const candidateSet: CopyCandidateSet = {
     appName: args.appName,
     category: args.category,
+    locale: localeInfo.locale,
+    requestedLocale: localeInfo.requestedLocale,
+    usesLocaleFallback: localeInfo.usesFallback,
     generatedAt: new Date().toISOString(),
-    rules: SLOT_RULES,
+    rules,
     narrative,
     slots,
   };
@@ -1197,32 +2061,32 @@ function normalizedHeadlineKey(headline: string): string {
   return normalizePhrase(headline).toLowerCase();
 }
 
-function meaningfulLeadWord(headline: string): string | null {
-  return comparisonWords(headline)[0] ?? null;
+function meaningfulLeadWord(headline: string, locale?: string): string | null {
+  return comparisonWords(headline, locale)[0] ?? null;
 }
 
-function leadingBigram(headline: string): string {
-  return comparisonWords(headline).slice(0, 2).join(' ');
+function leadingBigram(headline: string, locale?: string): string {
+  return comparisonWords(headline, locale).slice(0, 2).join(' ');
 }
 
-function lexicalOverlap(left: string, right: string): number {
-  const rightWords = new Set(comparisonWords(right));
-  return comparisonWords(left).filter((word) => rightWords.has(word)).length;
+function lexicalOverlap(left: string, right: string, locale?: string): number {
+  const rightWords = new Set(comparisonWords(right, locale));
+  return comparisonWords(left, locale).filter((word) => rightWords.has(word)).length;
 }
 
 function normalizedSourceFeature(sourceFeature?: string): string {
   return normalizePhrase(sourceFeature ?? '').toLowerCase();
 }
 
-function scoreSelectedCopyCombination(candidates: CopyCandidate[]): number {
+function scoreSelectedCopyCombination(candidates: CopyCandidate[], locale?: string): number {
   let score = candidates.reduce((sum, candidate) => sum + candidate.score, 0);
 
   for (let index = 0; index < candidates.length; index += 1) {
     const current = candidates[index]!;
     const currentHeadline = current.headline.replace(/\n/g, ' ');
     const currentKey = normalizedHeadlineKey(currentHeadline);
-    const currentLeadWord = meaningfulLeadWord(currentHeadline);
-    const currentBigram = leadingBigram(currentHeadline);
+    const currentLeadWord = meaningfulLeadWord(currentHeadline, locale);
+    const currentBigram = leadingBigram(currentHeadline, locale);
     const currentFeature = normalizedSourceFeature(current.sourceFeature);
 
     for (let compareIndex = index + 1; compareIndex < candidates.length; compareIndex += 1) {
@@ -1235,7 +2099,7 @@ function scoreSelectedCopyCombination(candidates: CopyCandidate[]): number {
         continue;
       }
 
-      const overlap = lexicalOverlap(currentHeadline, compareHeadline);
+      const overlap = lexicalOverlap(currentHeadline, compareHeadline, locale);
       if (overlap >= 2) {
         score -= overlap * 12;
       } else if (
@@ -1245,7 +2109,7 @@ function scoreSelectedCopyCombination(candidates: CopyCandidate[]): number {
         score -= 6;
       }
 
-      const compareLeadWord = meaningfulLeadWord(compareHeadline);
+      const compareLeadWord = meaningfulLeadWord(compareHeadline, locale);
       if (
         currentLeadWord
         && compareLeadWord
@@ -1256,7 +2120,7 @@ function scoreSelectedCopyCombination(candidates: CopyCandidate[]): number {
         score -= 8;
       }
 
-      const compareBigram = leadingBigram(compareHeadline);
+      const compareBigram = leadingBigram(compareHeadline, locale);
       if (currentBigram && compareBigram && currentBigram === compareBigram) {
         score -= 10;
       }
@@ -1303,7 +2167,7 @@ export function selectCopySet(
 
   const search = (slotIndex: number, selected: CopyCandidate[]): void => {
     if (slotIndex >= orderedSlots.length) {
-      const score = scoreSelectedCopyCombination(selected);
+      const score = scoreSelectedCopyCombination(selected, mergedCandidateSet.locale);
       if (score > bestScore) {
         bestScore = score;
         bestSelection = [...selected];
@@ -1333,6 +2197,9 @@ export function selectCopySet(
   }
 
   return {
+    locale: mergedCandidateSet.locale ?? 'en',
+    requestedLocale: mergedCandidateSet.requestedLocale ?? mergedCandidateSet.locale ?? 'en',
+    usesLocaleFallback: mergedCandidateSet.usesLocaleFallback ?? false,
     hero,
     differentiator,
     features,

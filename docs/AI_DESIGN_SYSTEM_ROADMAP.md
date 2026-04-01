@@ -198,6 +198,7 @@ This roadmap now has three concrete pieces underway:
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot
 - screenshot-aware copy generation: copy candidates can now consume screenshot-derived slot signals so hero, differentiator, feature, trust, and summary lines respond to actual screen content instead of only the feature list
 - subtitle-aware copy generation: candidate sets now include real subtitle options and final selected copy persists headline/subtitle pairs through materialization and session review
+- locale-aware copy generation/selection: deterministic local copy packs now exist for `en`, `es`, `fr`, `de`, and `pt`, and unsupported locales now fall back to English with explicit metadata instead of silently pretending full locale support
 - OCR-aware copy de-duplication: generated copy now avoids echoing embedded UI text discovered through OCR/vision sidecars or opt-in local OCR
 - final copy-set de-duplication: selection now runs a cross-slot anti-repetition pass so the chosen hero, differentiator, feature, trust, and summary lines do not collapse onto the same phrasing
 - broader category-aware copy templates: hero, differentiator, feature, and summary phrase banks now vary more by inferred app category while staying deterministic and local-first

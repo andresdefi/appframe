@@ -38,6 +38,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - copy generation/selection now builds real subtitle candidates, persists subtitle-aware selected copy through sessions, and exposes subtitle context in the preview UI
 - copy tools and autopilot now accept agent-provided/external copy candidates, rescore them locally, and merge them back into final selection without bundling built-in model generation
 - copy scoring now penalizes raw feature-list / feature-label headlines more aggressively, and weak-copy rejection coverage now includes those patterns explicitly
+- copy generation/selection is now locale-aware for deterministic built-in packs (`en`, `es`, `fr`, `de`, `pt`), carries locale/fallback metadata through artifacts, and falls back safely to English for unsupported locales
 - planning/materialization now emit dynamic individual compositions with extra screenshots, loupes, overlays, and palette-informed backgrounds
 - planning now resequences screenshots per concept, diversifies lead/closing assignment across the concept set, and constrains shared support-screen reuse so concepts do not silently collapse onto the same screenshots
 - planning now emits explicit per-concept frame strategies plus per-screen/per-frame crop plans that react to focal points and OCR/text-occupied regions
@@ -202,7 +203,8 @@ Recommended order:
 - [x] Add stronger "no feature list headline" detection.
 - [x] If model-assisted copy returns, accept agent-provided outputs rather than bundling API-key-based generation inside AppFrame.
 - [x] Add fallback merging logic so externally generated copy can be rescored by the heuristic system before selection.
-- [ ] Add locale-aware copy generation.
+- [x] Add locale-aware copy generation.
+  Status: deterministic locale packs now exist for `en`, `es`, `fr`, `de`, and `pt`, with locale-aware scoring/selection metadata and safe English fallback for unsupported locales.
 - [x] Add tests covering weak copy rejection patterns.
 
 ### 3. Screenshot Understanding
@@ -468,7 +470,7 @@ This is not fully implemented yet.
 If a future thread should continue immediately, the best next slice is:
 
 1. improve screenshot understanding so plans react more confidently to onboarding, paywall, settings, chat, and data-heavy reporting screens
-2. strengthen weak-copy rejection patterns, especially feature-list headlines and locale-aware copy handling
+2. keep expanding screenshot-understanding quality when OCR/text enrichment is absent, including richer fixtures for occupied regions and semantic screen cues
 3. keep expanding recipe-specific composition and background mapping now that subtitle-aware copy and deeper frame/crop materialization are landed
 4. continue refinement flow polish and richer panoramic composition systems after the subtitle/external-copy slice
 
@@ -478,7 +480,7 @@ That is the next quality step now that the planning metadata is no longer only e
 
 Use this to start a future thread:
 
-> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next screenshot-intelligence slice: improve role detection for onboarding/paywall/settings/chat/reporting screens, tighten weak-copy rejection and locale handling, and keep expanding recipe-specific composition/background logic now that subtitle-aware copy and external-copy rescoring are landed.
+> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next screenshot-intelligence slice: improve non-OCR screenshot understanding for onboarding/paywall/settings/chat/reporting screens, add richer fixtures for occupied regions and semantic cues, and keep expanding recipe-specific composition/background logic now that locale-aware copy generation/selection is landed.
 
 ## Notes For Future Threads
 

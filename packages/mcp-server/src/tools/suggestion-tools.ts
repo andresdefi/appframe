@@ -382,6 +382,7 @@ export interface AutopilotRunStatus {
     platforms: Array<'ios' | 'android'>;
   };
   options: {
+    locale: string | null;
     variantCount: number;
     screenCount: number | null;
     resumeFrom: AutopilotStage | null;
@@ -422,6 +423,7 @@ export interface RunAutopilotArgs {
   appDescription: string;
   platforms: Array<'ios' | 'android'>;
   features: string[];
+  locale?: string;
   screenshots: Array<{ path: string; note?: string; ocrJsonPath?: string }>;
   goals?: string[];
   externalCopy?: ExternalCopyCandidateInput[];
@@ -588,6 +590,7 @@ async function buildStageFingerprint(args: {
         appName: autopilotArgs.appName,
         appDescription: autopilotArgs.appDescription,
         category: inferCategory(autopilotArgs.appDescription, autopilotArgs.features),
+        locale: autopilotArgs.locale ?? null,
         features: autopilotArgs.features,
         goals: autopilotArgs.goals ?? [],
         externalCopy: autopilotArgs.externalCopy ?? [],
@@ -851,6 +854,7 @@ function createInitialAutopilotRunStatus(args: {
   appName: string;
   appDescription: string;
   platforms: Array<'ios' | 'android'>;
+  locale?: string;
   outputDir: string;
   paths: AutopilotPaths;
   variantCount: number;
@@ -872,6 +876,7 @@ function createInitialAutopilotRunStatus(args: {
       platforms: args.platforms,
     },
     options: {
+      locale: args.locale ?? null,
       variantCount: args.variantCount,
       screenCount: args.screenCount ?? null,
       resumeFrom: args.resumeFrom ?? null,
@@ -1011,6 +1016,7 @@ export async function runAutopilotPipeline(args: RunAutopilotArgs): Promise<Auto
     appName: args.appName,
     appDescription: args.appDescription,
     platforms: args.platforms,
+    locale: args.locale,
     outputDir: resolvedOutputDir,
     paths,
     variantCount,
@@ -1096,6 +1102,7 @@ export async function runAutopilotPipeline(args: RunAutopilotArgs): Promise<Auto
         appName: args.appName,
         appDescription: args.appDescription,
         category,
+        locale: args.locale,
         features: args.features,
         goals: args.goals,
         externalCopy: args.externalCopy,
@@ -1584,6 +1591,7 @@ export function registerSuggestionTools(server: McpServer): void {
       features: z.array(z.string()).describe('Prioritized features'),
       goals: z.array(z.string()).optional().describe('Optional marketing goals'),
       category: z.string().optional().describe('Optional category override'),
+      locale: z.string().optional().describe('Optional target locale for deterministic copy generation'),
       screenshotCount: z.number().min(1).max(10).optional().describe('Expected slide count'),
       screenSignalsJson: z.string().optional().describe('Optional JSON array of screenshot-derived slot signals'),
       externalCopyJson: z
@@ -1597,6 +1605,7 @@ export function registerSuggestionTools(server: McpServer): void {
       features,
       goals,
       category,
+      locale,
       screenshotCount,
       screenSignalsJson,
       externalCopyJson,
@@ -1605,6 +1614,7 @@ export function registerSuggestionTools(server: McpServer): void {
         appName,
         appDescription,
         category: category ?? inferCategory(appDescription, features),
+        locale,
         features,
         goals,
         screenshotCount,
@@ -1656,6 +1666,7 @@ export function registerSuggestionTools(server: McpServer): void {
               subtitle: candidate.subtitle,
               slot: candidate.slot,
               sourceFeature: candidate.sourceFeature,
+              locale: mergedCandidateSet.locale,
             }),
           })),
         }));
@@ -1809,6 +1820,7 @@ export function registerSuggestionTools(server: McpServer): void {
       appDescription: z.string().describe('Short product description'),
       platforms: z.array(z.enum(['ios', 'android'])).describe('Target platforms'),
       features: z.array(z.string()).min(1).describe('Prioritized features'),
+      locale: z.string().optional().describe('Optional target locale for deterministic copy generation'),
       screenshots: z
         .array(
           z.object({
@@ -1844,6 +1856,7 @@ export function registerSuggestionTools(server: McpServer): void {
       appDescription,
       platforms,
       features,
+      locale,
       screenshots,
       goals,
       externalCopyJson,
@@ -1865,6 +1878,7 @@ export function registerSuggestionTools(server: McpServer): void {
           appDescription,
           platforms,
           features,
+          locale,
           screenshots,
           goals,
           externalCopy: externalCopyJson

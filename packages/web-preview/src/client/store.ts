@@ -185,6 +185,7 @@ export interface VariantCopyAssignment {
   unitIndex: number;
   slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary';
   headline: string;
+  subtitle?: string;
   sourceFeature?: string;
   sourcePath?: string;
   sourceRole?: string;
@@ -243,6 +244,7 @@ export interface AutopilotScreenshotAnalysis {
 
 export interface AutopilotCopyCandidate {
   headline: string;
+  subtitle?: string;
   sourceFeature?: string;
 }
 

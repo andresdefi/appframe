@@ -35,10 +35,12 @@ AppFrame now has an initial autopilot pipeline implemented:
 - screenshot analysis now derives actual-pixel palette extraction, quiet text zones, and focal-point estimates from PNG screenshots
 - copy candidate generation can now use screenshot-derived slot signals from analysis to steer role-aware, focus-aware headline options and avoid echoing embedded OCR/vision UI text
 - copy selection now runs a final cross-slot anti-repetition pass and uses broader category-aware phrase banks across hero, differentiator, feature, and summary slots
+- copy generation/selection now builds real subtitle candidates, persists subtitle-aware selected copy through sessions, and exposes subtitle context in the preview UI
+- copy tools and autopilot now accept agent-provided/external copy candidates, rescore them locally, and merge them back into final selection without bundling built-in model generation
 - planning/materialization now emit dynamic individual compositions with extra screenshots, loupes, overlays, and palette-informed backgrounds
 - planning now resequences screenshots per concept, diversifies lead/closing assignment across the concept set, and constrains shared support-screen reuse so concepts do not silently collapse onto the same screenshots
 - planning now emits explicit per-concept frame strategies plus per-screen/per-frame crop plans that react to focal points and OCR/text-occupied regions
-- materialization now consumes `frameStrategy` and `cropPlan` so generated configs react to plan-time framing, loupe anchoring, support-crop usage, and text-occupied-region avoidance
+- materialization now consumes `frameStrategy` and `cropPlan` so generated configs react to plan-time framing, loupe anchoring, support-crop usage, text-occupied-region avoidance, subtitle sizing, palette-led backgrounds, and deeper device-frame treatment
 - planning now selects category-aware concept recipes, naming, strategies, and role weighting for finance, health, productivity, social, creative, games, and general apps
 - the core renderer pipeline now passes multi-device compositions and screen effects through to template rendering
 - panoramic `crop` and `card` primitives now exist across schema, renderer, preview server, and editor
@@ -128,6 +130,8 @@ pnpm --filter @appframe/mcp-server typecheck
 pnpm --filter @appframe/web-preview typecheck
 pnpm vitest run packages/mcp-server/src/tools/design-planning.test.ts \
   packages/mcp-server/src/tools/copy-planning.test.ts \
+  packages/mcp-server/src/tools/plan-materializer.test.ts \
+  packages/mcp-server/src/tools/variant-session-lib.test.ts \
   packages/mcp-server/src/tools/suggestion-tools.test.ts
 ```
 
@@ -183,7 +187,7 @@ Recommended order:
 - [x] Add copy slot metadata into sessions in a UI-readable way.
 - [x] Expose selected copy directly in the preview UI.
 - [x] Use screenshot-derived slot signals to steer copy candidate phrasing.
-- [ ] Add subtitle candidate generation instead of mostly headline-only generation.
+- [x] Add subtitle candidate generation instead of mostly headline-only generation.
 - [ ] Add category-specific copy templates for:
   - [x] finance
   - [x] health/wellness
@@ -194,8 +198,8 @@ Recommended order:
 - [x] Add anti-repetition checks across the full selected copy set.
 - [x] Use OCR/text insights to avoid repeating embedded UI text in generated copy.
 - [ ] Add stronger "no feature list headline" detection.
-- [ ] If model-assisted copy returns, accept agent-provided outputs rather than bundling API-key-based generation inside AppFrame.
-- [ ] Add fallback merging logic so externally generated copy can be rescored by the heuristic system before selection.
+- [x] If model-assisted copy returns, accept agent-provided outputs rather than bundling API-key-based generation inside AppFrame.
+- [x] Add fallback merging logic so externally generated copy can be rescored by the heuristic system before selection.
 - [ ] Add locale-aware copy generation.
 - [ ] Add tests covering weak copy rejection patterns.
 
@@ -262,10 +266,10 @@ Recommended order:
   - [x] `logo`
   - [ ] multi-layer backgrounds
 - [ ] Add stronger background strategy mapping from plan to config.
-- [ ] Add device frame selection logic beyond the current default.
-- [ ] Add better typography defaults per concept style.
+- [x] Add device frame selection logic beyond the current default.
+- [x] Add better typography defaults per concept style.
 - [ ] Add concept-specific per-screen/per-frame composition rules.
-  Status: the materializer now responds to `cropPlan` and `frameStrategy`, but typography, background, and device-frame mapping still need a deeper pass.
+  Status: the materializer now responds to `cropPlan` and `frameStrategy`, and now pushes that metadata into subtitle sizing, support-card copy, palette-led backgrounds, and frameless device treatment; concept-specific composition expansion is still open.
 - [ ] Add richer panoramic element layout logic after new primitives land.
 
 ### 6. Variant Sessions
@@ -461,10 +465,10 @@ This is not fully implemented yet.
 
 If a future thread should continue immediately, the best next slice is:
 
-1. add subtitle candidate generation so copy planning selects full headline/subtitle systems instead of only headlines
-2. deepen category-specific copy coverage and let agent-provided copy merge back through heuristic rescoring
-3. expand materializer typography, background, and device-frame decisions beyond the current first pass on `frameStrategy` / `cropPlan`
-4. continue richer screenshot understanding and refinement flow polish after the plan-aware materialization slice
+1. improve screenshot understanding so plans react more confidently to onboarding, paywall, settings, chat, and data-heavy reporting screens
+2. strengthen weak-copy rejection patterns, especially feature-list headlines and locale-aware copy handling
+3. keep expanding recipe-specific composition and background mapping now that subtitle-aware copy and deeper frame/crop materialization are landed
+4. continue refinement flow polish and richer panoramic composition systems after the subtitle/external-copy slice
 
 That is the next quality step now that the planning metadata is no longer only emitted, but also consumed by the generated outputs.
 
@@ -472,7 +476,7 @@ That is the next quality step now that the planning metadata is no longer only e
 
 Use this to start a future thread:
 
-> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next post-materialization slice: add subtitle candidate generation, expand category-aware copy coverage and external-copy rescoring, and push `frameStrategy` / `cropPlan` further into typography, background, and device-frame decisions.
+> Continue AppFrame autopilot work. Read [NEXT_STEPS.md](/Users/bastianvidela/appframe/docs/NEXT_STEPS.md) and [AI_DESIGN_SYSTEM_ROADMAP.md](/Users/bastianvidela/appframe/docs/AI_DESIGN_SYSTEM_ROADMAP.md). Build the next screenshot-intelligence slice: improve role detection for onboarding/paywall/settings/chat/reporting screens, tighten weak-copy rejection and locale handling, and keep expanding recipe-specific composition/background logic now that subtitle-aware copy and external-copy rescoring are landed.
 
 ## Notes For Future Threads
 

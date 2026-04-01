@@ -356,6 +356,66 @@ describe('plan materializer', () => {
     const result = await materializeVariantPlan({
       plan,
       outputDir,
+      selectedCopySet: {
+        hero: {
+          id: 'hero-1',
+          slot: 'hero',
+          headline: 'See your\nmoney clearly',
+          subtitle: 'See balances budgets and spending in one calmer view',
+          wordCount: 4,
+          subtitleWordCount: 9,
+          score: 94,
+          rationale: [],
+          issues: [],
+        },
+        differentiator: {
+          id: 'diff-1',
+          slot: 'differentiator',
+          headline: 'Budgets with\ncontext',
+          subtitle: 'Use the second beat to prove control context and confidence together',
+          wordCount: 3,
+          subtitleWordCount: 11,
+          score: 90,
+          rationale: [],
+          issues: [],
+        },
+        features: [
+          {
+            id: 'feature-1',
+            slot: 'feature',
+            headline: 'Track every\nbudget',
+            subtitle: 'Zoom in on budget detail so the proof feels trustworthy',
+            sourceFeature: 'Budget tracking',
+            wordCount: 3,
+            subtitleWordCount: 10,
+            score: 88,
+            rationale: [],
+            issues: [],
+          },
+        ],
+        trust: {
+          id: 'trust-1',
+          slot: 'trust',
+          headline: 'Built for\ndaily trust',
+          subtitle: 'Reassure with reliable history and steady proof',
+          wordCount: 4,
+          subtitleWordCount: 7,
+          score: 85,
+          rationale: [],
+          issues: [],
+        },
+        summary: {
+          id: 'summary-1',
+          slot: 'summary',
+          headline: 'Everything that\nmatters',
+          subtitle: 'Close on the broader money story not another feature',
+          wordCount: 3,
+          subtitleWordCount: 9,
+          score: 86,
+          rationale: [],
+          issues: [],
+        },
+      },
     });
 
     const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
@@ -365,20 +425,35 @@ describe('plan materializer', () => {
 
     const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
     expect(individual.frames.style).toBe('flat');
-    expect(individual.screens[0].subtitle).toBe('Turn complex money decisions into one clear story');
+    expect(individual.screens[0].subtitle).toBe('See balances budgets and spending in one calmer view');
+    expect(individual.screens[0].autoSizeSubtitle).toBe(true);
     expect(individual.screens[0].loupe.displayY).toBeGreaterThan(70);
     expect(individual.screens[0].loupe.sourceY).toBeGreaterThan(0);
     expect(individual.screens[1].cornerRadius).toBe(24);
     expect(individual.screens[1].extraDevices).toHaveLength(1);
+    expect(individual.screens[1].deviceShadow).toMatchObject({ opacity: 0.18, blur: 28 });
+    expect(individual.screens[1].borderSimulation).toMatchObject({ enabled: true, thickness: 3 });
+    expect(individual.screens[1].background).toBe('#E2E8F0');
 
     const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
     const firstText = panoramic.panoramic.elements.find((element: { type: string }) => element.type === 'text');
     expect(firstText?.y).toBeGreaterThan(6);
+    expect(firstText?.x).toBe(4);
+
+    const panoramicDevices = panoramic.panoramic.elements.filter((element: { type: string }) => element.type === 'device');
+    expect(panoramicDevices[0]?.frameStyle).toBe('flat');
+    expect(panoramicDevices[1]?.frameStyle).toBe('none');
+    expect(panoramicDevices[1]?.borderSimulation).toMatchObject({ enabled: true, thickness: 3 });
 
     const supportGroups = panoramic.panoramic.elements.filter((element: { type: string; children?: Array<{ type: string }> }) =>
       element.type === 'group' && (element.children ?? []).some((child: { type: string }) => child.type === 'card'),
     );
     expect(supportGroups).toHaveLength(2);
+    expect(
+      supportGroups.some((group: {
+        children?: Array<{ type: string; body?: string }>;
+      }) => (group.children ?? []).some((child) => child.type === 'card' && child.body === 'See balances budgets and spending in one calmer view')),
+    ).toBe(true);
     expect(
       supportGroups.some((group: { children?: Array<{ type: string }> }) =>
         (group.children ?? []).some((child) => child.type === 'card')

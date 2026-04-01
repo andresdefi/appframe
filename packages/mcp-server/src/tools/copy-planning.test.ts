@@ -17,7 +17,9 @@ describe('copy planning helpers', () => {
 
     const selected = selectCopySet(candidateSet);
     expect(selected.hero.headline.length).toBeGreaterThan(0);
+    expect(selected.hero.subtitle?.length ?? 0).toBeGreaterThan(0);
     expect(selected.summary.headline.length).toBeGreaterThan(0);
+    expect(selected.summary.subtitle?.length ?? 0).toBeGreaterThan(0);
     expect(selected.features.length).toBeGreaterThan(0);
   });
 
@@ -51,9 +53,13 @@ describe('copy planning helpers', () => {
     const featureHeadlines = candidateSet.slots
       .find((slot) => slot.slot === 'feature')
       ?.candidates.map((candidate) => candidate.headline.replace(/\n/g, ' ')) ?? [];
+    const heroSubtitles = candidateSet.slots
+      .find((slot) => slot.slot === 'hero')
+      ?.candidates.map((candidate) => candidate.subtitle) ?? [];
 
     expect(heroHeadlines.some((headline) => /plan your day fast/i.test(headline))).toBe(true);
     expect(featureHeadlines.some((headline) => /habit streaks/i.test(headline))).toBe(true);
+    expect(heroSubtitles.some((subtitle) => /workflow|priorities|next step/i.test(subtitle ?? ''))).toBe(true);
   });
 
   it('avoids repeating embedded UI text when OCR-derived text is present', () => {
@@ -191,6 +197,112 @@ describe('copy planning helpers', () => {
 
     expect(selected.differentiator.headline).toBe('Budgets with\ncontext');
     expect(selected.summary.headline).toBe('Money moves\nwith clarity');
+  });
+
+  it('merges external copy back through rescoring before final selection', () => {
+    const selected = selectCopySet(
+      {
+        appName: 'Ledgerly',
+        category: 'finance',
+        generatedAt: new Date().toISOString(),
+        rules: [],
+        narrative: [],
+        slots: [
+          {
+            slot: 'hero',
+            candidates: [
+              {
+                id: 'hero-1',
+                slot: 'hero',
+                headline: 'Track your\nmoney',
+                subtitle: 'See every budget and transaction.',
+                wordCount: 3,
+                subtitleWordCount: 5,
+                score: 78,
+                rationale: [],
+                issues: [],
+              },
+            ],
+          },
+          {
+            slot: 'differentiator',
+            candidates: [
+              {
+                id: 'diff-1',
+                slot: 'differentiator',
+                headline: 'Budgets with\ncontext',
+                subtitle: 'Keep every category tied to the next decision.',
+                wordCount: 3,
+                subtitleWordCount: 9,
+                score: 84,
+                rationale: [],
+                issues: [],
+              },
+            ],
+          },
+          {
+            slot: 'feature',
+            sourceFeature: 'Budget tracking',
+            candidates: [
+              {
+                id: 'feature-1',
+                slot: 'feature',
+                headline: 'Track every\nbudget',
+                subtitle: 'Zoom in on spending without losing the wider story.',
+                sourceFeature: 'Budget tracking',
+                wordCount: 3,
+                subtitleWordCount: 9,
+                score: 86,
+                rationale: [],
+                issues: [],
+              },
+            ],
+          },
+          {
+            slot: 'trust',
+            candidates: [
+              {
+                id: 'trust-1',
+                slot: 'trust',
+                headline: 'Built for\ndaily trust',
+                subtitle: 'Reassure with reliable history and steady proof.',
+                wordCount: 4,
+                subtitleWordCount: 7,
+                score: 82,
+                rationale: [],
+                issues: [],
+              },
+            ],
+          },
+          {
+            slot: 'summary',
+            candidates: [
+              {
+                id: 'summary-1',
+                slot: 'summary',
+                headline: 'Everything that\nmatters',
+                subtitle: 'Close on the broader money story, not another feature.',
+                wordCount: 3,
+                subtitleWordCount: 9,
+                score: 84,
+                rationale: [],
+                issues: [],
+              },
+            ],
+          },
+        ],
+      },
+      [
+        {
+          slot: 'hero',
+          headline: 'Own your budget',
+          subtitle: 'See cash flow, budgets, and spending in one calmer view.',
+        },
+      ],
+    );
+
+    expect(selected.hero.headline).toBe('Own your budget');
+    expect(selected.hero.subtitle).toBe('See cash flow budgets and spending in one calmer view');
   });
 
   it('adds category-specific finance hero phrasing to the candidate pool', () => {

@@ -15,9 +15,11 @@ import {
 import { materializeVariantPlan } from './plan-materializer.js';
 import {
   generateCopyCandidates,
-  scoreHeadline,
+  mergeExternalCopyCandidates,
+  scoreCopyCandidate,
   selectCopySet,
   type CopyCandidateSet,
+  type ExternalCopyCandidateInput,
   type SelectedCopySet,
 } from './copy-planning.js';
 import { createSessionFromManifest, readSession, type VariantSessionFile } from './variant-session-lib.js';
@@ -422,6 +424,7 @@ export interface RunAutopilotArgs {
   features: string[];
   screenshots: Array<{ path: string; note?: string; ocrJsonPath?: string }>;
   goals?: string[];
+  externalCopy?: ExternalCopyCandidateInput[];
   primaryColor?: string;
   secondaryColor?: string;
   font?: string;
@@ -587,6 +590,7 @@ async function buildStageFingerprint(args: {
         category: inferCategory(autopilotArgs.appDescription, autopilotArgs.features),
         features: autopilotArgs.features,
         goals: autopilotArgs.goals ?? [],
+        externalCopy: autopilotArgs.externalCopy ?? [],
         screenshotCount: autopilotArgs.screenCount ?? Math.min(5, autopilotArgs.screenshots.length),
       });
     case 'planning': {
@@ -1094,6 +1098,7 @@ export async function runAutopilotPipeline(args: RunAutopilotArgs): Promise<Auto
         category,
         features: args.features,
         goals: args.goals,
+        externalCopy: args.externalCopy,
         screenshotCount: args.screenCount ?? Math.min(5, args.screenshots.length),
         screenSignals: buildCopyPlanningSignals(
           analysis,
@@ -1581,8 +1586,21 @@ export function registerSuggestionTools(server: McpServer): void {
       category: z.string().optional().describe('Optional category override'),
       screenshotCount: z.number().min(1).max(10).optional().describe('Expected slide count'),
       screenSignalsJson: z.string().optional().describe('Optional JSON array of screenshot-derived slot signals'),
+      externalCopyJson: z
+        .string()
+        .optional()
+        .describe('Optional JSON array of external copy candidates to merge and heuristically rescore'),
     },
-    async ({ appName, appDescription, features, goals, category, screenshotCount, screenSignalsJson }) => {
+    async ({
+      appName,
+      appDescription,
+      features,
+      goals,
+      category,
+      screenshotCount,
+      screenSignalsJson,
+      externalCopyJson,
+    }) => {
       const candidateSet = generateCopyCandidates({
         appName,
         appDescription,
@@ -1592,6 +1610,9 @@ export function registerSuggestionTools(server: McpServer): void {
         screenshotCount,
         screenSignals: screenSignalsJson
           ? parseJsonInput<Parameters<typeof generateCopyCandidates>[0]['screenSignals']>('screenSignalsJson', screenSignalsJson)
+          : undefined,
+        externalCopy: externalCopyJson
+          ? parseJsonInput<ExternalCopyCandidateInput[]>('externalCopyJson', externalCopyJson)
           : undefined,
       });
 
@@ -1611,16 +1632,31 @@ export function registerSuggestionTools(server: McpServer): void {
     'Score an existing copy candidate set and return a slot-by-slot view of the best headline options plus issues that should be fixed before layout generation.',
     {
       candidateSetJson: z.string().describe('JSON output from appframe_generate_copy_candidates'),
+      externalCopyJson: z
+        .string()
+        .optional()
+        .describe('Optional JSON array of external copy candidates to merge and rescore before scoring'),
     },
-    async ({ candidateSetJson }) => {
+    async ({ candidateSetJson, externalCopyJson }) => {
       try {
         const candidateSet = parseJsonInput<CopyCandidateSet>('candidateSetJson', candidateSetJson);
-        const scored = candidateSet.slots.map((slot) => ({
+        const mergedCandidateSet = externalCopyJson
+          ? mergeExternalCopyCandidates(
+              candidateSet,
+              parseJsonInput<ExternalCopyCandidateInput[]>('externalCopyJson', externalCopyJson),
+            )
+          : candidateSet;
+        const scored = mergedCandidateSet.slots.map((slot) => ({
           slot: slot.slot,
           sourceFeature: slot.sourceFeature ?? null,
           candidates: slot.candidates.map((candidate) => ({
             ...candidate,
-            rescored: scoreHeadline(candidate.headline, candidate.slot, candidate.sourceFeature),
+            rescored: scoreCopyCandidate({
+              headline: candidate.headline,
+              subtitle: candidate.subtitle,
+              slot: candidate.slot,
+              sourceFeature: candidate.sourceFeature,
+            }),
           })),
         }));
 
@@ -1630,8 +1666,8 @@ export function registerSuggestionTools(server: McpServer): void {
               type: 'text' as const,
               text: JSON.stringify(
                 {
-                  appName: candidateSet.appName,
-                  generatedAt: candidateSet.generatedAt,
+                  appName: mergedCandidateSet.appName,
+                  generatedAt: mergedCandidateSet.generatedAt,
                   slots: scored,
                 },
                 null,
@@ -1654,11 +1690,20 @@ export function registerSuggestionTools(server: McpServer): void {
     'Select the best copy candidate for each slot from a generated candidate set. The selected copy set should be reused across all concepts unless the user asks for a different narrative.',
     {
       candidateSetJson: z.string().describe('JSON output from appframe_generate_copy_candidates'),
+      externalCopyJson: z
+        .string()
+        .optional()
+        .describe('Optional JSON array of external copy candidates to merge and rescore before selection'),
     },
-    async ({ candidateSetJson }) => {
+    async ({ candidateSetJson, externalCopyJson }) => {
       try {
         const candidateSet = parseJsonInput<CopyCandidateSet>('candidateSetJson', candidateSetJson);
-        const selected = selectCopySet(candidateSet);
+        const selected = selectCopySet(
+          candidateSet,
+          externalCopyJson
+            ? parseJsonInput<ExternalCopyCandidateInput[]>('externalCopyJson', externalCopyJson)
+            : undefined,
+        );
 
         return {
           content: [
@@ -1775,6 +1820,10 @@ export function registerSuggestionTools(server: McpServer): void {
         .min(1)
         .describe('Raw screenshot inventory'),
       goals: z.array(z.string()).optional().describe('Optional marketing goals'),
+      externalCopyJson: z
+        .string()
+        .optional()
+        .describe('Optional JSON array of external copy candidates to merge and rescore during copy selection'),
       primaryColor: z.string().optional().describe('Optional primary brand color'),
       secondaryColor: z.string().optional().describe('Optional secondary brand color'),
       font: z.string().optional().describe('Optional font override'),
@@ -1797,6 +1846,7 @@ export function registerSuggestionTools(server: McpServer): void {
       features,
       screenshots,
       goals,
+      externalCopyJson,
       primaryColor,
       secondaryColor,
       font,
@@ -1817,6 +1867,9 @@ export function registerSuggestionTools(server: McpServer): void {
           features,
           screenshots,
           goals,
+          externalCopy: externalCopyJson
+            ? parseJsonInput<ExternalCopyCandidateInput[]>('externalCopyJson', externalCopyJson)
+            : undefined,
           primaryColor,
           secondaryColor,
           font,

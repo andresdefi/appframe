@@ -33,6 +33,7 @@ export interface VariantCopyAssignment {
   unitIndex: number;
   slot: CopySlot;
   headline: string;
+  subtitle?: string;
   sourceFeature?: string;
   sourcePath?: string;
   sourceRole?: ScreenshotRole;
@@ -253,6 +254,7 @@ function buildVariantCopyAssignments(
         unitIndex: screen.index,
         slot,
         headline: candidate.headline,
+        subtitle: candidate.subtitle,
         sourceFeature: candidate.sourceFeature,
         sourcePath: screen.sourcePath,
         sourceRole: screen.sourceRole,
@@ -273,6 +275,7 @@ function buildVariantCopyAssignments(
       unitIndex: frame.frame,
       slot,
       headline: candidate.headline,
+      subtitle: candidate.subtitle,
       sourceFeature: candidate.sourceFeature,
       sourcePath: frame.sourcePath,
       sourceRole: frame.sourceRole,

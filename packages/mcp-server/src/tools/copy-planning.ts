@@ -4,11 +4,14 @@ export interface CopyCandidate {
   id: string;
   slot: CopySlot;
   headline: string;
+  subtitle?: string;
   sourceFeature?: string;
   wordCount: number;
+  subtitleWordCount?: number;
   score: number;
   rationale: string[];
   issues: string[];
+  origin?: 'generated' | 'external';
 }
 
 export interface CopySlotCandidates {
@@ -24,6 +27,13 @@ export interface CopyCandidateSet {
   rules: string[];
   narrative: string[];
   slots: CopySlotCandidates[];
+}
+
+export interface ExternalCopyCandidateInput {
+  slot: CopySlot;
+  headline: string;
+  subtitle?: string;
+  sourceFeature?: string;
 }
 
 export interface CopyScreenSignal {
@@ -81,6 +91,7 @@ const OVERLAP_STOP_WORDS = new Set([
 
 const SLOT_RULES = [
   'One idea per headline.',
+  'Pair each headline with a supporting subtitle when possible.',
   'Prefer 3 to 5 words.',
   'Avoid "and" joining two benefits.',
   'Reject vague or generic filler.',
@@ -108,6 +119,12 @@ function toHeadline(value: string): string {
   if (words.length === 0) return 'Make the value clear';
   if (words.length <= 3) return words.join(' ');
   return `${words.slice(0, 2).join(' ')}\n${words.slice(2).join(' ')}`;
+}
+
+function toSubtitle(value: string | undefined): string | undefined {
+  const words = normalizePhrase(value ?? '').split(' ').filter(Boolean).slice(0, 12);
+  if (words.length === 0) return undefined;
+  return words.join(' ');
 }
 
 function compactFeature(feature: string): string {
@@ -439,6 +456,181 @@ function buildSummaryPhrases(
   ];
 }
 
+function buildHeroSubtitles(
+  category: string,
+  features: string[],
+  signal?: CopyScreenSignal,
+): string[] {
+  const focus = resolveSignalFocus(signal, signal?.focus ?? features[0] ?? 'core workflow', features[0] ?? 'core workflow');
+  const lower = focus.toLowerCase();
+  switch (category) {
+    case 'finance':
+      return [
+        'See balances, budgets, and spending in one calmer view.',
+        `Keep ${lower} readable before the next money decision.`,
+      ];
+    case 'health':
+    case 'wellness':
+      return [
+        'Turn daily health signals into progress you can actually follow.',
+        `Keep ${lower} visible without adding pressure to the routine.`,
+      ];
+    case 'productivity':
+      return [
+        'Show the workflow, priorities, and next step in one pass.',
+        `Keep ${lower} moving without losing the bigger plan.`,
+      ];
+    case 'social':
+      return [
+        'Open on the conversation or community moment worth returning to.',
+        `Keep ${lower} readable even when the screen is busy.`,
+      ];
+    case 'creative':
+      return [
+        'Lead with the visual moment that proves the product has taste.',
+        `Use ${lower} to show polish, control, and momentum together.`,
+      ];
+    case 'games':
+      return [
+        'Set the tone fast, then let the strongest action beat carry the story.',
+        `Keep ${lower} front and center without slowing the pace.`,
+      ];
+    default:
+      return [
+        'Start with the clearest product outcome before adding supporting detail.',
+        `Use ${lower} to make the first benefit obvious at a glance.`,
+      ];
+  }
+}
+
+function buildDifferentiatorSubtitles(
+  category: string,
+  features: string[],
+  goals: string[],
+  signal?: CopyScreenSignal,
+): string[] {
+  const fallback = goals[0] ?? features[0] ?? 'core workflow';
+  const focus = resolveSignalFocus(signal, signal?.focus ?? fallback, fallback);
+  const lower = focus.toLowerCase();
+  switch (category) {
+    case 'finance':
+      return [
+        `Show how ${lower} stays legible even when the numbers get dense.`,
+        'Use the second beat to prove control, context, and confidence together.',
+      ];
+    case 'health':
+    case 'wellness':
+      return [
+        `Use ${lower} to show the calmer rhythm behind the routine.`,
+        'Make the differentiator feel repeatable, not intense or one-off.',
+      ];
+    case 'productivity':
+      return [
+        `Let ${lower} prove the flow stays obvious under real workload.`,
+        'Use the second slide to show clarity, pace, and control together.',
+      ];
+    default:
+      return [
+        `Use ${lower} to show why this product feels more intentional.`,
+        'Prove the product rhythm, not just a list of controls.',
+      ];
+  }
+}
+
+function buildFeatureSubtitles(
+  category: string,
+  feature: string,
+  signal?: CopyScreenSignal,
+): string[] {
+  const focus = resolveSignalFocus(signal, signal?.focus ?? feature, feature);
+  const lower = focus.toLowerCase();
+  switch (category) {
+    case 'finance':
+      return [
+        `Zoom in on ${lower} so the proof feels trustworthy, not abstract.`,
+        `Keep the subtitle grounded in how ${lower} helps the next decision.`,
+      ];
+    case 'health':
+    case 'wellness':
+      return [
+        `Show how ${lower} supports steady habits over time.`,
+        `Use this slide to keep ${lower} practical and repeatable.`,
+      ];
+    case 'productivity':
+      return [
+        `Use the screen detail to show how ${lower} removes daily friction.`,
+        `Keep the proof anchored in ${lower}, not every secondary control.`,
+      ];
+    default:
+      return [
+        `Pull forward the proof inside ${lower} without crowding the screen.`,
+        `Keep the subtitle focused on why ${lower} matters in real use.`,
+      ];
+  }
+}
+
+function buildTrustSubtitles(
+  category: string,
+  appName: string,
+  signal?: CopyScreenSignal,
+): string[] {
+  const focus = signal?.focus
+    ? resolveSignalFocus(signal, signal.focus, appName)
+    : appName;
+  const lower = focus.toLowerCase();
+  switch (category) {
+    case 'finance':
+      return [
+        `Reassure with ${lower}, clarity, and proof that feels dependable.`,
+        'Use this beat to show reliability without slipping into boilerplate.',
+      ];
+    case 'health':
+    case 'wellness':
+      return [
+        `Make ${lower} feel supportive enough to come back to every day.`,
+        'Use a calmer proof line so the trust beat still feels human.',
+      ];
+    default:
+      return [
+        `Show why ${lower} is polished enough for repeat use.`,
+        'Land on credibility, consistency, and product maturity together.',
+      ];
+  }
+}
+
+function buildSummarySubtitles(
+  category: string,
+  features: string[],
+  goals: string[],
+  signal?: CopyScreenSignal,
+): string[] {
+  const focus = signal?.focus
+    ? resolveSignalFocus(signal, signal.focus, features[0] ?? goals[0] ?? 'the product')
+    : compactFeature(features[0] ?? goals[0] ?? 'the product');
+  const avoidBusyUi = signal?.unsafeForTextOverlay ?? false;
+  switch (category) {
+    case 'finance':
+      return [
+        'Close on the broader money story instead of repeating the opening claim.',
+        avoidBusyUi
+          ? `Keep the final value around ${focus.toLowerCase()} clear of the busy UI.`
+          : `Use ${focus.toLowerCase()} to close with a calmer, broader payoff.`,
+      ];
+    case 'productivity':
+      return [
+        'End with the system-level payoff, not another feature bullet.',
+        `Let ${focus.toLowerCase()} reinforce the bigger workflow win.`,
+      ];
+    default:
+      return [
+        'Close on the remaining benefit so the set finishes with range.',
+        avoidBusyUi
+          ? 'Keep the closing message short enough to stay clear of the UI.'
+          : `Use ${focus.toLowerCase()} to wrap the story without echoing the hero.`,
+      ];
+  }
+}
+
 export function scoreHeadline(
   headline: string,
   slot: CopySlot,
@@ -500,16 +692,134 @@ export function scoreHeadline(
   };
 }
 
+function scoreSubtitle(args: {
+  headline: string;
+  subtitle?: string;
+  slot: CopySlot;
+  sourceFeature?: string;
+  signal?: CopyScreenSignal;
+}): {
+  subtitle?: string;
+  subtitleWordCount?: number;
+  scoreAdjustment: number;
+  rationale: string[];
+  issues: string[];
+} {
+  const subtitle = toSubtitle(args.subtitle);
+  if (!subtitle) {
+    return {
+      subtitle: undefined,
+      subtitleWordCount: undefined,
+      scoreAdjustment: -4,
+      rationale: [],
+      issues: ['Missing supporting subtitle.'],
+    };
+  }
+
+  const words = subtitle.split(/\s+/).filter(Boolean);
+  const lowered = words.map((word) => word.toLowerCase());
+  const issues: string[] = [];
+  const rationale: string[] = [];
+  let scoreAdjustment = 0;
+
+  if (words.length >= 6 && words.length <= 11) {
+    scoreAdjustment += 10;
+    rationale.push('Adds a readable support line without becoming paragraph copy.');
+  } else {
+    issues.push('Subtitle length is outside the preferred 6-11 word range.');
+    scoreAdjustment -= Math.abs(8 - words.length) * 2;
+  }
+
+  const overlap = lexicalOverlap(args.headline.replace(/\n/g, ' '), subtitle);
+  if (overlap >= 3) {
+    issues.push('Subtitle repeats too much of the headline.');
+    scoreAdjustment -= overlap * 5;
+  } else if (overlap <= 1) {
+    rationale.push('Adds support without echoing the headline.');
+  }
+
+  if (/[,&/]/.test(subtitle)) {
+    issues.push('Subtitle reads like a feature list.');
+    scoreAdjustment -= 8;
+  }
+
+  const genericCount = lowered.filter((word) => GENERIC_WORDS.has(word)).length;
+  if (genericCount > 0) {
+    issues.push('Subtitle uses generic marketing language.');
+    scoreAdjustment -= genericCount * 6;
+  }
+
+  if (args.slot === 'feature' && args.sourceFeature) {
+    const featureWords = new Set(normalizePhrase(args.sourceFeature).toLowerCase().split(' ').filter(Boolean));
+    const featureOverlap = lowered.filter((word) => featureWords.has(word)).length;
+    if (featureOverlap >= 1) {
+      scoreAdjustment += 6;
+      rationale.push('Subtitle stays grounded in the feature proof.');
+    } else {
+      issues.push('Subtitle is not clearly grounded in the feature proof.');
+      scoreAdjustment -= 6;
+    }
+  }
+
+  if (args.signal?.unsafeForTextOverlay && words.length > 10) {
+    issues.push('Subtitle may be too long for a UI-dense screen.');
+    scoreAdjustment -= 4;
+  }
+
+  if (repeatsEmbeddedText(subtitle, args.signal)) {
+    issues.push('Subtitle repeats embedded UI text instead of reframing the benefit.');
+    scoreAdjustment -= 18;
+  }
+
+  return {
+    subtitle,
+    subtitleWordCount: words.length,
+    scoreAdjustment,
+    rationale,
+    issues,
+  };
+}
+
+export function scoreCopyCandidate(args: {
+  headline: string;
+  subtitle?: string;
+  slot: CopySlot;
+  sourceFeature?: string;
+  signal?: CopyScreenSignal;
+}): Omit<CopyCandidate, 'id' | 'slot' | 'headline' | 'sourceFeature' | 'origin'> & { subtitle?: string } {
+  const headlineScore = scoreHeadline(args.headline, args.slot, args.sourceFeature);
+  const subtitleScore = scoreSubtitle(args);
+
+  return {
+    subtitle: subtitleScore.subtitle,
+    wordCount: headlineScore.wordCount,
+    subtitleWordCount: subtitleScore.subtitleWordCount,
+    score: Math.max(0, Math.min(100, headlineScore.score + subtitleScore.scoreAdjustment)),
+    rationale: [...headlineScore.rationale, ...subtitleScore.rationale],
+    issues: [...headlineScore.issues, ...subtitleScore.issues],
+  };
+}
+
 function buildCandidates(
   slot: CopySlot,
-  phrases: string[],
+  headlinePhrases: string[],
+  subtitlePhrases: string[],
   sourceFeature?: string,
   signal?: CopyScreenSignal,
 ): CopyCandidate[] {
-  const deduped = Array.from(new Set(phrases.map((phrase) => toHeadline(phrase)).filter(Boolean)));
-  return deduped
-    .map((headline, index) => {
-      const scored = scoreHeadline(headline, slot, sourceFeature);
+  const dedupedHeadlines = Array.from(new Set(headlinePhrases.map((phrase) => toHeadline(phrase)).filter(Boolean)));
+  const dedupedSubtitles = Array.from(new Set(subtitlePhrases.map((phrase) => toSubtitle(phrase)).filter(Boolean))) as string[];
+  const subtitleOptions = dedupedSubtitles.length > 0 ? dedupedSubtitles : [undefined];
+
+  const candidates = dedupedHeadlines.flatMap((headline) => (
+    subtitleOptions.map((subtitle, index) => {
+      const scored = scoreCopyCandidate({
+        headline,
+        subtitle,
+        slot,
+        sourceFeature,
+        signal,
+      });
       if (repeatsEmbeddedText(headline, signal)) {
         scored.score = Math.max(0, scored.score - 24);
         scored.issues = [
@@ -519,15 +829,123 @@ function buildCandidates(
       }
 
       return {
-        id: `${slot}-${slugify(sourceFeature ?? headline)}-${index + 1}`,
+        id: `${slot}-${slugify(sourceFeature ?? `${headline}-${subtitle ?? 'subtitle'}`)}-${index + 1}`,
         slot,
         headline,
+        subtitle: scored.subtitle,
         sourceFeature,
+        origin: 'generated' as const,
         ...scored,
       };
     })
+  ));
+
+  const byKey = new Map<string, CopyCandidate>();
+  for (const candidate of candidates) {
+    const key = `${normalizedHeadlineKey(candidate.headline)}::${normalizePhrase(candidate.subtitle ?? '').toLowerCase()}`;
+    const existing = byKey.get(key);
+    if (!existing || candidate.score > existing.score) {
+      byKey.set(key, candidate);
+    }
+  }
+
+  return Array.from(byKey.values())
     .sort((left, right) => right.score - left.score)
     .slice(0, 4);
+}
+
+function scoreExternalCandidate(args: {
+  external: ExternalCopyCandidateInput;
+  slotSourceFeature?: string;
+  signal?: CopyScreenSignal;
+  index: number;
+}): CopyCandidate {
+  const sourceFeature = args.external.sourceFeature ?? args.slotSourceFeature;
+  const headline = toHeadline(args.external.headline);
+  const scored = scoreCopyCandidate({
+    headline,
+    subtitle: args.external.subtitle,
+    slot: args.external.slot,
+    sourceFeature,
+    signal: args.signal,
+  });
+
+  return {
+    id: `${args.external.slot}-${slugify(sourceFeature ?? headline)}-external-${args.index + 1}`,
+    slot: args.external.slot,
+    headline,
+    subtitle: scored.subtitle,
+    sourceFeature,
+    origin: 'external',
+    ...scored,
+  };
+}
+
+export function mergeExternalCopyCandidates(
+  candidateSet: CopyCandidateSet,
+  externalCopy: ExternalCopyCandidateInput[],
+  screenSignals?: CopyScreenSignal[],
+): CopyCandidateSet {
+  if (externalCopy.length === 0) return candidateSet;
+
+  const featureSlots = candidateSet.slots.filter((slot) => slot.slot === 'feature').length;
+  const slotSignals = resolveSignalsBySlot(screenSignals, featureSlots);
+  let featureIndex = 0;
+
+  return {
+    ...candidateSet,
+    slots: candidateSet.slots.map((slotGroup) => {
+      const signal = (() => {
+        switch (slotGroup.slot) {
+          case 'hero':
+            return slotSignals.hero;
+          case 'differentiator':
+            return slotSignals.differentiator;
+          case 'trust':
+            return slotSignals.trust;
+          case 'summary':
+            return slotSignals.summary;
+          case 'feature':
+            return slotSignals.features[featureIndex];
+        }
+      })();
+
+      if (slotGroup.slot === 'feature') featureIndex += 1;
+
+      const matchingExternal = externalCopy
+        .filter((candidate) => candidate.slot === slotGroup.slot)
+        .filter((candidate) => (
+          slotGroup.slot !== 'feature'
+            || !candidate.sourceFeature
+            || normalizedSourceFeature(candidate.sourceFeature) === normalizedSourceFeature(slotGroup.sourceFeature)
+        ));
+
+      if (matchingExternal.length === 0) return slotGroup;
+
+      const rescored = matchingExternal.map((external, index) => scoreExternalCandidate({
+        external,
+        slotSourceFeature: slotGroup.sourceFeature,
+        signal,
+        index,
+      }));
+
+      const byKey = new Map<string, CopyCandidate>();
+      for (const candidate of [...slotGroup.candidates, ...rescored]) {
+        const key = `${normalizedHeadlineKey(candidate.headline)}::${normalizePhrase(candidate.subtitle ?? '').toLowerCase()}`;
+        const existing = byKey.get(key);
+        if (!existing || candidate.score > existing.score) {
+          byKey.set(key, candidate);
+        }
+      }
+
+      return {
+        ...slotGroup,
+        candidates: Array.from(byKey.values())
+          .sort((left, right) => right.score - left.score)
+          .slice(0, 6),
+      };
+    }),
+  };
 }
 
 export function generateCopyCandidates(args: {
@@ -538,6 +956,7 @@ export function generateCopyCandidates(args: {
   goals?: string[];
   screenshotCount?: number;
   screenSignals?: CopyScreenSignal[];
+  externalCopy?: ExternalCopyCandidateInput[];
 }): CopyCandidateSet {
   const goals = args.goals ?? [];
   const featureSlots = Math.max(1, Math.min(args.features.length || 1, Math.max((args.screenshotCount ?? 4) - 3, 1)));
@@ -555,6 +974,7 @@ export function generateCopyCandidates(args: {
       candidates: buildCandidates(
         'hero',
         buildHeroPhrases(args.appName, args.appDescription, args.category, args.features, slotSignals.hero),
+        buildHeroSubtitles(args.category, args.features, slotSignals.hero),
         undefined,
         slotSignals.hero,
       ),
@@ -564,6 +984,7 @@ export function generateCopyCandidates(args: {
       candidates: buildCandidates(
         'differentiator',
         buildDifferentiatorPhrases(args.category, args.features, goals, slotSignals.differentiator),
+        buildDifferentiatorSubtitles(args.category, args.features, goals, slotSignals.differentiator),
         undefined,
         slotSignals.differentiator,
       ),
@@ -576,6 +997,7 @@ export function generateCopyCandidates(args: {
         candidates: buildCandidates(
           'feature',
           buildFeaturePhrases(args.category, feature, slotSignals.features[index]),
+          buildFeatureSubtitles(args.category, feature, slotSignals.features[index]),
           feature,
           slotSignals.features[index],
         ),
@@ -586,6 +1008,7 @@ export function generateCopyCandidates(args: {
       candidates: buildCandidates(
         'trust',
         buildTrustPhrases(args.category, args.appName, slotSignals.trust),
+        buildTrustSubtitles(args.category, args.appName, slotSignals.trust),
         undefined,
         slotSignals.trust,
       ),
@@ -595,13 +1018,14 @@ export function generateCopyCandidates(args: {
       candidates: buildCandidates(
         'summary',
         buildSummaryPhrases(args.category, args.features, goals, slotSignals.summary),
+        buildSummarySubtitles(args.category, args.features, goals, slotSignals.summary),
         undefined,
         slotSignals.summary,
       ),
     },
   ];
 
-  return {
+  const candidateSet: CopyCandidateSet = {
     appName: args.appName,
     category: args.category,
     generatedAt: new Date().toISOString(),
@@ -609,6 +1033,10 @@ export function generateCopyCandidates(args: {
     narrative,
     slots,
   };
+
+  return args.externalCopy?.length
+    ? mergeExternalCopyCandidates(candidateSet, args.externalCopy, args.screenSignals)
+    : candidateSet;
 }
 
 function normalizedHeadlineKey(headline: string): string {
@@ -689,8 +1117,14 @@ function scoreSelectedCopyCombination(candidates: CopyCandidate[]): number {
   return score;
 }
 
-export function selectCopySet(candidateSet: CopyCandidateSet): SelectedCopySet {
-  const orderedSlots = candidateSet.slots
+export function selectCopySet(
+  candidateSet: CopyCandidateSet,
+  externalCopy: ExternalCopyCandidateInput[] = [],
+): SelectedCopySet {
+  const mergedCandidateSet = externalCopy.length > 0
+    ? mergeExternalCopyCandidates(candidateSet, externalCopy)
+    : candidateSet;
+  const orderedSlots = mergedCandidateSet.slots
     .filter((slot) => slot.candidates.length > 0)
     .sort((left, right) => {
       const order = (slot: CopySlot): number => {

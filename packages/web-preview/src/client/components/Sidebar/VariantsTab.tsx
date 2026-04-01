@@ -194,20 +194,29 @@ function renderSelectedCopyRows(selectedCopySet: AutopilotSelectedCopySet): Arra
   key: string;
   label: string;
   headline: string;
+  subtitle?: string;
   sourceFeature?: string;
 }> {
   return [
-    { key: 'hero', label: 'Hero', headline: selectedCopySet.hero.headline, sourceFeature: selectedCopySet.hero.sourceFeature },
+    {
+      key: 'hero',
+      label: 'Hero',
+      headline: selectedCopySet.hero.headline,
+      subtitle: selectedCopySet.hero.subtitle,
+      sourceFeature: selectedCopySet.hero.sourceFeature,
+    },
     {
       key: 'differentiator',
       label: 'Differentiator',
       headline: selectedCopySet.differentiator.headline,
+      subtitle: selectedCopySet.differentiator.subtitle,
       sourceFeature: selectedCopySet.differentiator.sourceFeature,
     },
     ...selectedCopySet.features.map((feature, index) => ({
       key: `feature-${index + 1}`,
       label: `Feature ${index + 1}`,
       headline: feature.headline,
+      subtitle: feature.subtitle,
       sourceFeature: feature.sourceFeature,
     })),
     ...(selectedCopySet.trust
@@ -215,10 +224,17 @@ function renderSelectedCopyRows(selectedCopySet: AutopilotSelectedCopySet): Arra
           key: 'trust',
           label: 'Trust',
           headline: selectedCopySet.trust.headline,
+          subtitle: selectedCopySet.trust.subtitle,
           sourceFeature: selectedCopySet.trust.sourceFeature,
         }]
       : []),
-    { key: 'summary', label: 'Summary', headline: selectedCopySet.summary.headline, sourceFeature: selectedCopySet.summary.sourceFeature },
+    {
+      key: 'summary',
+      label: 'Summary',
+      headline: selectedCopySet.summary.headline,
+      subtitle: selectedCopySet.summary.subtitle,
+      sourceFeature: selectedCopySet.summary.sourceFeature,
+    },
   ];
 }
 
@@ -721,6 +737,11 @@ export function VariantsTab() {
                       <div className="mt-1 whitespace-pre-line text-[11px] font-medium text-text">
                         {row.headline}
                       </div>
+                      {row.subtitle ? (
+                        <div className="mt-1 text-[10px] leading-4 text-text-dim">
+                          {row.subtitle}
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -976,6 +997,11 @@ export function VariantsTab() {
                           <div className="mt-1 whitespace-pre-line text-[11px] font-medium text-text">
                             {assignment.headline}
                           </div>
+                          {assignment.subtitle ? (
+                            <div className="mt-1 text-[10px] leading-4 text-text-dim">
+                              {assignment.subtitle}
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>

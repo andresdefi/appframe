@@ -412,6 +412,8 @@ function buildIndividualBackground(args: {
       return { background: mixedBackground(backgroundFromPalette, '#FFFFFF', 0.5) };
     case 'community-spotlight':
       return { background: mixedBackground(backgroundFromPalette, args.colors.secondary, 0.22) };
+    case 'vault-glow':
+      return { background: mixedBackground(backgroundFromPalette ?? accent, '#0F172A', 0.22) };
     case 'route-glow':
       return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.24) };
     case 'quiet-surface':
@@ -426,6 +428,8 @@ function buildIndividualBackground(args: {
       return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.1) };
     case 'catalog-glow':
       return { background: mixedBackground(accent, args.colors.secondary, 0.22) };
+    case 'checkout-lane':
+      return { background: mixedBackground(accent, args.colors.primary, 0.2) };
     case 'capture-stage':
       return { background: mixedBackground(accent, '#0F172A', 0.34) };
     case 'timeline-surface':
@@ -494,7 +498,15 @@ function panoramicTextPlacement(args: {
     maxWidth -= 2;
     fontSize -= 0.1;
   }
+  if (hasCompositionFeature(args.frame, 'trust-shield')) {
+    x += 1;
+    maxWidth -= 2;
+    fontSize -= 0.08;
+  }
   if (hasCompositionFeature(args.frame, 'browse-strip')) {
+    maxWidth -= 1;
+  }
+  if (hasCompositionFeature(args.frame, 'checkout-lane')) {
     maxWidth -= 1;
   }
   if (hasCompositionFeature(args.frame, 'route-arc')) {
@@ -1428,6 +1440,242 @@ function buildPanoramicTimelineBandGroup(args: {
   };
 }
 
+function buildPanoramicCheckoutLaneGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const steps = ['Cart', 'Pay', 'Ship'];
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Checkout flow',
+      x: 2,
+      y: 0,
+      width: 34,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'badge',
+      content: 'Delivery',
+      x: 38,
+      y: 4,
+      width: 20,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.92,
+      borderColor: args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.8,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+  ];
+
+  steps.forEach((label, index) => {
+    const x = 8 + (index * 28);
+    const color = index === 1 ? args.secondaryColor : args.accentColor;
+    children.push({
+      type: 'decoration',
+      shape: 'circle',
+      x,
+      y: 20,
+      width: 10,
+      height: 10,
+      color,
+      opacity: args.dark ? 0.44 : 0.3,
+      rotation: 0,
+      z: 2,
+    });
+    children.push({
+      type: 'badge',
+      content: label,
+      x: x - 4,
+      y: 33,
+      width: 18,
+      height: 7.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.9,
+      borderColor: color,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.74,
+      fontWeight: 700,
+      letterSpacing: 5,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    });
+    if (index < steps.length - 1) {
+      children.push({
+        type: 'decoration',
+        shape: 'line',
+        x: x + 9,
+        y: 24,
+        width: 20,
+        height: 2,
+        color,
+        opacity: args.dark ? 0.34 : 0.22,
+        rotation: 0,
+        z: 1,
+      });
+    }
+  });
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 7,
+    children,
+  };
+}
+
+function buildPanoramicTrustShieldGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Secure access',
+      x: 4,
+      y: 0,
+      width: 30,
+      height: 8.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'badge',
+      content: 'Verified',
+      x: 38,
+      y: 4,
+      width: 18,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.9,
+      borderColor: args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.78,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 22,
+      y: 16,
+      width: 28,
+      height: 28,
+      color: args.accentColor,
+      opacity: args.dark ? 0.2 : 0.14,
+      rotation: 0,
+      z: 1,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 30,
+      y: 24,
+      width: 12,
+      height: 12,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.4 : 0.26,
+      rotation: 0,
+      z: 2,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 18,
+      y: 50,
+      width: 36,
+      height: 2,
+      color: args.accentColor,
+      opacity: args.dark ? 0.42 : 0.24,
+      rotation: 0,
+      z: 2,
+    },
+    {
+      type: 'decoration',
+      shape: 'dot-grid',
+      x: 58,
+      y: 18,
+      width: 22,
+      height: 18,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.24 : 0.18,
+      rotation: 0,
+      z: 1,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.96,
+    z: 7,
+    children,
+  };
+}
+
 function buildPanoramicDecorativeGroup(args: {
   x: number;
   y: number;
@@ -1518,6 +1766,9 @@ function panoramicTextY(frame: PlannedPanoramicFrame, recipe: PlannedPanoramicVa
   if (hasCompositionFeature(frame, 'toolbar-ribbon')) {
     return recipe === 'bold-panorama' ? 11 : 12;
   }
+  if (hasCompositionFeature(frame, 'trust-shield')) {
+    return recipe === 'bold-panorama' ? 11 : 12;
+  }
   if (hasCompositionFeature(frame, 'timeline-band')) {
     return recipe === 'bold-panorama' ? 11 : 12;
   }
@@ -1539,8 +1790,14 @@ function panoramicProofChipY(
   if (hasCompositionFeature(frame, 'profile-orbit')) {
     return recipe === 'bold-panorama' ? 30 : 28;
   }
+  if (hasCompositionFeature(frame, 'trust-shield')) {
+    return recipe === 'bold-panorama' ? 32 : 29;
+  }
   if (hasCompositionFeature(frame, 'media-marquee')) {
     return recipe === 'bold-panorama' ? 34 : 31;
+  }
+  if (hasCompositionFeature(frame, 'checkout-lane')) {
+    return recipe === 'bold-panorama' ? 35 : 32;
   }
   if (hasCompositionFeature(frame, 'capture-focus')) {
     return recipe === 'bold-panorama' ? 36 : 33;
@@ -1592,20 +1849,24 @@ function panoramicDevicePlacement(
       : 0;
   const toolbarRibbon = hasCompositionFeature(frame, 'toolbar-ribbon');
   const browseStrip = hasCompositionFeature(frame, 'browse-strip');
+  const checkoutLane = hasCompositionFeature(frame, 'checkout-lane');
   const profileOrbit = hasCompositionFeature(frame, 'profile-orbit');
+  const trustShield = hasCompositionFeature(frame, 'trust-shield');
   const routeArc = hasCompositionFeature(frame, 'route-arc');
   const mediaMarquee = hasCompositionFeature(frame, 'media-marquee');
   const captureFocus = hasCompositionFeature(frame, 'capture-focus');
   const timelineBand = hasCompositionFeature(frame, 'timeline-band');
   const y = frame.cropPlan?.avoidRegions.includes('top')
-    ? (toolbarRibbon || timelineBand ? 30 : mediaMarquee ? 31 : 28)
+    ? (toolbarRibbon || timelineBand || trustShield ? 30 : mediaMarquee ? 31 : 28)
     : extractDriven
-      ? (profileOrbit ? 27 : routeArc ? 28 : captureFocus ? 27 : 26)
-      : (browseStrip ? 25 : mediaMarquee ? 26 : timelineBand ? 25.5 : 24);
+      ? (profileOrbit ? 27 : trustShield ? 27 : routeArc ? 28 : captureFocus ? 27 : 26)
+      : (browseStrip || checkoutLane ? 25 : mediaMarquee ? 26 : timelineBand ? 25.5 : 24);
   return {
-    x: Math.max(2, frameCenter - (extractDriven ? 6.5 : browseStrip ? 6.6 : 7) + xOffset),
+    x: Math.max(2, frameCenter - (extractDriven ? 6.5 : browseStrip || checkoutLane ? 6.6 : 7) + xOffset),
     y,
-    width: extractDriven ? (toolbarRibbon || timelineBand ? 12.4 : 13) : (browseStrip || timelineBand ? 13.2 : 14),
+    width: extractDriven
+      ? (toolbarRibbon || timelineBand || trustShield ? 12.4 : 13)
+      : (browseStrip || checkoutLane || timelineBand ? 13.2 : 14),
     rotation: index % 2 === 0 ? -2 : 2,
   };
 }
@@ -1727,6 +1988,8 @@ function buildPanoramicElements(args: {
     const hasToolbarRibbon = hasCompositionFeature(frame, 'toolbar-ribbon');
     const hasProfileOrbit = hasCompositionFeature(frame, 'profile-orbit');
     const hasBrowseStrip = hasCompositionFeature(frame, 'browse-strip');
+    const hasCheckoutLane = hasCompositionFeature(frame, 'checkout-lane');
+    const hasTrustShield = hasCompositionFeature(frame, 'trust-shield');
     const hasRouteArc = hasCompositionFeature(frame, 'route-arc');
     const hasMediaMarquee = hasCompositionFeature(frame, 'media-marquee');
     const hasCaptureFocus = hasCompositionFeature(frame, 'capture-focus');
@@ -1829,6 +2092,10 @@ function buildPanoramicElements(args: {
               ? 'Creator spotlight'
               : hasToolbarRibbon
                 ? 'Build flow'
+                : hasTrustShield
+                  ? 'Secure access'
+                  : hasCheckoutLane
+                    ? 'Checkout flow'
                 : hasCaptureFocus
                   ? 'Capture flow'
                   : hasTimelineBand
@@ -1844,6 +2111,10 @@ function buildPanoramicElements(args: {
                     : 'Featured flow'
             : hasProfileOrbit
               ? 'Community proof'
+              : hasTrustShield
+                ? 'Verified flow'
+                : hasCheckoutLane
+                  ? 'Order proof'
               : 'Proof point',
         x: frameSliceStart + 4,
         y: args.variant.recipe === 'bold-panorama' ? 21 : 20,
@@ -1871,6 +2142,10 @@ function buildPanoramicElements(args: {
           frame.storyBeat === 'summary'
             ? hasProfileOrbit
               ? 'Community-loved'
+              : hasTrustShield
+                ? 'Protected flow'
+                : hasCheckoutLane
+                  ? 'Cart to door'
               : hasRouteArc
                 ? 'Always nearby'
                 : hasCaptureFocus
@@ -1883,6 +2158,10 @@ function buildPanoramicElements(args: {
             : args.variant.recipe === 'bold-panorama'
               ? hasToolbarRibbon
                 ? 'Built fast'
+                : hasTrustShield
+                  ? 'Verified entry'
+                  : hasCheckoutLane
+                    ? 'Ready to convert'
                 : hasCaptureFocus
                   ? 'Capture ready'
                   : hasTimelineBand
@@ -1892,6 +2171,10 @@ function buildPanoramicElements(args: {
                 : '4.9 out of 5'
               : hasBrowseStrip
                 ? 'Curated picks'
+                : hasCheckoutLane
+                  ? 'Friction stays low'
+                  : hasTrustShield
+                    ? 'Access stays trusted'
                 : hasRouteArc
                   ? 'Route ready'
                 : 'Top rated flow',
@@ -1899,6 +2182,10 @@ function buildPanoramicElements(args: {
           frame.storyBeat === 'summary'
             ? hasProfileOrbit
               ? 'Shared by active members'
+              : hasTrustShield
+                ? 'Identity stays protected'
+                : hasCheckoutLane
+                  ? 'From checkout to delivery'
               : hasRouteArc
                 ? 'Coverage across key stops'
                 : hasCaptureFocus
@@ -1911,6 +2198,10 @@ function buildPanoramicElements(args: {
             : args.variant.recipe === 'bold-panorama'
               ? hasToolbarRibbon
                 ? 'Template workflow'
+                : hasTrustShield
+                  ? 'Passkeys and approvals'
+                  : hasCheckoutLane
+                    ? 'Order path stays clear'
                 : hasCaptureFocus
                   ? 'Live preview system'
                   : hasTimelineBand
@@ -1920,6 +2211,10 @@ function buildPanoramicElements(args: {
                 : 'App Store reviews'
               : hasBrowseStrip
                 ? 'Fresh each visit'
+                : hasCheckoutLane
+                  ? 'Clear handoff to delivery'
+                  : hasTrustShield
+                    ? 'Private by default'
                 : hasRouteArc
                   ? 'Nearby and on route'
                 : 'Trusted by repeat users',
@@ -1985,6 +2280,10 @@ function buildPanoramicElements(args: {
             ? 36
             : hasProfileOrbit
               ? 46
+              : hasTrustShield
+                ? 40
+                : hasCheckoutLane
+                  ? 54
               : hasCaptureFocus
                 ? 44
                 : hasTimelineBand
@@ -2015,6 +2314,10 @@ function buildPanoramicElements(args: {
               ? frame.storyBeat === 'hero' ? 'Creator card' : 'Community card'
               : hasToolbarRibbon
                 ? 'Tool card'
+                : hasTrustShield
+                  ? frame.storyBeat === 'trust' ? 'Trust card' : 'Secure card'
+                  : hasCheckoutLane
+                    ? frame.storyBeat === 'trust' ? 'Order card' : 'Checkout card'
                 : hasCaptureFocus
                   ? 'Capture card'
                   : hasTimelineBand
@@ -2047,6 +2350,10 @@ function buildPanoramicElements(args: {
           label:
             hasProfileOrbit
               ? frame.storyBeat === 'hero' ? 'Community' : undefined
+              : hasTrustShield
+                ? frame.storyBeat === 'hero' ? 'Secure' : undefined
+                : hasCheckoutLane
+                  ? frame.storyBeat === 'hero' ? 'Checkout' : undefined
               : hasCaptureFocus
                 ? frame.storyBeat === 'hero' ? 'Live' : undefined
                 : hasTimelineBand
@@ -2089,6 +2396,36 @@ function buildPanoramicElements(args: {
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
           dark: false,
+        }),
+      );
+    }
+
+    if (hasTrustShield) {
+      elements.push(
+        buildPanoramicTrustShieldGroup({
+          x: frameSliceStart + Math.max(2, sliceWidth - 15),
+          y: args.variant.recipe === 'bold-panorama' ? 17 : 18,
+          width: Math.max(12, sliceWidth - 5),
+          height: 14,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          dark: args.variant.recipe === 'bold-panorama',
+        }),
+      );
+    }
+
+    if (hasCheckoutLane) {
+      elements.push(
+        buildPanoramicCheckoutLaneGroup({
+          x: frameSliceStart + 2,
+          y: args.variant.recipe === 'bold-panorama' ? 74 : 72,
+          width: Math.max(12, sliceWidth - 4),
+          height: 14,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          dark: args.variant.recipe === 'bold-panorama',
         }),
       );
     }
@@ -2198,6 +2535,10 @@ function buildPanoramicElements(args: {
             ? 48
             : hasProfileOrbit
               ? 50
+              : hasTrustShield
+                ? 46
+                : hasCheckoutLane
+                  ? 54
               : hasCaptureFocus
                 ? 50
                 : hasTimelineBand
@@ -2222,6 +2563,10 @@ function buildPanoramicElements(args: {
               ? frame.storyBeat === 'trust' ? 'Community proof' : 'Creator card'
               : hasToolbarRibbon
                 ? 'Build card'
+                : hasTrustShield
+                  ? frame.storyBeat === 'trust' ? 'Trust proof' : 'Secure card'
+                  : hasCheckoutLane
+                    ? frame.storyBeat === 'trust' ? 'Order proof' : 'Checkout card'
                 : hasCaptureFocus
                   ? frame.storyBeat === 'trust' ? 'Capture proof' : 'Capture card'
                   : hasTimelineBand
@@ -2240,7 +2585,7 @@ function buildPanoramicElements(args: {
         buildPanoramicSupportGroup({
           screenshot: sourceScreenshot,
           x: frameSliceStart + 3,
-          y: hasBrowseStrip ? 62 : hasCaptureFocus ? 56 : hasTimelineBand ? 54 : 58,
+          y: hasBrowseStrip ? 62 : hasCheckoutLane ? 58 : hasTrustShield ? 52 : hasCaptureFocus ? 56 : hasTimelineBand ? 54 : 58,
           width: Math.max(12.5, sliceWidth - 7),
           height: 21,
           rotation: index % 2 === 0 ? -3 : 3,
@@ -2256,6 +2601,10 @@ function buildPanoramicElements(args: {
           badgeContent:
             hasToolbarRibbon
               ? 'Tool card'
+              : hasTrustShield
+                ? 'Secure card'
+                : hasCheckoutLane
+                  ? 'Checkout card'
               : hasCaptureFocus
                 ? 'Capture card'
                 : hasTimelineBand
@@ -2282,6 +2631,10 @@ function buildPanoramicElements(args: {
           label:
             hasProfileOrbit
               ? frame.storyBeat === 'hero' ? 'Community' : undefined
+              : hasTrustShield
+                ? frame.storyBeat === 'hero' ? 'Secure' : undefined
+                : hasCheckoutLane
+                  ? frame.storyBeat === 'hero' ? 'Order' : undefined
               : hasCaptureFocus
                 ? frame.storyBeat === 'hero' ? 'Live' : undefined
                 : hasTimelineBand
@@ -2367,6 +2720,8 @@ function buildPanoramicBackground(args: {
   const hasToolbarRibbon = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'toolbar-ribbon')) ?? false;
   const hasProfileOrbit = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'profile-orbit')) ?? false;
   const hasBrowseStrip = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'browse-strip')) ?? false;
+  const hasCheckoutLane = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'checkout-lane')) ?? false;
+  const hasTrustShield = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'trust-shield')) ?? false;
   const hasRouteArc = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'route-arc')) ?? false;
   const hasMediaMarquee = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'media-marquee')) ?? false;
   const hasCaptureFocus = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'capture-focus')) ?? false;
@@ -2425,6 +2780,28 @@ function buildPanoramicBackground(args: {
           height: 18,
           opacity: 0.16,
           blur: 80,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasCheckoutLane ? [{
+          kind: 'glow' as const,
+          color: args.colors.primary,
+          x: 54,
+          y: 82,
+          width: 46,
+          height: 16,
+          opacity: 0.18,
+          blur: 82,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasTrustShield ? [{
+          kind: 'glow' as const,
+          color: args.colors.secondary,
+          x: 80,
+          y: 22,
+          width: 24,
+          height: 18,
+          opacity: 0.18,
+          blur: 74,
           blendMode: 'screen' as const,
         }] : []),
         ...(hasRouteArc ? [{
@@ -2530,6 +2907,28 @@ function buildPanoramicBackground(args: {
           width: 44,
           height: 14,
           opacity: 0.12,
+          blur: 78,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasCheckoutLane ? [{
+          kind: 'glow' as const,
+          color: '#FFFFFF',
+          x: 52,
+          y: 84,
+          width: 46,
+          height: 16,
+          opacity: 0.14,
+          blur: 84,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasTrustShield ? [{
+          kind: 'glow' as const,
+          color: args.colors.secondary,
+          x: 78,
+          y: 18,
+          width: 22,
+          height: 18,
+          opacity: 0.18,
           blur: 78,
           blendMode: 'screen' as const,
         }] : []),

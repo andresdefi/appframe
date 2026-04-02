@@ -1238,6 +1238,104 @@ describe('design planning helpers', () => {
     }
   });
 
+  it('adds commerce and security-specific planning reactions from local screenshot cues', async () => {
+    const commercePath = await makePngFile('checkout-cart-delivery.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if (x > 16 && x < 104 && y > 42 && y < 118) return [251, 191, 36, 255];
+      if (x > 20 && x < 100 && y > 128 && y < 164) return [226, 232, 240, 255];
+      if (x > 30 && x < 90 && y > 172 && y < 190) return [37, 99, 235, 255];
+      return [255, 247, 237, 255];
+    });
+    const securityPath = await makePngFile('passkey-secure-login.png', 120, 200, (x, y) => {
+      if (y < 30) return [15, 23, 42, 255];
+      if (x > 24 && x < 96 && y > 42 && y < 150) return [30, 41, 59, 255];
+      if (x > 34 && x < 86 && y > 166 && y < 186) return [59, 130, 246, 255];
+      return [15, 23, 42, 255];
+    });
+    const homePath = await makePngFile('shop-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const profilePath = await makePngFile('member-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: commercePath, note: 'Checkout cart with delivery status and order handoff' },
+      { path: securityPath, note: 'Secure passkey login with identity verification and privacy protection' },
+      { path: homePath, note: 'Shop home' },
+      { path: profilePath, note: 'Member profile' },
+    ]);
+    const commerceAnalysis = analysis.find((entry) => entry.path === commercePath);
+    expect(commerceAnalysis?.role).not.toBe('paywall');
+
+    const plan = await buildVariantSetPlan({
+      appName: 'CartPass',
+      appDescription: 'A commerce app for secure checkout, verified sign-in, and delivery follow-through.',
+      platforms: ['ios'],
+      features: ['Checkout flow', 'Passkey login', 'Delivery tracking'],
+      screenshots: [
+        { path: commercePath, note: 'Checkout cart with delivery status and order handoff' },
+        { path: securityPath, note: 'Secure passkey login with identity verification and privacy protection' },
+        { path: homePath, note: 'Shop home' },
+        { path: profilePath, note: 'Member profile' },
+      ],
+      goals: ['Feel trusted', 'Show momentum'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const commerceScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === commercePath);
+      const securityScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === securityPath);
+
+      expect(commerceScreen?.backgroundStrategy).toBe('checkout-lane');
+      expect(commerceScreen?.copyDirection).toContain('purchase confidence, cart momentum, or order follow-through');
+      expect(commerceScreen?.implementationNote).toContain('cart, offer, or delivery momentum');
+      expect(['hero-tilt', 'duo-overlap', 'fanned-cards']).toContain(commerceScreen?.composition);
+
+      expect(securityScreen?.backgroundStrategy).toBe('vault-glow');
+      expect(securityScreen?.copyDirection).toContain('trusted access, privacy, or verification confidence');
+      expect(securityScreen?.implementationNote).toContain('verification step or trusted identity signal clear');
+      expect(securityScreen?.composition).toBe('duo-split');
+    }
+
+    const editorialConcept = plan.variants[2];
+    expect(editorialConcept?.mode).toBe('panoramic');
+    if (editorialConcept?.mode === 'panoramic') {
+      const commerceFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === commercePath);
+      const securityFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === securityPath);
+
+      expect(commerceFrame?.compositionFeatures).toContain('checkout-lane');
+      expect(commerceFrame?.compositionNote).toContain('checkout-lane treatment');
+
+      expect(securityFrame?.compositionFeatures).toContain('trust-shield');
+      expect(securityFrame?.compositionNote).toContain('trust-shield treatment');
+    }
+
+    const boldConcept = plan.variants[3];
+    expect(boldConcept?.mode).toBe('panoramic');
+    if (boldConcept?.mode === 'panoramic') {
+      const commerceFrame = boldConcept.frames?.find((frame) => frame.sourcePath === commercePath);
+      const securityFrame = boldConcept.frames?.find((frame) => frame.sourcePath === securityPath);
+
+      expect(commerceFrame?.compositionFeatures).toContain('checkout-lane');
+      expect(securityFrame?.compositionFeatures).toContain('trust-shield');
+    }
+  });
+
   it('adds role-specific copy guidance for onboarding, settings, and reporting-heavy screens', async () => {
     const onboardingPath = await makeSvgFile('welcome-screen.svg', 1290, 2796);
     const dashboardPath = await makeSvgFile('finance-home.svg', 1290, 2796);

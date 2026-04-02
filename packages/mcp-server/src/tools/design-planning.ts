@@ -44,7 +44,9 @@ export type PanoramicCompositionFeature =
   | 'route-arc'
   | 'media-marquee'
   | 'capture-focus'
-  | 'timeline-band';
+  | 'timeline-band'
+  | 'checkout-lane'
+  | 'trust-shield';
 
 export interface SafeTextZone {
   x: number;
@@ -391,7 +393,16 @@ interface TextSemanticSignals {
   alternatingConversationColumns: boolean;
 }
 
-type SemanticFlavor = 'profile' | 'editor' | 'catalog' | 'map' | 'media' | 'capture' | 'schedule';
+type SemanticFlavor =
+  | 'profile'
+  | 'editor'
+  | 'catalog'
+  | 'map'
+  | 'media'
+  | 'capture'
+  | 'schedule'
+  | 'commerce'
+  | 'security';
 
 interface SemanticFlavorSignals {
   profileSignalCount: number;
@@ -401,6 +412,8 @@ interface SemanticFlavorSignals {
   mediaSignalCount: number;
   captureSignalCount: number;
   scheduleSignalCount: number;
+  commerceSignalCount: number;
+  securitySignalCount: number;
   settingsConflictCount: number;
   paywallConflictCount: number;
   onboardingConflictCount: number;
@@ -501,6 +514,14 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
       haystack,
       /\b(calendar|agenda|schedule|scheduled|event|events|booking|bookings|appointment|appointments|availability|itinerary|reservation|reservations|shift|shifts|planner|timeline|time slots?|run of show)\b/g,
     ),
+    commerceSignalCount: countRegexMatches(
+      haystack,
+      /\b(cart|bag|basket|checkout|order|orders|shipping|shipment|shipments|delivery|deliveries|merchant|merchants|purchase|purchases|buy|storefront|fulfillment|tracking order|track order)\b/g,
+    ),
+    securitySignalCount: countRegexMatches(
+      haystack,
+      /\b(login|log in|sign in|signin|password|passwords|passcode|passcodes|passkey|passkeys|authentication|authenticate|auth|security|secure|vault|biometric|face id|touch id|verification|verify|verified|otp|2fa|identity)\b/g,
+    ),
     settingsConflictCount: countRegexMatches(
       haystack,
       /\b(settings|preferences|privacy|security|notifications|billing|manage)\b/g,
@@ -550,6 +571,18 @@ function inferSemanticFlavor(args: {
     + (args.role === 'detail' ? 2 : args.role === 'discovery' || args.role === 'communication' ? 1 : 0)
     - Math.min(2, signals.settingsConflictCount)
     - Math.min(2, signals.paywallConflictCount);
+  const commerceScore = (signals.commerceSignalCount * 2)
+    + (args.role === 'detail' || args.role === 'workflow' ? 2 : args.role === 'discovery' || args.role === 'home' ? 1 : 0)
+    + (signals.catalogSignalCount >= 1 ? 1 : 0)
+    - (signals.paywallConflictCount > signals.commerceSignalCount ? 2 : 0)
+    - Math.min(1, signals.settingsConflictCount);
+  const securityScore = signals.securitySignalCount > 0
+    ? (signals.securitySignalCount * 2)
+      + (args.role === 'onboarding' ? 2 : args.role === 'detail' || args.role === 'settings' ? 1 : 0)
+      + Math.min(1, signals.onboardingConflictCount)
+      - Math.min(2, signals.paywallConflictCount)
+      - Math.min(1, signals.catalogSignalCount)
+    : 0;
   const captureScore = (signals.captureSignalCount * 2)
     + (args.role === 'workflow' || args.role === 'detail' ? 2 : args.role === 'home' ? 1 : 0)
     - Math.min(2, signals.mediaConflictCount)
@@ -561,6 +594,8 @@ function inferSemanticFlavor(args: {
     - Math.min(1, signals.settingsConflictCount)
     - Math.min(2, signals.editorSignalCount);
   const ranked: Array<{ flavor: SemanticFlavor; score: number }> = [
+    { flavor: 'commerce', score: commerceScore },
+    { flavor: 'security', score: securityScore },
     { flavor: 'capture', score: captureScore },
     { flavor: 'schedule', score: scheduleScore },
     { flavor: 'editor', score: editorScore },
@@ -661,6 +696,21 @@ function applySemanticFlavorRoleScores(
     scores.discovery += 6;
     scores.communication += 2;
     scores.settings = Math.max(0, scores.settings - 6);
+  }
+
+  if (signals.commerceSignalCount >= 2) {
+    scores.detail += 12;
+    scores.workflow += 8;
+    scores.discovery += 6;
+    scores.paywall = Math.max(0, scores.paywall - 14);
+    scores.settings = Math.max(0, scores.settings - 6);
+  }
+
+  if (signals.securitySignalCount >= 2) {
+    scores.onboarding += 10;
+    scores.detail += 8;
+    scores.settings += 4;
+    scores.paywall = Math.max(0, scores.paywall - 6);
   }
 }
 
@@ -1529,6 +1579,10 @@ function buildHeroExplanation(args: {
     reasons.push('Editor/canvas screens can sell hands-on creation when the main workspace stays readable.');
   } else if (semanticFlavor === 'catalog') {
     reasons.push('Catalog/store screens can sell range and curation when the layout reads like a browse story.');
+  } else if (semanticFlavor === 'commerce') {
+    reasons.push('Checkout/order screens can sell purchase confidence and follow-through when the transactional path stays clear.');
+  } else if (semanticFlavor === 'security') {
+    reasons.push('Secure access screens can sell trust and verification confidence when the identity step stays focused.');
   } else if (semanticFlavor === 'map') {
     reasons.push('Map/navigation screens can sell immediacy and real-world coverage when the route or nearby context stays readable.');
   } else if (semanticFlavor === 'media') {
@@ -2919,6 +2973,16 @@ function semanticFlavorStageBonus(
       if (stage === 'middle') return conceptId === 'concept-c' ? 6 : 0;
       if (stage === 'closing') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 14 : 8;
       return 0;
+    case 'commerce':
+      if (stage === 'hero') return conceptId === 'concept-d' ? 18 : conceptId === 'concept-b' ? 12 : conceptId === 'concept-c' ? 4 : 0;
+      if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 12 : 6;
+      if (stage === 'closing') return conceptId === 'concept-c' ? 10 : conceptId === 'concept-d' ? 8 : 4;
+      return 0;
+    case 'security':
+      if (stage === 'hero') return conceptId === 'concept-b' ? 10 : conceptId === 'concept-a' ? 6 : conceptId === 'concept-c' ? 4 : 0;
+      if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 8 : 4;
+      if (stage === 'closing') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 14 : 6;
+      return 0;
     case 'map':
       if (stage === 'hero') return conceptId === 'concept-c' ? 28 : conceptId === 'concept-b' ? 14 : 6;
       if (stage === 'middle') return conceptId === 'concept-d' ? 10 : 4;
@@ -3216,6 +3280,9 @@ function chooseDynamicIndividualComposition(args: {
   });
 
   if (semanticFlavor === 'editor' && args.supportingScreens.length >= 1) return 'hero-tilt';
+  if (semanticFlavor === 'commerce' && args.supportingScreens.length >= 2) return 'fanned-cards';
+  if (semanticFlavor === 'commerce' && args.supportingScreens.length >= 1) return args.index === 0 ? 'hero-tilt' : 'duo-overlap';
+  if (semanticFlavor === 'security' && args.supportingScreens.length >= 1) return 'duo-split';
   if (semanticFlavor === 'capture' && args.supportingScreens.length >= 2) return 'hero-tilt';
   if (semanticFlavor === 'capture' && args.supportingScreens.length >= 1) return args.index === 0 ? 'hero-tilt' : 'duo-overlap';
   if (semanticFlavor === 'schedule' && args.supportingScreens.length >= 1) return 'duo-split';
@@ -3281,6 +3348,10 @@ function buildIndividualImplementationNote(args: {
     parts.push('Keep the main workspace dominant and use support details to echo tools, layers, or output state.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Make the supporting screenshots feel like a curated assortment so the concept sells choice without visual clutter.');
+  } else if (semanticFlavor === 'commerce') {
+    parts.push('Keep the purchase path legible and let support details reinforce cart, offer, or delivery momentum instead of generic storefront chrome.');
+  } else if (semanticFlavor === 'security') {
+    parts.push('Keep the verification step or trusted identity signal clear and use support details for recovery, passkeys, or proof of protection.');
   } else if (semanticFlavor === 'capture') {
     parts.push('Keep the live preview or subject area clear and let support details reinforce scan confirmation, framing, or captured output.');
   } else if (semanticFlavor === 'schedule') {
@@ -3367,6 +3438,10 @@ function buildScreenCopyDirection(args: {
     parts.push('Sell creative control or making progress, not toolbar labels, layers, or editing chrome.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Sell range, curation, or choice instead of naming prices, tabs, or product tiles.');
+  } else if (semanticFlavor === 'commerce') {
+    parts.push('Sell purchase confidence, cart momentum, or order follow-through instead of naming prices, checkout buttons, or storefront chrome.');
+  } else if (semanticFlavor === 'security') {
+    parts.push('Sell trusted access, privacy, or verification confidence instead of naming passwords, passkeys, toggles, or login chrome.');
   } else if (semanticFlavor === 'capture') {
     parts.push('Sell capturing, scanning, or live framing confidence instead of naming shutter buttons, scan controls, or camera chrome.');
   } else if (semanticFlavor === 'schedule') {
@@ -3449,6 +3524,12 @@ function buildIndividualBackgroundStrategy(args: {
   }
   if (semanticFlavor === 'catalog') {
     return args.conceptId === 'concept-b' ? 'catalog-glow' : 'proof-tint';
+  }
+  if (semanticFlavor === 'commerce') {
+    return args.conceptId === 'concept-b' ? 'checkout-lane' : 'proof-tint';
+  }
+  if (semanticFlavor === 'security') {
+    return args.conceptId === 'concept-b' ? 'vault-glow' : 'proof-tint';
   }
   if (semanticFlavor === 'capture') {
     return args.conceptId === 'concept-b' ? 'capture-stage' : 'proof-tint';
@@ -3941,6 +4022,17 @@ function buildPanoramicCompositionFeatures(args: {
     features.push('browse-strip');
     features.push('decorative-cluster');
   }
+  if (semanticFlavor === 'commerce') {
+    features.push('checkout-lane');
+    features.push('proof-stack');
+    if (args.storyBeat !== 'summary') {
+      features.push('decorative-cluster');
+    }
+  }
+  if (semanticFlavor === 'security') {
+    features.push('trust-shield');
+    features.push('proof-stack');
+  }
   if (semanticFlavor === 'capture') {
     features.push('capture-focus');
     features.push('decorative-cluster');
@@ -3999,6 +4091,12 @@ function buildPanoramicCompositionNote(args: {
   if (args.features.includes('browse-strip')) {
     parts.push('Mirror the browse experience with a curated strip so the frame sells range without duplicating every tile.');
   }
+  if (args.features.includes('checkout-lane')) {
+    parts.push('Run a checkout-lane treatment so the frame reads like confident purchase momentum instead of a generic catalog or paywall panel.');
+  }
+  if (args.features.includes('trust-shield')) {
+    parts.push('Use a trust-shield treatment so the frame reads like secure access and verification confidence instead of generic settings chrome.');
+  }
   if (args.features.includes('capture-focus')) {
     parts.push('Use a viewfinder-like capture-focus treatment so the frame reads like a live scan or camera moment instead of generic dark chrome.');
   }
@@ -4032,6 +4130,8 @@ function buildPanoramicCompositionNote(args: {
     parts.push('Keep the onboarding frame open so the benefit and CTA hierarchy still read clearly.');
   } else if (args.analysis.role === 'paywall') {
     parts.push('Treat the premium moment like a focused offer with stronger contrast and proof cues.');
+  } else if (args.analysis.role === 'detail' && args.features.includes('checkout-lane')) {
+    parts.push('Keep the transaction proof legible so the frame sells confident completion, not just another product tile.');
   }
 
   return parts.join(' ');

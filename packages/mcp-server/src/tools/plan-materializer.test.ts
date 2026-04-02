@@ -869,4 +869,89 @@ describe('plan materializer', () => {
     ).toBe(true);
     expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
   });
+
+  it('materializes family-aware local cue treatments for commerce and security screenshots', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-commerce-security-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-commerce-security-output-');
+
+    const commercePath = await makePngFile(assetsDir, 'checkout-cart-delivery.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if (x > 16 && x < 104 && y > 42 && y < 118) return [251, 191, 36, 255];
+      if (x > 20 && x < 100 && y > 128 && y < 164) return [226, 232, 240, 255];
+      if (x > 30 && x < 90 && y > 172 && y < 190) return [37, 99, 235, 255];
+      return [255, 247, 237, 255];
+    });
+    const securityPath = await makePngFile(assetsDir, 'passkey-secure-login.png', 120, 200, (x, y) => {
+      if (y < 30) return [15, 23, 42, 255];
+      if (x > 24 && x < 96 && y > 42 && y < 150) return [30, 41, 59, 255];
+      if (x > 34 && x < 86 && y > 166 && y < 186) return [59, 130, 246, 255];
+      return [15, 23, 42, 255];
+    });
+    const homePath = await makePngFile(assetsDir, 'shop-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const profilePath = await makePngFile(assetsDir, 'member-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'CartPass',
+      appDescription: 'A commerce app for secure checkout, verified sign-in, and delivery follow-through.',
+      platforms: ['ios'],
+      features: ['Checkout flow', 'Passkey login', 'Delivery tracking'],
+      screenshots: [
+        { path: commercePath, note: 'Checkout cart with delivery status and order handoff' },
+        { path: securityPath, note: 'Secure passkey login with identity verification and privacy protection' },
+        { path: homePath, note: 'Shop home' },
+        { path: profilePath, note: 'Member profile' },
+      ],
+      goals: ['Feel trusted', 'Show momentum'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const result = await materializeVariantPlan({
+      plan,
+      outputDir,
+      primaryColor: '#2563EB',
+      secondaryColor: '#F59E0B',
+    });
+
+    const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
+    const panoramicConfigPath = result.variants.find((variant) => variant.id === 'concept-c')?.configPath;
+    expect(individualConfigPath).toBeTruthy();
+    expect(panoramicConfigPath).toBeTruthy();
+
+    const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const commerceScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('checkout-cart-delivery.png'));
+    const securityScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('passkey-secure-login.png'));
+
+    expect(commerceScreen?.background).toBeTruthy();
+    expect(securityScreen?.background).toBeTruthy();
+    expect(commerceScreen?.background).not.toBe(securityScreen?.background);
+
+    const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const panoramicGroups = panoramic.panoramic.elements.filter((element: { type: string }) => element.type === 'group');
+
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Checkout flow')),
+    ).toBe(true);
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Secure access')),
+    ).toBe(true);
+    expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
+  });
 });

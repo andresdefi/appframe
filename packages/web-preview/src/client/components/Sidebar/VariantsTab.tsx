@@ -77,6 +77,10 @@ function formatCompositionFeature(feature: string): string {
       return 'Decorative cluster';
     case 'proof-stack':
       return 'Proof stack';
+    case 'checkout-lane':
+      return 'Checkout lane';
+    case 'trust-shield':
+      return 'Trust shield';
     default:
       return feature.replace(/-/g, ' ');
   }

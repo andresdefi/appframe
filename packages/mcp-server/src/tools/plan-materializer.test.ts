@@ -610,4 +610,98 @@ describe('plan materializer', () => {
     expect(workflowScreen?.background).not.toBe(discoveryScreen?.background);
     expect([workflowScreen?.background, discoveryScreen?.background]).not.toContain('#FFFFFF');
   });
+
+  it('materializes family-aware local cue treatments for editor, catalog, and profile screenshots', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-family-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-family-output-');
+
+    const editorPath = await makePngFile(assetsDir, 'template-editor-canvas.png', 120, 200, (x, y) => {
+      if (y < 26) return [241, 245, 249, 255];
+      if (x > 22 && x < 98 && y > 34 && y < 156) return [99, 102, 241, 255];
+      if (x > 26 && x < 94 && y > 166 && y < 186) return [203, 213, 225, 255];
+      return [226, 232, 240, 255];
+    });
+    const catalogPath = await makePngFile(assetsDir, 'shop-catalog-grid.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      const inCardRow =
+        ((x > 10 && x < 54) || (x > 66 && x < 110))
+        && ((y > 54 && y < 92) || (y > 102 && y < 140) || (y > 150 && y < 188));
+      if (inCardRow) return [59, 130, 246, 255];
+      return [241, 245, 249, 255];
+    });
+    const profilePath = await makePngFile(assetsDir, 'creator-profile-community.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+    const homePath = await makePngFile(assetsDir, 'main-dashboard.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 52 && y < 88)
+        || (x > 68 && x < 108 && y > 52 && y < 88)
+        || (x > 12 && x < 52 && y > 104 && y < 140)
+        || (x > 68 && x < 108 && y > 104 && y < 140)) {
+        return [37, 99, 235, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'CreatorKit',
+      appDescription: 'A creative app for editing templates, browsing kits, and sharing creator profiles.',
+      platforms: ['ios'],
+      features: ['Template editor', 'Kit catalog', 'Creator profiles'],
+      screenshots: [
+        { path: editorPath, note: 'Template editor canvas with layers and tools' },
+        { path: catalogPath, note: 'Product catalog collection with featured items' },
+        { path: profilePath, note: 'Creator profile for community members and followers' },
+        { path: homePath, note: 'Main dashboard' },
+      ],
+      goals: ['Feel polished', 'Show breadth'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const result = await materializeVariantPlan({
+      plan,
+      outputDir,
+      primaryColor: '#2563EB',
+      secondaryColor: '#EC4899',
+    });
+
+    const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
+    const panoramicConfigPath = result.variants.find((variant) => variant.id === 'concept-c')?.configPath;
+    expect(individualConfigPath).toBeTruthy();
+    expect(panoramicConfigPath).toBeTruthy();
+
+    const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const editorScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('template-editor-canvas.png'));
+    const catalogScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('shop-catalog-grid.png'));
+    const profileScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('creator-profile-community.png'));
+
+    expect(editorScreen?.background).toBeTruthy();
+    expect(catalogScreen?.background).toBeTruthy();
+    expect(profileScreen?.background).toBeTruthy();
+    expect(new Set([editorScreen?.background, catalogScreen?.background, profileScreen?.background]).size).toBeGreaterThan(1);
+
+    const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const panoramicGroups = panoramic.panoramic.elements.filter((element: { type: string }) => element.type === 'group');
+
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Tool ribbon')),
+    ).toBe(true);
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Curated')),
+    ).toBe(true);
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) =>
+          child.type === 'badge' && (child.content === 'Creator card' || child.content === 'Community card')),
+    )).toBe(true);
+    expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
+  });
 });

@@ -451,6 +451,47 @@ describe('design planning helpers', () => {
     expect(byPath.get(discoveryPath)?.heroExplanation.some((line) => line.includes('Discovery screens can sell breadth and exploration'))).toBe(true);
   });
 
+  it('uses local cue families to distinguish editor, profile, and catalog screenshots beyond the core role set', async () => {
+    const editorPath = await makePngFile('template-editor-canvas.png', 120, 200, (x, y) => {
+      if (y < 26) return [241, 245, 249, 255];
+      if (x > 22 && x < 98 && y > 34 && y < 156) return [99, 102, 241, 255];
+      if (x > 26 && x < 94 && y > 166 && y < 186) return [203, 213, 225, 255];
+      return [226, 232, 240, 255];
+    });
+    const catalogPath = await makePngFile('shop-catalog-grid.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      const inCardRow =
+        ((x > 10 && x < 54) || (x > 66 && x < 110))
+        && ((y > 54 && y < 92) || (y > 102 && y < 140) || (y > 150 && y < 188));
+      if (inCardRow) return [59, 130, 246, 255];
+      return [241, 245, 249, 255];
+    });
+    const profilePath = await makePngFile('creator-profile-community.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: editorPath, note: 'Template editor canvas with layers and tools' },
+      { path: catalogPath, note: 'Product catalog collection with featured items' },
+      { path: profilePath, note: 'Creator profile for community members and followers' },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(editorPath)?.role).toBe('workflow');
+    expect(byPath.get(editorPath)?.heroExplanation.some((line) => line.includes('hands-on creation'))).toBe(true);
+
+    expect(byPath.get(catalogPath)?.role).toBe('discovery');
+    expect(byPath.get(catalogPath)?.heroExplanation.some((line) => line.includes('browse story'))).toBe(true);
+
+    expect(byPath.get(profilePath)?.role).toBe('detail');
+    expect(byPath.get(profilePath)?.heroExplanation.some((line) => line.includes('identity, trust, and social proof'))).toBe(true);
+  });
+
   it('builds a variant set plan with current-capability concepts', async () => {
     const homePath = await makePngFile('home-screen.png', 120, 200, (x, y) => {
       if (y < 46) return [246, 247, 250, 255];
@@ -911,6 +952,94 @@ describe('design planning helpers', () => {
       expect(workflowFrame?.compositionNote).toContain('action path');
       expect(discoveryFrame?.compositionFeatures).toContain('decorative-cluster');
       expect(discoveryFrame?.compositionNote).toContain('browse cards');
+    }
+  });
+
+  it('adds editor, catalog, and profile-specific planning reactions from local screenshot cues', async () => {
+    const editorPath = await makePngFile('template-editor-canvas.png', 120, 200, (x, y) => {
+      if (y < 26) return [241, 245, 249, 255];
+      if (x > 22 && x < 98 && y > 34 && y < 156) return [99, 102, 241, 255];
+      if (x > 26 && x < 94 && y > 166 && y < 186) return [203, 213, 225, 255];
+      return [226, 232, 240, 255];
+    });
+    const catalogPath = await makePngFile('shop-catalog-grid.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      const inCardRow =
+        ((x > 10 && x < 54) || (x > 66 && x < 110))
+        && ((y > 54 && y < 92) || (y > 102 && y < 140) || (y > 150 && y < 188));
+      if (inCardRow) return [59, 130, 246, 255];
+      return [241, 245, 249, 255];
+    });
+    const profilePath = await makePngFile('creator-profile-community.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+    const homePath = await makePngFile('main-dashboard.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 52 && y < 88)
+        || (x > 68 && x < 108 && y > 52 && y < 88)
+        || (x > 12 && x < 52 && y > 104 && y < 140)
+        || (x > 68 && x < 108 && y > 104 && y < 140)) {
+        return [37, 99, 235, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'CreatorKit',
+      appDescription: 'A creative app for editing templates, browsing kits, and sharing creator profiles.',
+      platforms: ['ios'],
+      features: ['Template editor', 'Kit catalog', 'Creator profiles'],
+      screenshots: [
+        { path: editorPath, note: 'Template editor canvas with layers and tools' },
+        { path: catalogPath, note: 'Product catalog collection with featured items' },
+        { path: profilePath, note: 'Creator profile for community members and followers' },
+        { path: homePath, note: 'Main dashboard' },
+      ],
+      goals: ['Feel polished', 'Show breadth'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const editorScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === editorPath);
+      const catalogScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === catalogPath);
+      const profileScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === profilePath);
+
+      expect(editorScreen?.backgroundStrategy).toBe('studio-surface');
+      expect(editorScreen?.copyDirection).toContain('creative control or making progress');
+      expect(editorScreen?.implementationNote).toContain('main workspace dominant');
+
+      expect(catalogScreen?.backgroundStrategy).toBe('catalog-glow');
+      expect(catalogScreen?.copyDirection).toContain('range, curation, or choice');
+      expect(catalogScreen?.implementationNote).toContain('curated assortment');
+
+      expect(profileScreen?.backgroundStrategy).toBe('community-spotlight');
+      expect(profileScreen?.copyDirection).toContain('identity, trust, or community momentum');
+      expect(profileScreen?.implementationNote).toContain('creator proof');
+    }
+
+    const editorialConcept = plan.variants[2];
+    expect(editorialConcept?.mode).toBe('panoramic');
+    if (editorialConcept?.mode === 'panoramic') {
+      const editorFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === editorPath);
+      const catalogFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === catalogPath);
+      const profileFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === profilePath);
+
+      expect(editorFrame?.compositionFeatures).toContain('toolbar-ribbon');
+      expect(editorFrame?.compositionNote).toContain('tool-ribbon treatment');
+
+      expect(catalogFrame?.compositionFeatures).toContain('browse-strip');
+      expect(catalogFrame?.compositionNote).toContain('curated strip');
+
+      expect(profileFrame?.compositionFeatures).toContain('profile-orbit');
+      expect(profileFrame?.compositionNote).toContain('creator/profile spotlight');
     }
   });
 

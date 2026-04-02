@@ -107,8 +107,9 @@ Current status:
 - OCR/layout semantics now better distinguish onboarding, paywall, settings, communication, workflow/discovery cues, and data-heavy dashboard/reporting screens when text enrichment is available, improving density, crop, and copy-direction decisions
 - raster layout heuristics plus local deterministic note/filename cues now extend those occupied-region and screen-type cues to non-OCR screenshots, so local analysis can still infer onboarding/paywall/settings/chat/dashboard/workflow/discovery-style structure without sidecars
 - raster ambiguity guards now reduce some false positives where wide non-OCR panels previously over-read as settings or reporting structure
+- local semantic cue families now also separate editor/canvas, catalog/store, and profile/community screenshots from those broader buckets, reducing more note/filename-driven non-OCR false positives without bundling built-in model dependencies
 - variant plans now emit explicit per-concept frame strategies plus per-screen/per-frame crop plans, including text-occupied-region avoidance and focal-point anchoring
-- materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, safer text offsets, palette-led backgrounds, deeper device-frame treatment, and role-aware composition/background reactions for onboarding/paywall/settings/chat/reporting/workflow/discovery-style screens
+- materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, safer text offsets, palette-led backgrounds, deeper device-frame treatment, and role-aware composition/background reactions for onboarding/paywall/settings/chat/reporting/workflow/discovery/editor/profile/catalog-style screens
 
 ### 4. Generate-Then-Rank Loop
 
@@ -197,8 +198,10 @@ This roadmap now has three concrete pieces underway:
 - screenshot understanding now also uses OCR/layout semantics to better read onboarding, paywall, settings, chat, workflow/discovery, and data-heavy dashboard/reporting screenshots instead of treating them as mostly generic dense screens
 - screenshot understanding now also derives raster-only occupied-region and semantic layout cues so non-OCR screenshots can still drive crop avoidance, copy direction, and role-aware planning deterministically
 - non-OCR local cues now also include stronger discovery/template-browse and workflow/action phrase banks plus ambiguity guards against settings/reporting false positives
+- local cue-family understanding now also detects editor/canvas, catalog/store, and profile/community screenshots so those flows stop collapsing into generic settings/detail/reporting reads as often
 - individual composition breadth: dynamic individual concepts now materialize multi-device compositions, supporting screenshots, loupes, overlays, and palette-aware backgrounds instead of staying inside a single-device layout
-- recipe-specific composition/background reactions now respond more explicitly to onboarding, paywall, settings, chat, reporting, workflow, and discovery-style screens instead of only generic frame/crop signals
+- recipe-specific composition/background reactions now respond more explicitly to onboarding, paywall, settings, chat, reporting, workflow, discovery, editor, profile, and catalog-style screens instead of only generic frame/crop signals
+- panoramic planning/materialization now also emits tool-ribbon, profile-spotlight, and browse-strip treatments plus background accents when those local cue families are present, so the strip reacts more clearly than generic proof/decorative systems alone
 - deterministic concept planning: concepts now resequence screenshots differently, constrain support-screen reuse, and derive per-screen copy direction from screenshot role, density, quiet-space, and focal cues instead of sharing one generic ordering/story pass
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot
 - screenshot-aware copy generation: copy candidates can now consume screenshot-derived slot signals so hero, differentiator, feature, trust, and summary lines respond to actual screen content instead of only the feature list

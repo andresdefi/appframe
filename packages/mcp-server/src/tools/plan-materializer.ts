@@ -409,12 +409,18 @@ function buildIndividualBackground(args: {
   switch (args.screen.backgroundStrategy) {
     case 'airy-spotlight':
       return { background: mixedBackground(backgroundFromPalette, '#FFFFFF', 0.5) };
+    case 'community-spotlight':
+      return { background: mixedBackground(backgroundFromPalette, args.colors.secondary, 0.22) };
     case 'quiet-surface':
       return { background: mixedBackground(backgroundFromPalette, args.colors.subtitle, 0.12) };
     case 'premium-spotlight':
       return { background: mixedBackground(accent, args.colors.secondary, 0.3) };
+    case 'studio-surface':
+      return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.2) };
     case 'workflow-surface':
       return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.1) };
+    case 'catalog-glow':
+      return { background: mixedBackground(accent, args.colors.secondary, 0.22) };
     case 'discovery-glow':
       return { background: mixedBackground(accent, '#FFFFFF', 0.38) };
     case 'conversation-glow':
@@ -473,6 +479,17 @@ function panoramicTextPlacement(args: {
   }
   if (args.frame.cropPlan?.usage === 'loupe-detail' || args.frame.cropPlan?.usage === 'layered-extract') {
     fontSize -= 0.15;
+  }
+  if (hasCompositionFeature(args.frame, 'toolbar-ribbon')) {
+    x += 1;
+    maxWidth -= 2;
+    fontSize -= 0.1;
+  }
+  if (hasCompositionFeature(args.frame, 'browse-strip')) {
+    maxWidth -= 1;
+  }
+  if (hasCompositionFeature(args.frame, 'profile-orbit')) {
+    fontSize -= 0.05;
   }
 
   return {
@@ -648,7 +665,14 @@ function storyBeatBody(frame: PlannedPanoramicFrame): string {
 
 function hasCompositionFeature(
   frame: PlannedPanoramicFrame,
-  feature: 'layered-detail-extract' | 'floating-detail-card' | 'decorative-cluster' | 'proof-stack',
+  feature:
+    | 'layered-detail-extract'
+    | 'floating-detail-card'
+    | 'decorative-cluster'
+    | 'proof-stack'
+    | 'toolbar-ribbon'
+    | 'profile-orbit'
+    | 'browse-strip',
 ): boolean {
   return frame.compositionFeatures?.includes(feature) ?? false;
 }
@@ -857,6 +881,148 @@ function buildPanoramicSupportGroup(args: {
   };
 }
 
+function buildPanoramicToolbarRibbonGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Tool ribbon',
+      x: 4,
+      y: 0,
+      width: 42,
+      height: 10,
+      color: args.dark ? '#FFFFFF' : '#0F172A',
+      backgroundColor: args.dark ? '#0F172ACC' : '#FFFFFFE8',
+      opacity: 0.96,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 1,
+      fontWeight: 700,
+      letterSpacing: 9,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 6,
+      y: 20,
+      width: 46,
+      height: 3,
+      color: args.accentColor,
+      opacity: args.dark ? 0.44 : 0.28,
+      rotation: 0,
+      z: 2,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 6,
+      y: 31,
+      width: 34,
+      height: 3,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.32 : 0.22,
+      rotation: 0,
+      z: 2,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 58,
+      y: 12,
+      width: 16,
+      height: 16,
+      color: args.accentColor,
+      opacity: args.dark ? 0.26 : 0.18,
+      rotation: 0,
+      z: 1,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.96,
+    z: 7,
+    children,
+  };
+}
+
+function buildPanoramicBrowseStripGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const labels = ['Curated', 'Popular', 'Fresh'];
+  const children: PanoramicGroupChild[] = labels.map((label, index) => ({
+    type: 'badge',
+    content: label,
+    x: 2 + (index * 31),
+    y: 8 + ((index % 2) * 3),
+    width: 28,
+    height: 9,
+    color: badgeColor,
+    backgroundColor: badgeBackground,
+    opacity: 0.95,
+    borderColor: index === 1 ? args.secondaryColor : args.accentColor,
+    borderWidth: args.dark ? 0 : 1,
+    borderRadius: 100,
+    fontSize: 0.92,
+    fontWeight: 700,
+    letterSpacing: 7,
+    textTransform: 'uppercase',
+    rotation: 0,
+    z: 2,
+  }));
+
+  children.push({
+    type: 'decoration',
+    shape: 'line',
+    x: 6,
+    y: 28,
+    width: 88,
+    height: 2,
+    color: args.accentColor,
+    opacity: args.dark ? 0.32 : 0.22,
+    rotation: 0,
+    z: 1,
+  });
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 7,
+    children,
+  };
+}
+
 function buildPanoramicDecorativeGroup(args: {
   x: number;
   y: number;
@@ -944,6 +1110,9 @@ function buildPanoramicDecorativeGroup(args: {
 }
 
 function panoramicTextY(frame: PlannedPanoramicFrame, recipe: PlannedPanoramicVariant['recipe']): number {
+  if (hasCompositionFeature(frame, 'toolbar-ribbon')) {
+    return recipe === 'bold-panorama' ? 11 : 12;
+  }
   if (frame.cropPlan?.avoidRegions.includes('top')) {
     return recipe === 'bold-panorama' ? 10 : 11;
   }
@@ -959,6 +1128,9 @@ function panoramicProofChipY(
   recipe: PlannedPanoramicVariant['recipe'],
 ): number {
   if (frame.storyBeat === 'summary') return 72;
+  if (hasCompositionFeature(frame, 'profile-orbit')) {
+    return recipe === 'bold-panorama' ? 30 : 28;
+  }
   if (frame.cropPlan?.avoidRegions.includes('top')) {
     return recipe === 'bold-panorama' ? 34 : 31;
   }
@@ -998,15 +1170,18 @@ function panoramicDevicePlacement(
     : frame.cropPlan?.anchor === 'right-rail'
       ? 1.5
       : 0;
+  const toolbarRibbon = hasCompositionFeature(frame, 'toolbar-ribbon');
+  const browseStrip = hasCompositionFeature(frame, 'browse-strip');
+  const profileOrbit = hasCompositionFeature(frame, 'profile-orbit');
   const y = frame.cropPlan?.avoidRegions.includes('top')
-    ? 28
+    ? (toolbarRibbon ? 30 : 28)
     : extractDriven
-      ? 26
-      : 24;
+      ? (profileOrbit ? 27 : 26)
+      : (browseStrip ? 25 : 24);
   return {
-    x: Math.max(2, frameCenter - (extractDriven ? 6.5 : 7) + xOffset),
+    x: Math.max(2, frameCenter - (extractDriven ? 6.5 : browseStrip ? 6.6 : 7) + xOffset),
     y,
-    width: extractDriven ? 13 : 14,
+    width: extractDriven ? (toolbarRibbon ? 12.4 : 13) : (browseStrip ? 13.2 : 14),
     rotation: index % 2 === 0 ? -2 : 2,
   };
 }
@@ -1125,6 +1300,9 @@ function buildPanoramicElements(args: {
     const hasLayeredDetail = hasCompositionFeature(frame, 'layered-detail-extract');
     const hasFloatingDetailCard = hasCompositionFeature(frame, 'floating-detail-card');
     const hasDecorativeCluster = hasCompositionFeature(frame, 'decorative-cluster');
+    const hasToolbarRibbon = hasCompositionFeature(frame, 'toolbar-ribbon');
+    const hasProfileOrbit = hasCompositionFeature(frame, 'profile-orbit');
+    const hasBrowseStrip = hasCompositionFeature(frame, 'browse-strip');
     const allowFramelessExtracts = args.variant.frameStrategy?.defaultTreatment === 'mixed';
     const includeSupportCrop = frame.cropPlan?.usage === 'supporting-crop'
       || frame.cropPlan?.usage === 'layered-extract'
@@ -1219,10 +1397,18 @@ function buildPanoramicElements(args: {
         type: 'badge',
         content:
           index === 0
-            ? args.variant.recipe === 'bold-panorama'
-              ? 'Campaign concept'
-              : 'Featured flow'
-            : 'Proof point',
+            ? hasProfileOrbit
+              ? 'Creator spotlight'
+              : hasToolbarRibbon
+                ? 'Build flow'
+                : hasBrowseStrip
+                  ? 'Curated browse'
+                  : args.variant.recipe === 'bold-panorama'
+                    ? 'Campaign concept'
+                    : 'Featured flow'
+            : hasProfileOrbit
+              ? 'Community proof'
+              : 'Proof point',
         x: frameSliceStart + 4,
         y: args.variant.recipe === 'bold-panorama' ? 21 : 20,
         width: Math.max(11, sliceWidth - 10),
@@ -1247,16 +1433,28 @@ function buildPanoramicElements(args: {
         type: 'proof-chip',
         value:
           frame.storyBeat === 'summary'
-            ? 'Power-user approved'
+            ? hasProfileOrbit
+              ? 'Community-loved'
+              : 'Power-user approved'
             : args.variant.recipe === 'bold-panorama'
-              ? '4.9 out of 5'
-              : 'Top rated flow',
+              ? hasToolbarRibbon
+                ? 'Built fast'
+                : '4.9 out of 5'
+              : hasBrowseStrip
+                ? 'Curated picks'
+                : 'Top rated flow',
         detail:
           frame.storyBeat === 'summary'
-            ? 'Built for daily use'
+            ? hasProfileOrbit
+              ? 'Shared by active members'
+              : 'Built for daily use'
             : args.variant.recipe === 'bold-panorama'
-              ? 'App Store reviews'
-              : 'Trusted by repeat users',
+              ? hasToolbarRibbon
+                ? 'Template workflow'
+                : 'App Store reviews'
+              : hasBrowseStrip
+                ? 'Fresh each visit'
+                : 'Trusted by repeat users',
         rating: args.variant.recipe === 'bold-panorama' ? 5 : undefined,
         maxRating: 5,
         x: frameSliceStart + Math.max(2.5, sliceWidth - 18),
@@ -1315,7 +1513,13 @@ function buildPanoramicElements(args: {
         buildPanoramicSupportGroup({
           screenshot: sourceScreenshot,
           x: frameSliceStart + sliceWidth - groupWidth - 2,
-          y: frame.cropPlan?.avoidRegions.includes('bottom') ? 42 : index % 2 === 0 ? 52 : 56,
+          y: hasToolbarRibbon
+            ? 36
+            : hasProfileOrbit
+              ? 46
+              : hasBrowseStrip
+                ? 58
+                : frame.cropPlan?.avoidRegions.includes('bottom') ? 42 : index % 2 === 0 ? 52 : 56,
           width: groupWidth,
           height: 28,
           rotation: index % 2 === 0 ? -3 : 3,
@@ -1330,7 +1534,16 @@ function buildPanoramicElements(args: {
           zoom: includeSupportCrop
             ? frame.cropSuitability === 'high' ? 1.8 : 1.5
             : 1.35,
-          badgeContent: frame.storyBeat === 'hero' ? 'Editorial system' : 'Story card',
+          badgeContent:
+            hasProfileOrbit
+              ? frame.storyBeat === 'hero' ? 'Creator card' : 'Community card'
+              : hasToolbarRibbon
+                ? 'Tool card'
+                : hasBrowseStrip
+                  ? 'Browse card'
+                  : frame.storyBeat === 'hero'
+                    ? 'Editorial system'
+                    : 'Story card',
           cardBackgroundColor: supportCardBackground,
           includeCrop: includeSupportCrop && allowFramelessExtracts,
         }),
@@ -1341,13 +1554,48 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicDecorativeGroup({
           x: frameSliceStart + Math.max(2, sliceWidth - 11),
-          y: frame.storyBeat === 'summary' ? 70 : 18,
+          y: hasBrowseStrip ? 68 : frame.storyBeat === 'summary' ? 70 : 18,
           width: 10,
           height: 18,
           rotation: index % 2 === 0 ? 8 : -8,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
-          label: frame.storyBeat === 'hero' ? 'Featured' : undefined,
+          label:
+            hasProfileOrbit
+              ? frame.storyBeat === 'hero' ? 'Community' : undefined
+              : frame.storyBeat === 'hero'
+                ? 'Featured'
+                : undefined,
+          dark: false,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'editorial-panorama' && hasToolbarRibbon) {
+      elements.push(
+        buildPanoramicToolbarRibbonGroup({
+          x: frameSliceStart + 2,
+          y: 17,
+          width: Math.max(11.5, sliceWidth - 7),
+          height: 10.5,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          dark: false,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'editorial-panorama' && hasBrowseStrip) {
+      elements.push(
+        buildPanoramicBrowseStripGroup({
+          x: frameSliceStart + 2,
+          y: 74,
+          width: Math.max(12, sliceWidth - 5),
+          height: 13,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
           dark: false,
         }),
       );
@@ -1394,7 +1642,7 @@ function buildPanoramicElements(args: {
         buildPanoramicSupportGroup({
           screenshot: sourceScreenshot,
           x: frameSliceStart + 3,
-          y: 54,
+          y: hasToolbarRibbon ? 48 : hasProfileOrbit ? 50 : hasBrowseStrip ? 58 : 54,
           width: groupWidth,
           height: 29,
           rotation: index % 2 === 0 ? -5 : 5,
@@ -1407,7 +1655,16 @@ function buildPanoramicElements(args: {
           focusX: detailFocus.x,
           focusY: detailFocus.y,
           zoom: frame.cropSuitability === 'high' ? 1.9 : 1.55,
-          badgeContent: frame.storyBeat === 'trust' ? 'Proof card' : 'Momentum card',
+          badgeContent:
+            hasProfileOrbit
+              ? frame.storyBeat === 'trust' ? 'Community proof' : 'Creator card'
+              : hasToolbarRibbon
+                ? 'Build card'
+                : hasBrowseStrip
+                  ? 'Browse card'
+                  : frame.storyBeat === 'trust'
+                    ? 'Proof card'
+                    : 'Momentum card',
           cardBackgroundColor: supportCardBackground,
           includeCrop: allowFramelessExtracts,
         }),
@@ -1417,7 +1674,7 @@ function buildPanoramicElements(args: {
         buildPanoramicSupportGroup({
           screenshot: sourceScreenshot,
           x: frameSliceStart + 3,
-          y: 58,
+          y: hasBrowseStrip ? 62 : 58,
           width: Math.max(12.5, sliceWidth - 7),
           height: 21,
           rotation: index % 2 === 0 ? -3 : 3,
@@ -1430,7 +1687,7 @@ function buildPanoramicElements(args: {
           focusX: detailFocus.x,
           focusY: detailFocus.y,
           zoom: 1.45,
-          badgeContent: 'Focus card',
+          badgeContent: hasToolbarRibbon ? 'Tool card' : hasBrowseStrip ? 'Browse card' : 'Focus card',
           cardBackgroundColor: supportCardBackground,
           includeCrop: false,
         }),
@@ -1441,13 +1698,48 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicDecorativeGroup({
           x: frameSliceStart + 2,
-          y: frame.storyBeat === 'summary' ? 16 : 72,
+          y: hasProfileOrbit ? 18 : frame.storyBeat === 'summary' ? 16 : 72,
           width: 10.5,
           height: 18,
           rotation: index % 2 === 0 ? -10 : 10,
           accentColor: args.accentColor,
           secondaryColor: '#FFFFFF',
-          label: frame.storyBeat === 'summary' ? 'Finale' : undefined,
+          label:
+            hasProfileOrbit
+              ? frame.storyBeat === 'hero' ? 'Community' : undefined
+              : frame.storyBeat === 'summary'
+                ? 'Finale'
+                : undefined,
+          dark: true,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'bold-panorama' && hasToolbarRibbon) {
+      elements.push(
+        buildPanoramicToolbarRibbonGroup({
+          x: frameSliceStart + sliceWidth - Math.max(11.5, sliceWidth - 7) - 1.5,
+          y: 18,
+          width: Math.max(11.5, sliceWidth - 7),
+          height: 10.5,
+          rotation: index % 2 === 0 ? 3 : -3,
+          accentColor: args.accentColor,
+          secondaryColor: '#FFFFFF',
+          dark: true,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'bold-panorama' && hasBrowseStrip) {
+      elements.push(
+        buildPanoramicBrowseStripGroup({
+          x: frameSliceStart + 2,
+          y: 76,
+          width: Math.max(12, sliceWidth - 4),
+          height: 13,
+          rotation: index % 2 === 0 ? -3 : 3,
+          accentColor: args.accentColor,
+          secondaryColor: '#FFFFFF',
           dark: true,
         }),
       );
@@ -1489,9 +1781,14 @@ function buildPanoramicElements(args: {
 }
 
 function buildPanoramicBackground(args: {
+  variant: Extract<PlannedVariant, { mode: 'panoramic' }>;
   style: TemplateStyle;
   colors: MaterializedPalette;
 }): NonNullable<AppframeConfig['panoramic']>['background'] {
+  const hasToolbarRibbon = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'toolbar-ribbon')) ?? false;
+  const hasProfileOrbit = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'profile-orbit')) ?? false;
+  const hasBrowseStrip = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'browse-strip')) ?? false;
+
   if (args.style === 'editorial') {
     return {
       type: 'solid',
@@ -1518,6 +1815,35 @@ function buildPanoramicBackground(args: {
           blur: 96,
           blendMode: 'screen',
         },
+        ...(hasToolbarRibbon ? [{
+          kind: 'solid' as const,
+          color: args.colors.primary,
+          opacity: 0.08,
+          blendMode: 'multiply' as const,
+          blur: 0,
+        }] : []),
+        ...(hasProfileOrbit ? [{
+          kind: 'glow' as const,
+          color: args.colors.secondary,
+          x: 82,
+          y: 18,
+          width: 22,
+          height: 18,
+          opacity: 0.24,
+          blur: 72,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasBrowseStrip ? [{
+          kind: 'glow' as const,
+          color: args.colors.primary,
+          x: 50,
+          y: 82,
+          width: 48,
+          height: 18,
+          opacity: 0.16,
+          blur: 80,
+          blendMode: 'screen' as const,
+        }] : []),
       ],
     };
   }
@@ -1555,6 +1881,35 @@ function buildPanoramicBackground(args: {
           blur: 110,
           blendMode: 'screen',
         },
+        ...(hasToolbarRibbon ? [{
+          kind: 'solid' as const,
+          color: '#FFFFFF',
+          opacity: 0.06,
+          blendMode: 'screen' as const,
+          blur: 0,
+        }] : []),
+        ...(hasProfileOrbit ? [{
+          kind: 'glow' as const,
+          color: args.colors.secondary,
+          x: 76,
+          y: 14,
+          width: 24,
+          height: 24,
+          opacity: 0.2,
+          blur: 72,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasBrowseStrip ? [{
+          kind: 'glow' as const,
+          color: '#FFFFFF',
+          x: 50,
+          y: 84,
+          width: 44,
+          height: 14,
+          opacity: 0.12,
+          blur: 78,
+          blendMode: 'screen' as const,
+        }] : []),
       ],
     };
   }
@@ -1613,7 +1968,7 @@ function buildPanoramicConfig(args: {
     screens: [],
     frameCount: args.variant.canvasPlan.frameCount,
     panoramic: {
-      background: buildPanoramicBackground({ style, colors }),
+      background: buildPanoramicBackground({ variant: args.variant, style, colors }),
       elements: buildPanoramicElements({
         variant: args.variant,
         configDir: args.configDir,

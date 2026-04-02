@@ -37,7 +37,10 @@ export type PanoramicCompositionFeature =
   | 'layered-detail-extract'
   | 'floating-detail-card'
   | 'decorative-cluster'
-  | 'proof-stack';
+  | 'proof-stack'
+  | 'toolbar-ribbon'
+  | 'profile-orbit'
+  | 'browse-strip';
 
 export interface SafeTextZone {
   x: number;
@@ -384,6 +387,16 @@ interface TextSemanticSignals {
   alternatingConversationColumns: boolean;
 }
 
+type SemanticFlavor = 'profile' | 'editor' | 'catalog';
+
+interface SemanticFlavorSignals {
+  profileSignalCount: number;
+  editorSignalCount: number;
+  catalogSignalCount: number;
+  settingsConflictCount: number;
+  paywallConflictCount: number;
+}
+
 function countNumericTokens(value: string): number {
   return value.match(/\b[$€£]?\d+(?:[.,]\d+)?%?\b/g)?.length ?? 0;
 }
@@ -439,6 +452,68 @@ function deriveTextSemanticSignals(
   };
 }
 
+function buildSemanticHaystack(
+  pathValue: string,
+  note?: string,
+  textInsights?: ScreenshotTextInsights,
+): string {
+  return normalizeText(`${humanizeFileStem(pathValue)} ${note ?? ''} ${textInsights?.text ?? ''}`);
+}
+
+function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
+  return {
+    profileSignalCount: countRegexMatches(
+      haystack,
+      /\b(profile|creator|creators|community|communities|followers|following|member|members|bio|audience|channel|supporters?)\b/g,
+    ),
+    editorSignalCount: countRegexMatches(
+      haystack,
+      /\b(editor|editing|edit|canvas|timeline|layer|layers|workspace|storyboard|scene|draft|remix|studio|tool|tools|filter|filters|adjust)\b/g,
+    ),
+    catalogSignalCount: countRegexMatches(
+      haystack,
+      /\b(shop|store|catalog|collection|collections|product|products|item|items|listing|listings|wishlist|marketplace|featured|price|prices)\b/g,
+    ),
+    settingsConflictCount: countRegexMatches(
+      haystack,
+      /\b(settings|preferences|privacy|security|notifications|billing|manage)\b/g,
+    ),
+    paywallConflictCount: countRegexMatches(
+      haystack,
+      /\b(premium|upgrade|subscription|trial|checkout|payment|unlock)\b/g,
+    ),
+  };
+}
+
+function inferSemanticFlavor(args: {
+  pathValue: string;
+  note?: string;
+  textInsights?: ScreenshotTextInsights;
+  role?: ScreenshotRole;
+}): SemanticFlavor | undefined {
+  const haystack = buildSemanticHaystack(args.pathValue, args.note, args.textInsights);
+  const signals = deriveSemanticFlavorSignals(haystack);
+  const profileScore = (signals.profileSignalCount * 2)
+    + (args.role === 'detail' || args.role === 'communication' || args.role === 'discovery' ? 1 : 0)
+    - (signals.settingsConflictCount >= 2 ? 3 : signals.settingsConflictCount);
+  const editorScore = (signals.editorSignalCount * 2)
+    + (args.role === 'workflow' ? 2 : args.role === 'detail' ? 1 : 0)
+    - Math.min(2, signals.settingsConflictCount)
+    - Math.min(2, signals.paywallConflictCount);
+  const catalogScore = (signals.catalogSignalCount * 2)
+    + (args.role === 'discovery' ? 2 : args.role === 'home' ? 1 : 0)
+    - (signals.paywallConflictCount >= 2 ? 4 : signals.paywallConflictCount);
+  const ranked: Array<{ flavor: SemanticFlavor; score: number }> = [
+    { flavor: 'editor', score: editorScore },
+    { flavor: 'catalog', score: catalogScore },
+    { flavor: 'profile', score: profileScore },
+  ];
+  ranked.sort((left, right) => right.score - left.score);
+  const best = ranked[0];
+
+  return best && best.score >= 3 ? best.flavor : undefined;
+}
+
 function isLikelyOnboardingScreen(
   signals: TextSemanticSignals,
   textInsights?: ScreenshotTextInsights,
@@ -481,6 +556,36 @@ function isLikelyDataHeavyDashboard(signals: TextSemanticSignals): boolean {
 
 function isLikelyReportingScreen(signals: TextSemanticSignals): boolean {
   return signals.reportingSignalCount >= 1 && signals.numericTokenCount >= 4;
+}
+
+function applySemanticFlavorRoleScores(
+  scores: Record<ScreenshotRole, number>,
+  pathValue: string,
+  note?: string,
+  textInsights?: ScreenshotTextInsights,
+): void {
+  const haystack = buildSemanticHaystack(pathValue, note, textInsights);
+  const signals = deriveSemanticFlavorSignals(haystack);
+
+  if (signals.profileSignalCount >= 2 && signals.settingsConflictCount <= 1) {
+    scores.detail += 14;
+    scores.communication += 4;
+    scores.settings = Math.max(0, scores.settings - 8);
+  }
+
+  if (signals.editorSignalCount >= 2) {
+    scores.workflow += 12;
+    scores.detail += 3;
+    scores.settings = Math.max(0, scores.settings - 6);
+    scores.home = Math.max(0, scores.home - 3);
+  }
+
+  if (signals.catalogSignalCount >= 2 && signals.paywallConflictCount <= 1) {
+    scores.discovery += 18;
+    scores.home += 3;
+    scores.settings = Math.max(0, scores.settings - 8);
+    scores.paywall = Math.max(0, scores.paywall - 8);
+  }
 }
 
 function applySemanticRoleScores(
@@ -968,6 +1073,7 @@ function inferRole(
 
   addRoleScores(scores, normalizeText(`${humanizeFileStem(pathValue)} ${note ?? ''}`), 1);
   if (textInsights?.text) addRoleScores(scores, normalizeText(textInsights.text), 1.2);
+  applySemanticFlavorRoleScores(scores, pathValue, note, textInsights);
   applySemanticRoleScores(scores, textInsights);
   applyRasterRoleScores(scores, rasterSemanticSignals);
   if (textInsights?.roleHint) scores[textInsights.roleHint] += 24;
@@ -1309,6 +1415,7 @@ function buildHeroExplanation(args: {
   width: number | null;
   height: number | null;
   pathValue: string;
+  note?: string;
   recommendedUsage: RecommendedUsage;
   topQuietRatio?: number;
   focusStrength?: number;
@@ -1317,6 +1424,12 @@ function buildHeroExplanation(args: {
   rasterSemanticSignals?: RasterSemanticSignals;
 }): string[] {
   const reasons: string[] = [];
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.pathValue,
+    note: args.note,
+    textInsights: args.textInsights,
+    role: args.role,
+  });
 
   if (args.role === 'home') {
     reasons.push('Home/dashboard content usually makes the clearest opening hero.');
@@ -1332,6 +1445,14 @@ function buildHeroExplanation(args: {
     reasons.push('Settings screens usually work better as support or closing proof than the opening claim.');
   } else if (args.role === 'paywall') {
     reasons.push('Paywall screens are better at framing premium value late in the story than opening the set.');
+  }
+
+  if (semanticFlavor === 'profile') {
+    reasons.push('Profile/community screens can sell identity, trust, and social proof when treated like a focused spotlight.');
+  } else if (semanticFlavor === 'editor') {
+    reasons.push('Editor/canvas screens can sell hands-on creation when the main workspace stays readable.');
+  } else if (semanticFlavor === 'catalog') {
+    reasons.push('Catalog/store screens can sell range and curation when the layout reads like a browse story.');
   }
 
   if (args.density === 'minimal') {
@@ -2390,6 +2511,7 @@ export async function analyzeScreenshotSet(
           width: metadata.width,
           height: metadata.height,
           pathValue: input.path,
+          note: input.note,
           recommendedUsage,
           topQuietRatio: rasterSignals?.pixelMetrics.topQuietRatio,
           focusStrength: rasterSignals?.focalPoint.strength,
@@ -2939,6 +3061,17 @@ function chooseDynamicIndividualComposition(args: {
   total: number;
   supportingScreens: string[];
 }): PlannedIndividualScreen['composition'] {
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.analysis.path,
+    note: args.analysis.note,
+    textInsights: args.analysis.textInsights,
+    role: args.analysis.role,
+  });
+
+  if (semanticFlavor === 'editor' && args.supportingScreens.length >= 1) return 'hero-tilt';
+  if (semanticFlavor === 'catalog' && args.supportingScreens.length >= 2) return 'fanned-cards';
+  if (semanticFlavor === 'catalog' && args.supportingScreens.length >= 1) return 'duo-overlap';
+  if (semanticFlavor === 'profile' && args.supportingScreens.length >= 1) return 'duo-overlap';
   if (args.analysis.role === 'communication' && args.supportingScreens.length >= 2) return 'fanned-cards';
   if (args.analysis.role === 'communication' && args.supportingScreens.length >= 1) return 'duo-overlap';
   if (args.analysis.role === 'discovery' && args.supportingScreens.length >= 2) return 'fanned-cards';
@@ -2961,6 +3094,13 @@ function buildIndividualImplementationNote(args: {
   supportingScreens: string[];
 }): string | undefined {
   const parts: string[] = [];
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.analysis.path,
+    note: args.analysis.note,
+    textInsights: args.analysis.textInsights,
+    role: args.analysis.role,
+  });
+
   if (args.composition !== 'single') {
     parts.push(`Use ${args.composition} to widen the concept beyond a single centered device.`);
   }
@@ -2981,6 +3121,13 @@ function buildIndividualImplementationNote(args: {
   } else if (args.analysis.role === 'onboarding' || args.analysis.role === 'paywall') {
     parts.push('Leave enough breathing room around the CTA-driven portion of the screen.');
   }
+  if (semanticFlavor === 'profile') {
+    parts.push('Let the support screenshot reinforce identity, community, or creator proof instead of generic profile chrome.');
+  } else if (semanticFlavor === 'editor') {
+    parts.push('Keep the main workspace dominant and use support details to echo tools, layers, or output state.');
+  } else if (semanticFlavor === 'catalog') {
+    parts.push('Make the supporting screenshots feel like a curated assortment so the concept sells choice without visual clutter.');
+  }
   return parts.length > 0 ? parts.join(' ') : undefined;
 }
 
@@ -2994,6 +3141,12 @@ function buildScreenCopyDirection(args: {
   const parts: string[] = [];
   const embeddedText = sampleEmbeddedTextPhrases(args.analysis.textInsights, 2);
   const occupiedRegions = args.analysis.occupiedRegions;
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.analysis.path,
+    note: args.analysis.note,
+    textInsights: args.analysis.textInsights,
+    role: args.analysis.role,
+  });
 
   switch (args.slideRole) {
     case 'hero':
@@ -3044,6 +3197,14 @@ function buildScreenCopyDirection(args: {
       break;
     default:
       break;
+  }
+
+  if (semanticFlavor === 'profile') {
+    parts.push('Focus on identity, trust, or community momentum instead of naming follower counts or profile chrome.');
+  } else if (semanticFlavor === 'editor') {
+    parts.push('Sell creative control or making progress, not toolbar labels, layers, or editing chrome.');
+  } else if (semanticFlavor === 'catalog') {
+    parts.push('Sell range, curation, or choice instead of naming prices, tabs, or product tiles.');
   }
 
   const semanticSignals = deriveTextSemanticSignals(args.analysis.textInsights);
@@ -3103,6 +3264,22 @@ function buildIndividualBackgroundStrategy(args: {
   analysis: ScreenshotAnalysis;
   index: number;
 }): string {
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.analysis.path,
+    note: args.analysis.note,
+    textInsights: args.analysis.textInsights,
+    role: args.analysis.role,
+  });
+
+  if (semanticFlavor === 'profile') {
+    return args.conceptId === 'concept-b' ? 'community-spotlight' : 'proof-tint';
+  }
+  if (semanticFlavor === 'editor') {
+    return args.conceptId === 'concept-b' ? 'studio-surface' : 'proof-tint';
+  }
+  if (semanticFlavor === 'catalog') {
+    return args.conceptId === 'concept-b' ? 'catalog-glow' : 'proof-tint';
+  }
   if (args.analysis.role === 'settings') return 'quiet-surface';
   if (args.analysis.role === 'onboarding' && args.index === 0) return 'airy-spotlight';
   if (args.analysis.role === 'paywall') {
@@ -3525,6 +3702,12 @@ function buildPanoramicCompositionFeatures(args: {
   index: number;
 }): PanoramicCompositionFeature[] {
   const features: PanoramicCompositionFeature[] = ['floating-detail-card'];
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.analysis.path,
+    note: args.analysis.note,
+    textInsights: args.analysis.textInsights,
+    role: args.analysis.role,
+  });
 
   if (args.analysis.cropSuitability !== 'low') {
     features.push('layered-detail-extract');
@@ -3565,6 +3748,17 @@ function buildPanoramicCompositionFeatures(args: {
   if (args.category === 'social' && args.storyBeat === 'hero') {
     features.push('decorative-cluster');
   }
+  if (semanticFlavor === 'editor') {
+    features.push('toolbar-ribbon');
+  }
+  if (semanticFlavor === 'profile') {
+    features.push('profile-orbit');
+    features.push('proof-stack');
+  }
+  if (semanticFlavor === 'catalog') {
+    features.push('browse-strip');
+    features.push('decorative-cluster');
+  }
 
   return [...new Set(features)];
 }
@@ -3595,6 +3789,15 @@ function buildPanoramicCompositionNote(args: {
 
   if (args.features.includes('proof-stack')) {
     parts.push('Reserve extra room for proof or trust signals near the close.');
+  }
+  if (args.features.includes('toolbar-ribbon')) {
+    parts.push('Echo the editor surface with a restrained tool-ribbon treatment instead of generic ornament.');
+  }
+  if (args.features.includes('profile-orbit')) {
+    parts.push('Frame the moment like a creator/profile spotlight with identity and community cues.');
+  }
+  if (args.features.includes('browse-strip')) {
+    parts.push('Mirror the browse experience with a curated strip so the frame sells range without duplicating every tile.');
   }
 
   if (parts.length === 0) {

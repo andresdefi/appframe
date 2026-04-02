@@ -492,6 +492,33 @@ describe('design planning helpers', () => {
     expect(byPath.get(profilePath)?.heroExplanation.some((line) => line.includes('identity, trust, and social proof'))).toBe(true);
   });
 
+  it('uses local cue families to distinguish map and media screenshots beyond the core role set', async () => {
+    const mapPath = await makePngFile('nearby-route-map.png', 120, 200, (x, y) => {
+      if (y < 26) return [248, 250, 252, 255];
+      if (x > 18 && x < 102 && y > 36 && y < 168) return [134, 239, 172, 255];
+      if (x > 28 && x < 92 && y > 150 && y < 182) return [226, 232, 240, 255];
+      return [219, 234, 254, 255];
+    });
+    const mediaPath = await makePngFile('now-playing-audio-queue.png', 120, 200, (x, y) => {
+      if (y < 24) return [15, 23, 42, 255];
+      if (x > 18 && x < 102 && y > 34 && y < 122) return [217, 70, 239, 255];
+      if (x > 24 && x < 96 && y > 136 && y < 184) return [148, 163, 184, 255];
+      return [30, 41, 59, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: mapPath, note: 'Nearby map for routes, pickups, and city locations' },
+      { path: mediaPath, note: 'Now playing audio queue with playlists and episodes' },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(mapPath)?.role).toBe('discovery');
+    expect(byPath.get(mapPath)?.heroExplanation.some((line) => line.includes('real-world coverage'))).toBe(true);
+
+    expect(byPath.get(mediaPath)?.role).toBe('detail');
+    expect(byPath.get(mediaPath)?.heroExplanation.some((line) => line.includes('ongoing engagement'))).toBe(true);
+  });
+
   it('builds a variant set plan with current-capability concepts', async () => {
     const homePath = await makePngFile('home-screen.png', 120, 200, (x, y) => {
       if (y < 46) return [246, 247, 250, 255];
@@ -1040,6 +1067,89 @@ describe('design planning helpers', () => {
 
       expect(profileFrame?.compositionFeatures).toContain('profile-orbit');
       expect(profileFrame?.compositionNote).toContain('creator/profile spotlight');
+    }
+  });
+
+  it('adds map and media-specific planning reactions from local screenshot cues', async () => {
+    const mapPath = await makePngFile('nearby-route-map.png', 120, 200, (x, y) => {
+      if (y < 26) return [248, 250, 252, 255];
+      if (x > 18 && x < 102 && y > 36 && y < 168) return [134, 239, 172, 255];
+      if (x > 28 && x < 92 && y > 150 && y < 182) return [226, 232, 240, 255];
+      return [219, 234, 254, 255];
+    });
+    const mediaPath = await makePngFile('now-playing-audio-queue.png', 120, 200, (x, y) => {
+      if (y < 24) return [15, 23, 42, 255];
+      if (x > 18 && x < 102 && y > 34 && y < 122) return [217, 70, 239, 255];
+      if (x > 24 && x < 96 && y > 136 && y < 184) return [148, 163, 184, 255];
+      return [30, 41, 59, 255];
+    });
+    const homePath = await makePngFile('city-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const profilePath = await makePngFile('guide-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'GuideWave',
+      appDescription: 'A city guide app for nearby routes, local pickup planning, and audio tours.',
+      platforms: ['ios'],
+      features: ['Nearby routes', 'Audio guide player', 'Creator tours'],
+      screenshots: [
+        { path: mapPath, note: 'Nearby map for routes, pickups, and city locations' },
+        { path: mediaPath, note: 'Now playing audio queue with playlists and episodes' },
+        { path: homePath, note: 'City guide home' },
+        { path: profilePath, note: 'Guide creator profile' },
+      ],
+      goals: ['Feel polished', 'Show movement'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const mapScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === mapPath);
+      const mediaScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === mediaPath);
+
+      expect(mapScreen?.backgroundStrategy).toBe('route-glow');
+      expect(mapScreen?.copyDirection).toContain('guidance, proximity, or real-world confidence');
+      expect(mapScreen?.implementationNote).toContain('route or nearby context legible');
+
+      expect(mediaScreen?.backgroundStrategy).toBe('playback-stage');
+      expect(mediaScreen?.copyDirection).toContain('mood, momentum, or what is playing');
+      expect(mediaScreen?.implementationNote).toContain('now-playing surface prominent');
+    }
+
+    const editorialConcept = plan.variants[2];
+    expect(editorialConcept?.mode).toBe('panoramic');
+    if (editorialConcept?.mode === 'panoramic') {
+      const mapFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === mapPath);
+      const mediaFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === mediaPath);
+
+      expect(mapFrame?.compositionFeatures).toContain('route-arc');
+      expect(mapFrame?.compositionNote).toContain('route-arc treatment');
+
+      expect(mediaFrame?.compositionFeatures).toContain('media-marquee');
+      expect(mediaFrame?.compositionNote).toContain('playback marquee');
+    }
+
+    const boldConcept = plan.variants[3];
+    expect(boldConcept?.mode).toBe('panoramic');
+    if (boldConcept?.mode === 'panoramic') {
+      const mediaFrame = boldConcept.frames?.find((frame) => frame.sourcePath === mediaPath);
+      expect(mediaFrame?.compositionFeatures).toContain('media-marquee');
     }
   });
 

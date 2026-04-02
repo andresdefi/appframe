@@ -704,4 +704,88 @@ describe('plan materializer', () => {
     )).toBe(true);
     expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
   });
+
+  it('materializes family-aware local cue treatments for map and media screenshots', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-map-media-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-map-media-output-');
+
+    const mapPath = await makePngFile(assetsDir, 'nearby-route-map.png', 120, 200, (x, y) => {
+      if (y < 26) return [248, 250, 252, 255];
+      if (x > 18 && x < 102 && y > 36 && y < 168) return [134, 239, 172, 255];
+      if (x > 28 && x < 92 && y > 150 && y < 182) return [226, 232, 240, 255];
+      return [219, 234, 254, 255];
+    });
+    const mediaPath = await makePngFile(assetsDir, 'now-playing-audio-queue.png', 120, 200, (x, y) => {
+      if (y < 24) return [15, 23, 42, 255];
+      if (x > 18 && x < 102 && y > 34 && y < 122) return [217, 70, 239, 255];
+      if (x > 24 && x < 96 && y > 136 && y < 184) return [148, 163, 184, 255];
+      return [30, 41, 59, 255];
+    });
+    const homePath = await makePngFile(assetsDir, 'city-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const profilePath = await makePngFile(assetsDir, 'guide-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'GuideWave',
+      appDescription: 'A city guide app for nearby routes, local pickup planning, and audio tours.',
+      platforms: ['ios'],
+      features: ['Nearby routes', 'Audio guide player', 'Creator tours'],
+      screenshots: [
+        { path: mapPath, note: 'Nearby map for routes, pickups, and city locations' },
+        { path: mediaPath, note: 'Now playing audio queue with playlists and episodes' },
+        { path: homePath, note: 'City guide home' },
+        { path: profilePath, note: 'Guide creator profile' },
+      ],
+      goals: ['Feel polished', 'Show movement'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const result = await materializeVariantPlan({
+      plan,
+      outputDir,
+      primaryColor: '#2563EB',
+      secondaryColor: '#EC4899',
+    });
+
+    const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
+    const panoramicConfigPath = result.variants.find((variant) => variant.id === 'concept-c')?.configPath;
+    expect(individualConfigPath).toBeTruthy();
+    expect(panoramicConfigPath).toBeTruthy();
+
+    const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const mapScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('nearby-route-map.png'));
+    const mediaScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('now-playing-audio-queue.png'));
+
+    expect(mapScreen?.background).toBeTruthy();
+    expect(mediaScreen?.background).toBeTruthy();
+    expect(mapScreen?.background).not.toBe(mediaScreen?.background);
+
+    const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const panoramicGroups = panoramic.panoramic.elements.filter((element: { type: string }) => element.type === 'group');
+
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Route arc')),
+    ).toBe(true);
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Now playing')),
+    ).toBe(true);
+    expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
+  });
 });

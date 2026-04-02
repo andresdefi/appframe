@@ -40,7 +40,9 @@ export type PanoramicCompositionFeature =
   | 'proof-stack'
   | 'toolbar-ribbon'
   | 'profile-orbit'
-  | 'browse-strip';
+  | 'browse-strip'
+  | 'route-arc'
+  | 'media-marquee';
 
 export interface SafeTextZone {
   x: number;
@@ -329,9 +331,9 @@ const ROLE_SIGNAL_PATTERNS: Array<{ role: ScreenshotRole; pattern: RegExp; weigh
   { role: 'home', pattern: /\b(home|dashboard|overview|feed|main|today|wallet|balance|activity)\b/g, weight: 10 },
   { role: 'onboarding', pattern: /\b(onboarding|welcome|intro|start|splash|get started|continue|skip|allow)\b/g, weight: 12 },
   { role: 'communication', pattern: /\b(chat|message|messages|inbox|conversation|thread|reply|typing|dm)\b/g, weight: 12 },
-  { role: 'discovery', pattern: /\b(search|discover|explore|browse|find|trending|for you|template|templates|library|libraries)\b/g, weight: 12 },
+  { role: 'discovery', pattern: /\b(search|discover|explore|browse|find|trending|for you|template|templates|library|libraries|map|maps|nearby|location|locations|places)\b/g, weight: 12 },
   { role: 'workflow', pattern: /\b(calendar|plan|task|workflow|schedule|editor|compose|create|checklist|project)\b/g, weight: 10 },
-  { role: 'detail', pattern: /\b(detail|profile|report|analytics|stats|insight|summary|progress|revenue|spending|results?)\b/g, weight: 10 },
+  { role: 'detail', pattern: /\b(detail|profile|report|analytics|stats|insight|summary|progress|revenue|spending|results?|player|playlist|album|episode|podcast|video|stream|lyrics)\b/g, weight: 10 },
   { role: 'settings', pattern: /\b(settings|account|preferences|privacy|notifications|security|manage|general)\b/g, weight: 12 },
   { role: 'paywall', pattern: /\b(pricing|upgrade|paywall|subscribe|subscription|checkout|cart|payment|trial|premium|unlock)\b/g, weight: 12 },
   { role: 'feature', pattern: /\b(feature|screen|tab|list)\b/g, weight: 4 },
@@ -387,12 +389,14 @@ interface TextSemanticSignals {
   alternatingConversationColumns: boolean;
 }
 
-type SemanticFlavor = 'profile' | 'editor' | 'catalog';
+type SemanticFlavor = 'profile' | 'editor' | 'catalog' | 'map' | 'media';
 
 interface SemanticFlavorSignals {
   profileSignalCount: number;
   editorSignalCount: number;
   catalogSignalCount: number;
+  mapSignalCount: number;
+  mediaSignalCount: number;
   settingsConflictCount: number;
   paywallConflictCount: number;
 }
@@ -435,7 +439,7 @@ function deriveTextSemanticSignals(
     ),
     discoverySignalCount: countRegexMatches(
       normalized,
-      /\b(search|discover|discovery|explore|browse|find|trending|for you|categories|collections|popular|template|templates|library|libraries)\b/g,
+      /\b(search|discover|discovery|explore|browse|find|trending|for you|categories|collections|popular|template|templates|library|libraries|map|maps|nearby|near me|location|locations|places)\b/g,
     ),
     dashboardSignalCount: countRegexMatches(
       normalized,
@@ -474,6 +478,14 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
       haystack,
       /\b(shop|store|catalog|collection|collections|product|products|item|items|listing|listings|wishlist|marketplace|featured|price|prices)\b/g,
     ),
+    mapSignalCount: countRegexMatches(
+      haystack,
+      /\b(map|maps|route|routes|navigation|navigate|directions|trip|trips|ride|rides|nearby|near me|location|locations|places|delivery|travel|journey)\b/g,
+    ),
+    mediaSignalCount: countRegexMatches(
+      haystack,
+      /\b(player|playlist|playlists|album|albums|song|songs|artist|artists|podcast|podcasts|episode|episodes|listen|listening|watch|video|videos|stream|streaming|queue|lyrics|mix|radio)\b/g,
+    ),
     settingsConflictCount: countRegexMatches(
       haystack,
       /\b(settings|preferences|privacy|security|notifications|billing|manage)\b/g,
@@ -503,10 +515,20 @@ function inferSemanticFlavor(args: {
   const catalogScore = (signals.catalogSignalCount * 2)
     + (args.role === 'discovery' ? 2 : args.role === 'home' ? 1 : 0)
     - (signals.paywallConflictCount >= 2 ? 4 : signals.paywallConflictCount);
+  const mapScore = (signals.mapSignalCount * 2)
+    + (args.role === 'discovery' || args.role === 'home' ? 2 : args.role === 'detail' ? 1 : 0)
+    - Math.min(2, signals.settingsConflictCount)
+    - Math.min(2, signals.paywallConflictCount);
+  const mediaScore = (signals.mediaSignalCount * 2)
+    + (args.role === 'detail' ? 2 : args.role === 'discovery' || args.role === 'communication' ? 1 : 0)
+    - Math.min(2, signals.settingsConflictCount)
+    - Math.min(2, signals.paywallConflictCount);
   const ranked: Array<{ flavor: SemanticFlavor; score: number }> = [
     { flavor: 'editor', score: editorScore },
     { flavor: 'catalog', score: catalogScore },
     { flavor: 'profile', score: profileScore },
+    { flavor: 'map', score: mapScore },
+    { flavor: 'media', score: mediaScore },
   ];
   ranked.sort((left, right) => right.score - left.score);
   const best = ranked[0];
@@ -585,6 +607,21 @@ function applySemanticFlavorRoleScores(
     scores.home += 3;
     scores.settings = Math.max(0, scores.settings - 8);
     scores.paywall = Math.max(0, scores.paywall - 8);
+  }
+
+  if (signals.mapSignalCount >= 2 && signals.settingsConflictCount <= 1) {
+    scores.discovery += 16;
+    scores.home += 6;
+    scores.detail += 4;
+    scores.settings = Math.max(0, scores.settings - 6);
+    scores.paywall = Math.max(0, scores.paywall - 4);
+  }
+
+  if (signals.mediaSignalCount >= 2 && signals.paywallConflictCount <= 1) {
+    scores.detail += 14;
+    scores.discovery += 6;
+    scores.communication += 2;
+    scores.settings = Math.max(0, scores.settings - 6);
   }
 }
 
@@ -1453,6 +1490,10 @@ function buildHeroExplanation(args: {
     reasons.push('Editor/canvas screens can sell hands-on creation when the main workspace stays readable.');
   } else if (semanticFlavor === 'catalog') {
     reasons.push('Catalog/store screens can sell range and curation when the layout reads like a browse story.');
+  } else if (semanticFlavor === 'map') {
+    reasons.push('Map/navigation screens can sell immediacy and real-world coverage when the route or nearby context stays readable.');
+  } else if (semanticFlavor === 'media') {
+    reasons.push('Media/player screens can sell mood and ongoing engagement when playback focus stays prominent.');
   }
 
   if (args.density === 'minimal') {
@@ -2812,36 +2853,83 @@ function categoryRoleBonus(
   return bonus;
 }
 
+function semanticFlavorStageBonus(
+  analysis: ScreenshotAnalysis,
+  conceptId: ConceptId,
+  stage: SequenceStage,
+): number {
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: analysis.path,
+    note: analysis.note,
+    textInsights: analysis.textInsights,
+    role: analysis.role,
+  });
+
+  switch (semanticFlavor) {
+    case 'editor':
+      if (stage === 'hero') return conceptId === 'concept-b' ? 12 : conceptId === 'concept-c' ? 6 : 0;
+      if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 10 : 4;
+      if (stage === 'closing') return conceptId === 'concept-c' ? -4 : 0;
+      return 0;
+    case 'catalog':
+      if (stage === 'hero') return conceptId === 'concept-d' ? 8 : conceptId === 'concept-b' ? 4 : 0;
+      if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 12 : 4;
+      return 0;
+    case 'profile':
+      if (stage === 'hero') return conceptId === 'concept-a' ? 4 : -2;
+      if (stage === 'middle') return conceptId === 'concept-c' ? 6 : 0;
+      if (stage === 'closing') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 14 : 8;
+      return 0;
+    case 'map':
+      if (stage === 'hero') return conceptId === 'concept-c' ? 28 : conceptId === 'concept-b' ? 14 : 6;
+      if (stage === 'middle') return conceptId === 'concept-d' ? 10 : 4;
+      if (stage === 'closing') return -6;
+      return 0;
+    case 'media':
+      if (stage === 'hero') return conceptId === 'concept-d' ? 18 : conceptId === 'concept-b' ? 10 : conceptId === 'concept-c' ? -4 : 4;
+      if (stage === 'middle') return conceptId === 'concept-c' ? 16 : 6;
+      if (stage === 'closing') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 4 : 0;
+      return 0;
+    default:
+      return 0;
+  }
+}
+
 function heroScoreForConcept(
   analysis: ScreenshotAnalysis,
   conceptId: ConceptId,
   category: AppCategory,
 ): number {
   const categoryBonus = categoryRoleBonus(category, 'hero', analysis.role, conceptId);
+  const semanticBonus = semanticFlavorStageBonus(analysis, conceptId, 'hero');
   switch (conceptId) {
     case 'concept-b':
       return analysis.heroPriority
         + (cropRank(analysis.cropSuitability) * 12)
         + (focusStrengthRank(analysis) * 14)
         - (quietRank(analysis) * 2)
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
     case 'concept-c':
       return analysis.heroPriority
         + (quietRank(analysis) * 20)
         - (densityRank(analysis.density) * 8)
         + (analysis.unsafeForTextOverlay ? -10 : 6)
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
     case 'concept-d':
       return analysis.heroPriority
         + (cropRank(analysis.cropSuitability) * 16)
         + (edgeDensityRank(analysis) * 30)
         + (focusStrengthRank(analysis) * 10)
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
     default:
       return analysis.heroPriority
         + (quietRank(analysis) * 12)
         - (densityRank(analysis.density) * 4)
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
   }
 }
 
@@ -2858,6 +2946,7 @@ function closingScoreForConcept(
         ? 10
         : 0;
   const categoryBonus = categoryRoleBonus(category, 'closing', analysis.role, conceptId);
+  const semanticBonus = semanticFlavorStageBonus(analysis, conceptId, 'closing');
 
   switch (conceptId) {
     case 'concept-b':
@@ -2865,25 +2954,29 @@ function closingScoreForConcept(
         + (densityRank(analysis.density) * 10)
         + (analysis.unsafeForTextOverlay ? 8 : 0)
         + orderWeight
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
     case 'concept-c':
       return roleBonus
         + (quietRank(analysis) * 10)
         + ((100 - analysis.heroPriority) * 0.14)
         + orderWeight
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
     case 'concept-d':
       return roleBonus
         + (densityRank(analysis.density) * 12)
         + (cropRank(analysis.cropSuitability) * 6)
         + orderWeight
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
     default:
       return roleBonus
         + ((100 - analysis.heroPriority) * 0.18)
         + (analysis.unsafeForTextOverlay ? 8 : 0)
         + orderWeight
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
   }
 }
 
@@ -2893,30 +2986,35 @@ function middleScoreForConcept(
   category: AppCategory,
 ): number {
   const categoryBonus = categoryRoleBonus(category, 'middle', analysis.role, conceptId);
+  const semanticBonus = semanticFlavorStageBonus(analysis, conceptId, 'middle');
   switch (conceptId) {
     case 'concept-b':
       return (cropRank(analysis.cropSuitability) * 18)
         + (focusStrengthRank(analysis) * 16)
         + (edgeDensityRank(analysis) * 24)
         + (analysis.heroPriority * 0.12)
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
     case 'concept-c':
       return (quietRank(analysis) * 10)
         + (cropRank(analysis.cropSuitability) * 8)
         + ((analysis.inferredOrder ?? 0) * 0.8)
         - (edgeDensityRank(analysis) * 8)
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
     case 'concept-d':
       return (cropRank(analysis.cropSuitability) * 16)
         + (edgeDensityRank(analysis) * 28)
         + (densityRank(analysis.density) * 8)
         + (focusStrengthRank(analysis) * 12)
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
     default:
       return ((analysis.inferredOrder ?? 0) * 2)
         + (quietRank(analysis) * 4)
         + (analysis.heroPriority * 0.08)
-        + categoryBonus;
+        + categoryBonus
+        + semanticBonus;
   }
 }
 
@@ -3069,6 +3167,10 @@ function chooseDynamicIndividualComposition(args: {
   });
 
   if (semanticFlavor === 'editor' && args.supportingScreens.length >= 1) return 'hero-tilt';
+  if (semanticFlavor === 'map' && args.supportingScreens.length >= 2) return 'hero-tilt';
+  if (semanticFlavor === 'map' && args.supportingScreens.length >= 1) return 'duo-split';
+  if (semanticFlavor === 'media' && args.supportingScreens.length >= 2) return 'fanned-cards';
+  if (semanticFlavor === 'media' && args.supportingScreens.length >= 1) return 'hero-tilt';
   if (semanticFlavor === 'catalog' && args.supportingScreens.length >= 2) return 'fanned-cards';
   if (semanticFlavor === 'catalog' && args.supportingScreens.length >= 1) return 'duo-overlap';
   if (semanticFlavor === 'profile' && args.supportingScreens.length >= 1) return 'duo-overlap';
@@ -3127,6 +3229,10 @@ function buildIndividualImplementationNote(args: {
     parts.push('Keep the main workspace dominant and use support details to echo tools, layers, or output state.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Make the supporting screenshots feel like a curated assortment so the concept sells choice without visual clutter.');
+  } else if (semanticFlavor === 'map') {
+    parts.push('Keep the route or nearby context legible and use support details for destination, pickup, or coverage proof.');
+  } else if (semanticFlavor === 'media') {
+    parts.push('Keep the now-playing surface prominent and use support details to echo queue, episode, or listening momentum.');
   }
   return parts.length > 0 ? parts.join(' ') : undefined;
 }
@@ -3205,6 +3311,10 @@ function buildScreenCopyDirection(args: {
     parts.push('Sell creative control or making progress, not toolbar labels, layers, or editing chrome.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Sell range, curation, or choice instead of naming prices, tabs, or product tiles.');
+  } else if (semanticFlavor === 'map') {
+    parts.push('Sell guidance, proximity, or real-world confidence instead of naming pins, tabs, or map chrome.');
+  } else if (semanticFlavor === 'media') {
+    parts.push('Sell mood, momentum, or what is playing instead of naming controls, playlists, or player chrome.');
   }
 
   const semanticSignals = deriveTextSemanticSignals(args.analysis.textInsights);
@@ -3279,6 +3389,12 @@ function buildIndividualBackgroundStrategy(args: {
   }
   if (semanticFlavor === 'catalog') {
     return args.conceptId === 'concept-b' ? 'catalog-glow' : 'proof-tint';
+  }
+  if (semanticFlavor === 'map') {
+    return args.conceptId === 'concept-b' ? 'route-glow' : 'proof-tint';
+  }
+  if (semanticFlavor === 'media') {
+    return args.conceptId === 'concept-b' ? 'playback-stage' : 'proof-tint';
   }
   if (args.analysis.role === 'settings') return 'quiet-surface';
   if (args.analysis.role === 'onboarding' && args.index === 0) return 'airy-spotlight';
@@ -3759,6 +3875,14 @@ function buildPanoramicCompositionFeatures(args: {
     features.push('browse-strip');
     features.push('decorative-cluster');
   }
+  if (semanticFlavor === 'map') {
+    features.push('route-arc');
+    features.push('decorative-cluster');
+  }
+  if (semanticFlavor === 'media') {
+    features.push('media-marquee');
+    features.push('decorative-cluster');
+  }
 
   return [...new Set(features)];
 }
@@ -3798,6 +3922,12 @@ function buildPanoramicCompositionNote(args: {
   }
   if (args.features.includes('browse-strip')) {
     parts.push('Mirror the browse experience with a curated strip so the frame sells range without duplicating every tile.');
+  }
+  if (args.features.includes('route-arc')) {
+    parts.push('Echo the navigation moment with a route-arc treatment so the frame reads like guided movement instead of a generic card stack.');
+  }
+  if (args.features.includes('media-marquee')) {
+    parts.push('Add a playback marquee so the frame reads like an active listening or watching moment instead of static artwork.');
   }
 
   if (parts.length === 0) {

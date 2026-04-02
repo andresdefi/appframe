@@ -58,10 +58,10 @@ AppFrame now has an initial autopilot pipeline implemented:
 - screenshot analysis now uses OCR/layout semantics to better distinguish onboarding, paywall, settings, communication, and data-heavy dashboard/reporting screens, feeding denser overlay-risk, crop-suitability, and copy-direction guidance
 - screenshot analysis now also derives raster-only occupied-region and semantic layout signals when OCR/text enrichment is absent, so onboarding/paywall/settings/chat/dashboard-style screenshots still feed role, crop, and copy guidance deterministically
 - screenshot analysis now also broadens deterministic non-OCR understanding for workflow/action and discovery/browse screens, and local ambiguity guards reduce some raster-only false positives where wide panels previously collapsed into settings or reporting
-- screenshot analysis now also uses stronger local cue families for editor/canvas, catalog/store, and profile/community screenshots, widening deterministic understanding and cutting more raster-only settings/reporting false positives without bundling built-in model dependencies
+- screenshot analysis now also uses stronger local cue families for editor/canvas, catalog/store, profile/community, map/navigation, and media/player screenshots, widening deterministic understanding and cutting more raster-only settings/reporting false positives without bundling built-in model dependencies
 - dynamic individual planning/materialization now reacts more explicitly to onboarding, paywall, settings, chat, and reporting-style screens with role-aware composition/background strategies instead of only generic frameStrategy/cropPlan behavior
 - dynamic individual planning/materialization now also reacts more explicitly to workflow and discovery screens with dedicated composition/background treatments instead of folding them back into generic proof-grid behavior
-- dynamic planning/materialization now also reacts more explicitly to editor/profile/catalog-style screens with dedicated individual backgrounds, copy guidance, and richer panoramic tool-ribbon / profile-spotlight / browse-strip treatments
+- dynamic planning/materialization now also reacts more explicitly to editor/profile/catalog/map/media-style screens with dedicated individual backgrounds, copy guidance, and richer panoramic tool-ribbon / profile-spotlight / browse-strip / route-arc / playback-marquee treatments
 - the AppFrame skill has been rewritten around the autopilot flow
 
 The current default concept contract is:

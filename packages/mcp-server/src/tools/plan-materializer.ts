@@ -411,8 +411,12 @@ function buildIndividualBackground(args: {
       return { background: mixedBackground(backgroundFromPalette, '#FFFFFF', 0.5) };
     case 'community-spotlight':
       return { background: mixedBackground(backgroundFromPalette, args.colors.secondary, 0.22) };
+    case 'route-glow':
+      return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.24) };
     case 'quiet-surface':
       return { background: mixedBackground(backgroundFromPalette, args.colors.subtitle, 0.12) };
+    case 'playback-stage':
+      return { background: mixedBackground(accent, args.colors.secondary, 0.28) };
     case 'premium-spotlight':
       return { background: mixedBackground(accent, args.colors.secondary, 0.3) };
     case 'studio-surface':
@@ -487,6 +491,13 @@ function panoramicTextPlacement(args: {
   }
   if (hasCompositionFeature(args.frame, 'browse-strip')) {
     maxWidth -= 1;
+  }
+  if (hasCompositionFeature(args.frame, 'route-arc')) {
+    maxWidth -= 1;
+  }
+  if (hasCompositionFeature(args.frame, 'media-marquee')) {
+    maxWidth -= 2;
+    fontSize -= 0.05;
   }
   if (hasCompositionFeature(args.frame, 'profile-orbit')) {
     fontSize -= 0.05;
@@ -672,7 +683,9 @@ function hasCompositionFeature(
     | 'proof-stack'
     | 'toolbar-ribbon'
     | 'profile-orbit'
-    | 'browse-strip',
+    | 'browse-strip'
+    | 'route-arc'
+    | 'media-marquee',
 ): boolean {
   return frame.compositionFeatures?.includes(feature) ?? false;
 }
@@ -1023,6 +1036,182 @@ function buildPanoramicBrowseStripGroup(args: {
   };
 }
 
+function buildPanoramicRouteArcGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Route arc',
+      x: 2,
+      y: 0,
+      width: 30,
+      height: 9,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.92,
+      fontWeight: 700,
+      letterSpacing: 7,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 8,
+      y: 20,
+      width: 74,
+      height: 2,
+      color: args.accentColor,
+      opacity: args.dark ? 0.44 : 0.28,
+      rotation: -8,
+      z: 1,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 6,
+      y: 16,
+      width: 10,
+      height: 10,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.42 : 0.26,
+      rotation: 0,
+      z: 2,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 72,
+      y: 9,
+      width: 12,
+      height: 12,
+      color: args.accentColor,
+      opacity: args.dark ? 0.52 : 0.34,
+      rotation: 0,
+      z: 2,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 7,
+    children,
+  };
+}
+
+function buildPanoramicMediaMarqueeGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Now playing',
+      x: 2,
+      y: 0,
+      width: 34,
+      height: 9,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.92,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'badge',
+      content: 'Queue',
+      x: 40,
+      y: 4,
+      width: 20,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.9,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 6,
+      y: 22,
+      width: 78,
+      height: 2,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.38 : 0.24,
+      rotation: 0,
+      z: 1,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 14,
+      y: 30,
+      width: 62,
+      height: 2,
+      color: args.accentColor,
+      opacity: args.dark ? 0.46 : 0.28,
+      rotation: 0,
+      z: 2,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 7,
+    children,
+  };
+}
+
 function buildPanoramicDecorativeGroup(args: {
   x: number;
   y: number;
@@ -1131,6 +1320,12 @@ function panoramicProofChipY(
   if (hasCompositionFeature(frame, 'profile-orbit')) {
     return recipe === 'bold-panorama' ? 30 : 28;
   }
+  if (hasCompositionFeature(frame, 'media-marquee')) {
+    return recipe === 'bold-panorama' ? 34 : 31;
+  }
+  if (hasCompositionFeature(frame, 'route-arc')) {
+    return recipe === 'bold-panorama' ? 32 : 30;
+  }
   if (frame.cropPlan?.avoidRegions.includes('top')) {
     return recipe === 'bold-panorama' ? 34 : 31;
   }
@@ -1173,11 +1368,13 @@ function panoramicDevicePlacement(
   const toolbarRibbon = hasCompositionFeature(frame, 'toolbar-ribbon');
   const browseStrip = hasCompositionFeature(frame, 'browse-strip');
   const profileOrbit = hasCompositionFeature(frame, 'profile-orbit');
+  const routeArc = hasCompositionFeature(frame, 'route-arc');
+  const mediaMarquee = hasCompositionFeature(frame, 'media-marquee');
   const y = frame.cropPlan?.avoidRegions.includes('top')
-    ? (toolbarRibbon ? 30 : 28)
+    ? (toolbarRibbon ? 30 : mediaMarquee ? 31 : 28)
     : extractDriven
-      ? (profileOrbit ? 27 : 26)
-      : (browseStrip ? 25 : 24);
+      ? (profileOrbit ? 27 : routeArc ? 28 : 26)
+      : (browseStrip ? 25 : mediaMarquee ? 26 : 24);
   return {
     x: Math.max(2, frameCenter - (extractDriven ? 6.5 : browseStrip ? 6.6 : 7) + xOffset),
     y,
@@ -1303,6 +1500,8 @@ function buildPanoramicElements(args: {
     const hasToolbarRibbon = hasCompositionFeature(frame, 'toolbar-ribbon');
     const hasProfileOrbit = hasCompositionFeature(frame, 'profile-orbit');
     const hasBrowseStrip = hasCompositionFeature(frame, 'browse-strip');
+    const hasRouteArc = hasCompositionFeature(frame, 'route-arc');
+    const hasMediaMarquee = hasCompositionFeature(frame, 'media-marquee');
     const allowFramelessExtracts = args.variant.frameStrategy?.defaultTreatment === 'mixed';
     const includeSupportCrop = frame.cropPlan?.usage === 'supporting-crop'
       || frame.cropPlan?.usage === 'layered-extract'
@@ -1401,6 +1600,10 @@ function buildPanoramicElements(args: {
               ? 'Creator spotlight'
               : hasToolbarRibbon
                 ? 'Build flow'
+                : hasRouteArc
+                  ? 'Guided route'
+                  : hasMediaMarquee
+                    ? 'Playback cue'
                 : hasBrowseStrip
                   ? 'Curated browse'
                   : args.variant.recipe === 'bold-panorama'
@@ -1435,25 +1638,41 @@ function buildPanoramicElements(args: {
           frame.storyBeat === 'summary'
             ? hasProfileOrbit
               ? 'Community-loved'
+              : hasRouteArc
+                ? 'Always nearby'
+                : hasMediaMarquee
+                  ? 'Plays all day'
               : 'Power-user approved'
             : args.variant.recipe === 'bold-panorama'
               ? hasToolbarRibbon
                 ? 'Built fast'
+                : hasMediaMarquee
+                  ? 'Always on'
                 : '4.9 out of 5'
               : hasBrowseStrip
                 ? 'Curated picks'
+                : hasRouteArc
+                  ? 'Route ready'
                 : 'Top rated flow',
         detail:
           frame.storyBeat === 'summary'
             ? hasProfileOrbit
               ? 'Shared by active members'
+              : hasRouteArc
+                ? 'Coverage across key stops'
+                : hasMediaMarquee
+                  ? 'Queued for repeat sessions'
               : 'Built for daily use'
             : args.variant.recipe === 'bold-panorama'
               ? hasToolbarRibbon
                 ? 'Template workflow'
+                : hasMediaMarquee
+                  ? 'Queue stays moving'
                 : 'App Store reviews'
               : hasBrowseStrip
                 ? 'Fresh each visit'
+                : hasRouteArc
+                  ? 'Nearby and on route'
                 : 'Trusted by repeat users',
         rating: args.variant.recipe === 'bold-panorama' ? 5 : undefined,
         maxRating: 5,
@@ -1517,6 +1736,10 @@ function buildPanoramicElements(args: {
             ? 36
             : hasProfileOrbit
               ? 46
+              : hasRouteArc
+                ? 40
+                : hasMediaMarquee
+                  ? 48
               : hasBrowseStrip
                 ? 58
                 : frame.cropPlan?.avoidRegions.includes('bottom') ? 42 : index % 2 === 0 ? 52 : 56,
@@ -1539,6 +1762,10 @@ function buildPanoramicElements(args: {
               ? frame.storyBeat === 'hero' ? 'Creator card' : 'Community card'
               : hasToolbarRibbon
                 ? 'Tool card'
+                : hasRouteArc
+                  ? 'Route card'
+                  : hasMediaMarquee
+                    ? 'Now playing'
                 : hasBrowseStrip
                   ? 'Browse card'
                   : frame.storyBeat === 'hero'
@@ -1563,6 +1790,10 @@ function buildPanoramicElements(args: {
           label:
             hasProfileOrbit
               ? frame.storyBeat === 'hero' ? 'Community' : undefined
+              : hasRouteArc
+                ? frame.storyBeat === 'hero' ? 'Nearby' : undefined
+                : hasMediaMarquee
+                  ? frame.storyBeat === 'hero' ? 'Playing' : undefined
               : frame.storyBeat === 'hero'
                 ? 'Featured'
                 : undefined,
@@ -1597,6 +1828,36 @@ function buildPanoramicElements(args: {
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
           dark: false,
+        }),
+      );
+    }
+
+    if (hasRouteArc) {
+      elements.push(
+        buildPanoramicRouteArcGroup({
+          x: frameSliceStart + 2,
+          y: args.variant.recipe === 'bold-panorama' ? 72 : 70,
+          width: Math.max(12, sliceWidth - 4),
+          height: 12,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          dark: args.variant.recipe === 'bold-panorama',
+        }),
+      );
+    }
+
+    if (hasMediaMarquee) {
+      elements.push(
+        buildPanoramicMediaMarqueeGroup({
+          x: frameSliceStart + 2,
+          y: args.variant.recipe === 'bold-panorama' ? 16 : 18,
+          width: Math.max(12, sliceWidth - 4),
+          height: 12,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          dark: args.variant.recipe === 'bold-panorama',
         }),
       );
     }
@@ -1788,6 +2049,8 @@ function buildPanoramicBackground(args: {
   const hasToolbarRibbon = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'toolbar-ribbon')) ?? false;
   const hasProfileOrbit = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'profile-orbit')) ?? false;
   const hasBrowseStrip = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'browse-strip')) ?? false;
+  const hasRouteArc = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'route-arc')) ?? false;
+  const hasMediaMarquee = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'media-marquee')) ?? false;
 
   if (args.style === 'editorial') {
     return {
@@ -1843,6 +2106,24 @@ function buildPanoramicBackground(args: {
           opacity: 0.16,
           blur: 80,
           blendMode: 'screen' as const,
+        }] : []),
+        ...(hasRouteArc ? [{
+          kind: 'glow' as const,
+          color: args.colors.primary,
+          x: 28,
+          y: 74,
+          width: 36,
+          height: 16,
+          opacity: 0.18,
+          blur: 84,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasMediaMarquee ? [{
+          kind: 'solid' as const,
+          color: args.colors.secondary,
+          opacity: 0.06,
+          blendMode: 'multiply' as const,
+          blur: 0,
         }] : []),
       ],
     };
@@ -1908,6 +2189,28 @@ function buildPanoramicBackground(args: {
           height: 14,
           opacity: 0.12,
           blur: 78,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasRouteArc ? [{
+          kind: 'glow' as const,
+          color: args.colors.primary,
+          x: 28,
+          y: 74,
+          width: 38,
+          height: 18,
+          opacity: 0.18,
+          blur: 88,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasMediaMarquee ? [{
+          kind: 'glow' as const,
+          color: args.colors.secondary,
+          x: 52,
+          y: 18,
+          width: 34,
+          height: 14,
+          opacity: 0.18,
+          blur: 74,
           blendMode: 'screen' as const,
         }] : []),
       ],

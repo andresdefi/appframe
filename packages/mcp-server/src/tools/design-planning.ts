@@ -46,7 +46,9 @@ export type PanoramicCompositionFeature =
   | 'capture-focus'
   | 'timeline-band'
   | 'checkout-lane'
-  | 'trust-shield';
+  | 'trust-shield'
+  | 'support-beacon'
+  | 'reward-ribbon';
 
 export interface SafeTextZone {
   x: number;
@@ -402,7 +404,9 @@ type SemanticFlavor =
   | 'capture'
   | 'schedule'
   | 'commerce'
-  | 'security';
+  | 'security'
+  | 'support'
+  | 'reward';
 
 interface SemanticFlavorSignals {
   profileSignalCount: number;
@@ -414,6 +418,8 @@ interface SemanticFlavorSignals {
   scheduleSignalCount: number;
   commerceSignalCount: number;
   securitySignalCount: number;
+  supportSignalCount: number;
+  rewardSignalCount: number;
   settingsConflictCount: number;
   paywallConflictCount: number;
   onboardingConflictCount: number;
@@ -522,6 +528,14 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
       haystack,
       /\b(login|log in|sign in|signin|password|passwords|passcode|passcodes|passkey|passkeys|authentication|authenticate|auth|security|secure|vault|biometric|face id|touch id|verification|verify|verified|otp|2fa|identity)\b/g,
     ),
+    supportSignalCount: countRegexMatches(
+      haystack,
+      /\b(help|help center|helpdesk|support|support center|support hub|faq|faqs|knowledge base|ticket|tickets|case|cases|troubleshoot|troubleshooting|resolution|resolve|issue status)\b/g,
+    ),
+    rewardSignalCount: countRegexMatches(
+      haystack,
+      /\b(reward|rewards|loyalty|points|perk|perks|cashback|cash back|redeem|redemption|bonus|bonuses|membership|member benefits|member perks|tier|tiers)\b/g,
+    ),
     settingsConflictCount: countRegexMatches(
       haystack,
       /\b(settings|preferences|privacy|security|notifications|billing|manage)\b/g,
@@ -583,6 +597,20 @@ function inferSemanticFlavor(args: {
       - Math.min(2, signals.paywallConflictCount)
       - Math.min(1, signals.catalogSignalCount)
     : 0;
+  const supportScore = signals.supportSignalCount > 0
+    ? (signals.supportSignalCount * 2)
+      + (args.role === 'communication' ? 2 : args.role === 'detail' || args.role === 'settings' ? 1 : 0)
+      - Math.min(2, signals.settingsConflictCount)
+      - Math.min(1, signals.onboardingConflictCount)
+    : 0;
+  const rewardScore = signals.rewardSignalCount > 0
+    ? (signals.rewardSignalCount * 2)
+      + (args.role === 'detail' || args.role === 'discovery' ? 2 : args.role === 'home' ? 1 : 0)
+      + (signals.commerceSignalCount >= 1 ? 1 : 0)
+      - (signals.paywallConflictCount > signals.rewardSignalCount ? 2 : 0)
+      - Math.min(1, signals.settingsConflictCount)
+      - Math.min(1, signals.profileSignalCount)
+    : 0;
   const captureScore = (signals.captureSignalCount * 2)
     + (args.role === 'workflow' || args.role === 'detail' ? 2 : args.role === 'home' ? 1 : 0)
     - Math.min(2, signals.mediaConflictCount)
@@ -596,6 +624,8 @@ function inferSemanticFlavor(args: {
   const ranked: Array<{ flavor: SemanticFlavor; score: number }> = [
     { flavor: 'commerce', score: commerceScore },
     { flavor: 'security', score: securityScore },
+    { flavor: 'support', score: supportScore },
+    { flavor: 'reward', score: rewardScore },
     { flavor: 'capture', score: captureScore },
     { flavor: 'schedule', score: scheduleScore },
     { flavor: 'editor', score: editorScore },
@@ -711,6 +741,21 @@ function applySemanticFlavorRoleScores(
     scores.detail += 8;
     scores.settings += 4;
     scores.paywall = Math.max(0, scores.paywall - 6);
+  }
+
+  if (signals.supportSignalCount >= 2) {
+    scores.detail += 10;
+    scores.communication += 8;
+    scores.settings = Math.max(0, scores.settings - 12);
+    scores.onboarding = Math.max(0, scores.onboarding - 4);
+  }
+
+  if (signals.rewardSignalCount >= 2) {
+    scores.detail += 10;
+    scores.discovery += 8;
+    scores.home += 2;
+    scores.paywall = Math.max(0, scores.paywall - 12);
+    scores.settings = Math.max(0, scores.settings - 6);
   }
 }
 
@@ -1583,6 +1628,10 @@ function buildHeroExplanation(args: {
     reasons.push('Checkout/order screens can sell purchase confidence and follow-through when the transactional path stays clear.');
   } else if (semanticFlavor === 'security') {
     reasons.push('Secure access screens can sell trust and verification confidence when the identity step stays focused.');
+  } else if (semanticFlavor === 'support') {
+    reasons.push('Support/help screens can sell reassurance and fast resolution when the answer or ticket state stays structured.');
+  } else if (semanticFlavor === 'reward') {
+    reasons.push('Rewards/loyalty screens can sell earned value and member payoff when the perks or points surface stays clear.');
   } else if (semanticFlavor === 'map') {
     reasons.push('Map/navigation screens can sell immediacy and real-world coverage when the route or nearby context stays readable.');
   } else if (semanticFlavor === 'media') {
@@ -2983,6 +3032,16 @@ function semanticFlavorStageBonus(
       if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 8 : 4;
       if (stage === 'closing') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 14 : 6;
       return 0;
+    case 'support':
+      if (stage === 'hero') return conceptId === 'concept-c' ? -4 : conceptId === 'concept-d' ? 2 : 0;
+      if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 8 : 4;
+      if (stage === 'closing') return conceptId === 'concept-c' ? 16 : conceptId === 'concept-d' ? 12 : 6;
+      return 0;
+    case 'reward':
+      if (stage === 'hero') return conceptId === 'concept-d' ? 14 : conceptId === 'concept-b' ? 8 : conceptId === 'concept-c' ? 2 : 0;
+      if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 10 : 4;
+      if (stage === 'closing') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 8 : 4;
+      return 0;
     case 'map':
       if (stage === 'hero') return conceptId === 'concept-c' ? 28 : conceptId === 'concept-b' ? 14 : 6;
       if (stage === 'middle') return conceptId === 'concept-d' ? 10 : 4;
@@ -3280,6 +3339,9 @@ function chooseDynamicIndividualComposition(args: {
   });
 
   if (semanticFlavor === 'editor' && args.supportingScreens.length >= 1) return 'hero-tilt';
+  if (semanticFlavor === 'support' && args.supportingScreens.length >= 1) return 'duo-split';
+  if (semanticFlavor === 'reward' && args.supportingScreens.length >= 2) return 'fanned-cards';
+  if (semanticFlavor === 'reward' && args.supportingScreens.length >= 1) return 'duo-overlap';
   if (semanticFlavor === 'commerce' && args.supportingScreens.length >= 2) return 'fanned-cards';
   if (semanticFlavor === 'commerce' && args.supportingScreens.length >= 1) return args.index === 0 ? 'hero-tilt' : 'duo-overlap';
   if (semanticFlavor === 'security' && args.supportingScreens.length >= 1) return 'duo-split';
@@ -3348,6 +3410,10 @@ function buildIndividualImplementationNote(args: {
     parts.push('Keep the main workspace dominant and use support details to echo tools, layers, or output state.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Make the supporting screenshots feel like a curated assortment so the concept sells choice without visual clutter.');
+  } else if (semanticFlavor === 'support') {
+    parts.push('Keep the answer path or resolution state clear and use support details for FAQ depth, ticket status, or guided next steps.');
+  } else if (semanticFlavor === 'reward') {
+    parts.push('Treat the earned-value surface like a member payoff and use support details for tiers, redemptions, or perk proof.');
   } else if (semanticFlavor === 'commerce') {
     parts.push('Keep the purchase path legible and let support details reinforce cart, offer, or delivery momentum instead of generic storefront chrome.');
   } else if (semanticFlavor === 'security') {
@@ -3438,6 +3504,10 @@ function buildScreenCopyDirection(args: {
     parts.push('Sell creative control or making progress, not toolbar labels, layers, or editing chrome.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Sell range, curation, or choice instead of naming prices, tabs, or product tiles.');
+  } else if (semanticFlavor === 'support') {
+    parts.push('Sell reassurance, guided help, or fast resolution instead of naming FAQ rows, ticket numbers, or support chrome.');
+  } else if (semanticFlavor === 'reward') {
+    parts.push('Sell earned value, perks, or loyalty payoff instead of naming points balances, badges, or redemption chrome.');
   } else if (semanticFlavor === 'commerce') {
     parts.push('Sell purchase confidence, cart momentum, or order follow-through instead of naming prices, checkout buttons, or storefront chrome.');
   } else if (semanticFlavor === 'security') {
@@ -3524,6 +3594,12 @@ function buildIndividualBackgroundStrategy(args: {
   }
   if (semanticFlavor === 'catalog') {
     return args.conceptId === 'concept-b' ? 'catalog-glow' : 'proof-tint';
+  }
+  if (semanticFlavor === 'support') {
+    return args.conceptId === 'concept-b' ? 'care-surface' : 'proof-tint';
+  }
+  if (semanticFlavor === 'reward') {
+    return args.conceptId === 'concept-b' ? 'perk-glow' : 'proof-tint';
   }
   if (semanticFlavor === 'commerce') {
     return args.conceptId === 'concept-b' ? 'checkout-lane' : 'proof-tint';
@@ -4022,6 +4098,17 @@ function buildPanoramicCompositionFeatures(args: {
     features.push('browse-strip');
     features.push('decorative-cluster');
   }
+  if (semanticFlavor === 'support') {
+    features.push('support-beacon');
+    features.push('proof-stack');
+  }
+  if (semanticFlavor === 'reward') {
+    features.push('reward-ribbon');
+    features.push('decorative-cluster');
+    if (args.storyBeat === 'trust' || args.storyBeat === 'summary') {
+      features.push('proof-stack');
+    }
+  }
   if (semanticFlavor === 'commerce') {
     features.push('checkout-lane');
     features.push('proof-stack');
@@ -4090,6 +4177,12 @@ function buildPanoramicCompositionNote(args: {
   }
   if (args.features.includes('browse-strip')) {
     parts.push('Mirror the browse experience with a curated strip so the frame sells range without duplicating every tile.');
+  }
+  if (args.features.includes('support-beacon')) {
+    parts.push('Use a support-beacon treatment so the frame reads like guided help and resolution instead of generic settings or chat chrome.');
+  }
+  if (args.features.includes('reward-ribbon')) {
+    parts.push('Add a reward-ribbon treatment so the frame reads like earned perks and member value instead of a generic promo strip.');
   }
   if (args.features.includes('checkout-lane')) {
     parts.push('Run a checkout-lane treatment so the frame reads like confident purchase momentum instead of a generic catalog or paywall panel.');

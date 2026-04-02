@@ -1336,6 +1336,108 @@ describe('design planning helpers', () => {
     }
   });
 
+  it('adds support and reward-specific planning reactions from local screenshot cues', async () => {
+    const supportPath = await makePngFile('help-center-ticket-resolution.png', 120, 200, (x, y) => {
+      if (y < 26) return [248, 250, 252, 255];
+      if (x > 18 && x < 102 && y > 40 && y < 124) return [191, 219, 254, 255];
+      if ((x > 24 && x < 96 && y > 136 && y < 154) || (x > 24 && x < 96 && y > 164 && y < 184)) {
+        return [226, 232, 240, 255];
+      }
+      return [241, 245, 249, 255];
+    });
+    const rewardPath = await makePngFile('member-loyalty-rewards-perks.png', 120, 200, (x, y) => {
+      if (y < 28) return [255, 247, 237, 255];
+      if (x > 18 && x < 102 && y > 42 && y < 118) return [251, 191, 36, 255];
+      if (x > 20 && x < 100 && y > 132 && y < 166) return [253, 230, 138, 255];
+      if (x > 30 && x < 90 && y > 174 && y < 190) return [59, 130, 246, 255];
+      return [255, 251, 235, 255];
+    });
+    const homePath = await makePngFile('member-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const profilePath = await makePngFile('member-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: supportPath, note: 'Help center with support tickets, FAQ guidance, and resolution status' },
+      { path: rewardPath, note: 'Member loyalty rewards with perks, points, cashback, and redemption' },
+      { path: homePath, note: 'Member home' },
+      { path: profilePath, note: 'Member profile' },
+    ]);
+    const supportAnalysis = analysis.find((entry) => entry.path === supportPath);
+    const rewardAnalysis = analysis.find((entry) => entry.path === rewardPath);
+    expect(supportAnalysis?.role).not.toBe('settings');
+    expect(rewardAnalysis?.role).not.toBe('paywall');
+
+    const plan = await buildVariantSetPlan({
+      appName: 'MemberLoop',
+      appDescription: 'A membership app for loyalty rewards, cashback perks, and fast in-app support.',
+      platforms: ['ios'],
+      features: ['Help center', 'Rewards wallet', 'Member perks'],
+      screenshots: [
+        { path: supportPath, note: 'Help center with support tickets, FAQ guidance, and resolution status' },
+        { path: rewardPath, note: 'Member loyalty rewards with perks, points, cashback, and redemption' },
+        { path: homePath, note: 'Member home' },
+        { path: profilePath, note: 'Member profile' },
+      ],
+      goals: ['Feel trusted', 'Show member value'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const supportScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === supportPath);
+      const rewardScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === rewardPath);
+
+      expect(supportScreen?.backgroundStrategy).toBe('care-surface');
+      expect(supportScreen?.copyDirection).toContain('reassurance, guided help, or fast resolution');
+      expect(supportScreen?.implementationNote).toContain('answer path or resolution state clear');
+      expect(supportScreen?.composition).toBe('duo-split');
+
+      expect(rewardScreen?.backgroundStrategy).toBe('perk-glow');
+      expect(rewardScreen?.copyDirection).toContain('earned value, perks, or loyalty payoff');
+      expect(rewardScreen?.implementationNote).toContain('earned-value surface');
+      expect(['duo-overlap', 'fanned-cards']).toContain(rewardScreen?.composition);
+    }
+
+    const editorialConcept = plan.variants[2];
+    expect(editorialConcept?.mode).toBe('panoramic');
+    if (editorialConcept?.mode === 'panoramic') {
+      const supportFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === supportPath);
+      const rewardFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === rewardPath);
+
+      expect(supportFrame?.compositionFeatures).toContain('support-beacon');
+      expect(supportFrame?.compositionNote).toContain('support-beacon treatment');
+
+      expect(rewardFrame?.compositionFeatures).toContain('reward-ribbon');
+      expect(rewardFrame?.compositionNote).toContain('reward-ribbon treatment');
+    }
+
+    const boldConcept = plan.variants[3];
+    expect(boldConcept?.mode).toBe('panoramic');
+    if (boldConcept?.mode === 'panoramic') {
+      const supportFrame = boldConcept.frames?.find((frame) => frame.sourcePath === supportPath);
+      const rewardFrame = boldConcept.frames?.find((frame) => frame.sourcePath === rewardPath);
+
+      expect(supportFrame?.compositionFeatures).toContain('support-beacon');
+      expect(rewardFrame?.compositionFeatures).toContain('reward-ribbon');
+    }
+  });
+
   it('adds role-specific copy guidance for onboarding, settings, and reporting-heavy screens', async () => {
     const onboardingPath = await makeSvgFile('welcome-screen.svg', 1290, 2796);
     const dashboardPath = await makeSvgFile('finance-home.svg', 1290, 2796);

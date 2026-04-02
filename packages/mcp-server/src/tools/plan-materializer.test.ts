@@ -954,4 +954,91 @@ describe('plan materializer', () => {
     ).toBe(true);
     expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
   });
+
+  it('materializes family-aware local cue treatments for support and reward screenshots', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-support-reward-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-support-reward-output-');
+
+    const supportPath = await makePngFile(assetsDir, 'help-center-ticket-resolution.png', 120, 200, (x, y) => {
+      if (y < 26) return [248, 250, 252, 255];
+      if (x > 18 && x < 102 && y > 40 && y < 124) return [191, 219, 254, 255];
+      if ((x > 24 && x < 96 && y > 136 && y < 154) || (x > 24 && x < 96 && y > 164 && y < 184)) {
+        return [226, 232, 240, 255];
+      }
+      return [241, 245, 249, 255];
+    });
+    const rewardPath = await makePngFile(assetsDir, 'member-loyalty-rewards-perks.png', 120, 200, (x, y) => {
+      if (y < 28) return [255, 247, 237, 255];
+      if (x > 18 && x < 102 && y > 42 && y < 118) return [251, 191, 36, 255];
+      if (x > 20 && x < 100 && y > 132 && y < 166) return [253, 230, 138, 255];
+      if (x > 30 && x < 90 && y > 174 && y < 190) return [59, 130, 246, 255];
+      return [255, 251, 235, 255];
+    });
+    const homePath = await makePngFile(assetsDir, 'member-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const profilePath = await makePngFile(assetsDir, 'member-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'MemberLoop',
+      appDescription: 'A membership app for loyalty rewards, cashback perks, and fast in-app support.',
+      platforms: ['ios'],
+      features: ['Help center', 'Rewards wallet', 'Member perks'],
+      screenshots: [
+        { path: supportPath, note: 'Help center with support tickets, FAQ guidance, and resolution status' },
+        { path: rewardPath, note: 'Member loyalty rewards with perks, points, cashback, and redemption' },
+        { path: homePath, note: 'Member home' },
+        { path: profilePath, note: 'Member profile' },
+      ],
+      goals: ['Feel trusted', 'Show member value'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const result = await materializeVariantPlan({
+      plan,
+      outputDir,
+      primaryColor: '#2563EB',
+      secondaryColor: '#F59E0B',
+    });
+
+    const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
+    const panoramicConfigPath = result.variants.find((variant) => variant.id === 'concept-c')?.configPath;
+    expect(individualConfigPath).toBeTruthy();
+    expect(panoramicConfigPath).toBeTruthy();
+
+    const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const supportScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('help-center-ticket-resolution.png'));
+    const rewardScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('member-loyalty-rewards-perks.png'));
+
+    expect(supportScreen?.background).toBeTruthy();
+    expect(rewardScreen?.background).toBeTruthy();
+    expect(supportScreen?.background).not.toBe(rewardScreen?.background);
+
+    const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const panoramicGroups = panoramic.panoramic.elements.filter((element: { type: string }) => element.type === 'group');
+
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Help center')),
+    ).toBe(true);
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Member perks')),
+    ).toBe(true);
+    expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
+  });
 });

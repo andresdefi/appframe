@@ -1153,6 +1153,91 @@ describe('design planning helpers', () => {
     }
   });
 
+  it('adds capture and schedule-specific planning reactions from local screenshot cues', async () => {
+    const capturePath = await makePngFile('receipt-camera-capture.png', 120, 200, (x, y) => {
+      if (y < 26) return [15, 23, 42, 255];
+      if (x > 20 && x < 100 && y > 34 && y < 160) return [30, 41, 59, 255];
+      if (x > 42 && x < 78 && y > 168 && y < 190) return [248, 250, 252, 255];
+      return [51, 65, 85, 255];
+    });
+    const schedulePath = await makePngFile('team-calendar-agenda.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if (x < 28 && y > 38 && y < 184 && y % 28 < 18) return [203, 213, 225, 255];
+      if (x > 34 && x < 104 && y > 42 && y < 182 && y % 28 < 16) return [96, 165, 250, 255];
+      return [241, 245, 249, 255];
+    });
+    const homePath = await makePngFile('team-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 52 && y < 88)
+        || (x > 68 && x < 108 && y > 52 && y < 88)
+        || (x > 12 && x < 52 && y > 104 && y < 140)) {
+        return [37, 99, 235, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const editorPath = await makePngFile('story-editor.png', 120, 200, (x, y) => {
+      if (y < 24) return [241, 245, 249, 255];
+      if (x > 24 && x < 98 && y > 34 && y < 154) return [99, 102, 241, 255];
+      return [226, 232, 240, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'ScanPilot',
+      appDescription: 'A field app for live capture, agenda planning, and follow-up workflows.',
+      platforms: ['ios'],
+      features: ['Receipt capture', 'Team agenda', 'Story editor'],
+      screenshots: [
+        { path: capturePath, note: 'Live camera capture for scanning receipts and barcode intake' },
+        { path: schedulePath, note: 'Team calendar agenda with bookings and next appointments' },
+        { path: homePath, note: 'Main team home' },
+        { path: editorPath, note: 'Story editor canvas' },
+      ],
+      goals: ['Feel active', 'Show control'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const captureScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === capturePath);
+      const scheduleScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === schedulePath);
+
+      expect(captureScreen?.backgroundStrategy).toBe('capture-stage');
+      expect(captureScreen?.copyDirection).toContain('capturing, scanning, or live framing confidence');
+      expect(captureScreen?.implementationNote).toContain('live preview or subject area clear');
+      expect(['hero-tilt', 'duo-overlap']).toContain(captureScreen?.composition);
+
+      expect(scheduleScreen?.backgroundStrategy).toBe('timeline-surface');
+      expect(scheduleScreen?.copyDirection).toContain('timing, readiness, or the next planned moment');
+      expect(scheduleScreen?.implementationNote).toContain('chronological rhythm');
+      expect(scheduleScreen?.composition).toBe('duo-split');
+    }
+
+    const editorialConcept = plan.variants[2];
+    expect(editorialConcept?.mode).toBe('panoramic');
+    if (editorialConcept?.mode === 'panoramic') {
+      const captureFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === capturePath);
+      const scheduleFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === schedulePath);
+
+      expect(captureFrame?.compositionFeatures).toContain('capture-focus');
+      expect(captureFrame?.compositionNote).toContain('capture-focus treatment');
+
+      expect(scheduleFrame?.compositionFeatures).toContain('timeline-band');
+      expect(scheduleFrame?.compositionNote).toContain('timeline band');
+    }
+
+    const boldConcept = plan.variants[3];
+    expect(boldConcept?.mode).toBe('panoramic');
+    if (boldConcept?.mode === 'panoramic') {
+      const captureFrame = boldConcept.frames?.find((frame) => frame.sourcePath === capturePath);
+      const scheduleFrame = boldConcept.frames?.find((frame) => frame.sourcePath === schedulePath);
+
+      expect(captureFrame?.compositionFeatures).toContain('capture-focus');
+      expect(scheduleFrame?.compositionFeatures).toContain('timeline-band');
+    }
+  });
+
   it('adds role-specific copy guidance for onboarding, settings, and reporting-heavy screens', async () => {
     const onboardingPath = await makeSvgFile('welcome-screen.svg', 1290, 2796);
     const dashboardPath = await makeSvgFile('finance-home.svg', 1290, 2796);

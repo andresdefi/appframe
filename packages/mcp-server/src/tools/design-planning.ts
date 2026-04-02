@@ -42,7 +42,9 @@ export type PanoramicCompositionFeature =
   | 'profile-orbit'
   | 'browse-strip'
   | 'route-arc'
-  | 'media-marquee';
+  | 'media-marquee'
+  | 'capture-focus'
+  | 'timeline-band';
 
 export interface SafeTextZone {
   x: number;
@@ -389,7 +391,7 @@ interface TextSemanticSignals {
   alternatingConversationColumns: boolean;
 }
 
-type SemanticFlavor = 'profile' | 'editor' | 'catalog' | 'map' | 'media';
+type SemanticFlavor = 'profile' | 'editor' | 'catalog' | 'map' | 'media' | 'capture' | 'schedule';
 
 interface SemanticFlavorSignals {
   profileSignalCount: number;
@@ -397,8 +399,13 @@ interface SemanticFlavorSignals {
   catalogSignalCount: number;
   mapSignalCount: number;
   mediaSignalCount: number;
+  captureSignalCount: number;
+  scheduleSignalCount: number;
   settingsConflictCount: number;
   paywallConflictCount: number;
+  onboardingConflictCount: number;
+  reportingConflictCount: number;
+  mediaConflictCount: number;
 }
 
 function countNumericTokens(value: string): number {
@@ -486,6 +493,14 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
       haystack,
       /\b(player|playlist|playlists|album|albums|song|songs|artist|artists|podcast|podcasts|episode|episodes|listen|listening|watch|video|videos|stream|streaming|queue|lyrics|mix|radio)\b/g,
     ),
+    captureSignalCount: countRegexMatches(
+      haystack,
+      /\b(camera|capture|captured|scanner|scan|scanning|record|recording|lens|photo|photos|selfie|snapshot|snap|viewfinder|shutter|barcode|qr|receipt|receipts|document scan|live preview)\b/g,
+    ),
+    scheduleSignalCount: countRegexMatches(
+      haystack,
+      /\b(calendar|agenda|schedule|scheduled|event|events|booking|bookings|appointment|appointments|availability|itinerary|reservation|reservations|shift|shifts|planner|timeline|time slots?|run of show)\b/g,
+    ),
     settingsConflictCount: countRegexMatches(
       haystack,
       /\b(settings|preferences|privacy|security|notifications|billing|manage)\b/g,
@@ -493,6 +508,18 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
     paywallConflictCount: countRegexMatches(
       haystack,
       /\b(premium|upgrade|subscription|trial|checkout|payment|unlock)\b/g,
+    ),
+    onboardingConflictCount: countRegexMatches(
+      haystack,
+      /\b(onboarding|welcome|intro|continue|skip|allow|enable|permission|permissions|notifications|location|contacts|microphone|tracking)\b/g,
+    ),
+    reportingConflictCount: countRegexMatches(
+      haystack,
+      /\b(report|reports|analytics|stats|insight|insights|trend|trends|performance|conversion|revenue|spending)\b/g,
+    ),
+    mediaConflictCount: countRegexMatches(
+      haystack,
+      /\b(player|playlist|playlists|album|albums|song|songs|artist|artists|podcast|podcasts|episode|episodes|listen|listening|watch|video|videos|stream|streaming|queue|lyrics|mix|radio)\b/g,
     ),
   };
 }
@@ -523,7 +550,19 @@ function inferSemanticFlavor(args: {
     + (args.role === 'detail' ? 2 : args.role === 'discovery' || args.role === 'communication' ? 1 : 0)
     - Math.min(2, signals.settingsConflictCount)
     - Math.min(2, signals.paywallConflictCount);
+  const captureScore = (signals.captureSignalCount * 2)
+    + (args.role === 'workflow' || args.role === 'detail' ? 2 : args.role === 'home' ? 1 : 0)
+    - Math.min(2, signals.mediaConflictCount)
+    - Math.min(2, signals.settingsConflictCount)
+    - (args.role === 'onboarding' ? 4 : Math.min(2, signals.onboardingConflictCount));
+  const scheduleScore = (signals.scheduleSignalCount * 2)
+    + (args.role === 'workflow' ? 2 : args.role === 'home' || args.role === 'detail' ? 1 : 0)
+    - Math.min(2, signals.reportingConflictCount)
+    - Math.min(1, signals.settingsConflictCount)
+    - Math.min(2, signals.editorSignalCount);
   const ranked: Array<{ flavor: SemanticFlavor; score: number }> = [
+    { flavor: 'capture', score: captureScore },
+    { flavor: 'schedule', score: scheduleScore },
     { flavor: 'editor', score: editorScore },
     { flavor: 'catalog', score: catalogScore },
     { flavor: 'profile', score: profileScore },
@@ -2890,6 +2929,16 @@ function semanticFlavorStageBonus(
       if (stage === 'middle') return conceptId === 'concept-c' ? 16 : 6;
       if (stage === 'closing') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 4 : 0;
       return 0;
+    case 'capture':
+      if (stage === 'hero') return conceptId === 'concept-d' ? 22 : conceptId === 'concept-b' ? 16 : conceptId === 'concept-c' ? 6 : 4;
+      if (stage === 'middle') return conceptId === 'concept-d' ? 10 : conceptId === 'concept-b' ? 8 : 2;
+      if (stage === 'closing') return conceptId === 'concept-c' ? -6 : -2;
+      return 0;
+    case 'schedule':
+      if (stage === 'hero') return conceptId === 'concept-b' ? 8 : conceptId === 'concept-c' ? 4 : 2;
+      if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 14 : 8;
+      if (stage === 'closing') return conceptId === 'concept-c' ? 12 : conceptId === 'concept-d' ? 8 : 4;
+      return 0;
     default:
       return 0;
   }
@@ -3167,6 +3216,9 @@ function chooseDynamicIndividualComposition(args: {
   });
 
   if (semanticFlavor === 'editor' && args.supportingScreens.length >= 1) return 'hero-tilt';
+  if (semanticFlavor === 'capture' && args.supportingScreens.length >= 2) return 'hero-tilt';
+  if (semanticFlavor === 'capture' && args.supportingScreens.length >= 1) return args.index === 0 ? 'hero-tilt' : 'duo-overlap';
+  if (semanticFlavor === 'schedule' && args.supportingScreens.length >= 1) return 'duo-split';
   if (semanticFlavor === 'map' && args.supportingScreens.length >= 2) return 'hero-tilt';
   if (semanticFlavor === 'map' && args.supportingScreens.length >= 1) return 'duo-split';
   if (semanticFlavor === 'media' && args.supportingScreens.length >= 2) return 'fanned-cards';
@@ -3229,6 +3281,10 @@ function buildIndividualImplementationNote(args: {
     parts.push('Keep the main workspace dominant and use support details to echo tools, layers, or output state.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Make the supporting screenshots feel like a curated assortment so the concept sells choice without visual clutter.');
+  } else if (semanticFlavor === 'capture') {
+    parts.push('Keep the live preview or subject area clear and let support details reinforce scan confirmation, framing, or captured output.');
+  } else if (semanticFlavor === 'schedule') {
+    parts.push('Preserve the chronological rhythm so the supporting screenshot reinforces timing, status, or the next planned moment.');
   } else if (semanticFlavor === 'map') {
     parts.push('Keep the route or nearby context legible and use support details for destination, pickup, or coverage proof.');
   } else if (semanticFlavor === 'media') {
@@ -3311,6 +3367,10 @@ function buildScreenCopyDirection(args: {
     parts.push('Sell creative control or making progress, not toolbar labels, layers, or editing chrome.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Sell range, curation, or choice instead of naming prices, tabs, or product tiles.');
+  } else if (semanticFlavor === 'capture') {
+    parts.push('Sell capturing, scanning, or live framing confidence instead of naming shutter buttons, scan controls, or camera chrome.');
+  } else if (semanticFlavor === 'schedule') {
+    parts.push('Sell timing, readiness, or the next planned moment instead of naming dates, slots, or calendar chrome.');
   } else if (semanticFlavor === 'map') {
     parts.push('Sell guidance, proximity, or real-world confidence instead of naming pins, tabs, or map chrome.');
   } else if (semanticFlavor === 'media') {
@@ -3389,6 +3449,12 @@ function buildIndividualBackgroundStrategy(args: {
   }
   if (semanticFlavor === 'catalog') {
     return args.conceptId === 'concept-b' ? 'catalog-glow' : 'proof-tint';
+  }
+  if (semanticFlavor === 'capture') {
+    return args.conceptId === 'concept-b' ? 'capture-stage' : 'proof-tint';
+  }
+  if (semanticFlavor === 'schedule') {
+    return args.conceptId === 'concept-b' ? 'timeline-surface' : 'proof-tint';
   }
   if (semanticFlavor === 'map') {
     return args.conceptId === 'concept-b' ? 'route-glow' : 'proof-tint';
@@ -3875,6 +3941,16 @@ function buildPanoramicCompositionFeatures(args: {
     features.push('browse-strip');
     features.push('decorative-cluster');
   }
+  if (semanticFlavor === 'capture') {
+    features.push('capture-focus');
+    features.push('decorative-cluster');
+  }
+  if (semanticFlavor === 'schedule') {
+    features.push('timeline-band');
+    if (args.storyBeat !== 'hero') {
+      features.push('proof-stack');
+    }
+  }
   if (semanticFlavor === 'map') {
     features.push('route-arc');
     features.push('decorative-cluster');
@@ -3922,6 +3998,12 @@ function buildPanoramicCompositionNote(args: {
   }
   if (args.features.includes('browse-strip')) {
     parts.push('Mirror the browse experience with a curated strip so the frame sells range without duplicating every tile.');
+  }
+  if (args.features.includes('capture-focus')) {
+    parts.push('Use a viewfinder-like capture-focus treatment so the frame reads like a live scan or camera moment instead of generic dark chrome.');
+  }
+  if (args.features.includes('timeline-band')) {
+    parts.push('Run a timeline band through the frame so the sequence reads like scheduled momentum rather than a flat workflow list.');
   }
   if (args.features.includes('route-arc')) {
     parts.push('Echo the navigation moment with a route-arc treatment so the frame reads like guided movement instead of a generic card stack.');

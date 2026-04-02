@@ -788,4 +788,85 @@ describe('plan materializer', () => {
     ).toBe(true);
     expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
   });
+
+  it('materializes family-aware local cue treatments for capture and schedule screenshots', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-capture-schedule-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-capture-schedule-output-');
+
+    const capturePath = await makePngFile(assetsDir, 'receipt-camera-capture.png', 120, 200, (x, y) => {
+      if (y < 26) return [15, 23, 42, 255];
+      if (x > 20 && x < 100 && y > 34 && y < 160) return [30, 41, 59, 255];
+      if (x > 42 && x < 78 && y > 168 && y < 190) return [248, 250, 252, 255];
+      return [51, 65, 85, 255];
+    });
+    const schedulePath = await makePngFile(assetsDir, 'team-calendar-agenda.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if (x < 28 && y > 38 && y < 184 && y % 28 < 18) return [203, 213, 225, 255];
+      if (x > 34 && x < 104 && y > 42 && y < 182 && y % 28 < 16) return [96, 165, 250, 255];
+      return [241, 245, 249, 255];
+    });
+    const homePath = await makePngFile(assetsDir, 'team-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 52 && y < 88)
+        || (x > 68 && x < 108 && y > 52 && y < 88)
+        || (x > 12 && x < 52 && y > 104 && y < 140)) {
+        return [37, 99, 235, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const editorPath = await makePngFile(assetsDir, 'story-editor.png', 120, 200, (x, y) => {
+      if (y < 24) return [241, 245, 249, 255];
+      if (x > 24 && x < 98 && y > 34 && y < 154) return [99, 102, 241, 255];
+      return [226, 232, 240, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'ScanPilot',
+      appDescription: 'A field app for live capture, agenda planning, and follow-up workflows.',
+      platforms: ['ios'],
+      features: ['Receipt capture', 'Team agenda', 'Story editor'],
+      screenshots: [
+        { path: capturePath, note: 'Live camera capture for scanning receipts and barcode intake' },
+        { path: schedulePath, note: 'Team calendar agenda with bookings and next appointments' },
+        { path: homePath, note: 'Main team home' },
+        { path: editorPath, note: 'Story editor canvas' },
+      ],
+      goals: ['Feel active', 'Show control'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const result = await materializeVariantPlan({
+      plan,
+      outputDir,
+      primaryColor: '#2563EB',
+      secondaryColor: '#22C55E',
+    });
+
+    const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
+    const panoramicConfigPath = result.variants.find((variant) => variant.id === 'concept-c')?.configPath;
+    expect(individualConfigPath).toBeTruthy();
+    expect(panoramicConfigPath).toBeTruthy();
+
+    const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const captureScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('receipt-camera-capture.png'));
+    const scheduleScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('team-calendar-agenda.png'));
+
+    expect(captureScreen?.background).toBeTruthy();
+    expect(scheduleScreen?.background).toBeTruthy();
+    expect(captureScreen?.background).not.toBe(scheduleScreen?.background);
+
+    const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const panoramicGroups = panoramic.panoramic.elements.filter((element: { type: string }) => element.type === 'group');
+
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Live capture')),
+    ).toBe(true);
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Agenda')),
+    ).toBe(true);
+    expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
+  });
 });

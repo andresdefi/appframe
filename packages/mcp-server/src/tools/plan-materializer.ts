@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { stringify } from 'yaml';
 import type {
+  PanoramicCompositionFeature,
   PlannedCropPlan,
   PlannedFrameStrategy,
   PlannedIndividualScreen,
@@ -425,6 +426,10 @@ function buildIndividualBackground(args: {
       return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.1) };
     case 'catalog-glow':
       return { background: mixedBackground(accent, args.colors.secondary, 0.22) };
+    case 'capture-stage':
+      return { background: mixedBackground(accent, '#0F172A', 0.34) };
+    case 'timeline-surface':
+      return { background: mixedBackground(backgroundFromPalette, args.colors.primary, 0.16) };
     case 'discovery-glow':
       return { background: mixedBackground(accent, '#FFFFFF', 0.38) };
     case 'conversation-glow':
@@ -676,16 +681,7 @@ function storyBeatBody(frame: PlannedPanoramicFrame): string {
 
 function hasCompositionFeature(
   frame: PlannedPanoramicFrame,
-  feature:
-    | 'layered-detail-extract'
-    | 'floating-detail-card'
-    | 'decorative-cluster'
-    | 'proof-stack'
-    | 'toolbar-ribbon'
-    | 'profile-orbit'
-    | 'browse-strip'
-    | 'route-arc'
-    | 'media-marquee',
+  feature: PanoramicCompositionFeature,
 ): boolean {
   return frame.compositionFeatures?.includes(feature) ?? false;
 }
@@ -1212,6 +1208,226 @@ function buildPanoramicMediaMarqueeGroup(args: {
   };
 }
 
+function buildPanoramicCaptureFocusGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Live capture',
+      x: 2,
+      y: 0,
+      width: 34,
+      height: 9,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.92,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'badge',
+      content: 'Scan',
+      x: 40,
+      y: 4,
+      width: 18,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.9,
+      borderColor: args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 22,
+      y: 16,
+      width: 28,
+      height: 28,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.16 : 0.12,
+      rotation: 0,
+      z: 1,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 12,
+      y: 30,
+      width: 48,
+      height: 2,
+      color: args.accentColor,
+      opacity: args.dark ? 0.46 : 0.3,
+      rotation: 0,
+      z: 2,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 34,
+      y: 12,
+      width: 2,
+      height: 36,
+      color: args.accentColor,
+      opacity: args.dark ? 0.46 : 0.3,
+      rotation: 0,
+      z: 2,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 7,
+    children,
+  };
+}
+
+function buildPanoramicTimelineBandGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Agenda',
+      x: 2,
+      y: 0,
+      width: 22,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'badge',
+      content: 'Next',
+      x: 28,
+      y: 4,
+      width: 18,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.9,
+      borderColor: args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.8,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 6,
+      y: 22,
+      width: 80,
+      height: 2,
+      color: args.accentColor,
+      opacity: args.dark ? 0.4 : 0.24,
+      rotation: 0,
+      z: 1,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 14,
+      y: 17,
+      width: 10,
+      height: 10,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.42 : 0.3,
+      rotation: 0,
+      z: 2,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 42,
+      y: 17,
+      width: 10,
+      height: 10,
+      color: args.accentColor,
+      opacity: args.dark ? 0.48 : 0.32,
+      rotation: 0,
+      z: 2,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 70,
+      y: 17,
+      width: 10,
+      height: 10,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.34 : 0.22,
+      rotation: 0,
+      z: 2,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 7,
+    children,
+  };
+}
+
 function buildPanoramicDecorativeGroup(args: {
   x: number;
   y: number;
@@ -1302,6 +1518,9 @@ function panoramicTextY(frame: PlannedPanoramicFrame, recipe: PlannedPanoramicVa
   if (hasCompositionFeature(frame, 'toolbar-ribbon')) {
     return recipe === 'bold-panorama' ? 11 : 12;
   }
+  if (hasCompositionFeature(frame, 'timeline-band')) {
+    return recipe === 'bold-panorama' ? 11 : 12;
+  }
   if (frame.cropPlan?.avoidRegions.includes('top')) {
     return recipe === 'bold-panorama' ? 10 : 11;
   }
@@ -1322,6 +1541,12 @@ function panoramicProofChipY(
   }
   if (hasCompositionFeature(frame, 'media-marquee')) {
     return recipe === 'bold-panorama' ? 34 : 31;
+  }
+  if (hasCompositionFeature(frame, 'capture-focus')) {
+    return recipe === 'bold-panorama' ? 36 : 33;
+  }
+  if (hasCompositionFeature(frame, 'timeline-band')) {
+    return recipe === 'bold-panorama' ? 33 : 30;
   }
   if (hasCompositionFeature(frame, 'route-arc')) {
     return recipe === 'bold-panorama' ? 32 : 30;
@@ -1370,15 +1595,17 @@ function panoramicDevicePlacement(
   const profileOrbit = hasCompositionFeature(frame, 'profile-orbit');
   const routeArc = hasCompositionFeature(frame, 'route-arc');
   const mediaMarquee = hasCompositionFeature(frame, 'media-marquee');
+  const captureFocus = hasCompositionFeature(frame, 'capture-focus');
+  const timelineBand = hasCompositionFeature(frame, 'timeline-band');
   const y = frame.cropPlan?.avoidRegions.includes('top')
-    ? (toolbarRibbon ? 30 : mediaMarquee ? 31 : 28)
+    ? (toolbarRibbon || timelineBand ? 30 : mediaMarquee ? 31 : 28)
     : extractDriven
-      ? (profileOrbit ? 27 : routeArc ? 28 : 26)
-      : (browseStrip ? 25 : mediaMarquee ? 26 : 24);
+      ? (profileOrbit ? 27 : routeArc ? 28 : captureFocus ? 27 : 26)
+      : (browseStrip ? 25 : mediaMarquee ? 26 : timelineBand ? 25.5 : 24);
   return {
     x: Math.max(2, frameCenter - (extractDriven ? 6.5 : browseStrip ? 6.6 : 7) + xOffset),
     y,
-    width: extractDriven ? (toolbarRibbon ? 12.4 : 13) : (browseStrip ? 13.2 : 14),
+    width: extractDriven ? (toolbarRibbon || timelineBand ? 12.4 : 13) : (browseStrip || timelineBand ? 13.2 : 14),
     rotation: index % 2 === 0 ? -2 : 2,
   };
 }
@@ -1502,6 +1729,8 @@ function buildPanoramicElements(args: {
     const hasBrowseStrip = hasCompositionFeature(frame, 'browse-strip');
     const hasRouteArc = hasCompositionFeature(frame, 'route-arc');
     const hasMediaMarquee = hasCompositionFeature(frame, 'media-marquee');
+    const hasCaptureFocus = hasCompositionFeature(frame, 'capture-focus');
+    const hasTimelineBand = hasCompositionFeature(frame, 'timeline-band');
     const allowFramelessExtracts = args.variant.frameStrategy?.defaultTreatment === 'mixed';
     const includeSupportCrop = frame.cropPlan?.usage === 'supporting-crop'
       || frame.cropPlan?.usage === 'layered-extract'
@@ -1600,6 +1829,10 @@ function buildPanoramicElements(args: {
               ? 'Creator spotlight'
               : hasToolbarRibbon
                 ? 'Build flow'
+                : hasCaptureFocus
+                  ? 'Capture flow'
+                  : hasTimelineBand
+                    ? 'Scheduled flow'
                 : hasRouteArc
                   ? 'Guided route'
                   : hasMediaMarquee
@@ -1640,12 +1873,20 @@ function buildPanoramicElements(args: {
               ? 'Community-loved'
               : hasRouteArc
                 ? 'Always nearby'
+                : hasCaptureFocus
+                  ? 'Ready to scan'
+                  : hasTimelineBand
+                    ? 'On schedule'
                 : hasMediaMarquee
                   ? 'Plays all day'
               : 'Power-user approved'
             : args.variant.recipe === 'bold-panorama'
               ? hasToolbarRibbon
                 ? 'Built fast'
+                : hasCaptureFocus
+                  ? 'Capture ready'
+                  : hasTimelineBand
+                    ? 'Always lined up'
                 : hasMediaMarquee
                   ? 'Always on'
                 : '4.9 out of 5'
@@ -1660,12 +1901,20 @@ function buildPanoramicElements(args: {
               ? 'Shared by active members'
               : hasRouteArc
                 ? 'Coverage across key stops'
+                : hasCaptureFocus
+                  ? 'Fast scanning and framing'
+                  : hasTimelineBand
+                    ? 'Plans stay on track'
                 : hasMediaMarquee
                   ? 'Queued for repeat sessions'
               : 'Built for daily use'
             : args.variant.recipe === 'bold-panorama'
               ? hasToolbarRibbon
                 ? 'Template workflow'
+                : hasCaptureFocus
+                  ? 'Live preview system'
+                  : hasTimelineBand
+                    ? 'Agenda rhythm'
                 : hasMediaMarquee
                   ? 'Queue stays moving'
                 : 'App Store reviews'
@@ -1736,6 +1985,10 @@ function buildPanoramicElements(args: {
             ? 36
             : hasProfileOrbit
               ? 46
+              : hasCaptureFocus
+                ? 44
+                : hasTimelineBand
+                  ? 40
               : hasRouteArc
                 ? 40
                 : hasMediaMarquee
@@ -1762,6 +2015,10 @@ function buildPanoramicElements(args: {
               ? frame.storyBeat === 'hero' ? 'Creator card' : 'Community card'
               : hasToolbarRibbon
                 ? 'Tool card'
+                : hasCaptureFocus
+                  ? 'Capture card'
+                  : hasTimelineBand
+                    ? 'Agenda card'
                 : hasRouteArc
                   ? 'Route card'
                   : hasMediaMarquee
@@ -1790,9 +2047,13 @@ function buildPanoramicElements(args: {
           label:
             hasProfileOrbit
               ? frame.storyBeat === 'hero' ? 'Community' : undefined
-              : hasRouteArc
-                ? frame.storyBeat === 'hero' ? 'Nearby' : undefined
-                : hasMediaMarquee
+              : hasCaptureFocus
+                ? frame.storyBeat === 'hero' ? 'Live' : undefined
+                : hasTimelineBand
+                  ? frame.storyBeat === 'hero' ? 'Scheduled' : undefined
+                : hasRouteArc
+                  ? frame.storyBeat === 'hero' ? 'Nearby' : undefined
+                  : hasMediaMarquee
                   ? frame.storyBeat === 'hero' ? 'Playing' : undefined
               : frame.storyBeat === 'hero'
                 ? 'Featured'
@@ -1828,6 +2089,36 @@ function buildPanoramicElements(args: {
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
           dark: false,
+        }),
+      );
+    }
+
+    if (hasCaptureFocus) {
+      elements.push(
+        buildPanoramicCaptureFocusGroup({
+          x: frameSliceStart + 2,
+          y: args.variant.recipe === 'bold-panorama' ? 18 : 20,
+          width: Math.max(12, sliceWidth - 4),
+          height: 14,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          dark: args.variant.recipe === 'bold-panorama',
+        }),
+      );
+    }
+
+    if (hasTimelineBand) {
+      elements.push(
+        buildPanoramicTimelineBandGroup({
+          x: frameSliceStart + 2,
+          y: args.variant.recipe === 'bold-panorama' ? 18 : 20,
+          width: Math.max(12, sliceWidth - 4),
+          height: 12,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          dark: args.variant.recipe === 'bold-panorama',
         }),
       );
     }
@@ -1903,7 +2194,17 @@ function buildPanoramicElements(args: {
         buildPanoramicSupportGroup({
           screenshot: sourceScreenshot,
           x: frameSliceStart + 3,
-          y: hasToolbarRibbon ? 48 : hasProfileOrbit ? 50 : hasBrowseStrip ? 58 : 54,
+          y: hasToolbarRibbon
+            ? 48
+            : hasProfileOrbit
+              ? 50
+              : hasCaptureFocus
+                ? 50
+                : hasTimelineBand
+                  ? 48
+                  : hasBrowseStrip
+                    ? 58
+                    : 54,
           width: groupWidth,
           height: 29,
           rotation: index % 2 === 0 ? -5 : 5,
@@ -1921,6 +2222,10 @@ function buildPanoramicElements(args: {
               ? frame.storyBeat === 'trust' ? 'Community proof' : 'Creator card'
               : hasToolbarRibbon
                 ? 'Build card'
+                : hasCaptureFocus
+                  ? frame.storyBeat === 'trust' ? 'Capture proof' : 'Capture card'
+                  : hasTimelineBand
+                    ? frame.storyBeat === 'trust' ? 'Schedule proof' : 'Agenda card'
                 : hasBrowseStrip
                   ? 'Browse card'
                   : frame.storyBeat === 'trust'
@@ -1935,7 +2240,7 @@ function buildPanoramicElements(args: {
         buildPanoramicSupportGroup({
           screenshot: sourceScreenshot,
           x: frameSliceStart + 3,
-          y: hasBrowseStrip ? 62 : 58,
+          y: hasBrowseStrip ? 62 : hasCaptureFocus ? 56 : hasTimelineBand ? 54 : 58,
           width: Math.max(12.5, sliceWidth - 7),
           height: 21,
           rotation: index % 2 === 0 ? -3 : 3,
@@ -1948,7 +2253,16 @@ function buildPanoramicElements(args: {
           focusX: detailFocus.x,
           focusY: detailFocus.y,
           zoom: 1.45,
-          badgeContent: hasToolbarRibbon ? 'Tool card' : hasBrowseStrip ? 'Browse card' : 'Focus card',
+          badgeContent:
+            hasToolbarRibbon
+              ? 'Tool card'
+              : hasCaptureFocus
+                ? 'Capture card'
+                : hasTimelineBand
+                  ? 'Agenda card'
+                  : hasBrowseStrip
+                    ? 'Browse card'
+                    : 'Focus card',
           cardBackgroundColor: supportCardBackground,
           includeCrop: false,
         }),
@@ -1968,6 +2282,10 @@ function buildPanoramicElements(args: {
           label:
             hasProfileOrbit
               ? frame.storyBeat === 'hero' ? 'Community' : undefined
+              : hasCaptureFocus
+                ? frame.storyBeat === 'hero' ? 'Live' : undefined
+                : hasTimelineBand
+                  ? frame.storyBeat === 'hero' ? 'On time' : undefined
               : frame.storyBeat === 'summary'
                 ? 'Finale'
                 : undefined,
@@ -2051,6 +2369,8 @@ function buildPanoramicBackground(args: {
   const hasBrowseStrip = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'browse-strip')) ?? false;
   const hasRouteArc = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'route-arc')) ?? false;
   const hasMediaMarquee = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'media-marquee')) ?? false;
+  const hasCaptureFocus = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'capture-focus')) ?? false;
+  const hasTimelineBand = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'timeline-band')) ?? false;
 
   if (args.style === 'editorial') {
     return {
@@ -2124,6 +2444,28 @@ function buildPanoramicBackground(args: {
           opacity: 0.06,
           blendMode: 'multiply' as const,
           blur: 0,
+        }] : []),
+        ...(hasCaptureFocus ? [{
+          kind: 'glow' as const,
+          color: args.colors.secondary,
+          x: 54,
+          y: 26,
+          width: 30,
+          height: 24,
+          opacity: 0.16,
+          blur: 78,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasTimelineBand ? [{
+          kind: 'glow' as const,
+          color: args.colors.primary,
+          x: 50,
+          y: 18,
+          width: 48,
+          height: 12,
+          opacity: 0.14,
+          blur: 72,
+          blendMode: 'screen' as const,
         }] : []),
       ],
     };
@@ -2211,6 +2553,24 @@ function buildPanoramicBackground(args: {
           height: 14,
           opacity: 0.18,
           blur: 74,
+          blendMode: 'screen' as const,
+        }] : []),
+        ...(hasCaptureFocus ? [{
+          kind: 'solid' as const,
+          color: '#08111F',
+          opacity: 0.08,
+          blendMode: 'multiply' as const,
+          blur: 0,
+        }] : []),
+        ...(hasTimelineBand ? [{
+          kind: 'glow' as const,
+          color: '#FFFFFF',
+          x: 50,
+          y: 18,
+          width: 46,
+          height: 10,
+          opacity: 0.12,
+          blur: 70,
           blendMode: 'screen' as const,
         }] : []),
       ],

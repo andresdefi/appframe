@@ -414,6 +414,10 @@ function buildIndividualBackground(args: {
       return { background: mixedBackground(backgroundFromPalette, args.colors.secondary, 0.22) };
     case 'care-surface':
       return { background: mixedBackground(backgroundFromPalette, '#FFFFFF', 0.42) };
+    case 'folio-surface':
+      return { background: mixedBackground(backgroundFromPalette, '#F8FAFC', 0.46) };
+    case 'signal-burst':
+      return { background: mixedBackground(accent, args.colors.primary, 0.18) };
     case 'vault-glow':
       return { background: mixedBackground(backgroundFromPalette ?? accent, '#0F172A', 0.22) };
     case 'perk-glow':
@@ -1216,6 +1220,273 @@ function buildPanoramicMediaMarqueeGroup(args: {
       opacity: args.dark ? 0.46 : 0.28,
       rotation: 0,
       z: 2,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 7,
+    children,
+  };
+}
+
+function buildPanoramicActivityWaveGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const labels = ['Updates', 'Reactions', 'Follows'];
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Live feed',
+      x: 2,
+      y: 0,
+      width: 24,
+      height: 8.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'badge',
+      content: 'Activity',
+      x: 29,
+      y: 4,
+      width: 18,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.92,
+      borderColor: args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.78,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+  ];
+
+  labels.forEach((label, index) => {
+    children.push({
+      type: 'badge',
+      content: label,
+      x: 4 + (index * 19),
+      y: 26,
+      width: 18,
+      height: 7.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.9,
+      borderColor: index === 1 ? args.secondaryColor : args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.7,
+      fontWeight: 700,
+      letterSpacing: 5,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    });
+  });
+
+  children.push({
+    type: 'decoration',
+    shape: 'line',
+    x: 6,
+    y: 18,
+    width: 48,
+    height: 2,
+    color: args.accentColor,
+    opacity: args.dark ? 0.4 : 0.24,
+    rotation: 0,
+    z: 1,
+  });
+  children.push({
+    type: 'decoration',
+    shape: 'circle',
+    x: 54,
+    y: 12,
+    width: 12,
+    height: 12,
+    color: args.secondaryColor,
+    opacity: args.dark ? 0.42 : 0.28,
+    rotation: 0,
+    z: 2,
+  });
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 7,
+    children,
+  };
+}
+
+function buildPanoramicFolioStackGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Document review',
+      x: 2,
+      y: 0,
+      width: 34,
+      height: 8.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.78,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'badge',
+      content: 'Signed',
+      x: 39,
+      y: 4,
+      width: 16,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.92,
+      borderColor: args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.78,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'card',
+      x: 8,
+      y: 16,
+      width: 26,
+      height: 18,
+      eyebrow: 'Review',
+      title: 'Page 1',
+      body: 'Key record',
+      align: 'left',
+      backgroundColor: badgeBackground,
+      opacity: 0.92,
+      borderColor: `${args.accentColor}66`,
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 1.4,
+      rotation: -4,
+      eyebrowColor: args.secondaryColor,
+      titleColor: badgeColor,
+      bodyColor: badgeColor,
+      eyebrowSize: 2.1,
+      titleSize: 3.6,
+      bodySize: 2.4,
+      z: 1,
+    },
+    {
+      type: 'card',
+      x: 14,
+      y: 20,
+      width: 26,
+      height: 18,
+      eyebrow: 'Record',
+      title: 'Signed',
+      body: 'Ready to send',
+      align: 'left',
+      backgroundColor: badgeBackground,
+      opacity: 0.96,
+      borderColor: `${args.secondaryColor}66`,
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 1.4,
+      rotation: 4,
+      eyebrowColor: args.accentColor,
+      titleColor: badgeColor,
+      bodyColor: badgeColor,
+      eyebrowSize: 2.1,
+      titleSize: 3.6,
+      bodySize: 2.4,
+      z: 2,
+    },
+    {
+      type: 'badge',
+      content: 'Pages',
+      x: 44,
+      y: 22,
+      width: 14,
+      height: 7.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.9,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.7,
+      fontWeight: 700,
+      letterSpacing: 5,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 20,
+      y: 30,
+      width: 18,
+      height: 2,
+      color: args.accentColor,
+      opacity: args.dark ? 0.36 : 0.22,
+      rotation: 0,
+      z: 3,
     },
   ];
 
@@ -2102,7 +2373,9 @@ function panoramicDevicePlacement(
       : 0;
   const toolbarRibbon = hasCompositionFeature(frame, 'toolbar-ribbon');
   const browseStrip = hasCompositionFeature(frame, 'browse-strip');
+  const activityWave = hasCompositionFeature(frame, 'activity-wave');
   const checkoutLane = hasCompositionFeature(frame, 'checkout-lane');
+  const folioStack = hasCompositionFeature(frame, 'folio-stack');
   const profileOrbit = hasCompositionFeature(frame, 'profile-orbit');
   const trustShield = hasCompositionFeature(frame, 'trust-shield');
   const supportBeacon = hasCompositionFeature(frame, 'support-beacon');
@@ -2112,16 +2385,16 @@ function panoramicDevicePlacement(
   const timelineBand = hasCompositionFeature(frame, 'timeline-band');
   const rewardRibbon = hasCompositionFeature(frame, 'reward-ribbon');
   const y = frame.cropPlan?.avoidRegions.includes('top')
-    ? (toolbarRibbon || timelineBand || trustShield || supportBeacon ? 30 : mediaMarquee ? 31 : 28)
+    ? (toolbarRibbon || timelineBand || trustShield || supportBeacon || folioStack ? 30 : mediaMarquee ? 31 : 28)
     : extractDriven
-      ? (profileOrbit ? 27 : trustShield || supportBeacon ? 27 : routeArc ? 28 : captureFocus ? 27 : 26)
-      : (browseStrip || checkoutLane || rewardRibbon ? 25 : mediaMarquee ? 26 : timelineBand ? 25.5 : 24);
+      ? (profileOrbit ? 27 : trustShield || supportBeacon || folioStack ? 27 : routeArc ? 28 : captureFocus ? 27 : activityWave ? 28 : 26)
+      : (browseStrip || activityWave || checkoutLane || rewardRibbon ? 25 : mediaMarquee ? 26 : timelineBand ? 25.5 : folioStack ? 24.5 : 24);
   return {
-    x: Math.max(2, frameCenter - (extractDriven ? 6.5 : browseStrip || checkoutLane || rewardRibbon ? 6.6 : 7) + xOffset),
+    x: Math.max(2, frameCenter - (extractDriven ? 6.5 : browseStrip || activityWave || checkoutLane || rewardRibbon ? 6.6 : 7) + xOffset),
     y,
     width: extractDriven
-      ? (toolbarRibbon || timelineBand || trustShield || supportBeacon ? 12.4 : 13)
-      : (browseStrip || checkoutLane || rewardRibbon || timelineBand ? 13.2 : 14),
+      ? (toolbarRibbon || timelineBand || trustShield || supportBeacon || folioStack ? 12.4 : 13)
+      : (browseStrip || activityWave || checkoutLane || rewardRibbon || timelineBand ? 13.2 : 14),
     rotation: index % 2 === 0 ? -2 : 2,
   };
 }
@@ -2243,7 +2516,9 @@ function buildPanoramicElements(args: {
     const hasToolbarRibbon = hasCompositionFeature(frame, 'toolbar-ribbon');
     const hasProfileOrbit = hasCompositionFeature(frame, 'profile-orbit');
     const hasBrowseStrip = hasCompositionFeature(frame, 'browse-strip');
+    const hasActivityWave = hasCompositionFeature(frame, 'activity-wave');
     const hasCheckoutLane = hasCompositionFeature(frame, 'checkout-lane');
+    const hasFolioStack = hasCompositionFeature(frame, 'folio-stack');
     const hasTrustShield = hasCompositionFeature(frame, 'trust-shield');
     const hasSupportBeacon = hasCompositionFeature(frame, 'support-beacon');
     const hasRewardRibbon = hasCompositionFeature(frame, 'reward-ribbon');
@@ -2347,8 +2622,12 @@ function buildPanoramicElements(args: {
           index === 0
             ? hasProfileOrbit
               ? 'Creator spotlight'
+              : hasActivityWave
+                ? 'Live feed'
               : hasToolbarRibbon
                 ? 'Build flow'
+                : hasFolioStack
+                  ? 'Document review'
                 : hasTrustShield
                   ? 'Secure access'
                   : hasCheckoutLane
@@ -2368,8 +2647,12 @@ function buildPanoramicElements(args: {
                     : 'Featured flow'
             : hasProfileOrbit
               ? 'Community proof'
+              : hasActivityWave
+                ? 'Momentum proof'
               : hasTrustShield
                 ? 'Verified flow'
+                : hasFolioStack
+                  ? 'Review proof'
                 : hasCheckoutLane
                   ? 'Order proof'
               : 'Proof point',
@@ -2399,8 +2682,12 @@ function buildPanoramicElements(args: {
           frame.storyBeat === 'summary'
             ? hasProfileOrbit
               ? 'Community-loved'
+              : hasActivityWave
+                ? 'Always active'
               : hasTrustShield
                 ? 'Protected flow'
+                : hasFolioStack
+                  ? 'Review complete'
                 : hasCheckoutLane
                   ? 'Cart to door'
               : hasRouteArc
@@ -2415,10 +2702,14 @@ function buildPanoramicElements(args: {
             : args.variant.recipe === 'bold-panorama'
               ? hasToolbarRibbon
                 ? 'Built fast'
+                : hasActivityWave
+                  ? 'Always moving'
                 : hasTrustShield
                   ? 'Verified entry'
-                  : hasCheckoutLane
-                    ? 'Ready to convert'
+                  : hasFolioStack
+                    ? 'Ready to sign'
+                : hasCheckoutLane
+                  ? 'Ready to convert'
                 : hasCaptureFocus
                   ? 'Capture ready'
                   : hasTimelineBand
@@ -2428,10 +2719,14 @@ function buildPanoramicElements(args: {
                 : '4.9 out of 5'
               : hasBrowseStrip
                 ? 'Curated picks'
+                : hasActivityWave
+                  ? 'Updates stay live'
                 : hasCheckoutLane
                   ? 'Friction stays low'
-                  : hasTrustShield
-                    ? 'Access stays trusted'
+                  : hasFolioStack
+                    ? 'Records stay clear'
+                : hasTrustShield
+                  ? 'Access stays trusted'
                 : hasRouteArc
                   ? 'Route ready'
                 : 'Top rated flow',
@@ -2439,8 +2734,12 @@ function buildPanoramicElements(args: {
           frame.storyBeat === 'summary'
             ? hasProfileOrbit
               ? 'Shared by active members'
+              : hasActivityWave
+                ? 'Fresh updates and follow-through'
               : hasTrustShield
                 ? 'Identity stays protected'
+                : hasFolioStack
+                  ? 'Clear pages and approvals'
                 : hasCheckoutLane
                   ? 'From checkout to delivery'
               : hasRouteArc
@@ -2455,10 +2754,14 @@ function buildPanoramicElements(args: {
             : args.variant.recipe === 'bold-panorama'
               ? hasToolbarRibbon
                 ? 'Template workflow'
+                : hasActivityWave
+                  ? 'Feed and notification rhythm'
                 : hasTrustShield
                   ? 'Passkeys and approvals'
-                  : hasCheckoutLane
-                    ? 'Order path stays clear'
+                  : hasFolioStack
+                    ? 'Pages, signatures, and review'
+                : hasCheckoutLane
+                  ? 'Order path stays clear'
                 : hasCaptureFocus
                   ? 'Live preview system'
                   : hasTimelineBand
@@ -2468,10 +2771,14 @@ function buildPanoramicElements(args: {
                 : 'App Store reviews'
               : hasBrowseStrip
                 ? 'Fresh each visit'
+                : hasActivityWave
+                  ? 'Reactions, follows, and updates'
                 : hasCheckoutLane
                   ? 'Clear handoff to delivery'
-                  : hasTrustShield
-                    ? 'Private by default'
+                  : hasFolioStack
+                    ? 'Readable review and record state'
+                : hasTrustShield
+                  ? 'Private by default'
                 : hasRouteArc
                   ? 'Nearby and on route'
                 : 'Trusted by repeat users',
@@ -2537,8 +2844,12 @@ function buildPanoramicElements(args: {
             ? 36
             : hasProfileOrbit
               ? 46
+              : hasActivityWave
+                ? 54
               : hasTrustShield
                 ? 40
+                : hasFolioStack
+                  ? 38
                 : hasSupportBeacon
                   ? 40
                   : hasRewardRibbon
@@ -2573,8 +2884,12 @@ function buildPanoramicElements(args: {
           badgeContent:
             hasProfileOrbit
               ? frame.storyBeat === 'hero' ? 'Creator card' : 'Community card'
+              : hasActivityWave
+                ? frame.storyBeat === 'trust' ? 'Signal card' : 'Feed card'
               : hasToolbarRibbon
                 ? 'Tool card'
+                : hasFolioStack
+                  ? frame.storyBeat === 'trust' ? 'Review card' : 'Document card'
                 : hasTrustShield
                   ? frame.storyBeat === 'trust' ? 'Trust card' : 'Secure card'
                   : hasSupportBeacon
@@ -2615,8 +2930,12 @@ function buildPanoramicElements(args: {
           label:
             hasProfileOrbit
               ? frame.storyBeat === 'hero' ? 'Community' : undefined
+              : hasActivityWave
+                ? frame.storyBeat === 'hero' ? 'Live' : undefined
               : hasTrustShield
                 ? frame.storyBeat === 'hero' ? 'Secure' : undefined
+                : hasFolioStack
+                  ? frame.storyBeat === 'hero' ? 'Review' : undefined
                 : hasSupportBeacon
                   ? frame.storyBeat === 'hero' ? 'Support' : undefined
                   : hasRewardRibbon
@@ -2661,6 +2980,36 @@ function buildPanoramicElements(args: {
           y: 74,
           width: Math.max(12, sliceWidth - 5),
           height: 13,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          dark: false,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'editorial-panorama' && hasActivityWave) {
+      elements.push(
+        buildPanoramicActivityWaveGroup({
+          x: frameSliceStart + 2,
+          y: 72,
+          width: Math.max(12, sliceWidth - 4),
+          height: 14,
+          rotation: index % 2 === 0 ? -2 : 2,
+          accentColor: args.accentColor,
+          secondaryColor: args.subtitleColor,
+          dark: false,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'editorial-panorama' && hasFolioStack) {
+      elements.push(
+        buildPanoramicFolioStackGroup({
+          x: frameSliceStart + Math.max(2, sliceWidth - 15),
+          y: 18,
+          width: Math.max(12, sliceWidth - 5),
+          height: 14,
           rotation: index % 2 === 0 ? -2 : 2,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
@@ -2834,8 +3183,12 @@ function buildPanoramicElements(args: {
             ? 48
             : hasProfileOrbit
               ? 50
+              : hasActivityWave
+                ? 56
               : hasTrustShield
                 ? 46
+                : hasFolioStack
+                  ? 44
                 : hasSupportBeacon
                   ? 46
                   : hasRewardRibbon
@@ -2864,8 +3217,12 @@ function buildPanoramicElements(args: {
           badgeContent:
             hasProfileOrbit
               ? frame.storyBeat === 'trust' ? 'Community proof' : 'Creator card'
+              : hasActivityWave
+                ? frame.storyBeat === 'trust' ? 'Signal proof' : 'Feed card'
               : hasToolbarRibbon
                 ? 'Build card'
+                : hasFolioStack
+                  ? frame.storyBeat === 'trust' ? 'Review proof' : 'Document card'
                 : hasTrustShield
                   ? frame.storyBeat === 'trust' ? 'Trust proof' : 'Secure card'
                   : hasSupportBeacon
@@ -2894,8 +3251,12 @@ function buildPanoramicElements(args: {
           x: frameSliceStart + 3,
           y: hasBrowseStrip
             ? 62
+            : hasActivityWave
+              ? 60
             : hasCheckoutLane || hasRewardRibbon
               ? 58
+              : hasFolioStack
+                ? 50
               : hasTrustShield || hasSupportBeacon
                 ? 52
                 : hasCaptureFocus
@@ -2918,8 +3279,12 @@ function buildPanoramicElements(args: {
           badgeContent:
             hasToolbarRibbon
               ? 'Tool card'
+              : hasActivityWave
+                ? 'Feed card'
               : hasTrustShield
                 ? 'Secure card'
+                : hasFolioStack
+                  ? 'Document card'
                 : hasSupportBeacon
                   ? 'Help card'
                   : hasRewardRibbon
@@ -2952,8 +3317,12 @@ function buildPanoramicElements(args: {
           label:
             hasProfileOrbit
               ? frame.storyBeat === 'hero' ? 'Community' : undefined
+              : hasActivityWave
+                ? frame.storyBeat === 'hero' ? 'Live' : undefined
               : hasTrustShield
                 ? frame.storyBeat === 'hero' ? 'Secure' : undefined
+                : hasFolioStack
+                  ? frame.storyBeat === 'hero' ? 'Review' : undefined
                 : hasSupportBeacon
                   ? frame.storyBeat === 'hero' ? 'Support' : undefined
                   : hasRewardRibbon
@@ -2995,6 +3364,36 @@ function buildPanoramicElements(args: {
           width: Math.max(12, sliceWidth - 4),
           height: 13,
           rotation: index % 2 === 0 ? -3 : 3,
+          accentColor: args.accentColor,
+          secondaryColor: '#FFFFFF',
+          dark: true,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'bold-panorama' && hasActivityWave) {
+      elements.push(
+        buildPanoramicActivityWaveGroup({
+          x: frameSliceStart + 2,
+          y: 76,
+          width: Math.max(12, sliceWidth - 4),
+          height: 14,
+          rotation: index % 2 === 0 ? -3 : 3,
+          accentColor: args.accentColor,
+          secondaryColor: '#FFFFFF',
+          dark: true,
+        }),
+      );
+    }
+
+    if (args.variant.recipe === 'bold-panorama' && hasFolioStack) {
+      elements.push(
+        buildPanoramicFolioStackGroup({
+          x: frameSliceStart + Math.max(2, sliceWidth - 15),
+          y: 18,
+          width: Math.max(12, sliceWidth - 5),
+          height: 14,
+          rotation: index % 2 === 0 ? 3 : -3,
           accentColor: args.accentColor,
           secondaryColor: '#FFFFFF',
           dark: true,
@@ -3045,7 +3444,9 @@ function buildPanoramicBackground(args: {
   const hasToolbarRibbon = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'toolbar-ribbon')) ?? false;
   const hasProfileOrbit = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'profile-orbit')) ?? false;
   const hasBrowseStrip = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'browse-strip')) ?? false;
+  const hasActivityWave = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'activity-wave')) ?? false;
   const hasCheckoutLane = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'checkout-lane')) ?? false;
+  const hasFolioStack = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'folio-stack')) ?? false;
   const hasTrustShield = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'trust-shield')) ?? false;
   const hasSupportBeacon = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'support-beacon')) ?? false;
   const hasRewardRibbon = args.variant.frames?.some((frame) => hasCompositionFeature(frame, 'reward-ribbon')) ?? false;
@@ -3109,6 +3510,17 @@ function buildPanoramicBackground(args: {
           blur: 80,
           blendMode: 'screen' as const,
         }] : []),
+        ...(hasActivityWave ? [{
+          kind: 'glow' as const,
+          color: args.colors.primary,
+          x: 52,
+          y: 80,
+          width: 44,
+          height: 16,
+          opacity: 0.16,
+          blur: 78,
+          blendMode: 'screen' as const,
+        }] : []),
         ...(hasCheckoutLane ? [{
           kind: 'glow' as const,
           color: args.colors.primary,
@@ -3152,6 +3564,13 @@ function buildPanoramicBackground(args: {
           opacity: 0.16,
           blur: 72,
           blendMode: 'screen' as const,
+        }] : []),
+        ...(hasFolioStack ? [{
+          kind: 'solid' as const,
+          color: '#FFFFFF',
+          opacity: 0.08,
+          blendMode: 'screen' as const,
+          blur: 0,
         }] : []),
         ...(hasRouteArc ? [{
           kind: 'glow' as const,
@@ -3259,6 +3678,17 @@ function buildPanoramicBackground(args: {
           blur: 78,
           blendMode: 'screen' as const,
         }] : []),
+        ...(hasActivityWave ? [{
+          kind: 'glow' as const,
+          color: '#FFFFFF',
+          x: 54,
+          y: 84,
+          width: 42,
+          height: 14,
+          opacity: 0.12,
+          blur: 76,
+          blendMode: 'screen' as const,
+        }] : []),
         ...(hasCheckoutLane ? [{
           kind: 'glow' as const,
           color: '#FFFFFF',
@@ -3302,6 +3732,13 @@ function buildPanoramicBackground(args: {
           opacity: 0.14,
           blur: 74,
           blendMode: 'screen' as const,
+        }] : []),
+        ...(hasFolioStack ? [{
+          kind: 'solid' as const,
+          color: '#FFFFFF',
+          opacity: 0.05,
+          blendMode: 'screen' as const,
+          blur: 0,
         }] : []),
         ...(hasRouteArc ? [{
           kind: 'glow' as const,

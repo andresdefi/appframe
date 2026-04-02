@@ -1438,6 +1438,120 @@ describe('design planning helpers', () => {
     }
   });
 
+  it('adds activity and document-specific planning reactions from local screenshot cues', async () => {
+    const activityPath = await makePngFile('community-activity-feed-updates.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if ((x > 12 && x < 38 && y > 42 && y < 68)
+        || (x > 12 && x < 38 && y > 82 && y < 108)
+        || (x > 12 && x < 38 && y > 122 && y < 148)) {
+        return [59, 130, 246, 255];
+      }
+      if ((x > 44 && x < 104 && y > 44 && y < 72)
+        || (x > 44 && x < 104 && y > 84 && y < 112)
+        || (x > 44 && x < 104 && y > 124 && y < 152)) {
+        return [191, 219, 254, 255];
+      }
+      return [241, 245, 249, 255];
+    });
+    const documentPath = await makePngFile('invoice-pdf-document-review.png', 120, 200, (x, y) => {
+      if (y < 26) return [248, 250, 252, 255];
+      if (x > 24 && x < 96 && y > 38 && y < 174) return [255, 255, 255, 255];
+      if ((x > 34 && x < 86 && y > 54 && y < 66)
+        || (x > 34 && x < 86 && y > 86 && y < 98)
+        || (x > 34 && x < 86 && y > 118 && y < 130)
+        || (x > 34 && x < 86 && y > 150 && y < 162)) {
+        return [203, 213, 225, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const homePath = await makePngFile('workspace-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [99, 102, 241, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const profilePath = await makePngFile('member-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: activityPath, note: 'Community activity feed with live updates, posts, likes, and comments' },
+      { path: documentPath, note: 'PDF invoice review with signed pages, statement records, and approval status' },
+      { path: homePath, note: 'Workspace home' },
+      { path: profilePath, note: 'Member profile' },
+    ]);
+    const activityAnalysis = analysis.find((entry) => entry.path === activityPath);
+    const documentAnalysis = analysis.find((entry) => entry.path === documentPath);
+    expect(activityAnalysis?.role).not.toBe('communication');
+    expect(documentAnalysis?.role).not.toBe('settings');
+
+    const plan = await buildVariantSetPlan({
+      appName: 'PulseDocs',
+      appDescription: 'A team workspace for live activity, document review, and approval follow-through.',
+      platforms: ['ios'],
+      features: ['Activity feed', 'Document review', 'Approval history'],
+      screenshots: [
+        { path: activityPath, note: 'Community activity feed with live updates, posts, likes, and comments' },
+        { path: documentPath, note: 'PDF invoice review with signed pages, statement records, and approval status' },
+        { path: homePath, note: 'Workspace home' },
+        { path: profilePath, note: 'Member profile' },
+      ],
+      goals: ['Feel active', 'Show clarity'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const activityScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === activityPath);
+      const documentScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === documentPath);
+
+      expect(activityScreen?.backgroundStrategy).toBe('signal-burst');
+      expect(activityScreen?.copyDirection).toContain('live activity, updates, or social momentum');
+      expect(activityScreen?.implementationNote).toContain('live updates, reactions, or post cadence');
+      expect(['duo-overlap', 'fanned-cards']).toContain(activityScreen?.composition);
+
+      expect(documentScreen?.backgroundStrategy).toBe('folio-surface');
+      expect(documentScreen?.copyDirection).toContain('clarity, review confidence, or record readiness');
+      expect(documentScreen?.implementationNote).toContain('main page or approval state clear');
+      expect(['duo-split', 'hero-tilt']).toContain(documentScreen?.composition);
+    }
+
+    const editorialConcept = plan.variants[2];
+    expect(editorialConcept?.mode).toBe('panoramic');
+    if (editorialConcept?.mode === 'panoramic') {
+      const activityFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === activityPath);
+      const documentFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === documentPath);
+
+      expect(activityFrame?.compositionFeatures).toContain('activity-wave');
+      expect(activityFrame?.compositionNote).toContain('activity-wave treatment');
+      expect(['open with live momentum', 'keep the feed cadence moving', 'land on follow-through']).toContain(activityFrame?.pacing);
+
+      expect(documentFrame?.compositionFeatures).toContain('folio-stack');
+      expect(documentFrame?.compositionNote).toContain('folio-stack treatment');
+      expect(['open with focused proof', 'develop a readable record story', 'close on review confidence']).toContain(documentFrame?.pacing);
+    }
+
+    const boldConcept = plan.variants[3];
+    expect(boldConcept?.mode).toBe('panoramic');
+    if (boldConcept?.mode === 'panoramic') {
+      const activityFrame = boldConcept.frames?.find((frame) => frame.sourcePath === activityPath);
+      const documentFrame = boldConcept.frames?.find((frame) => frame.sourcePath === documentPath);
+
+      expect(activityFrame?.compositionFeatures).toContain('activity-wave');
+      expect(documentFrame?.compositionFeatures).toContain('folio-stack');
+    }
+  });
+
   it('adds role-specific copy guidance for onboarding, settings, and reporting-heavy screens', async () => {
     const onboardingPath = await makeSvgFile('welcome-screen.svg', 1290, 2796);
     const dashboardPath = await makeSvgFile('finance-home.svg', 1290, 2796);

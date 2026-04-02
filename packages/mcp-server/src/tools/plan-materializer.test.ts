@@ -1041,4 +1041,101 @@ describe('plan materializer', () => {
     ).toBe(true);
     expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
   });
+
+  it('materializes family-aware local cue treatments for activity and document screenshots', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-activity-document-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-activity-document-output-');
+
+    const activityPath = await makePngFile(assetsDir, 'community-activity-feed-updates.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if ((x > 12 && x < 38 && y > 42 && y < 68)
+        || (x > 12 && x < 38 && y > 82 && y < 108)
+        || (x > 12 && x < 38 && y > 122 && y < 148)) {
+        return [59, 130, 246, 255];
+      }
+      if ((x > 44 && x < 104 && y > 44 && y < 72)
+        || (x > 44 && x < 104 && y > 84 && y < 112)
+        || (x > 44 && x < 104 && y > 124 && y < 152)) {
+        return [191, 219, 254, 255];
+      }
+      return [241, 245, 249, 255];
+    });
+    const documentPath = await makePngFile(assetsDir, 'invoice-pdf-document-review.png', 120, 200, (x, y) => {
+      if (y < 26) return [248, 250, 252, 255];
+      if (x > 24 && x < 96 && y > 38 && y < 174) return [255, 255, 255, 255];
+      if ((x > 34 && x < 86 && y > 54 && y < 66)
+        || (x > 34 && x < 86 && y > 86 && y < 98)
+        || (x > 34 && x < 86 && y > 118 && y < 130)
+        || (x > 34 && x < 86 && y > 150 && y < 162)) {
+        return [203, 213, 225, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const homePath = await makePngFile(assetsDir, 'workspace-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [99, 102, 241, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const profilePath = await makePngFile(assetsDir, 'member-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'PulseDocs',
+      appDescription: 'A team workspace for live activity, document review, and approval follow-through.',
+      platforms: ['ios'],
+      features: ['Activity feed', 'Document review', 'Approval history'],
+      screenshots: [
+        { path: activityPath, note: 'Community activity feed with live updates, posts, likes, and comments' },
+        { path: documentPath, note: 'PDF invoice review with signed pages, statement records, and approval status' },
+        { path: homePath, note: 'Workspace home' },
+        { path: profilePath, note: 'Member profile' },
+      ],
+      goals: ['Feel active', 'Show clarity'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const result = await materializeVariantPlan({
+      plan,
+      outputDir,
+      primaryColor: '#2563EB',
+      secondaryColor: '#F97316',
+    });
+
+    const individualConfigPath = result.variants.find((variant) => variant.id === 'concept-b')?.configPath;
+    const panoramicConfigPath = result.variants.find((variant) => variant.id === 'concept-c')?.configPath;
+    expect(individualConfigPath).toBeTruthy();
+    expect(panoramicConfigPath).toBeTruthy();
+
+    const individual = parse((await readFile(individualConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const activityScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('community-activity-feed-updates.png'));
+    const documentScreen = individual.screens.find((screen: { screenshot: string }) => screen.screenshot.includes('invoice-pdf-document-review.png'));
+
+    expect(activityScreen?.background).toBeTruthy();
+    expect(documentScreen?.background).toBeTruthy();
+    expect(activityScreen?.background).not.toBe(documentScreen?.background);
+
+    const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    const panoramicGroups = panoramic.panoramic.elements.filter((element: { type: string }) => element.type === 'group');
+
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Live feed')),
+    ).toBe(true);
+    expect(
+      panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
+        (group.children ?? []).some((child) => child.type === 'badge' && child.content === 'Document review')),
+    ).toBe(true);
+    expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
+  });
 });

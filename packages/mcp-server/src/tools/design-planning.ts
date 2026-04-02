@@ -38,6 +38,8 @@ export type PanoramicCompositionFeature =
   | 'floating-detail-card'
   | 'decorative-cluster'
   | 'proof-stack'
+  | 'activity-wave'
+  | 'folio-stack'
   | 'toolbar-ribbon'
   | 'profile-orbit'
   | 'browse-strip'
@@ -396,9 +398,11 @@ interface TextSemanticSignals {
 }
 
 type SemanticFlavor =
+  | 'activity'
   | 'profile'
   | 'editor'
   | 'catalog'
+  | 'document'
   | 'map'
   | 'media'
   | 'capture'
@@ -409,9 +413,11 @@ type SemanticFlavor =
   | 'reward';
 
 interface SemanticFlavorSignals {
+  activitySignalCount: number;
   profileSignalCount: number;
   editorSignalCount: number;
   catalogSignalCount: number;
+  documentSignalCount: number;
   mapSignalCount: number;
   mediaSignalCount: number;
   captureSignalCount: number;
@@ -420,6 +426,7 @@ interface SemanticFlavorSignals {
   securitySignalCount: number;
   supportSignalCount: number;
   rewardSignalCount: number;
+  communicationConflictCount: number;
   settingsConflictCount: number;
   paywallConflictCount: number;
   onboardingConflictCount: number;
@@ -492,6 +499,10 @@ function buildSemanticHaystack(
 
 function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
   return {
+    activitySignalCount: countRegexMatches(
+      haystack,
+      /\b(activity|activities|updates|update|posts|post|stories|story|comments|comment|likes|like|reactions|reaction|following|followers|social pulse|community pulse)\b/g,
+    ),
     profileSignalCount: countRegexMatches(
       haystack,
       /\b(profile|creator|creators|community|communities|followers|following|member|members|bio|audience|channel|supporters?)\b/g,
@@ -503,6 +514,10 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
     catalogSignalCount: countRegexMatches(
       haystack,
       /\b(shop|store|catalog|collection|collections|product|products|item|items|listing|listings|wishlist|marketplace|featured|price|prices)\b/g,
+    ),
+    documentSignalCount: countRegexMatches(
+      haystack,
+      /\b(document|documents|doc|docs|pdf|invoice|invoices|statement|statements|contract|contracts|file|files|reader|reading|review|approvals|signature|signatures|record|records|page|pages)\b/g,
     ),
     mapSignalCount: countRegexMatches(
       haystack,
@@ -536,6 +551,10 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
       haystack,
       /\b(reward|rewards|loyalty|points|perk|perks|cashback|cash back|redeem|redemption|bonus|bonuses|membership|member benefits|member perks|tier|tiers)\b/g,
     ),
+    communicationConflictCount: countRegexMatches(
+      haystack,
+      /\b(chat|message|messages|inbox|thread|threads|reply|replies|typing|dm|call|calls)\b/g,
+    ),
     settingsConflictCount: countRegexMatches(
       haystack,
       /\b(settings|preferences|privacy|security|notifications|billing|manage)\b/g,
@@ -567,6 +586,14 @@ function inferSemanticFlavor(args: {
 }): SemanticFlavor | undefined {
   const haystack = buildSemanticHaystack(args.pathValue, args.note, args.textInsights);
   const signals = deriveSemanticFlavorSignals(haystack);
+  const activityScore = signals.activitySignalCount > 0
+    ? (signals.activitySignalCount * 2)
+      + (args.role === 'discovery' || args.role === 'home' ? 2 : args.role === 'communication' ? 1 : 0)
+      + (signals.profileSignalCount >= 1 ? 1 : 0)
+      - Math.min(2, signals.communicationConflictCount)
+      - Math.min(1, signals.settingsConflictCount)
+      - Math.min(1, signals.paywallConflictCount)
+    : 0;
   const profileScore = (signals.profileSignalCount * 2)
     + (args.role === 'detail' || args.role === 'communication' || args.role === 'discovery' ? 1 : 0)
     - (signals.settingsConflictCount >= 2 ? 3 : signals.settingsConflictCount);
@@ -577,6 +604,15 @@ function inferSemanticFlavor(args: {
   const catalogScore = (signals.catalogSignalCount * 2)
     + (args.role === 'discovery' ? 2 : args.role === 'home' ? 1 : 0)
     - (signals.paywallConflictCount >= 2 ? 4 : signals.paywallConflictCount);
+  const documentScore = signals.documentSignalCount > 0
+    ? (signals.documentSignalCount * 2)
+      + (args.role === 'detail' ? 2 : args.role === 'workflow' ? 1 : 0)
+      + (signals.scheduleSignalCount >= 1 ? 1 : 0)
+      - Math.min(2, signals.reportingConflictCount)
+      - Math.min(1, signals.editorSignalCount)
+      - (signals.captureSignalCount > signals.documentSignalCount ? 2 : 0)
+      - Math.min(1, signals.paywallConflictCount)
+    : 0;
   const mapScore = (signals.mapSignalCount * 2)
     + (args.role === 'discovery' || args.role === 'home' ? 2 : args.role === 'detail' ? 1 : 0)
     - Math.min(2, signals.settingsConflictCount)
@@ -622,10 +658,12 @@ function inferSemanticFlavor(args: {
     - Math.min(1, signals.settingsConflictCount)
     - Math.min(2, signals.editorSignalCount);
   const ranked: Array<{ flavor: SemanticFlavor; score: number }> = [
+    { flavor: 'activity', score: activityScore },
     { flavor: 'commerce', score: commerceScore },
     { flavor: 'security', score: securityScore },
     { flavor: 'support', score: supportScore },
     { flavor: 'reward', score: rewardScore },
+    { flavor: 'document', score: documentScore },
     { flavor: 'capture', score: captureScore },
     { flavor: 'schedule', score: scheduleScore },
     { flavor: 'editor', score: editorScore },
@@ -693,6 +731,14 @@ function applySemanticFlavorRoleScores(
   const haystack = buildSemanticHaystack(pathValue, note, textInsights);
   const signals = deriveSemanticFlavorSignals(haystack);
 
+  if (signals.activitySignalCount >= 2 && signals.communicationConflictCount <= 1) {
+    scores.discovery += 12;
+    scores.home += 8;
+    scores.communication += 4;
+    scores.settings = Math.max(0, scores.settings - 8);
+    scores.paywall = Math.max(0, scores.paywall - 4);
+  }
+
   if (signals.profileSignalCount >= 2 && signals.settingsConflictCount <= 1) {
     scores.detail += 14;
     scores.communication += 4;
@@ -711,6 +757,13 @@ function applySemanticFlavorRoleScores(
     scores.home += 3;
     scores.settings = Math.max(0, scores.settings - 8);
     scores.paywall = Math.max(0, scores.paywall - 8);
+  }
+
+  if (signals.documentSignalCount >= 2) {
+    scores.detail += 14;
+    scores.workflow += 6;
+    scores.settings = Math.max(0, scores.settings - 6);
+    scores.paywall = Math.max(0, scores.paywall - 4);
   }
 
   if (signals.mapSignalCount >= 2 && signals.settingsConflictCount <= 1) {
@@ -1620,10 +1673,14 @@ function buildHeroExplanation(args: {
 
   if (semanticFlavor === 'profile') {
     reasons.push('Profile/community screens can sell identity, trust, and social proof when treated like a focused spotlight.');
+  } else if (semanticFlavor === 'activity') {
+    reasons.push('Activity/feed screens can sell live momentum and community energy when the cadence stays readable.');
   } else if (semanticFlavor === 'editor') {
     reasons.push('Editor/canvas screens can sell hands-on creation when the main workspace stays readable.');
   } else if (semanticFlavor === 'catalog') {
     reasons.push('Catalog/store screens can sell range and curation when the layout reads like a browse story.');
+  } else if (semanticFlavor === 'document') {
+    reasons.push('Document/review screens can sell clarity and record confidence when the core page or approval state stays focused.');
   } else if (semanticFlavor === 'commerce') {
     reasons.push('Checkout/order screens can sell purchase confidence and follow-through when the transactional path stays clear.');
   } else if (semanticFlavor === 'security') {
@@ -3008,6 +3065,11 @@ function semanticFlavorStageBonus(
   });
 
   switch (semanticFlavor) {
+    case 'activity':
+      if (stage === 'hero') return conceptId === 'concept-d' ? 16 : conceptId === 'concept-b' ? 10 : conceptId === 'concept-c' ? 4 : 0;
+      if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 12 : 4;
+      if (stage === 'closing') return conceptId === 'concept-c' ? -4 : conceptId === 'concept-d' ? 4 : 0;
+      return 0;
     case 'editor':
       if (stage === 'hero') return conceptId === 'concept-b' ? 12 : conceptId === 'concept-c' ? 6 : 0;
       if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 10 : 4;
@@ -3016,6 +3078,11 @@ function semanticFlavorStageBonus(
     case 'catalog':
       if (stage === 'hero') return conceptId === 'concept-d' ? 8 : conceptId === 'concept-b' ? 4 : 0;
       if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 12 : 4;
+      return 0;
+    case 'document':
+      if (stage === 'hero') return conceptId === 'concept-c' ? 10 : conceptId === 'concept-a' ? 4 : conceptId === 'concept-b' ? 2 : 0;
+      if (stage === 'middle') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 8 : 4;
+      if (stage === 'closing') return conceptId === 'concept-c' || conceptId === 'concept-d' ? 12 : 6;
       return 0;
     case 'profile':
       if (stage === 'hero') return conceptId === 'concept-a' ? 4 : -2;
@@ -3339,11 +3406,15 @@ function chooseDynamicIndividualComposition(args: {
   });
 
   if (semanticFlavor === 'editor' && args.supportingScreens.length >= 1) return 'hero-tilt';
+  if (semanticFlavor === 'activity' && args.supportingScreens.length >= 2) return 'fanned-cards';
+  if (semanticFlavor === 'activity' && args.supportingScreens.length >= 1) return 'duo-overlap';
   if (semanticFlavor === 'support' && args.supportingScreens.length >= 1) return 'duo-split';
   if (semanticFlavor === 'reward' && args.supportingScreens.length >= 2) return 'fanned-cards';
   if (semanticFlavor === 'reward' && args.supportingScreens.length >= 1) return 'duo-overlap';
   if (semanticFlavor === 'commerce' && args.supportingScreens.length >= 2) return 'fanned-cards';
   if (semanticFlavor === 'commerce' && args.supportingScreens.length >= 1) return args.index === 0 ? 'hero-tilt' : 'duo-overlap';
+  if (semanticFlavor === 'document' && args.supportingScreens.length >= 2) return args.index === 0 ? 'hero-tilt' : 'duo-split';
+  if (semanticFlavor === 'document' && args.supportingScreens.length >= 1) return 'duo-split';
   if (semanticFlavor === 'security' && args.supportingScreens.length >= 1) return 'duo-split';
   if (semanticFlavor === 'capture' && args.supportingScreens.length >= 2) return 'hero-tilt';
   if (semanticFlavor === 'capture' && args.supportingScreens.length >= 1) return args.index === 0 ? 'hero-tilt' : 'duo-overlap';
@@ -3406,10 +3477,14 @@ function buildIndividualImplementationNote(args: {
   }
   if (semanticFlavor === 'profile') {
     parts.push('Let the support screenshot reinforce identity, community, or creator proof instead of generic profile chrome.');
+  } else if (semanticFlavor === 'activity') {
+    parts.push('Let the support screenshots reinforce live updates, reactions, or post cadence so the frame feels active instead of chat-like.');
   } else if (semanticFlavor === 'editor') {
     parts.push('Keep the main workspace dominant and use support details to echo tools, layers, or output state.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Make the supporting screenshots feel like a curated assortment so the concept sells choice without visual clutter.');
+  } else if (semanticFlavor === 'document') {
+    parts.push('Keep the main page or approval state clear and use support details to echo review steps, records, or signed proof without cluttering the page.');
   } else if (semanticFlavor === 'support') {
     parts.push('Keep the answer path or resolution state clear and use support details for FAQ depth, ticket status, or guided next steps.');
   } else if (semanticFlavor === 'reward') {
@@ -3500,10 +3575,14 @@ function buildScreenCopyDirection(args: {
 
   if (semanticFlavor === 'profile') {
     parts.push('Focus on identity, trust, or community momentum instead of naming follower counts or profile chrome.');
+  } else if (semanticFlavor === 'activity') {
+    parts.push('Sell live activity, updates, or social momentum instead of naming feed tabs, likes, comment counts, or notification chrome.');
   } else if (semanticFlavor === 'editor') {
     parts.push('Sell creative control or making progress, not toolbar labels, layers, or editing chrome.');
   } else if (semanticFlavor === 'catalog') {
     parts.push('Sell range, curation, or choice instead of naming prices, tabs, or product tiles.');
+  } else if (semanticFlavor === 'document') {
+    parts.push('Sell clarity, review confidence, or record readiness instead of naming PDFs, invoices, pages, or approval chrome.');
   } else if (semanticFlavor === 'support') {
     parts.push('Sell reassurance, guided help, or fast resolution instead of naming FAQ rows, ticket numbers, or support chrome.');
   } else if (semanticFlavor === 'reward') {
@@ -3589,11 +3668,17 @@ function buildIndividualBackgroundStrategy(args: {
   if (semanticFlavor === 'profile') {
     return args.conceptId === 'concept-b' ? 'community-spotlight' : 'proof-tint';
   }
+  if (semanticFlavor === 'activity') {
+    return args.conceptId === 'concept-b' ? 'signal-burst' : 'proof-tint';
+  }
   if (semanticFlavor === 'editor') {
     return args.conceptId === 'concept-b' ? 'studio-surface' : 'proof-tint';
   }
   if (semanticFlavor === 'catalog') {
     return args.conceptId === 'concept-b' ? 'catalog-glow' : 'proof-tint';
+  }
+  if (semanticFlavor === 'document') {
+    return args.conceptId === 'concept-b' ? 'folio-surface' : 'proof-tint';
   }
   if (semanticFlavor === 'support') {
     return args.conceptId === 'concept-b' ? 'care-surface' : 'proof-tint';
@@ -4087,6 +4172,13 @@ function buildPanoramicCompositionFeatures(args: {
   if (args.category === 'social' && args.storyBeat === 'hero') {
     features.push('decorative-cluster');
   }
+  if (semanticFlavor === 'activity') {
+    features.push('activity-wave');
+    features.push('decorative-cluster');
+    if (args.storyBeat === 'hero' || args.storyBeat === 'summary') {
+      features.push('proof-stack');
+    }
+  }
   if (semanticFlavor === 'editor') {
     features.push('toolbar-ribbon');
   }
@@ -4097,6 +4189,13 @@ function buildPanoramicCompositionFeatures(args: {
   if (semanticFlavor === 'catalog') {
     features.push('browse-strip');
     features.push('decorative-cluster');
+  }
+  if (semanticFlavor === 'document') {
+    features.push('folio-stack');
+    features.push('proof-stack');
+    if (args.storyBeat !== 'hero') {
+      features.push('decorative-cluster');
+    }
   }
   if (semanticFlavor === 'support') {
     features.push('support-beacon');
@@ -4169,6 +4268,12 @@ function buildPanoramicCompositionNote(args: {
   if (args.features.includes('proof-stack')) {
     parts.push('Reserve extra room for proof or trust signals near the close.');
   }
+  if (args.features.includes('activity-wave')) {
+    parts.push('Run an activity-wave treatment so the frame reads like live updates and momentum instead of isolated chat bubbles or dashboard rows.');
+  }
+  if (args.features.includes('folio-stack')) {
+    parts.push('Use a folio-stack treatment so the frame reads like document review and record clarity instead of generic reporting or editor chrome.');
+  }
   if (args.features.includes('toolbar-ribbon')) {
     parts.push('Echo the editor surface with a restrained tool-ribbon treatment instead of generic ornament.');
   }
@@ -4228,6 +4333,56 @@ function buildPanoramicCompositionNote(args: {
   }
 
   return parts.join(' ');
+}
+
+function buildPanoramicPacing(args: {
+  analysis: ScreenshotAnalysis;
+  storyBeat: string;
+  conceptId: 'concept-c' | 'concept-d';
+  index: number;
+  total: number;
+}): string {
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.analysis.path,
+    note: args.analysis.note,
+    textInsights: args.analysis.textInsights,
+    role: args.analysis.role,
+  });
+
+  if (semanticFlavor === 'activity') {
+    if (args.storyBeat === 'hero') return 'open with live momentum';
+    if (args.storyBeat === 'summary' || args.index === args.total - 1) return 'land on follow-through';
+    return 'keep the feed cadence moving';
+  }
+  if (semanticFlavor === 'document') {
+    if (args.storyBeat === 'hero') return 'open with focused proof';
+    if (args.storyBeat === 'summary' || args.index === args.total - 1) return 'close on review confidence';
+    return 'develop a readable record story';
+  }
+  if (semanticFlavor === 'support') {
+    return args.storyBeat === 'summary' || args.index === args.total - 1
+      ? 'close on resolved proof'
+      : 'build guided reassurance';
+  }
+  if (semanticFlavor === 'reward') {
+    return args.storyBeat === 'summary' || args.index === args.total - 1
+      ? 'close on payoff'
+      : 'build toward member value';
+  }
+  if (semanticFlavor === 'commerce') {
+    return args.storyBeat === 'summary' || args.index === args.total - 1
+      ? 'close on confident handoff'
+      : 'build purchase momentum';
+  }
+  if (semanticFlavor === 'security') {
+    return args.storyBeat === 'summary' || args.index === args.total - 1
+      ? 'close on verified trust'
+      : 'build trusted access';
+  }
+
+  if (args.index === 0) return 'open strong';
+  if (args.index === args.total - 1) return args.conceptId === 'concept-c' ? 'close quietly' : 'close with payoff';
+  return 'develop narrative';
 }
 
 function buildVariantEntries(
@@ -4357,12 +4512,13 @@ function buildVariantEntries(
             storyBeat,
             compositionFeatures,
           }),
-          pacing:
-            index === 0
-              ? 'open strong'
-              : index === editorialSequence.length - 1
-                ? 'close quietly'
-                : 'develop narrative',
+          pacing: buildPanoramicPacing({
+            analysis,
+            storyBeat,
+            conceptId: 'concept-c',
+            index,
+            total: editorialSequence.length,
+          }),
           compositionFeatures,
           compositionNote: buildPanoramicCompositionNote({
             recipe: 'editorial-panorama',
@@ -4413,6 +4569,13 @@ function buildVariantEntries(
             analysis,
             storyBeat,
             compositionFeatures,
+          }),
+          pacing: buildPanoramicPacing({
+            analysis,
+            storyBeat,
+            conceptId: 'concept-d',
+            index,
+            total: boldSequence.length,
           }),
           assetGuidance:
             analysis.cropSuitability === 'high'

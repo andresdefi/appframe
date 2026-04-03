@@ -4,6 +4,7 @@ import { buildSessionSavePayload, getRefinementLabel, usePreviewStore, variantSn
 import type {
   AutopilotPlanVariant,
   AutopilotSelectedCopySet,
+  PanoramicRhythmPreset,
   RefinementActionId,
   VariantRecord,
   VariantSnapshot,
@@ -45,6 +46,14 @@ const SEMANTIC_FLAVOR_OPTIONS = [
 ] as const;
 
 const PANORAMIC_RHYTHM_OPTIONS = ['open', 'intensify', 'resolve'] as const;
+const PANORAMIC_RHYTHM_PRESET_OPTIONS: Array<{
+  id: PanoramicRhythmPreset;
+  label: string;
+}> = [
+  { id: 'front-loaded', label: 'Front-loaded' },
+  { id: 'balanced', label: 'Balanced' },
+  { id: 'resolve-heavy', label: 'Resolve-heavy' },
+];
 const PANORAMIC_CONTINUITY_OPTIONS = [
   'text-rail',
   'proof-lane',
@@ -61,6 +70,8 @@ const PANORAMIC_SUPPORT_SYSTEM_OPTIONS = [
   'curation-shelf',
   'proof-column',
 ] as const;
+const PANORAMIC_AUTO_VALUE = '__auto__';
+const PANORAMIC_CUSTOM_VALUE = '__custom__';
 
 function formatCopySlot(slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary'): string {
   switch (slot) {
@@ -150,6 +161,91 @@ function planFrameOverrideValue(
   field: 'rhythmRole' | 'continuityMotif' | 'supportSystem',
 ): string {
   return frame.artDirectionOverrides?.[field] ?? '';
+}
+
+function effectivePlanFrameValue(
+  frame: NonNullable<AutopilotPlanVariant['frames']>[number],
+  field: 'rhythmRole' | 'continuityMotif' | 'supportSystem',
+): string | undefined {
+  if (field === 'rhythmRole') return frame.rhythmRole ?? frame.inferredRhythmRole;
+  if (field === 'continuityMotif') return frame.continuityMotif ?? frame.inferredContinuityMotif;
+  return frame.supportSystem ?? frame.inferredSupportSystem;
+}
+
+function resolveRhythmPresetValue(args: {
+  preset: PanoramicRhythmPreset;
+  index: number;
+  total: number;
+}): string {
+  if (args.total <= 2) {
+    return args.index === 0 ? 'open' : 'resolve';
+  }
+
+  switch (args.preset) {
+    case 'front-loaded': {
+      const openCount = Math.max(1, Math.ceil(args.total / 2));
+      if (args.index < openCount) return 'open';
+      return args.index === args.total - 1 ? 'resolve' : 'intensify';
+    }
+    case 'resolve-heavy':
+      if (args.index === 0) return 'open';
+      if (args.index >= Math.max(1, args.total - 2)) return 'resolve';
+      return 'intensify';
+    case 'balanced':
+    default:
+      if (args.index === 0) return 'open';
+      if (args.index === args.total - 1) return 'resolve';
+      return 'intensify';
+  }
+}
+
+function detectRhythmPreset(
+  frames: NonNullable<AutopilotPlanVariant['frames']>,
+): PanoramicRhythmPreset | typeof PANORAMIC_AUTO_VALUE | typeof PANORAMIC_CUSTOM_VALUE {
+  if (!frames.some((frame) => frame.artDirectionOverrides?.rhythmRole)) {
+    return PANORAMIC_AUTO_VALUE;
+  }
+
+  const presets = PANORAMIC_RHYTHM_PRESET_OPTIONS.map((option) => option.id);
+  for (const preset of presets) {
+    const matches = frames.every((frame, index) =>
+      effectivePlanFrameValue(frame, 'rhythmRole') === resolveRhythmPresetValue({
+        preset,
+        index,
+        total: frames.length,
+      }));
+    if (matches) return preset;
+  }
+
+  return PANORAMIC_CUSTOM_VALUE;
+}
+
+function detectSharedPlanFieldOverride(
+  frames: NonNullable<AutopilotPlanVariant['frames']>,
+  field: 'continuityMotif' | 'supportSystem',
+): string {
+  const overrides = frames.map((frame) => frame.artDirectionOverrides?.[field]).filter(Boolean);
+  if (overrides.length === 0) return PANORAMIC_AUTO_VALUE;
+
+  const first = overrides[0];
+  const uniform = overrides.length === frames.length && overrides.every((value) => value === first);
+  return uniform && first ? first : PANORAMIC_CUSTOM_VALUE;
+}
+
+function summarizePlanFieldDistribution(
+  frames: NonNullable<AutopilotPlanVariant['frames']>,
+  field: 'rhythmRole' | 'continuityMotif' | 'supportSystem',
+): string {
+  const counts = new Map<string, number>();
+  for (const frame of frames) {
+    const value = effectivePlanFrameValue(frame, field);
+    if (!value) continue;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([value, count]) => `${formatSlugLabel(value)} ${count}`)
+    .join(' · ');
 }
 
 function summarizePanoramicComposition(snapshot: VariantSnapshot): string[] {
@@ -307,6 +403,9 @@ export function VariantsTab() {
   const applyAiRefinementPlanToActive = usePreviewStore((s) => s.applyAiRefinementPlanToActive);
   const setAutopilotSemanticFlavorOverride = usePreviewStore((s) => s.setAutopilotSemanticFlavorOverride);
   const setAutopilotPanoramicFrameArtDirection = usePreviewStore((s) => s.setAutopilotPanoramicFrameArtDirection);
+  const setAutopilotPanoramicVariantField = usePreviewStore((s) => s.setAutopilotPanoramicVariantField);
+  const setAutopilotPanoramicRhythmPreset = usePreviewStore((s) => s.setAutopilotPanoramicRhythmPreset);
+  const resetAutopilotPanoramicVariantArtDirection = usePreviewStore((s) => s.resetAutopilotPanoramicVariantArtDirection);
   const createVariantSet = usePreviewStore((s) => s.createVariantSet);
   const selectVariant = usePreviewStore((s) => s.selectVariant);
   const approveVariant = usePreviewStore((s) => s.approveVariant);
@@ -478,6 +577,40 @@ export function VariantsTab() {
   const activePlanVariant = useMemo<AutopilotPlanVariant | null>(
     () => autopilotConceptPlan?.variants.find((variant) => variant.id === activeVariantId) ?? null,
     [autopilotConceptPlan, activeVariantId],
+  );
+  const activePlanFrameRhythmPreset = useMemo(
+    () => activePlanVariant?.frames?.length ? detectRhythmPreset(activePlanVariant.frames) : PANORAMIC_AUTO_VALUE,
+    [activePlanVariant],
+  );
+  const activePlanContinuityBulkValue = useMemo(
+    () => activePlanVariant?.frames?.length
+      ? detectSharedPlanFieldOverride(activePlanVariant.frames, 'continuityMotif')
+      : PANORAMIC_AUTO_VALUE,
+    [activePlanVariant],
+  );
+  const activePlanSupportBulkValue = useMemo(
+    () => activePlanVariant?.frames?.length
+      ? detectSharedPlanFieldOverride(activePlanVariant.frames, 'supportSystem')
+      : PANORAMIC_AUTO_VALUE,
+    [activePlanVariant],
+  );
+  const activePlanRhythmSummary = useMemo(
+    () => activePlanVariant?.frames?.length
+      ? summarizePlanFieldDistribution(activePlanVariant.frames, 'rhythmRole')
+      : '',
+    [activePlanVariant],
+  );
+  const activePlanContinuitySummary = useMemo(
+    () => activePlanVariant?.frames?.length
+      ? summarizePlanFieldDistribution(activePlanVariant.frames, 'continuityMotif')
+      : '',
+    [activePlanVariant],
+  );
+  const activePlanSupportSummary = useMemo(
+    () => activePlanVariant?.frames?.length
+      ? summarizePlanFieldDistribution(activePlanVariant.frames, 'supportSystem')
+      : '',
+    [activePlanVariant],
   );
   const aiPromptSuggestions = useMemo(() => {
     const suggestions = [
@@ -1003,6 +1136,101 @@ export function VariantsTab() {
                   )}
 
                   {activePlanVariant.frames?.length ? (
+                    <div className="rounded-md border border-border bg-surface px-2.5 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
+                          Concept Art Direction
+                        </div>
+                        <button
+                          type="button"
+                          className="rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text-dim transition hover:border-accent/40 hover:text-text"
+                          onClick={() => resetAutopilotPanoramicVariantArtDirection(activePlanVariant.id)}
+                        >
+                          Reset overrides
+                        </button>
+                      </div>
+                      <div className="mt-2 grid gap-2 md:grid-cols-3">
+                        <label className="space-y-1 text-[10px] text-text-dim">
+                          <span className="block uppercase tracking-[0.12em]">Rhythm Profile</span>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[11px] text-text"
+                            value={activePlanFrameRhythmPreset}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              if (value === PANORAMIC_CUSTOM_VALUE) return;
+                              setAutopilotPanoramicRhythmPreset({
+                                variantId: activePlanVariant.id,
+                                preset: value === PANORAMIC_AUTO_VALUE ? null : value as PanoramicRhythmPreset,
+                              });
+                            }}
+                          >
+                            <option value={PANORAMIC_AUTO_VALUE}>Auto / inferred</option>
+                            <option value={PANORAMIC_CUSTOM_VALUE}>Custom / per-frame</option>
+                            {PANORAMIC_RHYTHM_PRESET_OPTIONS.map((option) => (
+                              <option key={`${activePlanVariant.id}-rhythm-preset-${option.id}`} value={option.id}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1 text-[10px] text-text-dim">
+                          <span className="block uppercase tracking-[0.12em]">Continuity Across Strip</span>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[11px] text-text"
+                            value={activePlanContinuityBulkValue}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              if (value === PANORAMIC_CUSTOM_VALUE) return;
+                              setAutopilotPanoramicVariantField({
+                                variantId: activePlanVariant.id,
+                                field: 'continuityMotif',
+                                value: value === PANORAMIC_AUTO_VALUE ? null : value,
+                              });
+                            }}
+                          >
+                            <option value={PANORAMIC_AUTO_VALUE}>Auto / inferred</option>
+                            <option value={PANORAMIC_CUSTOM_VALUE}>Custom / mixed</option>
+                            {PANORAMIC_CONTINUITY_OPTIONS.map((option) => (
+                              <option key={`${activePlanVariant.id}-continuity-bulk-${option}`} value={option}>
+                                {formatSlugLabel(option)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1 text-[10px] text-text-dim">
+                          <span className="block uppercase tracking-[0.12em]">Support System Across Strip</span>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[11px] text-text"
+                            value={activePlanSupportBulkValue}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              if (value === PANORAMIC_CUSTOM_VALUE) return;
+                              setAutopilotPanoramicVariantField({
+                                variantId: activePlanVariant.id,
+                                field: 'supportSystem',
+                                value: value === PANORAMIC_AUTO_VALUE ? null : value,
+                              });
+                            }}
+                          >
+                            <option value={PANORAMIC_AUTO_VALUE}>Auto / inferred</option>
+                            <option value={PANORAMIC_CUSTOM_VALUE}>Custom / mixed</option>
+                            {PANORAMIC_SUPPORT_SYSTEM_OPTIONS.map((option) => (
+                              <option key={`${activePlanVariant.id}-support-bulk-${option}`} value={option}>
+                                {formatSlugLabel(option)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="mt-2 rounded-md border border-border bg-bg/60 px-2 py-2 text-[10px] text-text-dim">
+                        <div>Rhythm: {activePlanRhythmSummary || 'No rhythm metadata yet'}</div>
+                        <div className="mt-1">Continuity: {activePlanContinuitySummary || 'No continuity metadata yet'}</div>
+                        <div className="mt-1">Support: {activePlanSupportSummary || 'No support-system metadata yet'}</div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {activePlanVariant.frames?.length ? (
                     <div className="space-y-2">
                       {activePlanVariant.frames.map((frame) => (
                         <div
@@ -1143,6 +1371,9 @@ export function VariantsTab() {
                               ))}
                             </div>
                           ) : null}
+                          {frame.pacing && (
+                            <div className="mt-2 text-[10px] text-text-dim">{frame.pacing}</div>
+                          )}
                           {frame.compositionNote && (
                             <div className="mt-2 text-[11px] text-text">{frame.compositionNote}</div>
                           )}

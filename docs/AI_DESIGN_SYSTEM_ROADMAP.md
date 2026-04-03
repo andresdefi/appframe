@@ -87,6 +87,7 @@ Current status:
 - panoramic recipe metadata is now partially centralized in a shared profile system, so family/archetype defaults plus opener / intensify / resolve layout and support-system blueprints are less hardcoded across multiple files
 - panoramic plans now carry explicit `rhythmRole` and `continuityMotif` frame metadata, and materialization plus the preview inspector consume those cues so continuity intent is more legible and more actionable during local-first review
 - preview sessions now also expose first-pass per-frame panoramic rhythm / continuity / support-system overrides, persist them with the session, and feed them back through reviewed-session rebuilds instead of dropping those art-direction choices after review
+- preview sessions now also expose first-pass concept-level panoramic rhythm presets plus bulk continuity/support overrides and reset-to-auto behavior, making strip-wide pacing edits faster without adding model-dependent tooling
 
 ### 3. Screenshot Understanding
 
@@ -213,6 +214,7 @@ This roadmap now has three concrete pieces underway:
 - preview review surface: sessions now carry per-concept copy-slot assignments and the preview UI now supports concept filters, side-by-side comparison, score breakdown review, frame strategy, crop guidance, OCR occupied-region inspection, and persisted screenshot semantic-family review/override
 - review-to-generation loop: reviewed screenshot-family metadata can now be reused directly for replanning/materialization through MCP and direct preview-side rebuild controls instead of stopping at saved preview session state
 - preview-side art-direction loop: panoramic concept-plan review now includes first-pass per-frame rhythm / continuity / support-system controls that persist into session save/rebuild instead of staying as read-only metadata
+- preview-side bulk art-direction loop: panoramic concept-plan review now also includes concept-level rhythm presets, bulk continuity/support-system controls, and visible pacing summaries so whole-strip editing is possible before deeper recipe-inspector tooling lands
 - richer panoramic composition review: sessions now expose screenshot analysis, selected copy, concept-plan metadata, and composition summaries in the preview variants surface so layered-detail systems are inspectable without leaving the session
 - refinement review surface: preview sessions now support safe branch-and-refine actions, variant provenance/history, and panoramic continuity review without leaving the session flow
 - AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load

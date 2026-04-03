@@ -75,6 +75,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - reviewed screenshot semantic-family state can now feed forward into downstream generation: `appframe_plan_variant_set` accepts reviewed `screenshotAnalysisJson`, and `appframe_rebuild_autopilot_session_from_review` replans/rematerializes saved autopilot sessions from persisted review metadata while clearing stale previews and recommendations
 - preview UI session analysis now also exposes a direct rebuild action that saves current review/editor state, triggers the shared reviewed-family rebuild path, and rehydrates the session with cleared preview/recommendation state so feed-forward no longer requires MCP tooling once preview is open
 - preview UI session analysis now also lets users override per-frame panoramic rhythm, continuity motif, and support system, persists those overrides with the session, and reapplies them during reviewed-session rebuilds so art-direction tweaks are not lost between review and rematerialization
+- preview UI session analysis now also adds concept-level panoramic art-direction controls for rhythm presets, bulk continuity/support overrides, reset-to-auto behavior, and visible pacing summaries so editors can steer a whole strip faster than per-frame dropdowns alone
 - preview scoring now also inspects panoramic support-group signature diversity and penalizes repeated support-card structure more directly, pushing generic strip rhythm down even when screenshots render cleanly
 - the AppFrame skill has been rewritten around the autopilot flow
 
@@ -534,7 +535,7 @@ Use this to start a future thread:
 - The repo may have unrelated untracked files; do not revert unrelated user changes.
 - Existing manual variant workflows still matter; preserve backward compatibility where possible.
 - Session compatibility matters now that sessions can be created from both manual configs and autopilot manifests.
-- Preview sessions now persist manual screenshot semantic-family review metadata, and both MCP/session tooling plus the preview-side rebuild action can already reuse current review state for replanning/materialization; first-pass panoramic rhythm/continuity/support-system overrides are now included, but broader preview-side art-direction tooling is still open.
+- Preview sessions now persist manual screenshot semantic-family review metadata, and both MCP/session tooling plus the preview-side rebuild action can already reuse current review state for replanning/materialization; per-frame panoramic overrides plus first-pass concept-level rhythm/support/continuity bulk controls are now included, but deeper recipe-inspector and continuity-editor tooling is still open.
 - The current scoring system is now partly visual and can optionally use live model ranking, but it is still not a full art-direction loop.
 - The current screenshot understanding now includes real pixel heuristics plus optional OCR/vision text enrichment, but richer semantic scene understanding is still open.
 - The current renderer is broader than the original single-device flow, but it still limits how close AppFrame can get to before.click-style layouts.

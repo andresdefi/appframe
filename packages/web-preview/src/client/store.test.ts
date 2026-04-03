@@ -490,6 +490,243 @@ describe('preview session refinement round-trips', () => {
     });
   });
 
+  it('applies concept-level panoramic art-direction controls and can reset them', () => {
+    const session = makeSession(makePanoramicConfig(), 'concept-c', 'Editorial Panorama', {
+      screenshotAnalysis: [
+        {
+          path: 'screenshots/home.png',
+          role: 'home',
+          semanticFlavor: 'document',
+          inferredSemanticFlavor: 'document',
+          inferredSemanticFlavorConfidence: 'high',
+          semanticFlavorOverride: null,
+          heroPriority: 88,
+          inferredOrder: 1,
+          focus: 'center',
+          unsafeForTextOverlay: false,
+        },
+        {
+          path: 'screenshots/habits.png',
+          role: 'workflow',
+          semanticFlavor: 'activity',
+          inferredSemanticFlavor: 'activity',
+          inferredSemanticFlavorConfidence: 'medium',
+          semanticFlavorOverride: null,
+          heroPriority: 73,
+          inferredOrder: 2,
+          focus: 'right rail',
+          unsafeForTextOverlay: true,
+        },
+      ],
+      conceptPlan: {
+        selectedScreens: [
+          {
+            path: 'screenshots/home.png',
+            role: 'home',
+            semanticFlavor: 'document',
+            inferredSemanticFlavor: 'document',
+            inferredSemanticFlavorConfidence: 'high',
+            semanticFlavorOverride: null,
+            inferredOrder: 1,
+            unsafeForTextOverlay: false,
+          },
+          {
+            path: 'screenshots/habits.png',
+            role: 'workflow',
+            semanticFlavor: 'activity',
+            inferredSemanticFlavor: 'activity',
+            inferredSemanticFlavorConfidence: 'medium',
+            semanticFlavorOverride: null,
+            inferredOrder: 2,
+            unsafeForTextOverlay: true,
+          },
+        ],
+        variants: [
+          {
+            id: 'concept-c',
+            name: 'Editorial Panorama',
+            mode: 'panoramic',
+            style: 'editorial',
+            recipe: 'editorial-confidence',
+            strategy: 'Proof-led panoramic sequence',
+            frames: [
+              {
+                frame: 1,
+                sourcePath: 'screenshots/home.png',
+                sourceRole: 'home',
+                cropSuitability: 'high',
+                storyBeat: 'hero',
+                rhythmRole: 'open',
+                inferredRhythmRole: 'open',
+                continuityMotif: 'proof-lane',
+                inferredContinuityMotif: 'proof-lane',
+                supportSystem: 'metric-ladder',
+                inferredSupportSystem: 'metric-ladder',
+                pacing: 'Open with calm proof.',
+              },
+              {
+                frame: 2,
+                sourcePath: 'screenshots/habits.png',
+                sourceRole: 'workflow',
+                cropSuitability: 'medium',
+                storyBeat: 'feature',
+                rhythmRole: 'intensify',
+                inferredRhythmRole: 'intensify',
+                continuityMotif: 'proof-lane',
+                inferredContinuityMotif: 'proof-lane',
+                supportSystem: 'metric-ladder',
+                inferredSupportSystem: 'metric-ladder',
+                pacing: 'Build momentum.',
+              },
+              {
+                frame: 3,
+                sourcePath: 'screenshots/home.png',
+                sourceRole: 'home',
+                cropSuitability: 'high',
+                storyBeat: 'feature',
+                rhythmRole: 'intensify',
+                inferredRhythmRole: 'intensify',
+                continuityMotif: 'proof-lane',
+                inferredContinuityMotif: 'proof-lane',
+                supportSystem: 'metric-ladder',
+                inferredSupportSystem: 'metric-ladder',
+                pacing: 'Keep the proof lane moving.',
+              },
+              {
+                frame: 4,
+                sourcePath: 'screenshots/habits.png',
+                sourceRole: 'workflow',
+                cropSuitability: 'medium',
+                storyBeat: 'summary',
+                rhythmRole: 'resolve',
+                inferredRhythmRole: 'resolve',
+                continuityMotif: 'proof-lane',
+                inferredContinuityMotif: 'proof-lane',
+                supportSystem: 'metric-ladder',
+                inferredSupportSystem: 'metric-ladder',
+                pacing: 'Close on confident payoff.',
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    usePreviewStore.getState().hydrateSession(session as any);
+    usePreviewStore.getState().setAutopilotPanoramicRhythmPreset({
+      variantId: 'concept-c',
+      preset: 'resolve-heavy',
+    });
+    usePreviewStore.getState().setAutopilotPanoramicVariantField({
+      variantId: 'concept-c',
+      field: 'continuityMotif',
+      value: 'signal-wave',
+    });
+    usePreviewStore.getState().setAutopilotPanoramicVariantField({
+      variantId: 'concept-c',
+      field: 'supportSystem',
+      value: 'signal-chain',
+    });
+
+    let state = usePreviewStore.getState();
+    expect(state.autopilotConceptPlan?.variants[0]?.frames).toMatchObject([
+      {
+        frame: 1,
+        rhythmRole: 'open',
+        continuityMotif: 'signal-wave',
+        supportSystem: 'signal-chain',
+        artDirectionOverrides: {
+          continuityMotif: 'signal-wave',
+          supportSystem: 'signal-chain',
+        },
+      },
+      {
+        frame: 2,
+        rhythmRole: 'intensify',
+        continuityMotif: 'signal-wave',
+        supportSystem: 'signal-chain',
+        artDirectionOverrides: {
+          continuityMotif: 'signal-wave',
+          supportSystem: 'signal-chain',
+        },
+      },
+      {
+        frame: 3,
+        rhythmRole: 'resolve',
+        continuityMotif: 'signal-wave',
+        supportSystem: 'signal-chain',
+        artDirectionOverrides: {
+          rhythmRole: 'resolve',
+          continuityMotif: 'signal-wave',
+          supportSystem: 'signal-chain',
+        },
+      },
+      {
+        frame: 4,
+        rhythmRole: 'resolve',
+        continuityMotif: 'signal-wave',
+        supportSystem: 'signal-chain',
+        artDirectionOverrides: {
+          continuityMotif: 'signal-wave',
+          supportSystem: 'signal-chain',
+        },
+      },
+    ]);
+
+    const payload = buildSessionSavePayload({
+      activeVariantId: state.activeVariantId!,
+      recommendedVariantId: state.recommendedVariantId,
+      recommendationReason: state.recommendationReason,
+      autopilotAnalysis: state.autopilotAnalysis,
+      autopilotSelectedCopySet: state.autopilotSelectedCopySet,
+      autopilotConceptPlan: state.autopilotConceptPlan,
+      autopilotRefinementHistory: state.autopilotRefinementHistory,
+      variants: state.variants,
+    });
+    expect(payload.conceptPlan?.variants[0]?.frames?.[2]).toMatchObject({
+      frame: 3,
+      rhythmRole: 'resolve',
+      artDirectionOverrides: {
+        rhythmRole: 'resolve',
+        continuityMotif: 'signal-wave',
+        supportSystem: 'signal-chain',
+      },
+    });
+
+    usePreviewStore.getState().resetAutopilotPanoramicVariantArtDirection('concept-c');
+    state = usePreviewStore.getState();
+    expect(state.autopilotConceptPlan?.variants[0]?.frames).toMatchObject([
+      {
+        frame: 1,
+        rhythmRole: 'open',
+        continuityMotif: 'proof-lane',
+        supportSystem: 'metric-ladder',
+        artDirectionOverrides: undefined,
+      },
+      {
+        frame: 2,
+        rhythmRole: 'intensify',
+        continuityMotif: 'proof-lane',
+        supportSystem: 'metric-ladder',
+        artDirectionOverrides: undefined,
+      },
+      {
+        frame: 3,
+        rhythmRole: 'intensify',
+        continuityMotif: 'proof-lane',
+        supportSystem: 'metric-ladder',
+        artDirectionOverrides: undefined,
+      },
+      {
+        frame: 4,
+        rhythmRole: 'resolve',
+        continuityMotif: 'proof-lane',
+        supportSystem: 'metric-ladder',
+        artDirectionOverrides: undefined,
+      },
+    ]);
+  });
+
   it('rebuilds the session from current reviewed-family state without requiring a manual save first', async () => {
     const session = makeSession(makeIndividualConfig(), 'concept-a', 'Clean Hero', {
       screenshotAnalysis: [

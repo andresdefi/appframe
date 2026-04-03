@@ -703,12 +703,18 @@ export function VariantsTab() {
                         <div key={entry.path} className="rounded-md border border-border bg-surface px-2.5 py-2">
                           <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
                             {(entry.inferredOrder ?? '?')} · {entry.role}
+                            {entry.semanticFlavor ? ` · ${formatSlugLabel(entry.semanticFlavor)}` : ''}
                             {entry.unsafeForTextOverlay ? ' · text risk' : ''}
                           </div>
                           <div className="mt-1 text-[11px] text-text">{basenameLabel(entry.path)}</div>
                           <div className="mt-1 text-[10px] text-text-dim">
                             Hero {entry.heroPriority}/100 · {entry.focus}
                           </div>
+                          {entry.semanticFlavor && entry.semanticFlavorConfidence ? (
+                            <div className="mt-1 text-[10px] text-text-dim">
+                              Family confidence: {entry.semanticFlavorConfidence}
+                            </div>
+                          ) : null}
                           {entry.embeddedTextSample?.length ? (
                             <div className="mt-1 text-[10px] text-text-dim">
                               OCR: {entry.embeddedTextSample.join(' · ')}

@@ -234,6 +234,8 @@ export interface AutopilotRefinementHistoryEntry {
 export interface AutopilotScreenshotAnalysis {
   path: string;
   role: string;
+  semanticFlavor?: string;
+  semanticFlavorConfidence?: string;
   heroPriority: number;
   inferredOrder: number | null;
   focus: string;
@@ -326,6 +328,8 @@ export interface AutopilotConceptPlan {
   selectedScreens?: Array<{
     path: string;
     role: string;
+    semanticFlavor?: string;
+    semanticFlavorConfidence?: string;
     inferredOrder: number | null;
     unsafeForTextOverlay: boolean;
     embeddedTextSample?: string[];

@@ -443,10 +443,12 @@ describe('design planning helpers', () => {
 
     const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
     expect(byPath.get(workflowPath)?.role).toBe('workflow');
+    expect(byPath.get(workflowPath)?.semanticFlavor).toBeUndefined();
     expect(byPath.get(workflowPath)?.density).toBe('minimal');
     expect(byPath.get(workflowPath)?.heroExplanation.some((line) => line.includes('Workflow screens often explain the core value quickly'))).toBe(true);
 
     expect(byPath.get(discoveryPath)?.role).toBe('discovery');
+    expect(byPath.get(discoveryPath)?.semanticFlavor).toBeUndefined();
     expect(byPath.get(discoveryPath)?.cropSuitability).toBe('high');
     expect(byPath.get(discoveryPath)?.heroExplanation.some((line) => line.includes('Discovery screens can sell breadth and exploration'))).toBe(true);
   });
@@ -483,13 +485,78 @@ describe('design planning helpers', () => {
 
     const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
     expect(byPath.get(editorPath)?.role).toBe('workflow');
+    expect(byPath.get(editorPath)?.semanticFlavor).toBe('editor');
+    expect(byPath.get(editorPath)?.semanticFlavorConfidence).toBeTruthy();
     expect(byPath.get(editorPath)?.heroExplanation.some((line) => line.includes('hands-on creation'))).toBe(true);
 
     expect(byPath.get(catalogPath)?.role).toBe('discovery');
+    expect(byPath.get(catalogPath)?.semanticFlavor).toBe('catalog');
     expect(byPath.get(catalogPath)?.heroExplanation.some((line) => line.includes('browse story'))).toBe(true);
 
     expect(byPath.get(profilePath)?.role).toBe('detail');
+    expect(byPath.get(profilePath)?.semanticFlavor).toBe('profile');
     expect(byPath.get(profilePath)?.heroExplanation.some((line) => line.includes('identity, trust, and social proof'))).toBe(true);
+  });
+
+  it('rejects weak raster-only flavor matches for generic settings screens', async () => {
+    const settingsPath = await makePngFile('account-security-settings.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if ((x > 18 && x < 102 && y > 42 && y < 58)
+        || (x > 18 && x < 102 && y > 70 && y < 86)
+        || (x > 18 && x < 102 && y > 98 && y < 114)
+        || (x > 18 && x < 102 && y > 126 && y < 142)
+        || (x > 18 && x < 102 && y > 154 && y < 170)) {
+        return [203, 213, 225, 255];
+      }
+      return [241, 245, 249, 255];
+    });
+    const homePath = await makePngFile('member-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const detailPath = await makePngFile('order-detail.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 52 && y < 170) return [16, 185, 129, 255];
+      return [226, 232, 240, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: settingsPath, note: 'Account security settings, privacy controls, and notification preferences' },
+      { path: homePath, note: 'Member home' },
+      { path: detailPath, note: 'Order detail and delivery status' },
+    ]);
+    const settingsAnalysis = analysis.find((entry) => entry.path === settingsPath);
+
+    expect(settingsAnalysis?.role).toBe('settings');
+    expect(settingsAnalysis?.semanticFlavor).toBeUndefined();
+
+    const plan = await buildVariantSetPlan({
+      appName: 'MemberCart',
+      appDescription: 'A member app for orders, account controls, and delivery updates.',
+      platforms: ['ios'],
+      features: ['Order detail', 'Account settings', 'Delivery status'],
+      screenshots: [
+        { path: settingsPath, note: 'Account security settings, privacy controls, and notification preferences' },
+        { path: homePath, note: 'Member home' },
+        { path: detailPath, note: 'Order detail and delivery status' },
+      ],
+      variantCount: 4,
+      screenCount: 3,
+    });
+
+    const dynamicConcept = plan.variants[1];
+    expect(plan.selectedScreens.find((screen) => screen.path === settingsPath)?.semanticFlavor).toBeUndefined();
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const settingsScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === settingsPath);
+      expect(settingsScreen?.backgroundStrategy).toBe('quiet-surface');
+      expect(settingsScreen?.copyDirection).toContain('Sell control, privacy, or personalization');
+    }
   });
 
   it('uses local cue families to distinguish map and media screenshots beyond the core role set', async () => {

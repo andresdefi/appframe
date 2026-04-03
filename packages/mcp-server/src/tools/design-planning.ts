@@ -123,6 +123,8 @@ export interface ScreenshotAnalysis {
   height: number | null;
   aspectRatio: number | null;
   role: ScreenshotRole;
+  semanticFlavor?: ScreenshotSemanticFlavor;
+  semanticFlavorConfidence?: OrderingConfidence;
   density: ScreenshotDensity;
   textRisk: TextRisk;
   heroPriority: number;
@@ -173,6 +175,8 @@ export interface VariantSetPlan {
   selectedScreens: Array<{
     path: string;
     role: ScreenshotRole;
+    semanticFlavor?: ScreenshotSemanticFlavor;
+    semanticFlavorConfidence?: OrderingConfidence;
     heroPriority: number;
     inferredOrder: number | null;
     focus: string;
@@ -424,7 +428,7 @@ interface TextSemanticSignals {
   alternatingConversationColumns: boolean;
 }
 
-type SemanticFlavor =
+export type ScreenshotSemanticFlavor =
   | 'activity'
   | 'profile'
   | 'editor'
@@ -438,6 +442,8 @@ type SemanticFlavor =
   | 'security'
   | 'support'
   | 'reward';
+
+type SemanticFlavor = ScreenshotSemanticFlavor;
 
 interface SemanticFlavorSignals {
   activitySignalCount: number;
@@ -460,6 +466,22 @@ interface SemanticFlavorSignals {
   reportingConflictCount: number;
   mediaConflictCount: number;
 }
+
+const SEMANTIC_FLAVOR_ROLE_HINTS: Record<SemanticFlavor, ScreenshotRole[]> = {
+  activity: ['discovery', 'home', 'communication'],
+  profile: ['detail', 'communication', 'discovery'],
+  editor: ['workflow', 'detail'],
+  catalog: ['discovery', 'home', 'detail'],
+  document: ['detail', 'workflow'],
+  map: ['discovery', 'home', 'detail'],
+  media: ['detail', 'discovery', 'communication'],
+  capture: ['workflow', 'detail', 'home'],
+  schedule: ['workflow', 'home', 'detail'],
+  commerce: ['detail', 'workflow', 'discovery', 'home'],
+  security: ['onboarding', 'detail', 'settings'],
+  support: ['detail', 'communication', 'settings'],
+  reward: ['detail', 'discovery', 'home'],
+};
 
 function countNumericTokens(value: string): number {
   return value.match(/\b[$€£]?\d+(?:[.,]\d+)?%?\b/g)?.length ?? 0;
@@ -605,14 +627,62 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
   };
 }
 
-function inferSemanticFlavor(args: {
+function semanticFlavorSignalCount(
+  signals: SemanticFlavorSignals,
+  flavor: SemanticFlavor,
+): number {
+  switch (flavor) {
+    case 'activity':
+      return signals.activitySignalCount;
+    case 'profile':
+      return signals.profileSignalCount;
+    case 'editor':
+      return signals.editorSignalCount;
+    case 'catalog':
+      return signals.catalogSignalCount;
+    case 'document':
+      return signals.documentSignalCount;
+    case 'map':
+      return signals.mapSignalCount;
+    case 'media':
+      return signals.mediaSignalCount;
+    case 'capture':
+      return signals.captureSignalCount;
+    case 'schedule':
+      return signals.scheduleSignalCount;
+    case 'commerce':
+      return signals.commerceSignalCount;
+    case 'security':
+      return signals.securitySignalCount;
+    case 'support':
+      return signals.supportSignalCount;
+    case 'reward':
+      return signals.rewardSignalCount;
+  }
+}
+
+function semanticFlavorMatchesRole(
+  flavor: SemanticFlavor,
+  role?: ScreenshotRole,
+): boolean {
+  if (!role || role === 'unknown' || role === 'feature') return true;
+  return (SEMANTIC_FLAVOR_ROLE_HINTS[flavor] ?? []).includes(role);
+}
+
+function inferSemanticFlavorDetails(args: {
   pathValue: string;
   note?: string;
   textInsights?: ScreenshotTextInsights;
   role?: ScreenshotRole;
-}): SemanticFlavor | undefined {
+}): {
+  flavor?: SemanticFlavor;
+  confidence?: OrderingConfidence;
+} {
   const haystack = buildSemanticHaystack(args.pathValue, args.note, args.textInsights);
   const signals = deriveSemanticFlavorSignals(haystack);
+  const hasTextInsights = Boolean(
+    args.textInsights && (args.textInsights.blocks.length > 0 || args.textInsights.text.trim().length > 0),
+  );
   const activityScore = signals.activitySignalCount > 0
     ? (signals.activitySignalCount * 2)
       + (args.role === 'discovery' || args.role === 'home' ? 2 : args.role === 'communication' ? 1 : 0)
@@ -701,8 +771,71 @@ function inferSemanticFlavor(args: {
   ];
   ranked.sort((left, right) => right.score - left.score);
   const best = ranked[0];
+  const runnerUp = ranked[1];
 
-  return best && best.score >= 3 ? best.flavor : undefined;
+  if (!best || best.score < 3) return {};
+
+  const signalCount = semanticFlavorSignalCount(signals, best.flavor);
+  const margin = best.score - (runnerUp?.score ?? 0);
+  const roleAligned = semanticFlavorMatchesRole(best.flavor, args.role);
+  let minScore = 3;
+  let minMargin = 0;
+
+  if (!hasTextInsights) {
+    minScore = 4;
+    minMargin = 2;
+    if (signalCount <= 1) minScore += 1;
+  }
+  if (!roleAligned) {
+    minScore += 1;
+    minMargin += 1;
+  }
+
+  if (
+    !hasTextInsights
+    && args.role === 'settings'
+    && (best.flavor === 'security' || best.flavor === 'support')
+    && signals.settingsConflictCount > signalCount
+  ) {
+    return {};
+  }
+
+  if (best.score < minScore || margin < minMargin) return {};
+
+  const confidence: OrderingConfidence =
+    best.score >= (hasTextInsights ? 7 : 8) && margin >= 3 && signalCount >= 2
+      ? 'high'
+      : best.score >= (hasTextInsights ? 4 : 5) && margin >= (hasTextInsights ? 1 : 2)
+        ? 'medium'
+        : 'low';
+
+  if (!hasTextInsights && confidence === 'low') return {};
+
+  return {
+    flavor: best.flavor,
+    confidence,
+  };
+}
+
+function inferSemanticFlavor(args: {
+  pathValue: string;
+  note?: string;
+  textInsights?: ScreenshotTextInsights;
+  role?: ScreenshotRole;
+}): SemanticFlavor | undefined {
+  return inferSemanticFlavorDetails(args).flavor;
+}
+
+function analysisSemanticFlavor(analysis: Pick<
+  ScreenshotAnalysis,
+  'semanticFlavor' | 'path' | 'note' | 'textInsights' | 'role'
+>): SemanticFlavor | undefined {
+  return analysis.semanticFlavor ?? inferSemanticFlavor({
+    pathValue: analysis.path,
+    note: analysis.note,
+    textInsights: analysis.textInsights,
+    role: analysis.role,
+  });
 }
 
 function isLikelyOnboardingScreen(
@@ -1661,6 +1794,7 @@ function parseFilenameOrder(pathValue: string): { order: number | null; reason: 
 
 function buildHeroExplanation(args: {
   role: ScreenshotRole;
+  semanticFlavor?: ScreenshotSemanticFlavor;
   density: ScreenshotDensity;
   heroPriority: number;
   width: number | null;
@@ -1675,7 +1809,7 @@ function buildHeroExplanation(args: {
   rasterSemanticSignals?: RasterSemanticSignals;
 }): string[] {
   const reasons: string[] = [];
-  const semanticFlavor = inferSemanticFlavor({
+  const semanticFlavor = args.semanticFlavor ?? inferSemanticFlavor({
     pathValue: args.pathValue,
     note: args.note,
     textInsights: args.textInsights,
@@ -2700,6 +2834,12 @@ export async function analyzeScreenshotSet(
         resolvedTextInsights,
         rasterSignals?.semanticSignals,
       );
+      const semanticFlavorDetails = inferSemanticFlavorDetails({
+        pathValue: input.path,
+        note: input.note,
+        textInsights: resolvedTextInsights,
+        role,
+      });
       const inferredDensity = inferDensity(
         role,
         input.path,
@@ -2768,11 +2908,14 @@ export async function analyzeScreenshotSet(
             ? Number((metadata.width / metadata.height).toFixed(3))
             : null,
         role,
+        semanticFlavor: semanticFlavorDetails.flavor,
+        semanticFlavorConfidence: semanticFlavorDetails.confidence,
         density,
         textRisk,
         heroPriority,
         heroExplanation: buildHeroExplanation({
           role,
+          semanticFlavor: semanticFlavorDetails.flavor,
           density,
           heroPriority,
           width: metadata.width,
@@ -3084,12 +3227,7 @@ function semanticFlavorStageBonus(
   conceptId: ConceptId,
   stage: SequenceStage,
 ): number {
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: analysis.path,
-    note: analysis.note,
-    textInsights: analysis.textInsights,
-    role: analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(analysis);
 
   switch (semanticFlavor) {
     case 'activity':
@@ -3426,12 +3564,7 @@ function chooseDynamicIndividualComposition(args: {
   total: number;
   supportingScreens: string[];
 }): PlannedIndividualScreen['composition'] {
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: args.analysis.path,
-    note: args.analysis.note,
-    textInsights: args.analysis.textInsights,
-    role: args.analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(args.analysis);
 
   if (semanticFlavor === 'editor' && args.supportingScreens.length >= 1) return 'hero-tilt';
   if (semanticFlavor === 'activity' && args.supportingScreens.length >= 2) return 'fanned-cards';
@@ -3501,12 +3634,7 @@ function buildIndividualImplementationNote(args: {
   supportingScreens: string[];
 }): string | undefined {
   const parts: string[] = [];
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: args.analysis.path,
-    note: args.analysis.note,
-    textInsights: args.analysis.textInsights,
-    role: args.analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(args.analysis);
 
   if (args.composition !== 'single') {
     parts.push(`Use ${args.composition} to widen the concept beyond a single centered device.`);
@@ -3582,12 +3710,7 @@ function buildScreenCopyDirection(args: {
   const parts: string[] = [];
   const embeddedText = sampleEmbeddedTextPhrases(args.analysis.textInsights, 2);
   const occupiedRegions = args.analysis.occupiedRegions;
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: args.analysis.path,
-    note: args.analysis.note,
-    textInsights: args.analysis.textInsights,
-    role: args.analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(args.analysis);
 
   switch (args.slideRole) {
     case 'hero':
@@ -3740,12 +3863,7 @@ function buildIndividualBackgroundStrategy(args: {
   analysis: ScreenshotAnalysis;
   index: number;
 }): string {
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: args.analysis.path,
-    note: args.analysis.note,
-    textInsights: args.analysis.textInsights,
-    role: args.analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(args.analysis);
 
   if (args.conceptId === 'concept-b') {
     if (args.recipe === 'proof-led-momentum') {
@@ -3978,12 +4096,7 @@ function buildPanoramicSupportSystem(args: {
   rhythmRole: PanoramicRhythmRole;
 }): PanoramicSupportSystem {
   const profile = getPanoramicRecipeProfile(args.recipe);
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: args.analysis.path,
-    note: args.analysis.note,
-    textInsights: args.analysis.textInsights,
-    role: args.analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(args.analysis);
   const fallback = defaultPanoramicSupportSystem(args);
 
   if (
@@ -4035,12 +4148,7 @@ function buildPanoramicContinuityMotif(args: {
   supportSystem: PanoramicSupportSystem;
 }): PanoramicContinuityMotif {
   const profile = getPanoramicRecipeProfile(args.recipe);
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: args.analysis.path,
-    note: args.analysis.note,
-    textInsights: args.analysis.textInsights,
-    role: args.analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(args.analysis);
 
   if (
     semanticFlavor === 'activity'
@@ -4125,12 +4233,7 @@ function buildPanoramicContinuityRule(args: {
   total: number;
 }): string {
   const family = panoramicRecipeFamily(args.recipe);
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: args.analysis.path,
-    note: args.analysis.note,
-    textInsights: args.analysis.textInsights,
-    role: args.analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(args.analysis);
   const rules: string[] = [];
 
   if (family === 'editorial') {
@@ -4476,12 +4579,7 @@ function buildPanoramicCompositionFeatures(args: {
 }): PanoramicCompositionFeature[] {
   const recipeFamily = panoramicRecipeFamily(args.recipe);
   const features: PanoramicCompositionFeature[] = ['floating-detail-card'];
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: args.analysis.path,
-    note: args.analysis.note,
-    textInsights: args.analysis.textInsights,
-    role: args.analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(args.analysis);
 
   if (args.analysis.cropSuitability !== 'low') {
     features.push('layered-detail-extract');
@@ -4747,12 +4845,7 @@ function buildPanoramicPacing(args: {
   layoutArchetype?: string;
 }): string {
   const archetype = panoramicRecipeArchetype(args.recipe);
-  const semanticFlavor = inferSemanticFlavor({
-    pathValue: args.analysis.path,
-    note: args.analysis.note,
-    textInsights: args.analysis.textInsights,
-    role: args.analysis.role,
-  });
+  const semanticFlavor = analysisSemanticFlavor(args.analysis);
 
   if (semanticFlavor === 'activity') {
     if (args.storyBeat === 'hero') {
@@ -5179,6 +5272,8 @@ export async function buildVariantSetPlan(args: {
     selectedScreens: selected.map((analysis) => ({
       path: analysis.path,
       role: analysis.role,
+      semanticFlavor: analysis.semanticFlavor,
+      semanticFlavorConfidence: analysis.semanticFlavorConfidence,
       heroPriority: analysis.heroPriority,
       inferredOrder: analysis.inferredOrder,
       focus: analysis.focus,

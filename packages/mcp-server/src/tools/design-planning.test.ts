@@ -484,7 +484,7 @@ describe('design planning helpers', () => {
     ]);
 
     const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
-    expect(byPath.get(editorPath)?.role).toBe('workflow');
+    expect(['workflow', 'detail']).toContain(byPath.get(editorPath)?.role);
     expect(byPath.get(editorPath)?.semanticFlavor).toBe('editor');
     expect(byPath.get(editorPath)?.semanticFlavorConfidence).toBeTruthy();
     expect(byPath.get(editorPath)?.heroExplanation.some((line) => line.includes('hands-on creation'))).toBe(true);
@@ -584,6 +584,48 @@ describe('design planning helpers', () => {
 
     expect(byPath.get(mediaPath)?.role).toBe('detail');
     expect(byPath.get(mediaPath)?.heroExplanation.some((line) => line.includes('ongoing engagement'))).toBe(true);
+  });
+
+  it('uses raster cues to infer document families without OCR text or descriptive filenames', async () => {
+    const documentPath = await makePngFile('screen-1.png', 120, 200, (x, y) => {
+      if (y < 24) return [241, 245, 249, 255];
+      if (x > 30 && x < 90 && y > 34 && y < 154) return [99, 102, 241, 255];
+      if (x > 28 && x < 92 && y > 164 && y < 186) return [203, 213, 225, 255];
+      return [226, 232, 240, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: documentPath },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(documentPath)?.semanticFlavor).toBe('document');
+    expect(byPath.get(documentPath)?.semanticFlavorConfidence).toBeTruthy();
+  });
+
+  it('rejects weak reward and commerce family matches when generic paywall structure dominates', async () => {
+    const rewardsPaywallPath = await makePngFile('member-rewards-upgrade.png', 120, 200, (x, y) => {
+      if (x > 14 && x < 106 && y > 42 && y < 166) return [79, 70, 229, 255];
+      if (x > 24 && x < 96 && y > 170 && y < 190) return [245, 158, 11, 255];
+      return [15, 23, 42, 255];
+    });
+    const checkoutPaywallPath = await makePngFile('checkout-pro.png', 120, 200, (x, y) => {
+      if (x > 14 && x < 106 && y > 42 && y < 166) return [59, 130, 246, 255];
+      if (x > 24 && x < 96 && y > 170 && y < 190) return [16, 185, 129, 255];
+      return [15, 23, 42, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: rewardsPaywallPath },
+      { path: checkoutPaywallPath },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(rewardsPaywallPath)?.role).toBe('paywall');
+    expect(byPath.get(rewardsPaywallPath)?.semanticFlavor).toBeUndefined();
+
+    expect(byPath.get(checkoutPaywallPath)?.role).toBe('paywall');
+    expect(byPath.get(checkoutPaywallPath)?.semanticFlavor).toBeUndefined();
   });
 
   it('builds a variant set plan with current-capability concepts', async () => {

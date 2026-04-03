@@ -28,6 +28,22 @@ const REFINEMENT_ACTIONS: RefinementActionId[] = [
   'reduce-overlap',
 ];
 
+const SEMANTIC_FLAVOR_OPTIONS = [
+  'activity',
+  'profile',
+  'editor',
+  'catalog',
+  'document',
+  'map',
+  'media',
+  'capture',
+  'schedule',
+  'commerce',
+  'security',
+  'support',
+  'reward',
+] as const;
+
 function formatCopySlot(slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary'): string {
   switch (slot) {
     case 'hero':
@@ -101,6 +117,14 @@ function formatFrameTreatment(value: string): string {
     default:
       return formatSlugLabel(value);
   }
+}
+
+function semanticFlavorSelectValue(entry: {
+  semanticFlavor?: string;
+  semanticFlavorOverride?: string | null;
+}): string {
+  if (entry.semanticFlavorOverride) return entry.semanticFlavorOverride;
+  return '';
 }
 
 function summarizePanoramicComposition(snapshot: VariantSnapshot): string[] {
@@ -256,6 +280,7 @@ export function VariantsTab() {
   const duplicateActiveVariant = usePreviewStore((s) => s.duplicateActiveVariant);
   const applyRefinementToActive = usePreviewStore((s) => s.applyRefinementToActive);
   const applyAiRefinementPlanToActive = usePreviewStore((s) => s.applyAiRefinementPlanToActive);
+  const setAutopilotSemanticFlavorOverride = usePreviewStore((s) => s.setAutopilotSemanticFlavorOverride);
   const createVariantSet = usePreviewStore((s) => s.createVariantSet);
   const selectVariant = usePreviewStore((s) => s.selectVariant);
   const approveVariant = usePreviewStore((s) => s.approveVariant);
@@ -349,6 +374,9 @@ export function VariantsTab() {
             activeVariantId,
             recommendedVariantId,
             recommendationReason,
+            autopilotAnalysis,
+            autopilotSelectedCopySet,
+            autopilotConceptPlan,
             autopilotRefinementHistory,
             variants: syncedVariants,
           }))
@@ -359,6 +387,9 @@ export function VariantsTab() {
       activeVariantId,
       recommendedVariantId,
       recommendationReason,
+      autopilotAnalysis,
+      autopilotSelectedCopySet,
+      autopilotConceptPlan,
       autopilotRefinementHistory,
       syncedVariants,
     ],
@@ -440,6 +471,9 @@ export function VariantsTab() {
         activeVariantId,
         recommendedVariantId,
         recommendationReason,
+        autopilotAnalysis,
+        autopilotSelectedCopySet,
+        autopilotConceptPlan,
         autopilotRefinementHistory,
         variants: syncedVariants,
       });
@@ -710,9 +744,50 @@ export function VariantsTab() {
                           <div className="mt-1 text-[10px] text-text-dim">
                             Hero {entry.heroPriority}/100 · {entry.focus}
                           </div>
+                          <div className="mt-2 flex items-center gap-2">
+                            <select
+                              className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                              value={semanticFlavorSelectValue(entry)}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                setAutopilotSemanticFlavorOverride(
+                                  entry.path,
+                                  value.length > 0 ? value : null,
+                                );
+                              }}
+                            >
+                              <option value="">Auto family</option>
+                              <option value="none">Generic / none</option>
+                              {SEMANTIC_FLAVOR_OPTIONS.map((flavor) => (
+                                <option key={flavor} value={flavor}>
+                                  {formatSlugLabel(flavor)}
+                                </option>
+                              ))}
+                            </select>
+                            {entry.semanticFlavorOverride ? (
+                              <button
+                                className="rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text-dim hover:text-text"
+                                onClick={() => setAutopilotSemanticFlavorOverride(entry.path, null)}
+                              >
+                                Reset
+                              </button>
+                            ) : null}
+                          </div>
                           {entry.semanticFlavor && entry.semanticFlavorConfidence ? (
                             <div className="mt-1 text-[10px] text-text-dim">
                               Family confidence: {entry.semanticFlavorConfidence}
+                            </div>
+                          ) : null}
+                          {entry.semanticFlavorOverride ? (
+                            <div className="mt-1 text-[10px] text-text-dim">
+                              Reviewed override:
+                              {' '}
+                              {entry.semanticFlavorOverride === 'none'
+                                ? 'generic / none'
+                                : formatSlugLabel(entry.semanticFlavorOverride)}
+                              {entry.inferredSemanticFlavor
+                                ? ` · inferred ${formatSlugLabel(entry.inferredSemanticFlavor)}${entry.inferredSemanticFlavorConfidence ? ` (${entry.inferredSemanticFlavorConfidence})` : ''}`
+                                : ''}
                             </div>
                           ) : null}
                           {entry.embeddedTextSample?.length ? (

@@ -169,7 +169,12 @@ function makePanoramicConfig() {
   };
 }
 
-function makeSession(config: ReturnType<typeof makeIndividualConfig> | ReturnType<typeof makePanoramicConfig>, variantId: string, variantName: string) {
+function makeSession(
+  config: ReturnType<typeof makeIndividualConfig> | ReturnType<typeof makePanoramicConfig>,
+  variantId: string,
+  variantName: string,
+  autopilotOverrides?: Record<string, unknown>,
+) {
   return {
     version: 2,
     sourceConfigPath: '/tmp/source.config.yaml',
@@ -206,6 +211,7 @@ function makeSession(config: ReturnType<typeof makeIndividualConfig> | ReturnTyp
       recommendedVariantId: variantId,
       recommendationReason: 'Strong hierarchy',
       refinementHistory: [],
+      ...autopilotOverrides,
     },
   };
 }
@@ -236,6 +242,9 @@ describe('preview session refinement round-trips', () => {
       activeVariantId: state.activeVariantId!,
       recommendedVariantId: state.recommendedVariantId,
       recommendationReason: state.recommendationReason,
+      autopilotAnalysis: state.autopilotAnalysis,
+      autopilotSelectedCopySet: state.autopilotSelectedCopySet,
+      autopilotConceptPlan: state.autopilotConceptPlan,
       autopilotRefinementHistory: state.autopilotRefinementHistory,
       variants: state.variants,
     });
@@ -293,6 +302,9 @@ describe('preview session refinement round-trips', () => {
       activeVariantId: state.activeVariantId!,
       recommendedVariantId: state.recommendedVariantId,
       recommendationReason: state.recommendationReason,
+      autopilotAnalysis: state.autopilotAnalysis,
+      autopilotSelectedCopySet: state.autopilotSelectedCopySet,
+      autopilotConceptPlan: state.autopilotConceptPlan,
       autopilotRefinementHistory: state.autopilotRefinementHistory,
       variants: state.variants,
     });
@@ -329,6 +341,144 @@ describe('preview session refinement round-trips', () => {
     expect(roundTrippedState.autopilotRefinementHistory[0]).toMatchObject({
       mode: 'manual',
       actions: ['shorter-copy'],
+    });
+  });
+
+  it('persists semantic-family review overrides through session save round-trips', () => {
+    const baseConfig = makeIndividualConfig();
+    const session = makeSession(baseConfig, 'concept-a', 'Clean Hero', {
+      screenshotAnalysis: [
+        {
+          path: 'screenshots/home.png',
+          role: 'detail',
+          semanticFlavor: 'reward',
+          semanticFlavorConfidence: 'low',
+          heroPriority: 72,
+          inferredOrder: 1,
+          focus: 'center',
+          unsafeForTextOverlay: false,
+        },
+      ],
+      conceptPlan: {
+        selectedScreens: [
+          {
+            path: 'screenshots/home.png',
+            role: 'detail',
+            semanticFlavor: 'reward',
+            semanticFlavorConfidence: 'low',
+            inferredOrder: 1,
+            unsafeForTextOverlay: false,
+          },
+        ],
+        variants: [],
+      },
+    });
+
+    usePreviewStore.getState().hydrateSession(session as any);
+    usePreviewStore.getState().setAutopilotSemanticFlavorOverride('screenshots/home.png', 'document');
+
+    const state = usePreviewStore.getState();
+    expect(state.autopilotAnalysis[0]).toMatchObject({
+      semanticFlavor: 'document',
+      semanticFlavorOverride: 'document',
+      inferredSemanticFlavor: 'reward',
+      inferredSemanticFlavorConfidence: 'low',
+    });
+    expect(state.autopilotConceptPlan?.selectedScreens?.[0]).toMatchObject({
+      semanticFlavor: 'document',
+      semanticFlavorOverride: 'document',
+    });
+
+    const payload = buildSessionSavePayload({
+      activeVariantId: state.activeVariantId!,
+      recommendedVariantId: state.recommendedVariantId,
+      recommendationReason: state.recommendationReason,
+      autopilotAnalysis: state.autopilotAnalysis,
+      autopilotSelectedCopySet: state.autopilotSelectedCopySet,
+      autopilotConceptPlan: state.autopilotConceptPlan,
+      autopilotRefinementHistory: state.autopilotRefinementHistory,
+      variants: state.variants,
+    });
+
+    const mergedSession = mergeSessionSaveRequest({
+      session,
+      body: payload,
+      fallbackConfig: baseConfig,
+      updatedAt: '2026-03-20T12:10:00.000Z',
+    });
+
+    expect((mergedSession.autopilot as { screenshotAnalysis?: Array<Record<string, unknown>> }).screenshotAnalysis?.[0]).toMatchObject({
+      semanticFlavor: 'document',
+      semanticFlavorOverride: 'document',
+      inferredSemanticFlavor: 'reward',
+    });
+
+    resetStore();
+    usePreviewStore.getState().hydrateSession(mergedSession as any);
+    const roundTrippedState = usePreviewStore.getState();
+    expect(roundTrippedState.autopilotAnalysis[0]).toMatchObject({
+      semanticFlavor: 'document',
+      semanticFlavorOverride: 'document',
+      inferredSemanticFlavor: 'reward',
+      inferredSemanticFlavorConfidence: 'low',
+    });
+    expect(roundTrippedState.autopilotConceptPlan?.selectedScreens?.[0]).toMatchObject({
+      semanticFlavor: 'document',
+      semanticFlavorOverride: 'document',
+    });
+  });
+
+  it('can clear and reset semantic-family review overrides', () => {
+    const baseConfig = makeIndividualConfig();
+    const session = makeSession(baseConfig, 'concept-a', 'Clean Hero', {
+      screenshotAnalysis: [
+        {
+          path: 'screenshots/home.png',
+          role: 'detail',
+          semanticFlavor: 'reward',
+          semanticFlavorConfidence: 'low',
+          heroPriority: 72,
+          inferredOrder: 1,
+          focus: 'center',
+          unsafeForTextOverlay: false,
+        },
+      ],
+      conceptPlan: {
+        selectedScreens: [
+          {
+            path: 'screenshots/home.png',
+            role: 'detail',
+            semanticFlavor: 'reward',
+            semanticFlavorConfidence: 'low',
+            inferredOrder: 1,
+            unsafeForTextOverlay: false,
+          },
+        ],
+        variants: [],
+      },
+    });
+
+    usePreviewStore.getState().hydrateSession(session as any);
+    usePreviewStore.getState().setAutopilotSemanticFlavorOverride('screenshots/home.png', 'none');
+    let state = usePreviewStore.getState();
+    expect(state.autopilotAnalysis[0]).toMatchObject({
+      semanticFlavor: undefined,
+      semanticFlavorOverride: 'none',
+      inferredSemanticFlavor: 'reward',
+    });
+
+    usePreviewStore.getState().setAutopilotSemanticFlavorOverride('screenshots/home.png', null);
+    state = usePreviewStore.getState();
+    expect(state.autopilotAnalysis[0]).toMatchObject({
+      semanticFlavor: 'reward',
+      semanticFlavorConfidence: 'low',
+      semanticFlavorOverride: null,
+      inferredSemanticFlavor: 'reward',
+      inferredSemanticFlavorConfidence: 'low',
+    });
+    expect(state.autopilotConceptPlan?.selectedScreens?.[0]).toMatchObject({
+      semanticFlavor: 'reward',
+      semanticFlavorOverride: null,
     });
   });
 });

@@ -88,6 +88,9 @@ export async function saveSession(body: {
   activeVariantId: string;
   recommendedVariantId?: string | null;
   recommendationReason?: string | null;
+  screenshotAnalysis?: unknown[] | null;
+  selectedCopySet?: unknown | null;
+  conceptPlan?: unknown | null;
   refinementHistory?: unknown[];
   variants: PersistedSessionVariant[];
 }): Promise<void> {

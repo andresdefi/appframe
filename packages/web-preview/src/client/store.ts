@@ -236,12 +236,17 @@ export interface AutopilotScreenshotAnalysis {
   role: string;
   semanticFlavor?: string;
   semanticFlavorConfidence?: string;
+  inferredSemanticFlavor?: string;
+  inferredSemanticFlavorConfidence?: string;
+  semanticFlavorOverride?: string | null;
   heroPriority: number;
   inferredOrder: number | null;
   focus: string;
   unsafeForTextOverlay: boolean;
   heroExplanation?: string[];
   orderingReason?: string[];
+  embeddedTextSample?: string[];
+  textOccupiedRegions?: string[];
 }
 
 export interface AutopilotCopyCandidate {
@@ -330,6 +335,9 @@ export interface AutopilotConceptPlan {
     role: string;
     semanticFlavor?: string;
     semanticFlavorConfidence?: string;
+    inferredSemanticFlavor?: string;
+    inferredSemanticFlavorConfidence?: string;
+    semanticFlavorOverride?: string | null;
     inferredOrder: number | null;
     unsafeForTextOverlay: boolean;
     embeddedTextSample?: string[];
@@ -423,6 +431,7 @@ export interface PreviewStore {
   setActiveTab: (tab: string) => void;
   setLocale: (locale: string) => void;
   upsertLocaleConfig: (locale: string, localeConfig: LocaleConfig) => void;
+  setAutopilotSemanticFlavorOverride: (path: string, semanticFlavor: string | null) => void;
   createVariant: (name?: string) => void;
   duplicateActiveVariant: () => void;
   applyRefinementToActive: (actionId: RefinementActionId) => void;
@@ -517,6 +526,94 @@ let _skipSnapshot = false;
 
 function deepCopy<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
+}
+
+const SEMANTIC_FLAVOR_NONE = 'none';
+
+type SemanticFlavorReviewState = {
+  semanticFlavor?: string;
+  semanticFlavorConfidence?: string;
+  inferredSemanticFlavor?: string;
+  inferredSemanticFlavorConfidence?: string;
+  semanticFlavorOverride?: string | null;
+};
+
+function normalizeSemanticFlavorReview<T extends SemanticFlavorReviewState>(entry: T): T {
+  const inferredSemanticFlavor = entry.inferredSemanticFlavor ?? entry.semanticFlavor;
+  const inferredSemanticFlavorConfidence =
+    entry.inferredSemanticFlavorConfidence ?? entry.semanticFlavorConfidence;
+  const semanticFlavorOverride =
+    typeof entry.semanticFlavorOverride === 'string'
+      ? entry.semanticFlavorOverride
+      : null;
+
+  if (semanticFlavorOverride === SEMANTIC_FLAVOR_NONE) {
+    return {
+      ...entry,
+      semanticFlavor: undefined,
+      semanticFlavorConfidence: undefined,
+      inferredSemanticFlavor,
+      inferredSemanticFlavorConfidence,
+      semanticFlavorOverride,
+    };
+  }
+
+  if (
+    semanticFlavorOverride
+    && (!inferredSemanticFlavor || semanticFlavorOverride !== inferredSemanticFlavor)
+  ) {
+    return {
+      ...entry,
+      semanticFlavor: semanticFlavorOverride,
+      semanticFlavorConfidence: undefined,
+      inferredSemanticFlavor,
+      inferredSemanticFlavorConfidence,
+      semanticFlavorOverride,
+    };
+  }
+
+  return {
+    ...entry,
+    semanticFlavor: inferredSemanticFlavor,
+    semanticFlavorConfidence: inferredSemanticFlavorConfidence,
+    inferredSemanticFlavor,
+    inferredSemanticFlavorConfidence,
+    semanticFlavorOverride: null,
+  };
+}
+
+function applySemanticFlavorOverride<T extends SemanticFlavorReviewState>(
+  entry: T,
+  semanticFlavor: string | null,
+): T {
+  const normalized = normalizeSemanticFlavorReview(entry);
+  if (semanticFlavor === null) {
+    return normalizeSemanticFlavorReview({
+      ...normalized,
+      semanticFlavorOverride: null,
+    });
+  }
+
+  return normalizeSemanticFlavorReview({
+    ...normalized,
+    semanticFlavorOverride: semanticFlavor || SEMANTIC_FLAVOR_NONE,
+  });
+}
+
+function normalizeAutopilotAnalysis(
+  analysis: AutopilotScreenshotAnalysis[],
+): AutopilotScreenshotAnalysis[] {
+  return analysis.map((entry) => normalizeSemanticFlavorReview(entry));
+}
+
+function normalizeAutopilotConceptPlan(
+  conceptPlan: AutopilotConceptPlan | null,
+): AutopilotConceptPlan | null {
+  if (!conceptPlan?.selectedScreens?.length) return conceptPlan;
+  return {
+    ...conceptPlan,
+    selectedScreens: conceptPlan.selectedScreens.map((entry) => normalizeSemanticFlavorReview(entry)),
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1146,6 +1243,9 @@ export function buildSessionSavePayload(args: {
   activeVariantId: string;
   recommendedVariantId: string | null;
   recommendationReason: string | null;
+  autopilotAnalysis: AutopilotScreenshotAnalysis[];
+  autopilotSelectedCopySet: AutopilotSelectedCopySet | null;
+  autopilotConceptPlan: AutopilotConceptPlan | null;
   autopilotRefinementHistory: AutopilotRefinementHistoryEntry[];
   variants: VariantRecord[];
 }) {
@@ -1153,6 +1253,9 @@ export function buildSessionSavePayload(args: {
     activeVariantId: args.activeVariantId,
     recommendedVariantId: args.recommendedVariantId,
     recommendationReason: args.recommendationReason,
+    screenshotAnalysis: deepCopy(args.autopilotAnalysis),
+    selectedCopySet: args.autopilotSelectedCopySet ? deepCopy(args.autopilotSelectedCopySet) : null,
+    conceptPlan: args.autopilotConceptPlan ? deepCopy(args.autopilotConceptPlan) : null,
     refinementHistory: deepCopy(args.autopilotRefinementHistory),
     variants: args.variants.map((variant) => serializeSaveVariant(variant)),
   };
@@ -1240,6 +1343,25 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         [locale]: localeConfig,
       },
     })),
+  setAutopilotSemanticFlavorOverride: (path, semanticFlavor) =>
+    set((state) => {
+      let changed = false;
+      const autopilotAnalysis = state.autopilotAnalysis.map((entry) => {
+        if (entry.path !== path) return entry;
+        changed = true;
+        return applySemanticFlavorOverride(entry, semanticFlavor);
+      });
+
+      const autopilotConceptPlan = state.autopilotConceptPlan?.selectedScreens?.some((entry) => entry.path === path)
+        ? {
+            ...state.autopilotConceptPlan,
+            selectedScreens: state.autopilotConceptPlan.selectedScreens.map((entry) =>
+              entry.path === path ? applySemanticFlavorOverride(entry, semanticFlavor) : entry),
+          }
+        : state.autopilotConceptPlan;
+
+      return changed ? { autopilotAnalysis, autopilotConceptPlan } : state;
+    }),
   createVariant: (name) =>
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
@@ -1707,11 +1829,16 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       ? session.activeVariantId
       : variants[0]!.id;
     const active = variants.find((v) => v.id === activeId)!;
+    const autopilotAnalysis = normalizeAutopilotAnalysis(session.autopilot?.screenshotAnalysis ?? []);
+    const autopilotConceptPlan = normalizeAutopilotConceptPlan(session.autopilot?.conceptPlan ?? null);
 
     const sessionSaveBaseline = JSON.stringify(buildSessionSavePayload({
       activeVariantId: activeId,
       recommendedVariantId: session.autopilot?.recommendedVariantId ?? null,
       recommendationReason: session.autopilot?.recommendationReason ?? null,
+      autopilotAnalysis,
+      autopilotSelectedCopySet: session.autopilot?.selectedCopySet ?? null,
+      autopilotConceptPlan,
       autopilotRefinementHistory: session.autopilot?.refinementHistory ?? [],
       variants,
     }));
@@ -1721,9 +1848,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       activeVariantId: activeId,
       recommendedVariantId: session.autopilot?.recommendedVariantId ?? null,
       recommendationReason: session.autopilot?.recommendationReason ?? null,
-      autopilotAnalysis: session.autopilot?.screenshotAnalysis ?? [],
+      autopilotAnalysis,
       autopilotSelectedCopySet: session.autopilot?.selectedCopySet ?? null,
-      autopilotConceptPlan: session.autopilot?.conceptPlan ?? null,
+      autopilotConceptPlan,
       autopilotRefinementHistory: session.autopilot?.refinementHistory ?? [],
       sessionSaveBaseline,
       sessionBacked: true,
@@ -2058,6 +2185,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         activeVariantId: state.activeVariantId,
         recommendedVariantId: state.recommendedVariantId,
         recommendationReason: state.recommendationReason,
+        autopilotAnalysis: state.autopilotAnalysis,
+        autopilotSelectedCopySet: state.autopilotSelectedCopySet,
+        autopilotConceptPlan: state.autopilotConceptPlan,
         autopilotRefinementHistory: state.autopilotRefinementHistory,
         variants,
       });

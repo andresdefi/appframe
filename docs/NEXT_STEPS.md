@@ -71,7 +71,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - panoramic materialization now turns those plan-time support systems into deterministic quote-stack / metric-ladder / signal-chain / milestone-band / curation-shelf / proof-column groups so opener / relay / close beats stop defaulting to the same floating support-card rhythm
 - panoramic recipe definitions are now partially formalized in a shared profile system, centralizing family/archetype defaults plus opener / intensify / resolve layout and support-system blueprints instead of scattering that logic across planning/materialization branches
 - panoramic planning now emits explicit `rhythmRole` and `continuityMotif` metadata per frame, materialization uses those cues to push text/device/support placement more intentionally, and the preview UI surfaces them for manual continuity review
-- preview UI session analysis now also surfaces screenshot semantic-family labels/confidence so manual review can catch weak local screenshot classification before deeper art direction passes
+- preview UI session analysis now also surfaces screenshot semantic-family labels/confidence and now supports manual family override/reset with session persistence so borderline local classification can be corrected during review instead of only observed
 - preview scoring now also inspects panoramic support-group signature diversity and penalizes repeated support-card structure more directly, pushing generic strip rhythm down even when screenshots render cleanly
 - the AppFrame skill has been rewritten around the autopilot flow
 
@@ -516,6 +516,7 @@ Use this to start a future thread:
 - The repo may have unrelated untracked files; do not revert unrelated user changes.
 - Existing manual variant workflows still matter; preserve backward compatibility where possible.
 - Session compatibility matters now that sessions can be created from both manual configs and autopilot manifests.
+- Preview sessions now persist manual screenshot semantic-family review metadata, so future tooling can build on saved analysis edits instead of treating session analysis as read-only.
 - The current scoring system is now partly visual and can optionally use live model ranking, but it is still not a full art-direction loop.
 - The current screenshot understanding now includes real pixel heuristics plus optional OCR/vision text enrichment, but richer semantic scene understanding is still open.
 - The current renderer is broader than the original single-device flow, but it still limits how close AppFrame can get to before.click-style layouts.

@@ -67,6 +67,8 @@ AppFrame now has an initial autopilot pipeline implemented:
 - panoramic planning now emits explicit opener / relay / proof-close style layout archetypes plus continuity rules, and materialization uses those cues to vary device/text geometry across the strip more intentionally
 - panoramic planning now also emits explicit per-frame support systems and transition intents, and the preview UI surfaces those recipe cues for manual review instead of hiding them in generated configs
 - panoramic materialization now turns those plan-time support systems into deterministic quote-stack / metric-ladder / signal-chain / milestone-band / curation-shelf / proof-column groups so opener / relay / close beats stop defaulting to the same floating support-card rhythm
+- panoramic recipe definitions are now partially formalized in a shared profile system, centralizing family/archetype defaults plus opener / intensify / resolve layout and support-system blueprints instead of scattering that logic across planning/materialization branches
+- panoramic planning now emits explicit `rhythmRole` and `continuityMotif` metadata per frame, materialization uses those cues to push text/device/support placement more intentionally, and the preview UI surfaces them for manual continuity review
 - preview scoring now also inspects panoramic support-group signature diversity and penalizes repeated support-card structure more directly, pushing generic strip rhythm down even when screenshots render cleanly
 - the AppFrame skill has been rewritten around the autopilot flow
 
@@ -78,6 +80,8 @@ The current default concept contract is:
 - `concept-d`: `panoramic` / Bold Panorama
 
 This means the minimum viable AI flow now exists, but it is still a first version. Quality is now less constrained by basic composition, pixel analysis, and text-aware screenshot understanding, but still limited by deeper scene semantics, screenshot-to-plan intelligence, copy sophistication, and refinement tooling.
+
+The recipe system is stronger than before, but it is still only partially formalized: panoramic concepts now have shared recipe-profile metadata and explicit frame blueprint cues, while individual recipe definitions, broader recipe breadth, and editor-facing recipe controls still need substantial work.
 
 ## Files Added Or Extended
 

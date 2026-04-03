@@ -324,6 +324,9 @@ describe('plan materializer', () => {
               sourceRole: 'home',
               cropSuitability: 'high',
               storyBeat: 'hero',
+              rhythmRole: 'open',
+              layoutArchetype: 'text-rail-opener',
+              continuityMotif: 'text-rail',
               cropPlan: {
                 usage: 'full-device',
                 anchor: 'lower-half',
@@ -339,6 +342,9 @@ describe('plan materializer', () => {
               sourceRole: 'detail',
               cropSuitability: 'high',
               storyBeat: 'feature',
+              rhythmRole: 'intensify',
+              layoutArchetype: 'proof-bridge',
+              continuityMotif: 'proof-lane',
               cropPlan: {
                 usage: 'supporting-crop',
                 anchor: 'right-rail',
@@ -438,7 +444,7 @@ describe('plan materializer', () => {
     const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
     const firstText = panoramic.panoramic.elements.find((element: { type: string }) => element.type === 'text');
     expect(firstText?.y).toBeGreaterThan(6);
-    expect(firstText?.x).toBe(4);
+    expect(firstText?.x).toBeGreaterThan(4);
 
     const panoramicDevices = panoramic.panoramic.elements.filter((element: { type: string }) => element.type === 'device');
     expect(panoramicDevices[0]?.frameStyle).toBe('flat');

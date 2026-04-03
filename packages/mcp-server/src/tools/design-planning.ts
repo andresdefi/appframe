@@ -3,8 +3,29 @@ import { execFile as execFileCallback } from 'node:child_process';
 import { readFile, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { inflateSync } from 'node:zlib';
+import {
+  defaultPanoramicSupportSystem,
+  getPanoramicRecipeProfile,
+  panoramicContinuityMotifLabel,
+  panoramicRecipeArchetype,
+  panoramicRecipeFamily,
+  panoramicSupportSystemLabel,
+  resolvePanoramicLayoutArchetype,
+  resolvePanoramicRhythmRole,
+  type PanoramicContinuityMotif,
+  type PanoramicRhythmRole,
+  type PanoramicSupportSystem,
+} from './panoramic-recipe-system.js';
 
 const execFile = promisify(execFileCallback);
+
+export type {
+  PanoramicContinuityMotif,
+  PanoramicRecipeArchetype,
+  PanoramicRecipeFamily,
+  PanoramicRhythmRole,
+  PanoramicSupportSystem,
+} from './panoramic-recipe-system.js';
 
 export interface ScreenshotInput {
   path: string;
@@ -51,13 +72,6 @@ export type PanoramicCompositionFeature =
   | 'trust-shield'
   | 'support-beacon'
   | 'reward-ribbon';
-export type PanoramicSupportSystem =
-  | 'quote-stack'
-  | 'metric-ladder'
-  | 'signal-chain'
-  | 'milestone-band'
-  | 'curation-shelf'
-  | 'proof-column';
 
 export interface SafeTextZone {
   x: number;
@@ -207,8 +221,10 @@ export interface PlannedPanoramicFrame {
   focalPoint?: FocalPoint;
   cropSuitability: CropSuitability;
   storyBeat: string;
+  rhythmRole?: PanoramicRhythmRole;
   layoutArchetype?: string;
   continuityRule?: string;
+  continuityMotif?: PanoramicContinuityMotif;
   supportSystem?: PanoramicSupportSystem;
   transitionIntent?: string;
   cropPlan?: PlannedCropPlan;
@@ -3952,70 +3968,6 @@ function buildCategoryGoalLine(category: AppCategory, goals: string[]): string {
   }
 }
 
-function panoramicRecipeFamily(recipe: string): 'editorial' | 'bold' {
-  switch (recipe) {
-    case 'editorial-panorama':
-    case 'editorial-confidence':
-    case 'wellness-panorama':
-    case 'workflow-panorama':
-    case 'conversation-panorama':
-    case 'gallery-panorama':
-    case 'world-panorama':
-      return 'editorial';
-    default:
-      return 'bold';
-  }
-}
-
-function panoramicRecipeArchetype(recipe: string):
-  | 'confidence'
-  | 'wellness'
-  | 'workflow'
-  | 'conversation'
-  | 'gallery'
-  | 'world'
-  | 'default' {
-  switch (recipe) {
-    case 'editorial-confidence':
-    case 'proof-panorama':
-      return 'confidence';
-    case 'wellness-panorama':
-    case 'progress-panorama':
-      return 'wellness';
-    case 'workflow-panorama':
-    case 'momentum-panorama':
-      return 'workflow';
-    case 'conversation-panorama':
-    case 'launch-panorama':
-      return 'conversation';
-    case 'gallery-panorama':
-    case 'portfolio-panorama':
-      return 'gallery';
-    case 'world-panorama':
-    case 'cinematic-panorama':
-      return 'world';
-    default:
-      return 'default';
-  }
-}
-
-function panoramicSupportSystemLabel(system: PanoramicSupportSystem): string {
-  switch (system) {
-    case 'quote-stack':
-      return 'quote stack';
-    case 'metric-ladder':
-      return 'metric ladder';
-    case 'signal-chain':
-      return 'signal chain';
-    case 'milestone-band':
-      return 'milestone band';
-    case 'curation-shelf':
-      return 'curation shelf';
-    case 'proof-column':
-      return 'proof column';
-  }
-}
-
 function buildPanoramicSupportSystem(args: {
   category: AppCategory;
   recipe: string;
@@ -4023,168 +3975,133 @@ function buildPanoramicSupportSystem(args: {
   storyBeat: string;
   index: number;
   total: number;
+  rhythmRole: PanoramicRhythmRole;
 }): PanoramicSupportSystem {
-  const archetype = panoramicRecipeArchetype(args.recipe);
+  const profile = getPanoramicRecipeProfile(args.recipe);
   const semanticFlavor = inferSemanticFlavor({
     pathValue: args.analysis.path,
     note: args.analysis.note,
     textInsights: args.analysis.textInsights,
     role: args.analysis.role,
   });
-  const isClose = args.storyBeat === 'summary' || args.index === args.total - 1;
-
-  if (isClose) {
-    if (
-      semanticFlavor === 'activity'
-      || semanticFlavor === 'profile'
-      || args.analysis.role === 'communication'
-      || archetype === 'conversation'
-    ) {
-      return 'signal-chain';
-    }
-    if (
-      args.analysis.role === 'workflow'
-      || semanticFlavor === 'schedule'
-      || archetype === 'workflow'
-      || archetype === 'wellness'
-    ) {
-      return 'milestone-band';
-    }
-    if (
-      semanticFlavor === 'catalog'
-      || semanticFlavor === 'media'
-      || args.analysis.role === 'discovery'
-      || archetype === 'gallery'
-      || archetype === 'world'
-    ) {
-      return 'curation-shelf';
-    }
-    if (semanticFlavor === 'document' || semanticFlavor === 'commerce') {
-      return 'proof-column';
-    }
-    return 'quote-stack';
-  }
-
-  if (args.storyBeat === 'hero') {
-    if (
-      semanticFlavor === 'activity'
-      || semanticFlavor === 'profile'
-      || args.analysis.role === 'communication'
-      || archetype === 'conversation'
-    ) {
-      return 'signal-chain';
-    }
-    if (
-      args.analysis.role === 'workflow'
-      || semanticFlavor === 'schedule'
-      || archetype === 'workflow'
-      || archetype === 'wellness'
-    ) {
-      return 'milestone-band';
-    }
-    if (
-      semanticFlavor === 'catalog'
-      || semanticFlavor === 'media'
-      || args.analysis.role === 'discovery'
-      || semanticFlavor === 'editor'
-      || archetype === 'gallery'
-      || archetype === 'world'
-    ) {
-      return 'curation-shelf';
-    }
-    if (args.category === 'finance' || semanticFlavor === 'document' || args.analysis.role === 'detail') {
-      return 'metric-ladder';
-    }
-    return 'quote-stack';
-  }
-
-  if (args.storyBeat === 'trust') {
-    if (
-      semanticFlavor === 'activity'
-      || semanticFlavor === 'profile'
-      || args.analysis.role === 'communication'
-      || archetype === 'conversation'
-    ) {
-      return 'signal-chain';
-    }
-    if (
-      args.analysis.role === 'workflow'
-      || semanticFlavor === 'schedule'
-      || archetype === 'workflow'
-    ) {
-      return 'metric-ladder';
-    }
-    if (
-      semanticFlavor === 'catalog'
-      || semanticFlavor === 'media'
-      || args.analysis.role === 'discovery'
-      || archetype === 'gallery'
-      || archetype === 'world'
-    ) {
-      return 'curation-shelf';
-    }
-    return 'proof-column';
-  }
+  const fallback = defaultPanoramicSupportSystem(args);
 
   if (
     semanticFlavor === 'activity'
     || semanticFlavor === 'profile'
     || args.analysis.role === 'communication'
+    || profile.archetype === 'conversation'
   ) {
     return 'signal-chain';
   }
   if (
     args.analysis.role === 'workflow'
     || semanticFlavor === 'schedule'
-    || archetype === 'workflow'
-    || archetype === 'wellness'
+    || profile.archetype === 'workflow'
+    || profile.archetype === 'wellness'
   ) {
-    return 'milestone-band';
+    return args.storyBeat === 'trust' ? 'metric-ladder' : 'milestone-band';
   }
   if (
     semanticFlavor === 'catalog'
     || semanticFlavor === 'media'
-    || args.analysis.role === 'discovery'
     || semanticFlavor === 'editor'
-    || archetype === 'gallery'
-    || archetype === 'world'
+    || args.analysis.role === 'discovery'
+    || profile.archetype === 'gallery'
+    || profile.archetype === 'world'
   ) {
     return 'curation-shelf';
   }
-  if (args.category === 'finance' || args.analysis.role === 'detail') {
-    return 'metric-ladder';
+  if (semanticFlavor === 'document' || semanticFlavor === 'commerce') {
+    return args.rhythmRole === 'resolve' ? 'proof-column' : fallback === 'quote-stack' ? 'metric-ladder' : fallback;
   }
   if (
     semanticFlavor === 'support'
     || semanticFlavor === 'security'
-    || semanticFlavor === 'document'
-    || semanticFlavor === 'commerce'
     || semanticFlavor === 'reward'
   ) {
     return 'proof-column';
   }
+  if (args.category === 'finance' || args.analysis.role === 'detail') {
+    return args.rhythmRole === 'resolve' ? 'proof-column' : 'metric-ladder';
+  }
 
-  return panoramicRecipeFamily(args.recipe) === 'editorial' ? 'quote-stack' : 'metric-ladder';
+  return fallback;
+}
+
+function buildPanoramicContinuityMotif(args: {
+  recipe: string;
+  analysis: ScreenshotAnalysis;
+  supportSystem: PanoramicSupportSystem;
+}): PanoramicContinuityMotif {
+  const profile = getPanoramicRecipeProfile(args.recipe);
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.analysis.path,
+    note: args.analysis.note,
+    textInsights: args.analysis.textInsights,
+    role: args.analysis.role,
+  });
+
+  if (
+    semanticFlavor === 'activity'
+    || semanticFlavor === 'profile'
+    || args.analysis.role === 'communication'
+    || args.supportSystem === 'signal-chain'
+  ) {
+    return 'signal-wave';
+  }
+  if (
+    args.analysis.role === 'workflow'
+    || semanticFlavor === 'schedule'
+    || args.supportSystem === 'milestone-band'
+  ) {
+    return 'progress-track';
+  }
+  if (
+    semanticFlavor === 'catalog'
+    || semanticFlavor === 'media'
+    || semanticFlavor === 'editor'
+    || args.analysis.role === 'discovery'
+    || args.supportSystem === 'curation-shelf'
+  ) {
+    return profile.archetype === 'world' ? 'poster-anchor' : 'curation-run';
+  }
+  if (
+    semanticFlavor === 'document'
+    || semanticFlavor === 'commerce'
+    || semanticFlavor === 'security'
+    || semanticFlavor === 'support'
+    || semanticFlavor === 'reward'
+    || args.supportSystem === 'proof-column'
+    || args.supportSystem === 'metric-ladder'
+  ) {
+    return 'proof-lane';
+  }
+
+  return profile.defaultContinuityMotif;
 }
 
 function buildPanoramicTransitionIntent(args: {
   supportSystem: PanoramicSupportSystem;
+  continuityMotif: PanoramicContinuityMotif;
+  rhythmRole: PanoramicRhythmRole;
   storyBeat: string;
   index: number;
   total: number;
 }): string {
   const systemLabel = panoramicSupportSystemLabel(args.supportSystem);
+  const motifLabel = panoramicContinuityMotifLabel(args.continuityMotif);
 
-  if (args.index === 0) {
-    return `Open with a ${systemLabel} so the strip establishes a clear support rhythm before repeating devices.`;
+  if (args.rhythmRole === 'open' || args.index === 0) {
+    return `Open with a ${systemLabel} and a ${motifLabel} so the strip establishes a clearer recipe before devices start repeating.`;
   }
-  if (args.storyBeat === 'summary' || args.index === args.total - 1) {
-    return `Collapse the close into a ${systemLabel} so the strip lands on payoff instead of another repeated support card.`;
+  if (args.rhythmRole === 'resolve' || args.storyBeat === 'summary' || args.index === args.total - 1) {
+    return `Resolve through a ${systemLabel} and a ${motifLabel} so the strip lands on payoff instead of another repeated support card.`;
   }
   if (args.storyBeat === 'trust') {
-    return `Turn the middle seam into a ${systemLabel} so proof feels escalated rather than recycled from the opener.`;
+    return `Turn the middle seam into a ${systemLabel} while the ${motifLabel} carries forward so proof feels escalated rather than recycled from the opener.`;
   }
-  return `Pivot the relay beat into a ${systemLabel} so the support treatment changes shape across the seam.`;
+  return `Pivot the relay beat into a ${systemLabel} and keep the ${motifLabel} moving so the support treatment changes shape across the seam.`;
 }
 
 function buildPanoramicLayoutArchetype(args: {
@@ -4193,85 +4110,14 @@ function buildPanoramicLayoutArchetype(args: {
   index: number;
   total: number;
 }): string {
-  const family = panoramicRecipeFamily(args.recipe);
-  const archetype = panoramicRecipeArchetype(args.recipe);
-
-  if (args.storyBeat === 'hero') {
-    switch (archetype) {
-      case 'confidence':
-        return family === 'editorial' ? 'proof-opener' : 'campaign-proof-opener';
-      case 'wellness':
-        return family === 'editorial' ? 'airy-opener' : 'momentum-opener';
-      case 'workflow':
-        return family === 'editorial' ? 'text-rail-opener' : 'task-poster-opener';
-      case 'conversation':
-        return family === 'editorial' ? 'split-opener' : 'signal-opener';
-      case 'gallery':
-        return family === 'editorial' ? 'gallery-opener' : 'showcase-opener';
-      case 'world':
-        return family === 'editorial' ? 'poster-opener' : 'cinematic-opener';
-      default:
-        return family === 'editorial' ? 'editorial-opener' : 'campaign-opener';
-    }
-  }
-
-  if (args.storyBeat === 'trust') {
-    switch (archetype) {
-      case 'conversation':
-        return family === 'editorial' ? 'response-proof-bridge' : 'momentum-proof-punch';
-      case 'workflow':
-        return family === 'editorial' ? 'step-proof-bridge' : 'proof-rail-punch';
-      case 'confidence':
-        return family === 'editorial' ? 'proof-bridge' : 'trust-punch';
-      case 'gallery':
-        return family === 'editorial' ? 'gallery-proof-bridge' : 'showcase-proof-punch';
-      case 'world':
-        return family === 'editorial' ? 'world-proof-bridge' : 'cinematic-proof-punch';
-      default:
-        return family === 'editorial' ? 'proof-bridge' : 'proof-punch';
-    }
-  }
-
-  if (args.storyBeat === 'summary' || args.index === args.total - 1) {
-    switch (archetype) {
-      case 'confidence':
-        return family === 'editorial' ? 'quiet-proof-close' : 'campaign-proof-close';
-      case 'wellness':
-        return family === 'editorial' ? 'soft-close' : 'payoff-close';
-      case 'workflow':
-        return family === 'editorial' ? 'control-close' : 'decisive-close';
-      case 'conversation':
-        return family === 'editorial' ? 'echo-close' : 'crowd-close';
-      case 'gallery':
-        return family === 'editorial' ? 'gallery-close' : 'portfolio-close';
-      case 'world':
-        return family === 'editorial' ? 'atmosphere-close' : 'trailer-close';
-      default:
-        return family === 'editorial' ? 'quiet-close' : 'payoff-close';
-    }
-  }
-
-  switch (archetype) {
-    case 'confidence':
-      return family === 'editorial' ? 'detail-relay' : 'proof-relay';
-    case 'wellness':
-      return family === 'editorial' ? 'gentle-relay' : 'progress-relay';
-    case 'workflow':
-      return family === 'editorial' ? 'step-relay' : 'staggered-task-relay';
-    case 'conversation':
-      return family === 'editorial' ? 'signal-relay' : 'signal-surge-relay';
-    case 'gallery':
-      return family === 'editorial' ? 'gallery-relay' : 'showcase-relay';
-    case 'world':
-      return family === 'editorial' ? 'world-relay' : 'cinematic-relay';
-    default:
-      return family === 'editorial' ? 'editorial-relay' : 'campaign-relay';
-  }
+  return resolvePanoramicLayoutArchetype(args);
 }
 
 function buildPanoramicContinuityRule(args: {
   recipe: string;
+  rhythmRole: PanoramicRhythmRole;
   layoutArchetype: string;
+  continuityMotif: PanoramicContinuityMotif;
   supportSystem: PanoramicSupportSystem;
   analysis: ScreenshotAnalysis;
   storyBeat: string;
@@ -4294,6 +4140,26 @@ function buildPanoramicContinuityRule(args: {
   }
 
   rules.push(`Carry the ${panoramicSupportSystemLabel(args.supportSystem)} rhythm across the seam instead of resetting to the same generic support card.`);
+  switch (args.continuityMotif) {
+    case 'text-rail':
+      rules.push('Keep the headline rail marching across adjacent frames so the sequence feels intentionally editorial.');
+      break;
+    case 'proof-lane':
+      rules.push('Maintain a proof lane across adjacent frames so the strip escalates evidence instead of reintroducing it.');
+      break;
+    case 'signal-wave':
+      rules.push('Let signal clusters rise and fall across seams so adjacent frames feel connected instead of isolated.');
+      break;
+    case 'progress-track':
+      rules.push('Carry a visible progress track across seams so each frame advances the workflow instead of restating it.');
+      break;
+    case 'curation-run':
+      rules.push('Repeat curated shelf moments in short bursts so the strip feels selective rather than grid-like.');
+      break;
+    case 'poster-anchor':
+      rules.push('Keep one poster-like anchor per beat so the strip holds atmosphere without flattening into repeated cards.');
+      break;
+  }
 
   if (args.layoutArchetype.includes('opener')) {
     rules.push('Make the opening feel poster-led with a single dominant silhouette.');
@@ -4315,7 +4181,7 @@ function buildPanoramicContinuityRule(args: {
     rules.push('Repeat playback cues sparingly so the strip feels continuous without collapsing into identical player frames.');
   }
 
-  if (args.storyBeat === 'summary' || args.index === args.total - 1) {
+  if (args.rhythmRole === 'resolve' || args.storyBeat === 'summary' || args.index === args.total - 1) {
     rules.push('Land on the cleanest payoff frame and reduce supporting noise near the end.');
   }
 
@@ -4735,6 +4601,7 @@ function buildPanoramicCompositionFeatures(args: {
 function buildPanoramicCompositionNote(args: {
   recipe: string;
   supportSystem: PanoramicSupportSystem;
+  continuityMotif?: PanoramicContinuityMotif;
   transitionIntent?: string;
   features: PanoramicCompositionFeature[];
   analysis: ScreenshotAnalysis;
@@ -4764,6 +4631,10 @@ function buildPanoramicCompositionNote(args: {
     case 'proof-column':
       parts.push('Use a proof-column support system so the frame stacks endorsement and trust cues with more vertical contrast than a floating card alone.');
       break;
+  }
+
+  if (args.continuityMotif) {
+    parts.push(`Carry a ${panoramicContinuityMotifLabel(args.continuityMotif)} between adjacent frames so the strip does not reset its visual intent at every seam.`);
   }
 
   if (args.features.includes('layered-detail-extract')) {
@@ -4868,6 +4739,8 @@ function buildPanoramicPacing(args: {
   recipe: string;
   analysis: ScreenshotAnalysis;
   storyBeat: string;
+  rhythmRole: PanoramicRhythmRole;
+  continuityMotif?: PanoramicContinuityMotif;
   conceptId: 'concept-c' | 'concept-d';
   index: number;
   total: number;
@@ -4937,7 +4810,7 @@ function buildPanoramicPacing(args: {
       : 'keep playback cues moving';
   }
 
-  if (args.index === 0) {
+  if (args.rhythmRole === 'open' || args.index === 0) {
     switch (archetype) {
       case 'wellness':
         return 'open with calm presence';
@@ -4953,7 +4826,7 @@ function buildPanoramicPacing(args: {
         return 'open strong';
     }
   }
-  if (args.index === args.total - 1) {
+  if (args.rhythmRole === 'resolve' || args.index === args.total - 1) {
     switch (archetype) {
       case 'confidence':
         return 'close on proof and confidence';
@@ -4971,8 +4844,120 @@ function buildPanoramicPacing(args: {
         return args.conceptId === 'concept-c' ? 'close quietly' : 'close with payoff';
     }
   }
+  if (args.continuityMotif === 'proof-lane') return 'intensify the proof lane without repeating the opener';
+  if (args.continuityMotif === 'signal-wave') return 'keep the signal rhythm moving';
+  if (args.continuityMotif === 'progress-track') return 'step the progress track forward';
+  if (args.continuityMotif === 'curation-run') return 'extend the curated run without flattening it';
+  if (args.continuityMotif === 'poster-anchor') return 'hold atmosphere while the strip keeps moving';
   if (args.layoutArchetype?.includes('relay')) return 'alternate dense proof and open breathing room';
   return 'develop narrative';
+}
+
+function buildPanoramicFramePlan(args: {
+  category: AppCategory;
+  recipe: string;
+  conceptId: 'concept-c' | 'concept-d';
+  analysis: ScreenshotAnalysis;
+  storyBeat: string;
+  index: number;
+  total: number;
+}): PlannedPanoramicFrame {
+  const rhythmRole = resolvePanoramicRhythmRole({
+    storyBeat: args.storyBeat,
+    index: args.index,
+    total: args.total,
+  });
+  const layoutArchetype = buildPanoramicLayoutArchetype({
+    recipe: args.recipe,
+    storyBeat: args.storyBeat,
+    index: args.index,
+    total: args.total,
+  });
+  const supportSystem = buildPanoramicSupportSystem({
+    category: args.category,
+    recipe: args.recipe,
+    analysis: args.analysis,
+    storyBeat: args.storyBeat,
+    index: args.index,
+    total: args.total,
+    rhythmRole,
+  });
+  const continuityMotif = buildPanoramicContinuityMotif({
+    recipe: args.recipe,
+    analysis: args.analysis,
+    supportSystem,
+  });
+  const compositionFeatures = buildPanoramicCompositionFeatures({
+    category: args.category,
+    recipe: args.recipe,
+    supportSystem,
+    analysis: args.analysis,
+    storyBeat: args.storyBeat,
+    index: args.index,
+  });
+  const transitionIntent = buildPanoramicTransitionIntent({
+    supportSystem,
+    continuityMotif,
+    rhythmRole,
+    storyBeat: args.storyBeat,
+    index: args.index,
+    total: args.total,
+  });
+  const continuityRule = buildPanoramicContinuityRule({
+    recipe: args.recipe,
+    rhythmRole,
+    layoutArchetype,
+    continuityMotif,
+    supportSystem,
+    analysis: args.analysis,
+    storyBeat: args.storyBeat,
+    index: args.index,
+    total: args.total,
+  });
+
+  return {
+    frame: args.index + 1,
+    sourcePath: args.analysis.path,
+    sourceRole: args.analysis.role,
+    dominantPalette: args.analysis.dominantPalette,
+    focalPoint: args.analysis.focalPoint,
+    cropSuitability: args.analysis.cropSuitability,
+    storyBeat: args.storyBeat,
+    rhythmRole,
+    layoutArchetype,
+    continuityRule,
+    continuityMotif,
+    supportSystem,
+    transitionIntent,
+    cropPlan: buildCropPlan({
+      analysis: args.analysis,
+      storyBeat: args.storyBeat,
+      compositionFeatures,
+    }),
+    pacing: buildPanoramicPacing({
+      recipe: args.recipe,
+      analysis: args.analysis,
+      storyBeat: args.storyBeat,
+      rhythmRole,
+      continuityMotif,
+      conceptId: args.conceptId,
+      index: args.index,
+      total: args.total,
+      layoutArchetype,
+    }),
+    compositionFeatures,
+    compositionNote: buildPanoramicCompositionNote({
+      recipe: args.recipe,
+      supportSystem,
+      continuityMotif,
+      transitionIntent,
+      features: compositionFeatures,
+      analysis: args.analysis,
+      storyBeat: args.storyBeat,
+      layoutArchetype,
+      continuityRule,
+    }),
+  };
 }
 
 function buildVariantEntries(
@@ -5081,85 +5066,16 @@ function buildVariantEntries(
         designGoal: conceptC.designGoal ?? 'Premium, connected sequence with strong hierarchy and intentional whitespace.',
         requiredElements: conceptC.requiredElements ?? defaultEditorialElements(),
       },
-      frames: editorialSequence.map((analysis, index) => {
-        const storyBeat = buildSlideRole(index, editorialSequence.length);
-        const supportSystem = buildPanoramicSupportSystem({
+      frames: editorialSequence.map((analysis, index) =>
+        buildPanoramicFramePlan({
           category,
           recipe: conceptC.recipe,
+          conceptId: 'concept-c',
           analysis,
-          storyBeat,
+          storyBeat: buildSlideRole(index, editorialSequence.length),
           index,
           total: editorialSequence.length,
-        });
-        const layoutArchetype = buildPanoramicLayoutArchetype({
-          recipe: conceptC.recipe,
-          storyBeat,
-          index,
-          total: editorialSequence.length,
-        });
-        const compositionFeatures = buildPanoramicCompositionFeatures({
-          category,
-          recipe: conceptC.recipe,
-          supportSystem,
-          analysis,
-          storyBeat,
-          index,
-        });
-        const transitionIntent = buildPanoramicTransitionIntent({
-          supportSystem,
-          storyBeat,
-          index,
-          total: editorialSequence.length,
-        });
-        const continuityRule = buildPanoramicContinuityRule({
-          recipe: conceptC.recipe,
-          layoutArchetype,
-          supportSystem,
-          analysis,
-          storyBeat,
-          index,
-          total: editorialSequence.length,
-        });
-
-        return {
-          frame: index + 1,
-          sourcePath: analysis.path,
-          sourceRole: analysis.role,
-          dominantPalette: analysis.dominantPalette,
-          focalPoint: analysis.focalPoint,
-          cropSuitability: analysis.cropSuitability,
-          storyBeat,
-          layoutArchetype,
-          continuityRule,
-          supportSystem,
-          transitionIntent,
-          cropPlan: buildCropPlan({
-            analysis,
-            storyBeat,
-            compositionFeatures,
-          }),
-          pacing: buildPanoramicPacing({
-            recipe: conceptC.recipe,
-            analysis,
-            storyBeat,
-            conceptId: 'concept-c',
-            index,
-            total: editorialSequence.length,
-            layoutArchetype,
-          }),
-          compositionFeatures,
-          compositionNote: buildPanoramicCompositionNote({
-            recipe: conceptC.recipe,
-            supportSystem,
-            transitionIntent,
-            features: compositionFeatures,
-            analysis,
-            storyBeat,
-            layoutArchetype,
-            continuityRule,
-          }),
-        };
-      }),
+        })),
     });
   }
 
@@ -5179,89 +5095,21 @@ function buildVariantEntries(
         designGoal: conceptD.designGoal ?? buildGoalLine(goals),
         requiredElements: conceptD.requiredElements ?? defaultBoldElements(),
       },
-      frames: boldSequence.map((analysis, index) => {
-        const storyBeat = buildSlideRole(index, boldSequence.length);
-        const supportSystem = buildPanoramicSupportSystem({
+      frames: boldSequence.map((analysis, index) => ({
+        ...buildPanoramicFramePlan({
           category,
           recipe: conceptD.recipe,
+          conceptId: 'concept-d',
           analysis,
-          storyBeat,
+          storyBeat: buildSlideRole(index, boldSequence.length),
           index,
           total: boldSequence.length,
-        });
-        const layoutArchetype = buildPanoramicLayoutArchetype({
-          recipe: conceptD.recipe,
-          storyBeat,
-          index,
-          total: boldSequence.length,
-        });
-        const compositionFeatures = buildPanoramicCompositionFeatures({
-          category,
-          recipe: conceptD.recipe,
-          supportSystem,
-          analysis,
-          storyBeat,
-          index,
-        });
-        const transitionIntent = buildPanoramicTransitionIntent({
-          supportSystem,
-          storyBeat,
-          index,
-          total: boldSequence.length,
-        });
-        const continuityRule = buildPanoramicContinuityRule({
-          recipe: conceptD.recipe,
-          layoutArchetype,
-          supportSystem,
-          analysis,
-          storyBeat,
-          index,
-          total: boldSequence.length,
-        });
-
-        return {
-          frame: index + 1,
-          sourcePath: analysis.path,
-          sourceRole: analysis.role,
-          dominantPalette: analysis.dominantPalette,
-          focalPoint: analysis.focalPoint,
-          cropSuitability: analysis.cropSuitability,
-          storyBeat,
-          layoutArchetype,
-          continuityRule,
-          supportSystem,
-          transitionIntent,
-          cropPlan: buildCropPlan({
-            analysis,
-            storyBeat,
-            compositionFeatures,
-          }),
-          pacing: buildPanoramicPacing({
-            recipe: conceptD.recipe,
-            analysis,
-            storyBeat,
-            conceptId: 'concept-d',
-            index,
-            total: boldSequence.length,
-            layoutArchetype,
-          }),
-          assetGuidance:
-            analysis.cropSuitability === 'high'
-              ? 'Pair the full screenshot with cropped support details or a floating image asset.'
-              : 'Keep the screenshot dominant and let the typography do the extra work.',
-          compositionFeatures,
-          compositionNote: buildPanoramicCompositionNote({
-            recipe: conceptD.recipe,
-            supportSystem,
-            transitionIntent,
-            features: compositionFeatures,
-            analysis,
-            storyBeat,
-            layoutArchetype,
-            continuityRule,
-          }),
-        };
-      }),
+        }),
+        assetGuidance:
+          analysis.cropSuitability === 'high'
+            ? 'Pair the full screenshot with cropped support details or a floating image asset.'
+            : 'Keep the screenshot dominant and let the typography do the extra work.',
+      })),
     });
   }
 

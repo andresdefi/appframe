@@ -84,6 +84,8 @@ Current status:
 - panoramic planning now emits opener / relay / proof-close style layout archetypes plus continuity rules, and materialization uses those cues to vary text/device geometry across the strip more intentionally instead of treating most panoramas as one editorial-vs-bold split
 - panoramic planning now also emits explicit per-frame support systems and transition intents, making recipe rhythm more legible in both the generated plan and the preview review surface
 - panoramic materialization now maps those support systems into deterministic quote-stack / metric-ladder / signal-chain / milestone-band / curation-shelf / proof-column groups so the strip can vary proof pacing and non-device rhythm without model-dependent generation
+- panoramic recipe metadata is now partially centralized in a shared profile system, so family/archetype defaults plus opener / intensify / resolve layout and support-system blueprints are less hardcoded across multiple files
+- panoramic plans now carry explicit `rhythmRole` and `continuityMotif` frame metadata, and materialization plus the preview inspector consume those cues so continuity intent is more legible and more actionable during local-first review
 
 ### 3. Screenshot Understanding
 
@@ -217,6 +219,7 @@ This roadmap now has three concrete pieces underway:
 - panoramic planning/materialization now also emits tool-ribbon, profile-spotlight, activity-wave, folio-stack, browse-strip, route-arc, playback-marquee, capture-focus, timeline-band, checkout-lane, trust-shield, support-beacon, and reward-ribbon treatments plus background accents and family-aware pacing when those local cue families are present, so the strip reacts more clearly than generic proof/decorative systems alone
 - recipe-aware panoramic planning now also varies opener / relay / close archetypes and continuity rules by category-specific recipe family, pulling the system closer to before.click-style pacing breadth without bundling model-dependent generation
 - recipe-aware panoramic planning/materialization now also carries explicit support-system and transition-intent metadata through to the preview UI, improving local-first review tooling for continuity and frame-to-frame rhythm
+- recipe-aware panoramic planning/materialization now also carries explicit rhythm-role and continuity-motif metadata from shared recipe profiles through to preview review, making opener / intensify / resolve pacing and seam intent easier to inspect without reading raw config
 - deterministic concept planning: concepts now resequence screenshots differently, constrain support-screen reuse, and derive per-screen copy direction from screenshot role, density, quiet-space, and focal cues instead of sharing one generic ordering/story pass
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot
 - screenshot-aware copy generation: copy candidates can now consume screenshot-derived slot signals so hero, differentiator, feature, trust, and summary lines respond to actual screen content instead of only the feature list

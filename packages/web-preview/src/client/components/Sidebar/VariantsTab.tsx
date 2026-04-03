@@ -851,11 +851,21 @@ export function VariantsTab() {
                           <div className="mt-1 text-[10px] text-text-dim">
                             {basenameLabel(frame.sourcePath)} · crop {frame.cropSuitability}
                           </div>
-                          {(frame.layoutArchetype || frame.supportSystem) && (
+                          {(frame.rhythmRole || frame.layoutArchetype || frame.continuityMotif || frame.supportSystem) && (
                             <div className="mt-2 flex flex-wrap gap-1">
+                              {frame.rhythmRole ? (
+                                <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
+                                  {formatSlugLabel(frame.rhythmRole)}
+                                </span>
+                              ) : null}
                               {frame.layoutArchetype ? (
                                 <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
                                   {formatSlugLabel(frame.layoutArchetype)}
+                                </span>
+                              ) : null}
+                              {frame.continuityMotif ? (
+                                <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
+                                  {formatSlugLabel(frame.continuityMotif)}
                                 </span>
                               ) : null}
                               {frame.supportSystem ? (

@@ -1540,12 +1540,16 @@ describe('design planning helpers', () => {
     if (editorialConcept?.mode === 'panoramic') {
       const activityFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === activityPath);
       const documentFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === documentPath);
+      const firstFrame = editorialConcept.frames?.[0];
+      const lastFrame = editorialConcept.frames?.[editorialConcept.frames.length - 1];
 
       expect(activityFrame?.compositionFeatures).toContain('activity-wave');
       expect(activityFrame?.compositionNote).toContain('activity-wave treatment');
       expect(['open with live momentum', 'keep the feed cadence moving', 'land on follow-through']).toContain(activityFrame?.pacing);
       expect(activityFrame?.layoutArchetype).toBeTruthy();
       expect(activityFrame?.continuityRule).toContain('active momentum');
+      expect(activityFrame?.continuityMotif).toBe('signal-wave');
+      expect(activityFrame?.transitionIntent).toContain('signal wave');
 
       expect(documentFrame?.compositionFeatures).toContain('folio-stack');
       expect(documentFrame?.compositionNote).toContain('folio-stack treatment');
@@ -1557,6 +1561,10 @@ describe('design planning helpers', () => {
       ]).toContain(documentFrame?.pacing);
       expect(documentFrame?.layoutArchetype).toBeTruthy();
       expect(documentFrame?.continuityRule).toContain('review/proof lane');
+      expect(documentFrame?.continuityMotif).toBe('proof-lane');
+      expect(documentFrame?.transitionIntent).toContain('proof lane');
+      expect(firstFrame?.rhythmRole).toBe('open');
+      expect(lastFrame?.rhythmRole).toBe('resolve');
     }
 
     const boldConcept = plan.variants[3];

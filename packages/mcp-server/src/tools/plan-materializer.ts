@@ -15,6 +15,7 @@ import type {
   VariantSetPlan,
 } from './design-planning.js';
 import type { SelectedCopySet } from './copy-planning.js';
+import { panoramicRecipeArchetype, panoramicRecipeFamily } from './panoramic-recipe-system.js';
 
 type PanoramicGroupChild = Extract<PanoramicElement, { type: 'group' }>['children'][number];
 
@@ -473,53 +474,6 @@ function buildIndividualBackground(args: {
   return {};
 }
 
-function panoramicRecipeFamily(recipe: string): 'editorial' | 'bold' {
-  switch (recipe) {
-    case 'editorial-panorama':
-    case 'editorial-confidence':
-    case 'wellness-panorama':
-    case 'workflow-panorama':
-    case 'conversation-panorama':
-    case 'gallery-panorama':
-    case 'world-panorama':
-      return 'editorial';
-    default:
-      return 'bold';
-  }
-}
-
-function panoramicRecipeArchetype(recipe: string):
-  | 'confidence'
-  | 'wellness'
-  | 'workflow'
-  | 'conversation'
-  | 'gallery'
-  | 'world'
-  | 'default' {
-  switch (recipe) {
-    case 'editorial-confidence':
-    case 'proof-panorama':
-      return 'confidence';
-    case 'wellness-panorama':
-    case 'progress-panorama':
-      return 'wellness';
-    case 'workflow-panorama':
-    case 'momentum-panorama':
-      return 'workflow';
-    case 'conversation-panorama':
-    case 'launch-panorama':
-      return 'conversation';
-    case 'gallery-panorama':
-    case 'portfolio-panorama':
-      return 'gallery';
-    case 'world-panorama':
-    case 'cinematic-panorama':
-      return 'world';
-    default:
-      return 'default';
-  }
-}
-
 function isEditorialPanoramaRecipe(recipe: string): boolean {
   return panoramicRecipeFamily(recipe) === 'editorial';
 }
@@ -596,6 +550,31 @@ function panoramicTextPlacement(args: {
   if (args.frame.supportSystem === 'milestone-band') {
     maxWidth -= 1;
     fontSize -= 0.05;
+  }
+  if (args.frame.continuityMotif === 'text-rail') {
+    x += 0.5;
+    maxWidth -= 1.5;
+  }
+  if (args.frame.continuityMotif === 'proof-lane') {
+    maxWidth -= 1.5;
+    fontSize -= 0.06;
+  }
+  if (args.frame.continuityMotif === 'signal-wave') {
+    maxWidth -= 1.2;
+    fontSize -= 0.08;
+  }
+  if (args.frame.continuityMotif === 'progress-track') {
+    x += 0.4;
+    maxWidth -= 1;
+  }
+  if (args.frame.continuityMotif === 'curation-run') {
+    maxWidth -= 1;
+  }
+  if (args.frame.continuityMotif === 'poster-anchor') {
+    fontSize += 0.08;
+  }
+  if (args.frame.rhythmRole === 'resolve') {
+    maxWidth -= 0.6;
   }
   if (hasCompositionFeature(args.frame, 'profile-orbit')) {
     fontSize -= 0.05;
@@ -830,57 +809,86 @@ function panoramicSupportSystemPlacement(args: {
   const isClose = args.frame.storyBeat === 'summary' || args.frame.layoutArchetype?.includes('close');
   const width = Math.max(12.5, args.sliceWidth - (args.boldRecipe ? 5.5 : 6.5));
   const rotation = args.index % 2 === 0 ? (args.boldRecipe ? -4 : -3) : (args.boldRecipe ? 4 : 3);
+  let placement: { x: number; y: number; width: number; height: number; rotation: number };
 
   switch (supportSystem) {
     case 'quote-stack':
-      return {
+      placement = {
         x: args.boldRecipe ? args.frameSliceStart + 2.5 : args.frameSliceStart + args.sliceWidth - width - 2,
         y: isClose ? 50 : 38,
         width,
         height: 29,
         rotation,
       };
+      break;
     case 'metric-ladder':
-      return {
+      placement = {
         x: args.frameSliceStart + args.sliceWidth - width - 2,
         y: args.frame.storyBeat === 'hero' ? 18 : isClose ? 56 : 46,
         width,
         height: 20,
         rotation,
       };
+      break;
     case 'signal-chain':
-      return {
+      placement = {
         x: args.frameSliceStart + 2,
         y: isClose ? 74 : 68,
         width,
         height: 15,
         rotation,
       };
+      break;
     case 'milestone-band':
-      return {
+      placement = {
         x: args.frameSliceStart + 2,
         y: args.frame.storyBeat === 'hero' ? 18 : isClose ? 70 : 60,
         width,
         height: 18,
         rotation,
       };
+      break;
     case 'curation-shelf':
-      return {
+      placement = {
         x: args.frameSliceStart + 2,
         y: isClose ? 70 : 66,
         width,
         height: 20,
         rotation,
       };
+      break;
     case 'proof-column':
-      return {
+      placement = {
         x: args.boldRecipe ? args.frameSliceStart + 2.5 : args.frameSliceStart + args.sliceWidth - width - 2,
         y: isClose ? 52 : 40,
         width,
         height: 22,
         rotation,
       };
+      break;
   }
+
+  if (args.frame.continuityMotif === 'text-rail' || args.frame.continuityMotif === 'proof-lane') {
+    placement.x = args.frameSliceStart + args.sliceWidth - placement.width - 2;
+    placement.y -= args.frame.continuityMotif === 'text-rail' ? 2 : 1;
+  } else if (args.frame.continuityMotif === 'signal-wave') {
+    placement.x = args.frameSliceStart + 2;
+    placement.y = Math.max(placement.y, isClose ? 72 : 66);
+  } else if (args.frame.continuityMotif === 'progress-track') {
+    placement.x = args.frameSliceStart + 2;
+    placement.y = args.frame.rhythmRole === 'open' ? 18 : Math.min(placement.y, isClose ? 66 : 52);
+  } else if (args.frame.continuityMotif === 'curation-run') {
+    placement.x = args.frameSliceStart + 2;
+    placement.y = Math.max(placement.y, isClose ? 68 : 64);
+  } else if (args.frame.continuityMotif === 'poster-anchor') {
+    placement.y -= 4;
+  }
+
+  if (args.frame.rhythmRole === 'resolve') {
+    placement.rotation = placement.rotation > 0 ? placement.rotation - 1 : placement.rotation + 1;
+  }
+
+  return placement;
 }
 
 function buildShadow(args: {
@@ -3092,6 +3100,10 @@ function panoramicTextY(frame: PlannedPanoramicFrame, recipe: PlannedPanoramicVa
   if (frame.cropPlan?.avoidRegions.includes('top')) {
     return boldRecipe ? 10 : 11;
   }
+  if (frame.continuityMotif === 'proof-lane') return boldRecipe ? 11.5 : 10.5;
+  if (frame.continuityMotif === 'signal-wave') return boldRecipe ? 8 : 7.5;
+  if (frame.continuityMotif === 'progress-track') return boldRecipe ? 10.5 : 9.5;
+  if (frame.continuityMotif === 'text-rail') return boldRecipe ? 11.5 : 10.5;
   if (frame.layoutArchetype?.includes('close')) return boldRecipe ? 14 : 11;
   if (frame.layoutArchetype?.includes('split') || frame.layoutArchetype?.includes('text-rail')) {
     return boldRecipe ? 12 : 10;
@@ -3110,6 +3122,8 @@ function panoramicProofChipY(
 ): number {
   const boldRecipe = isBoldPanoramaRecipe(recipe);
   if (frame.storyBeat === 'summary') return 72;
+  if (frame.continuityMotif === 'proof-lane') return boldRecipe ? 28 : 25;
+  if (frame.continuityMotif === 'signal-wave') return boldRecipe ? 35 : 32;
   if (hasCompositionFeature(frame, 'profile-orbit')) {
     return boldRecipe ? 30 : 28;
   }
@@ -3229,6 +3243,27 @@ function panoramicDevicePlacement(
     width -= 0.4;
   } else if (recipeArchetype === 'gallery' || recipeArchetype === 'world') {
     width += 0.35;
+  }
+
+  if (frame.continuityMotif === 'text-rail' || frame.continuityMotif === 'proof-lane') {
+    x += 0.8;
+    width -= 0.35;
+  } else if (frame.continuityMotif === 'signal-wave') {
+    x += index % 2 === 0 ? -1 : 1;
+  } else if (frame.continuityMotif === 'progress-track') {
+    x += index % 2 === 0 ? -0.4 : 0.4;
+  } else if (frame.continuityMotif === 'curation-run') {
+    width += 0.2;
+    x -= 0.25;
+  } else if (frame.continuityMotif === 'poster-anchor') {
+    rotation = rotation > 0 ? Math.max(1, rotation - 1) : Math.min(-1, rotation + 1);
+  }
+
+  if (frame.rhythmRole === 'resolve') {
+    width -= 0.2;
+    rotation = rotation > 0 ? rotation - 0.5 : rotation + 0.5;
+  } else if (frame.rhythmRole === 'open' && frame.continuityMotif === 'poster-anchor') {
+    width += 0.4;
   }
 
   return {

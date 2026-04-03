@@ -299,8 +299,10 @@ export interface AutopilotPlanVariant {
     sourceRole: string;
     cropSuitability: string;
     storyBeat: string;
+    rhythmRole?: string;
     layoutArchetype?: string;
     continuityRule?: string;
+    continuityMotif?: string;
     supportSystem?: string;
     transitionIntent?: string;
     cropPlan?: {

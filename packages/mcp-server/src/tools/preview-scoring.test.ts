@@ -298,7 +298,199 @@ describe('preview scoring', () => {
 
     expect(cleanHero.score.breakdown.conceptDiversity ?? 0).toBeLessThan(panorama.score.breakdown.conceptDiversity ?? 0);
     expect(cleanHero.score.flags.some((flag) => flag.includes('Concept diversity is weak'))).toBe(true);
-    expect(cleanHero.score.reason).toContain('Clean Hero Alt');
+    expect(cleanHero.score.flags.some((flag) => flag.includes('Clean Hero Alt'))).toBe(true);
+  });
+
+  it('penalizes generic structural recipes even when preview quality is acceptable', async () => {
+    const steadyPreview = await makePngFile('steady', 160, 80, (x, _y) => {
+      const tone = 28 + Math.round((x / 159) * 180);
+      return [tone, 230 - tone, 246, 255];
+    });
+
+    const genericPanorama = makeConfig('panoramic', 'editorial');
+    const richPanorama: AppframeConfig = {
+      ...makeConfig('panoramic', 'editorial'),
+      panoramic: {
+        background: {
+          type: 'solid',
+          color: '#FFFFFF',
+          layers: [
+            {
+              kind: 'gradient',
+              gradientType: 'mesh',
+              colors: ['#EFF6FF', '#FFFFFF', '#FFF7ED'],
+              direction: 145,
+              radialPosition: 'center',
+              opacity: 0.56,
+              blendMode: 'soft-light',
+              blur: 0,
+            },
+            {
+              kind: 'glow',
+              color: '#2563EB',
+              x: 12,
+              y: 18,
+              width: 28,
+              height: 28,
+              opacity: 0.12,
+              blur: 84,
+              blendMode: 'screen',
+            },
+            {
+              kind: 'glow',
+              color: '#F97316',
+              x: 72,
+              y: 62,
+              width: 22,
+              height: 22,
+              opacity: 0.1,
+              blur: 72,
+              blendMode: 'screen',
+            },
+          ],
+        },
+        elements: [
+          {
+            type: 'text',
+            content: 'Move faster together',
+            x: 4,
+            y: 7,
+            fontSize: 3.8,
+            color: '#0F172A',
+            fontWeight: 700,
+            fontStyle: 'normal',
+            textAlign: 'left',
+            lineHeight: 1.1,
+            maxWidth: 16,
+            letterSpacing: 0,
+            textTransform: '',
+            rotation: 0,
+            z: 10,
+          },
+          {
+            type: 'device',
+            screenshot: 'screen-1.png',
+            frame: 'iphone-17-pro',
+            frameStyle: 'flat',
+            x: 8,
+            y: 24,
+            width: 14,
+            rotation: -2,
+            deviceScale: 92,
+            deviceTop: 15,
+            deviceOffsetX: 0,
+            deviceAngle: 8,
+            deviceTilt: 0,
+            cornerRadius: 0,
+            fullscreenScreenshot: false,
+            z: 5,
+          },
+          {
+            type: 'proof-chip',
+            value: 'Always active',
+            maxRating: 5,
+            detail: 'Momentum keeps moving',
+            x: 22,
+            y: 28,
+            width: 15,
+            height: 8,
+            color: '#0F172A',
+            mutedColor: '#64748B',
+            starColor: '#F59E0B',
+            backgroundColor: '#FFFFFF',
+            opacity: 0.98,
+            borderColor: '#2563EB',
+            borderWidth: 1,
+            borderRadius: 24,
+            valueSize: 1.5,
+            detailSize: 0.9,
+            padding: 1.2,
+            rotation: 0,
+            z: 9,
+          },
+          {
+            type: 'group',
+            x: 52,
+            y: 18,
+            width: 22,
+            height: 26,
+            rotation: -3,
+            opacity: 1,
+            z: 8,
+            children: [
+              {
+                type: 'badge',
+                content: 'Feed card',
+                x: 10,
+                y: 0,
+                width: 34,
+                height: 8,
+                color: '#0F172A',
+                backgroundColor: '#FFFFFF',
+                opacity: 0.95,
+                borderColor: '#2563EB',
+                borderWidth: 1,
+                borderRadius: 100,
+                fontSize: 1,
+                fontWeight: 700,
+                letterSpacing: 8,
+                textTransform: 'uppercase',
+                rotation: 0,
+                z: 3,
+              },
+              {
+                type: 'card',
+                x: 8,
+                y: 10,
+                width: 84,
+                height: 36,
+                eyebrow: 'trust',
+                title: 'Proof point',
+                body: 'Reads like a recipe, not a repeated panel',
+                align: 'left',
+                backgroundColor: '#FFFFFF',
+                opacity: 0.97,
+                borderColor: '#F97316',
+                borderWidth: 1,
+                borderRadius: 24,
+                padding: 2,
+                rotation: 0,
+                eyebrowColor: '#64748B',
+                titleColor: '#0F172A',
+                bodyColor: '#64748B',
+                eyebrowSize: 3.2,
+                titleSize: 7.2,
+                bodySize: 4.1,
+                z: 2,
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const result = scoreVariantSet([
+      {
+        id: 'concept-c',
+        name: 'Generic Panorama',
+        config: genericPanorama,
+        previewCount: 1,
+        previewFilePaths: [steadyPreview],
+      },
+      {
+        id: 'concept-d',
+        name: 'Recipe Panorama',
+        config: richPanorama,
+        previewCount: 1,
+        previewFilePaths: [steadyPreview],
+      },
+    ]);
+
+    const generic = result.scored.find((variant) => variant.id === 'concept-c')!;
+    const rich = result.scored.find((variant) => variant.id === 'concept-d')!;
+
+    expect(rich.score.breakdown.recipeSpecificity ?? 0).toBeGreaterThan(generic.score.breakdown.recipeSpecificity ?? 0);
+    expect(generic.score.flags.some((flag) => flag.includes('Recipe structure is generic'))).toBe(true);
   });
 
   it('writes concrete copy and layout issues into score explanations', async () => {

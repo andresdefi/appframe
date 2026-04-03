@@ -641,7 +641,7 @@ describe('design planning helpers', () => {
     expect(plan.variants[3]).toMatchObject({
       id: 'concept-d',
       name: 'Proof Panorama',
-      recipe: 'bold-panorama',
+      recipe: 'proof-panorama',
     });
     if (plan.variants[0]?.mode === 'individual') {
       expect(plan.variants[0].screens[0]?.sourceRole).toBe('home');
@@ -649,8 +649,11 @@ describe('design planning helpers', () => {
     }
     if (plan.variants[2]?.mode === 'panoramic') {
       expect(plan.variants[2].name).toBe('Editorial Confidence');
+      expect(plan.variants[2].recipe).toBe('editorial-confidence');
       expect(plan.variants[2].canvasPlan.designGoal).toContain('finance');
       expect(plan.variants[2].canvasPlan.requiredElements.some((element) => /proof/i.test(element.purpose))).toBe(true);
+      expect(plan.variants[2].frames?.some((frame) => frame.layoutArchetype?.includes('proof') || frame.layoutArchetype?.includes('relay'))).toBe(true);
+      expect(plan.variants[2].frames?.every((frame) => Boolean(frame.continuityRule))).toBe(true);
     }
   });
 
@@ -695,7 +698,9 @@ describe('design planning helpers', () => {
     }
     if (plan.variants[2]?.mode === 'panoramic') {
       expect(plan.variants[2].name).toBe('Conversation Panorama');
+      expect(plan.variants[2].recipe).toBe('conversation-panorama');
       expect(plan.variants[2].canvasPlan.designGoal).toContain('community energy');
+      expect(plan.variants[2].frames?.some((frame) => frame.pacing?.includes('social'))).toBe(true);
     }
   });
 
@@ -1535,10 +1540,19 @@ describe('design planning helpers', () => {
       expect(activityFrame?.compositionFeatures).toContain('activity-wave');
       expect(activityFrame?.compositionNote).toContain('activity-wave treatment');
       expect(['open with live momentum', 'keep the feed cadence moving', 'land on follow-through']).toContain(activityFrame?.pacing);
+      expect(activityFrame?.layoutArchetype).toBeTruthy();
+      expect(activityFrame?.continuityRule).toContain('active momentum');
 
       expect(documentFrame?.compositionFeatures).toContain('folio-stack');
       expect(documentFrame?.compositionNote).toContain('folio-stack treatment');
-      expect(['open with focused proof', 'develop a readable record story', 'close on review confidence']).toContain(documentFrame?.pacing);
+      expect([
+        'open with focused proof',
+        'develop a readable record story',
+        'close on review confidence',
+        'step through review state with calm progress',
+      ]).toContain(documentFrame?.pacing);
+      expect(documentFrame?.layoutArchetype).toBeTruthy();
+      expect(documentFrame?.continuityRule).toContain('review/proof lane');
     }
 
     const boldConcept = plan.variants[3];

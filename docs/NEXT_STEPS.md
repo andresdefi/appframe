@@ -32,6 +32,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - MCP tools can now start preview directly for a generated session via `appframe_open_preview_session`
 - preview scoring now inspects rendered PNG previews for contrast, text-zone safety, whitespace balance, clutter, and panoramic seam continuity
 - preview scoring now measures concept diversity across the full rendered concept set, explains concrete layout/copy issues, and can call a live model-assisted visual ranking pass behind optional AI credentials with safe fallback behavior
+- preview scoring now also penalizes structurally generic concepts more directly by inspecting recipe specificity, support-system richness, and repeated layout rhythm even when rendered previews are otherwise acceptable
 - screenshot analysis now derives actual-pixel palette extraction, quiet text zones, and focal-point estimates from PNG screenshots
 - copy candidate generation can now use screenshot-derived slot signals from analysis to steer role-aware, focus-aware headline options and avoid echoing embedded OCR/vision UI text
 - copy selection now runs a final cross-slot anti-repetition pass and uses broader category-aware phrase banks across hero, differentiator, feature, and summary slots
@@ -62,6 +63,8 @@ AppFrame now has an initial autopilot pipeline implemented:
 - dynamic individual planning/materialization now reacts more explicitly to onboarding, paywall, settings, chat, and reporting-style screens with role-aware composition/background strategies instead of only generic frameStrategy/cropPlan behavior
 - dynamic individual planning/materialization now also reacts more explicitly to workflow and discovery screens with dedicated composition/background treatments instead of folding them back into generic proof-grid behavior
 - dynamic planning/materialization now also reacts more explicitly to editor/profile/catalog/activity/document/map/media/capture/schedule/commerce/security/support/reward-style screens with dedicated individual backgrounds, copy guidance, family-aware panoramic pacing, and richer panoramic tool-ribbon / profile-spotlight / activity-wave / folio-stack / browse-strip / route-arc / playback-marquee / capture-focus / timeline-band / checkout-lane / trust-shield / support-beacon / reward-ribbon treatments
+- planning/materialization is now more explicitly recipe-aware instead of only family-aware: existing individual recipes now steer composition/copy constraints more directly, and panoramic concepts now resolve into category-specific recipe archetypes like `editorial-confidence`, `workflow-panorama`, `conversation-panorama`, `gallery-panorama`, `proof-panorama`, `launch-panorama`, and `cinematic-panorama`
+- panoramic planning now emits explicit opener / relay / proof-close style layout archetypes plus continuity rules, and materialization uses those cues to vary device/text geometry across the strip more intentionally
 - the AppFrame skill has been rewritten around the autopilot flow
 
 The current default concept contract is:
@@ -141,7 +144,8 @@ pnpm vitest run packages/mcp-server/src/tools/design-planning.test.ts \
   packages/mcp-server/src/tools/copy-planning.test.ts \
   packages/mcp-server/src/tools/plan-materializer.test.ts \
   packages/mcp-server/src/tools/variant-session-lib.test.ts \
-  packages/mcp-server/src/tools/suggestion-tools.test.ts
+  packages/mcp-server/src/tools/suggestion-tools.test.ts \
+  packages/mcp-server/src/tools/preview-scoring.test.ts
 ```
 
 Run these again after any work in the touched areas.
@@ -154,8 +158,9 @@ The current implementation is not yet the full target product. The biggest remai
 2. deeper OCR/vision enrichment beyond text-aware heuristics
 3. refinement actions inside the preview flow
 4. tighter orchestration with preview launch/open behavior
-5. more capable panoramic and layered compositions
-6. deeper category-specific layout, frame, and screenshot-assignment coverage
+5. more candidate breadth and sharper ranking/filtering
+6. more capable panoramic and layered compositions
+7. deeper category-specific layout, frame, and screenshot-assignment coverage
 
 ## Priority Order For Future Threads
 
@@ -166,7 +171,8 @@ Recommended order:
 3. Preview UI refinement actions + session history
 4. Full autopilot polish and resume/retry behavior
 5. Better before.click-style recipe coverage
-6. Panoramic composition expansion
+6. Search breadth and ranking quality
+7. Panoramic composition expansion
 
 ## Detailed Checklist
 
@@ -251,7 +257,7 @@ Recommended order:
 - [x] Lock concept identities to 2 individual + 2 panoramic.
 - [x] Add new plan metadata fields to analysis.
 - [ ] Add explicit concept diversity constraints so two concepts cannot collapse into minor recolors.
-  Status: concept-specific screenshot resequencing now exists, but recipe/style diversity is still narrower than the target quality bar.
+  Status: concept-specific screenshot resequencing now exists, panoramic recipe archetypes now diversify opener/relay/close structure more explicitly, but candidate-count breadth is still narrower than the target quality bar.
 - [x] Add plan-time recipe selection based on app category.
 - [x] Add plan-time frame strategy:
   - [x] which concepts must use frames
@@ -284,8 +290,9 @@ Recommended order:
 - [x] Add device frame selection logic beyond the current default.
 - [x] Add better typography defaults per concept style.
 - [ ] Add concept-specific per-screen/per-frame composition rules.
-  Status: the materializer now responds to `cropPlan` and `frameStrategy`, and now pushes that metadata into subtitle sizing, support-card copy, palette-led backgrounds, and frameless device treatment; concept-specific composition expansion is still open.
+  Status: the materializer now responds to `cropPlan` and `frameStrategy`, pushes that metadata into subtitle sizing, support-card copy, palette-led backgrounds, and frameless device treatment, and now varies panoramic opener/relay/close geometry from explicit layout archetypes; deeper recipe-specific coverage is still open.
 - [ ] Add richer panoramic element layout logic after new primitives land.
+  Status: panoramic layout logic now recognizes category-specific recipe families plus opener/relay/close continuity cues, but more non-device support systems and frame-to-frame transitions still need expansion.
 
 ### 6. Variant Sessions
 
@@ -331,6 +338,7 @@ Recommended order:
   - [x] visual clutter
 - [x] Add diversity scoring across all 4 concepts together.
 - [x] Add score explanations that point to concrete layout/copy problems.
+- [x] Add generic-result rejection heuristics based on recipe specificity and repeated layout rhythm.
 - [x] Add model-assisted visual scoring behind optional AI credentials.
 - [x] Blend heuristic and model scores into one final recommendation formula.
 - [x] Add test fixtures for weak vs strong concept scoring.

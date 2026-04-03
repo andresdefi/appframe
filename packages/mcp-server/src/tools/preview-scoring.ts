@@ -75,6 +75,8 @@ interface ConceptProfile {
   roundedFrameless: boolean;
   averageWords: number;
   layoutSignature: string;
+  structureSignature: string;
+  recipeSpecificity: number;
   visualSignature: {
     contrast: number;
     textZoneSafety: number;
@@ -106,6 +108,13 @@ interface NormalizedModelRanking {
   confidence: number;
   rank?: number;
   reason?: string;
+}
+
+interface StructureAssessment {
+  score: number;
+  signature: string;
+  issue: string | null;
+  strength: string | null;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -171,6 +180,105 @@ function collectPanoramicElementTypes(elements: PanoramicElement[] | undefined, 
   return acc;
 }
 
+function collectPanoramicElementsByType<T extends PanoramicElement['type']>(
+  elements: PanoramicElement[] | undefined,
+  type: T,
+  acc: Array<Extract<PanoramicElement, { type: T }>> = [],
+): Array<Extract<PanoramicElement, { type: T }>> {
+  for (const element of elements ?? []) {
+    if (element.type === type) {
+      acc.push(element as Extract<PanoramicElement, { type: T }>);
+    }
+    if (element.type === 'group') {
+      collectPanoramicElementsByType(element.children as PanoramicElement[] | undefined, type, acc);
+    }
+  }
+  return acc;
+}
+
+function bucket(value: number, size: number): string {
+  return `${Math.round(value / size) * size}`;
+}
+
+function assessStructureSpecificity(config: AppframeConfig): StructureAssessment {
+  if (config.mode === 'panoramic') {
+    const elements = config.panoramic?.elements;
+    const groups = collectPanoramicElementsByType(elements, 'group').length;
+    const badges = collectPanoramicElementsByType(elements, 'badge').length;
+    const proofChips = collectPanoramicElementsByType(elements, 'proof-chip').length;
+    const cards = collectPanoramicElementsByType(elements, 'card').length;
+    const crops = collectPanoramicElementsByType(elements, 'crop').length;
+    const devices = collectPanoramicElementsByType(elements, 'device');
+    const layerCount = config.panoramic?.background.layers?.length ?? 0;
+    const rhythmSignature = devices
+      .slice(0, 4)
+      .map((device) => `${bucket(device.x, 4)}-${bucket(device.width, 2)}`)
+      .join('.');
+    const uniqueRhythmCount = new Set(
+      devices.map((device) => `${bucket(device.x, 4)}-${bucket(device.width, 2)}`),
+    ).size;
+    const supportSystems = groups + badges + proofChips + cards + crops;
+    const score = clamp(
+      54
+        + Math.min(18, layerCount * 5)
+        + Math.min(18, supportSystems * 2)
+        + Math.min(12, uniqueRhythmCount * 4)
+        + (supportSystems >= 6 ? 6 : 0)
+        - (supportSystems <= 2 ? 14 : 0)
+        - (uniqueRhythmCount <= 1 && devices.length >= 3 ? 10 : 0),
+      36,
+      98,
+    );
+
+    return {
+      score,
+      signature: `panoramic:${Math.min(layerCount, 4)}:${Math.min(supportSystems, 9)}:${rhythmSignature}`,
+      issue:
+        supportSystems <= 2
+          ? 'the strip relies on too few support systems, so it risks reading like repeated device-plus-headline panels'
+          : uniqueRhythmCount <= 1 && devices.length >= 3
+            ? 'device rhythm barely changes across frames, so the panoramic pacing feels generic'
+            : null,
+      strength:
+        supportSystems >= 6 && uniqueRhythmCount >= 3
+          ? 'recipe structure stays specific with distinct support systems and changing frame rhythm'
+          : layerCount >= 3
+            ? 'background and support systems create a stronger panoramic recipe identity'
+            : null,
+    };
+  }
+
+  const uniqueCompositions = new Set(config.screens.map((screen) => screen.composition ?? 'single')).size;
+  const uniqueLayouts = new Set(config.screens.map((screen) => screen.layout ?? 'center')).size;
+  const extraDeviceScreens = config.screens.filter((screen) => (screen.extraDevices?.length ?? 0) > 0).length;
+  const loupeScreens = config.screens.filter((screen) => Boolean(screen.loupe)).length;
+  const overlayScreens = config.screens.filter((screen) => (screen.overlays?.length ?? 0) > 0).length;
+  const score = clamp(
+    56
+      + (uniqueCompositions * 8)
+      + (uniqueLayouts * 4)
+      + (extraDeviceScreens * 6)
+      + (loupeScreens * 5)
+      + (overlayScreens * 4)
+      - (uniqueCompositions === 1 && uniqueLayouts === 1 && extraDeviceScreens === 0 && loupeScreens === 0 ? 16 : 0),
+    38,
+    96,
+  );
+
+  return {
+    score,
+    signature: `individual:${uniqueCompositions}:${uniqueLayouts}:${extraDeviceScreens}:${loupeScreens}:${overlayScreens}`,
+    issue:
+      uniqueCompositions === 1 && uniqueLayouts === 1 && extraDeviceScreens === 0 && loupeScreens === 0
+        ? 'too many screens reuse the same centered-device rhythm, so the concept feels generic'
+        : null,
+    strength:
+      uniqueCompositions >= 2 && (extraDeviceScreens > 0 || loupeScreens > 0 || overlayScreens > 0)
+        ? 'screen rhythm varies enough to feel recipe-led instead of template-flat'
+        : null,
+  };
+}
+
 function getLayoutSignature(config: AppframeConfig): string {
   if (config.mode === 'panoramic') {
     const elementTypes = Array.from(collectPanoramicElementTypes(config.panoramic?.elements)).sort();
@@ -200,6 +308,7 @@ function buildConceptProfile(args: {
 }): ConceptProfile {
   const headlineWords = getHeadlineWordStats(args.config);
   const metrics = args.previewSummary.metrics;
+  const structureAssessment = assessStructureSpecificity(args.config);
 
   return {
     id: args.id,
@@ -213,6 +322,8 @@ function buildConceptProfile(args: {
     roundedFrameless: usesRoundedFrameless(args.config),
     averageWords: headlineWords.average,
     layoutSignature: getLayoutSignature(args.config),
+    structureSignature: structureAssessment.signature,
+    recipeSpecificity: structureAssessment.score,
     visualSignature: metrics
       ? {
           contrast: metrics.contrastScore,
@@ -274,8 +385,10 @@ function compareConceptProfiles(left: ConceptProfile, right: ConceptProfile): Pa
   addCategoricalDistance(left.frameStyle, right.frameStyle, 0.08, 'frame treatment', state);
   addCategoricalDistance(left.roundedFrameless, right.roundedFrameless, 0.05, 'frameless corner treatment', state);
   addCategoricalDistance(left.layoutSignature, right.layoutSignature, 0.16, left.mode === 'panoramic' ? 'panoramic structure' : 'screen layout rhythm', state);
+  addCategoricalDistance(left.structureSignature, right.structureSignature, 0.08, 'recipe structure', state);
   addNumericDistance(left.screenCount, right.screenCount, 6, 0.08, 'screen count', state);
   addNumericDistance(left.averageWords, right.averageWords, 8, 0.08, 'copy pacing', state);
+  addNumericDistance(left.recipeSpecificity, right.recipeSpecificity, 100, 0.06, 'recipe specificity', state);
 
   if (left.visualSignature && right.visualSignature) {
     addNumericDistance(left.visualSignature.contrast, right.visualSignature.contrast, 100, 0.05, 'contrast profile', state);
@@ -740,6 +853,7 @@ function buildScore(args: {
   const flags = [...previewSummary.flags];
   const wordStats = getHeadlineWordStats(config);
   const roundedFrameless = usesRoundedFrameless(config);
+  const structureAssessment = assessStructureSpecificity(config);
 
   const thumbnailReadability = clamp(100 - Math.abs(4 - wordStats.average) * 12, 35, 100);
   const configTextCollisionRisk = clamp(
@@ -790,6 +904,7 @@ function buildScore(args: {
     conceptDiversity: Math.round(conceptDiversity),
     screenshotUsageQuality: Math.round(screenshotUsageQuality),
     narrativeSequencing: Math.round(narrativeSequencing),
+    recipeSpecificity: Math.round(structureAssessment.score),
     previewReadiness: Math.round(previewReadiness),
     renderedContrast,
     renderedTextZoneSafety,
@@ -823,6 +938,9 @@ function buildScore(args: {
   }
   if (!roundedFrameless) {
     flags.push('Frameless treatment should use rounded corners.');
+  }
+  if (structureAssessment.issue) {
+    flags.push(`Recipe structure is generic: ${structureAssessment.issue}.`);
   }
   if (diversity.issue) {
     flags.push(`Concept diversity is weak: ${diversity.issue}.`);
@@ -898,6 +1016,8 @@ function buildScore(args: {
     issues.push(`copy pacing jumps from ${wordStats.min} to ${wordStats.max} words`);
   }
 
+  if (structureAssessment.strength) highlights.push(structureAssessment.strength);
+  if (structureAssessment.issue) issues.push(structureAssessment.issue);
   if (diversity.strength) highlights.push(diversity.strength);
   if (diversity.issue) issues.push(diversity.issue);
 

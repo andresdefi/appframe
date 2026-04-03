@@ -200,6 +200,8 @@ export interface PlannedPanoramicFrame {
   focalPoint?: FocalPoint;
   cropSuitability: CropSuitability;
   storyBeat: string;
+  layoutArchetype?: string;
+  continuityRule?: string;
   cropPlan?: PlannedCropPlan;
   assetGuidance?: string;
   pacing?: string;
@@ -3393,6 +3395,7 @@ function supportingScreensForComposition(
 }
 
 function chooseDynamicIndividualComposition(args: {
+  recipe: string;
   analysis: ScreenshotAnalysis;
   index: number;
   total: number;
@@ -3434,6 +3437,30 @@ function chooseDynamicIndividualComposition(args: {
   if (args.analysis.role === 'settings' && args.supportingScreens.length >= 1) return 'duo-split';
   if (args.analysis.role === 'onboarding' && args.index === 0 && args.supportingScreens.length >= 1) return 'hero-tilt';
   if (args.analysis.role === 'paywall' && args.supportingScreens.length >= 1) return 'hero-tilt';
+  if (args.recipe === 'proof-led-momentum') {
+    if (args.supportingScreens.length >= 2) return args.index === 0 ? 'duo-split' : 'duo-overlap';
+    if (args.supportingScreens.length >= 1) return 'duo-split';
+  }
+  if (args.recipe === 'routine-momentum') {
+    if (args.supportingScreens.length >= 2) return args.index === 0 ? 'duo-split' : 'duo-overlap';
+    if (args.supportingScreens.length >= 1) return 'duo-split';
+  }
+  if (args.recipe === 'focused-momentum') {
+    if (args.supportingScreens.length >= 2) return args.index === 0 ? 'hero-tilt' : 'duo-split';
+    if (args.supportingScreens.length >= 1) return args.analysis.role === 'workflow' ? 'duo-split' : 'hero-tilt';
+  }
+  if (args.recipe === 'community-momentum') {
+    if (args.supportingScreens.length >= 2) return 'fanned-cards';
+    if (args.supportingScreens.length >= 1) return 'duo-overlap';
+  }
+  if (args.recipe === 'studio-montage') {
+    if (args.supportingScreens.length >= 2) return args.index === 0 ? 'hero-tilt' : 'fanned-cards';
+    if (args.supportingScreens.length >= 1) return 'hero-tilt';
+  }
+  if (args.recipe === 'action-montage') {
+    if (args.supportingScreens.length >= 2) return args.index === args.total - 1 ? 'fanned-cards' : 'hero-tilt';
+    if (args.supportingScreens.length >= 1) return 'hero-tilt';
+  }
   if (args.supportingScreens.length >= 2 && args.index === 0) return 'hero-tilt';
   if (args.supportingScreens.length >= 2 && args.index === args.total - 1) return 'fanned-cards';
   if (args.supportingScreens.length >= 2 && args.analysis.cropSuitability === 'high') return 'fanned-cards';
@@ -3443,6 +3470,7 @@ function chooseDynamicIndividualComposition(args: {
 }
 
 function buildIndividualImplementationNote(args: {
+  recipe: string;
   analysis: ScreenshotAnalysis;
   composition: PlannedIndividualScreen['composition'];
   supportingScreens: string[];
@@ -3460,6 +3488,19 @@ function buildIndividualImplementationNote(args: {
   }
   if (args.supportingScreens.length > 0) {
     parts.push(`Pull in ${args.supportingScreens.length} supporting screenshot${args.supportingScreens.length === 1 ? '' : 's'} for extra rhythm.`);
+  }
+  if (args.recipe === 'proof-led-momentum') {
+    parts.push('Keep the support system measured so the concept reads like proof-led polish, not hype.');
+  } else if (args.recipe === 'routine-momentum') {
+    parts.push('Keep the rhythm gentle and repeatable so the concept feels supportive rather than urgent.');
+  } else if (args.recipe === 'focused-momentum') {
+    parts.push('Make the support layout feel task-forward, with one clear action path per frame.');
+  } else if (args.recipe === 'community-momentum') {
+    parts.push('Let the support rhythm feel lively and communal instead of like isolated message bubbles.');
+  } else if (args.recipe === 'studio-montage') {
+    parts.push('Use the support layout like a showcase montage, not a flat utility stack.');
+  } else if (args.recipe === 'action-montage') {
+    parts.push('Keep the support rhythm punchy so the concept feels like a launch cut rather than a static feature list.');
   }
   if (args.analysis.focalPoint && args.analysis.cropSuitability !== 'low') {
     parts.push(`Bias any detail zoom toward ${Math.round(args.analysis.focalPoint.x)}%/${Math.round(args.analysis.focalPoint.y)}%.`);
@@ -3508,6 +3549,7 @@ function buildIndividualImplementationNote(args: {
 function buildScreenCopyDirection(args: {
   category: AppCategory;
   conceptId: ConceptId;
+  recipe: string;
   slideRole: string;
   analysis: ScreenshotAnalysis;
   composition: PlannedIndividualScreen['composition'];
@@ -3542,6 +3584,20 @@ function buildScreenCopyDirection(args: {
     default:
       parts.push('Sell one product moment, not a list of controls.');
       break;
+  }
+
+  if (args.recipe === 'trust-led-hero' || args.recipe === 'proof-led-momentum') {
+    parts.push('Keep the wording measured, credible, and proof-first instead of hype-led.');
+  } else if (args.recipe === 'calm-hero' || args.recipe === 'routine-momentum') {
+    parts.push('Keep the wording gentle and steady rather than urgent.');
+  } else if (args.recipe === 'workflow-hero' || args.recipe === 'focused-momentum') {
+    parts.push('Make the line feel practical and decisive rather than abstract.');
+  } else if (args.recipe === 'connection-hero' || args.recipe === 'community-momentum') {
+    parts.push('Make the line feel live and communal, not just functional.');
+  } else if (args.recipe === 'showcase-hero' || args.recipe === 'studio-montage') {
+    parts.push('Make the line feel crafted and showcase-led instead of operational.');
+  } else if (args.recipe === 'gameplay-hero' || args.recipe === 'action-montage') {
+    parts.push('Keep the line punchy and payoff-first.');
   }
 
   switch (args.analysis.role) {
@@ -3655,6 +3711,7 @@ function buildScreenCopyDirection(args: {
 
 function buildIndividualBackgroundStrategy(args: {
   conceptId: 'concept-a' | 'concept-b';
+  recipe: string;
   analysis: ScreenshotAnalysis;
   index: number;
 }): string {
@@ -3664,6 +3721,32 @@ function buildIndividualBackgroundStrategy(args: {
     textInsights: args.analysis.textInsights,
     role: args.analysis.role,
   });
+
+  if (args.conceptId === 'concept-b') {
+    if (args.recipe === 'proof-led-momentum') {
+      if (args.index === 0) return 'quiet-surface';
+      if (args.analysis.role === 'detail' || args.analysis.role === 'workflow') return 'proof-grid';
+    }
+    if (args.recipe === 'routine-momentum') {
+      return args.index === 0 ? 'airy-spotlight' : 'care-surface';
+    }
+    if (args.recipe === 'focused-momentum' && args.analysis.role === 'workflow') {
+      return 'workflow-surface';
+    }
+    if (
+      args.recipe === 'studio-montage'
+      && args.analysis.role !== 'settings'
+      && semanticFlavor !== 'capture'
+      && semanticFlavor !== 'schedule'
+      && semanticFlavor !== 'map'
+      && semanticFlavor !== 'media'
+    ) {
+      return 'studio-surface';
+    }
+    if (args.recipe === 'action-montage') {
+      return args.index === 0 ? 'high-contrast-hero' : 'contrast-rhythm';
+    }
+  }
 
   if (semanticFlavor === 'profile') {
     return args.conceptId === 'concept-b' ? 'community-spotlight' : 'proof-tint';
@@ -3735,6 +3818,7 @@ function buildIndividualBackgroundStrategy(args: {
 function buildIndividualVariantScreens(args: {
   category: AppCategory;
   conceptId: 'concept-a' | 'concept-b';
+  recipe: string;
   sequence: ScreenshotAnalysis[];
   supportUsage: Map<string, number>;
 }): PlannedIndividualScreen[] {
@@ -3756,6 +3840,7 @@ function buildIndividualVariantScreens(args: {
       : [];
     const composition = args.conceptId === 'concept-b'
       ? chooseDynamicIndividualComposition({
+          recipe: args.recipe,
           analysis,
           index,
           total: args.sequence.length,
@@ -3784,12 +3869,14 @@ function buildIndividualVariantScreens(args: {
         : supportingScreens.slice(0, composition === 'fanned-cards' ? 2 : 1),
       backgroundStrategy: buildIndividualBackgroundStrategy({
         conceptId: args.conceptId,
+        recipe: args.recipe,
         analysis,
         index,
       }),
       copyDirection: buildScreenCopyDirection({
         category: args.category,
         conceptId: args.conceptId,
+        recipe: args.recipe,
         slideRole,
         analysis,
         composition,
@@ -3806,6 +3893,7 @@ function buildIndividualVariantScreens(args: {
       dominantPalette: analysis.dominantPalette,
       focalPoint: analysis.focalPoint,
       implementationNote: buildIndividualImplementationNote({
+        recipe: args.recipe,
         analysis,
         composition,
         supportingScreens,
@@ -3853,6 +3941,185 @@ function buildCategoryGoalLine(category: AppCategory, goals: string[]): string {
     default:
       return 'Clear benefit-led messaging';
   }
+}
+
+function panoramicRecipeFamily(recipe: string): 'editorial' | 'bold' {
+  switch (recipe) {
+    case 'editorial-panorama':
+    case 'editorial-confidence':
+    case 'wellness-panorama':
+    case 'workflow-panorama':
+    case 'conversation-panorama':
+    case 'gallery-panorama':
+    case 'world-panorama':
+      return 'editorial';
+    default:
+      return 'bold';
+  }
+}
+
+function panoramicRecipeArchetype(recipe: string):
+  | 'confidence'
+  | 'wellness'
+  | 'workflow'
+  | 'conversation'
+  | 'gallery'
+  | 'world'
+  | 'default' {
+  switch (recipe) {
+    case 'editorial-confidence':
+    case 'proof-panorama':
+      return 'confidence';
+    case 'wellness-panorama':
+    case 'progress-panorama':
+      return 'wellness';
+    case 'workflow-panorama':
+    case 'momentum-panorama':
+      return 'workflow';
+    case 'conversation-panorama':
+    case 'launch-panorama':
+      return 'conversation';
+    case 'gallery-panorama':
+    case 'portfolio-panorama':
+      return 'gallery';
+    case 'world-panorama':
+    case 'cinematic-panorama':
+      return 'world';
+    default:
+      return 'default';
+  }
+}
+
+function buildPanoramicLayoutArchetype(args: {
+  recipe: string;
+  storyBeat: string;
+  index: number;
+  total: number;
+}): string {
+  const family = panoramicRecipeFamily(args.recipe);
+  const archetype = panoramicRecipeArchetype(args.recipe);
+
+  if (args.storyBeat === 'hero') {
+    switch (archetype) {
+      case 'confidence':
+        return family === 'editorial' ? 'proof-opener' : 'campaign-proof-opener';
+      case 'wellness':
+        return family === 'editorial' ? 'airy-opener' : 'momentum-opener';
+      case 'workflow':
+        return family === 'editorial' ? 'text-rail-opener' : 'task-poster-opener';
+      case 'conversation':
+        return family === 'editorial' ? 'split-opener' : 'signal-opener';
+      case 'gallery':
+        return family === 'editorial' ? 'gallery-opener' : 'showcase-opener';
+      case 'world':
+        return family === 'editorial' ? 'poster-opener' : 'cinematic-opener';
+      default:
+        return family === 'editorial' ? 'editorial-opener' : 'campaign-opener';
+    }
+  }
+
+  if (args.storyBeat === 'trust') {
+    switch (archetype) {
+      case 'conversation':
+        return family === 'editorial' ? 'response-proof-bridge' : 'momentum-proof-punch';
+      case 'workflow':
+        return family === 'editorial' ? 'step-proof-bridge' : 'proof-rail-punch';
+      case 'confidence':
+        return family === 'editorial' ? 'proof-bridge' : 'trust-punch';
+      case 'gallery':
+        return family === 'editorial' ? 'gallery-proof-bridge' : 'showcase-proof-punch';
+      case 'world':
+        return family === 'editorial' ? 'world-proof-bridge' : 'cinematic-proof-punch';
+      default:
+        return family === 'editorial' ? 'proof-bridge' : 'proof-punch';
+    }
+  }
+
+  if (args.storyBeat === 'summary' || args.index === args.total - 1) {
+    switch (archetype) {
+      case 'confidence':
+        return family === 'editorial' ? 'quiet-proof-close' : 'campaign-proof-close';
+      case 'wellness':
+        return family === 'editorial' ? 'soft-close' : 'payoff-close';
+      case 'workflow':
+        return family === 'editorial' ? 'control-close' : 'decisive-close';
+      case 'conversation':
+        return family === 'editorial' ? 'echo-close' : 'crowd-close';
+      case 'gallery':
+        return family === 'editorial' ? 'gallery-close' : 'portfolio-close';
+      case 'world':
+        return family === 'editorial' ? 'atmosphere-close' : 'trailer-close';
+      default:
+        return family === 'editorial' ? 'quiet-close' : 'payoff-close';
+    }
+  }
+
+  switch (archetype) {
+    case 'confidence':
+      return family === 'editorial' ? 'detail-relay' : 'proof-relay';
+    case 'wellness':
+      return family === 'editorial' ? 'gentle-relay' : 'progress-relay';
+    case 'workflow':
+      return family === 'editorial' ? 'step-relay' : 'staggered-task-relay';
+    case 'conversation':
+      return family === 'editorial' ? 'signal-relay' : 'signal-surge-relay';
+    case 'gallery':
+      return family === 'editorial' ? 'gallery-relay' : 'showcase-relay';
+    case 'world':
+      return family === 'editorial' ? 'world-relay' : 'cinematic-relay';
+    default:
+      return family === 'editorial' ? 'editorial-relay' : 'campaign-relay';
+  }
+}
+
+function buildPanoramicContinuityRule(args: {
+  recipe: string;
+  layoutArchetype: string;
+  analysis: ScreenshotAnalysis;
+  storyBeat: string;
+  index: number;
+  total: number;
+}): string {
+  const family = panoramicRecipeFamily(args.recipe);
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.analysis.path,
+    note: args.analysis.note,
+    textInsights: args.analysis.textInsights,
+    role: args.analysis.role,
+  });
+  const rules: string[] = [];
+
+  if (family === 'editorial') {
+    rules.push('Keep one clear text rail and let support cards alternate around it instead of repeating centered frames.');
+  } else {
+    rules.push('Let the dominant device step across the strip while badges and proof systems repeat with intent.');
+  }
+
+  if (args.layoutArchetype.includes('opener')) {
+    rules.push('Make the opening feel poster-led with a single dominant silhouette.');
+  } else if (args.layoutArchetype.includes('relay')) {
+    rules.push('Change the support-card height or crop emphasis from the previous frame so the middle beats do not flatten out.');
+  } else if (args.layoutArchetype.includes('close') || args.layoutArchetype.includes('punch')) {
+    rules.push('Tighten the close by giving proof and payoff more visual weight than another feature card.');
+  }
+
+  if (semanticFlavor === 'activity') {
+    rules.push('Keep feed/support elements alternating high and low so the strip reads like active momentum, not repeated chat tiles.');
+  } else if (semanticFlavor === 'document') {
+    rules.push('Carry a review/proof lane across seams so the record story feels progressive instead of static.');
+  } else if (args.analysis.role === 'workflow') {
+    rules.push('Preserve a left-to-right sense of progress so each frame advances the task instead of restating it.');
+  } else if (semanticFlavor === 'catalog') {
+    rules.push('Let curated strip elements recur in shorter bursts so range reads clearly without turning every frame into a grid.');
+  } else if (semanticFlavor === 'media') {
+    rules.push('Repeat playback cues sparingly so the strip feels continuous without collapsing into identical player frames.');
+  }
+
+  if (args.storyBeat === 'summary' || args.index === args.total - 1) {
+    rules.push('Land on the cleanest payoff frame and reduce supporting noise near the end.');
+  }
+
+  return rules.join(' ');
 }
 
 function defaultEditorialElements(): PanoramicRequiredElement[] {
@@ -3949,6 +4216,7 @@ function buildCategoryConceptSpecs(
       specs['concept-c'] = {
         ...specs['concept-c'],
         name: 'Editorial Confidence',
+        recipe: 'editorial-confidence',
         strategy:
           'Build a premium, trust-led narrative with reporting proof, clean spacing, and a steadier editorial pace.',
         designGoal: 'Premium finance story with calm hierarchy, clear balances, and credible proof moments.',
@@ -3962,6 +4230,7 @@ function buildCategoryConceptSpecs(
       specs['concept-d'] = {
         ...specs['concept-d'],
         name: 'Proof Panorama',
+        recipe: 'proof-panorama',
         strategy:
           'Use stronger proof moments, richer contrast, and a confident close while keeping the overall feel credible and controlled.',
         designGoal: buildCategoryGoalLine(category, goals),
@@ -3985,6 +4254,7 @@ function buildCategoryConceptSpecs(
       specs['concept-c'] = {
         ...specs['concept-c'],
         name: 'Wellness Panorama',
+        recipe: 'wellness-panorama',
         strategy:
           'Build a slower, supportive story around routine, progress, and gentle proof instead of raw feature density.',
         designGoal: 'Supportive wellness story with routine cues, progress proof, and generous whitespace.',
@@ -3992,6 +4262,7 @@ function buildCategoryConceptSpecs(
       specs['concept-d'] = {
         ...specs['concept-d'],
         name: 'Progress Panorama',
+        recipe: 'progress-panorama',
         strategy:
           'Treat the strip like a momentum arc, using stronger color and pacing while keeping the tone steady and encouraging.',
         designGoal: buildCategoryGoalLine(category, goals),
@@ -4012,8 +4283,13 @@ function buildCategoryConceptSpecs(
         strategy:
           'Use stronger contrast and faster pacing to sell progress, control, and repeatable workflow moments.',
       };
+      specs['concept-c'] = {
+        ...specs['concept-c'],
+        recipe: 'workflow-panorama',
+      };
       specs['concept-d'] = {
         ...specs['concept-d'],
+        recipe: 'momentum-panorama',
         designGoal: buildCategoryGoalLine(category, goals),
       };
       break;
@@ -4035,6 +4311,7 @@ function buildCategoryConceptSpecs(
       specs['concept-c'] = {
         ...specs['concept-c'],
         name: 'Conversation Panorama',
+        recipe: 'conversation-panorama',
         strategy:
           'Thread conversation, feed, and response moments into one connected social story with readable editorial pacing.',
         designGoal: 'Connected social story with conversation, community energy, and readable hierarchy.',
@@ -4042,6 +4319,7 @@ function buildCategoryConceptSpecs(
       specs['concept-d'] = {
         ...specs['concept-d'],
         name: 'Launch Panorama',
+        recipe: 'launch-panorama',
         strategy:
           'Treat the strip like a campaign for activity and response, with higher-energy transitions and stronger community proof.',
         designGoal: buildCategoryGoalLine(category, goals),
@@ -4065,6 +4343,7 @@ function buildCategoryConceptSpecs(
       specs['concept-c'] = {
         ...specs['concept-c'],
         name: 'Gallery Panorama',
+        recipe: 'gallery-panorama',
         strategy:
           'Build an expressive editorial strip that treats screenshots like a visual gallery with supporting crop stories.',
         designGoal: 'Expressive showcase story with stronger detail, atmosphere, and visual hierarchy.',
@@ -4072,6 +4351,7 @@ function buildCategoryConceptSpecs(
       specs['concept-d'] = {
         ...specs['concept-d'],
         name: 'Portfolio Panorama',
+        recipe: 'portfolio-panorama',
         strategy:
           'Use stronger contrast, campaign pacing, and visual payoff so the strip feels like a polished launch story.',
         designGoal: buildCategoryGoalLine(category, goals),
@@ -4095,6 +4375,7 @@ function buildCategoryConceptSpecs(
       specs['concept-c'] = {
         ...specs['concept-c'],
         name: 'World Panorama',
+        recipe: 'world-panorama',
         strategy:
           'Build a connected world-and-progression story with moodier whitespace and clearer payoff beats across frames.',
         designGoal: 'Cinematic panoramic story with strong progression, atmosphere, and reward moments.',
@@ -4102,6 +4383,7 @@ function buildCategoryConceptSpecs(
       specs['concept-d'] = {
         ...specs['concept-d'],
         name: 'Cinematic Panorama',
+        recipe: 'cinematic-panorama',
         strategy:
           'Push transitions, contrast, and proof moments harder so the strip reads like a launch campaign for the game.',
         designGoal: buildCategoryGoalLine(category, goals),
@@ -4120,11 +4402,12 @@ function buildCategoryConceptSpecs(
 
 function buildPanoramicCompositionFeatures(args: {
   category: AppCategory;
-  recipe: 'editorial-panorama' | 'bold-panorama';
+  recipe: string;
   analysis: ScreenshotAnalysis;
   storyBeat: string;
   index: number;
 }): PanoramicCompositionFeature[] {
+  const recipeFamily = panoramicRecipeFamily(args.recipe);
   const features: PanoramicCompositionFeature[] = ['floating-detail-card'];
   const semanticFlavor = inferSemanticFlavor({
     pathValue: args.analysis.path,
@@ -4138,7 +4421,7 @@ function buildPanoramicCompositionFeatures(args: {
   }
 
   if (
-    args.recipe === 'bold-panorama'
+    recipeFamily === 'bold'
     || args.index === 0
     || args.storyBeat === 'trust'
     || args.storyBeat === 'summary'
@@ -4242,12 +4525,15 @@ function buildPanoramicCompositionFeatures(args: {
 }
 
 function buildPanoramicCompositionNote(args: {
-  recipe: 'editorial-panorama' | 'bold-panorama';
+  recipe: string;
   features: PanoramicCompositionFeature[];
   analysis: ScreenshotAnalysis;
   storyBeat: string;
+  layoutArchetype?: string;
+  continuityRule?: string;
 }): string {
   const parts: string[] = [];
+  const recipeFamily = panoramicRecipeFamily(args.recipe);
 
   if (args.features.includes('layered-detail-extract')) {
     parts.push('Pull cropped UI details into a layered supporting stack.');
@@ -4255,7 +4541,7 @@ function buildPanoramicCompositionNote(args: {
 
   if (args.features.includes('floating-detail-card')) {
     parts.push(
-      args.recipe === 'editorial-panorama'
+      recipeFamily === 'editorial'
         ? 'Pair the main device with a quieter floating UI card.'
         : 'Use a floating UI card to keep momentum and readability.',
     );
@@ -4316,6 +4602,10 @@ function buildPanoramicCompositionNote(args: {
     );
   }
 
+  if (args.layoutArchetype) {
+    parts.push(`Shape the frame like a ${args.layoutArchetype.replace(/-/g, ' ')} instead of repeating the previous panel.`);
+  }
+
   if (args.analysis.role === 'communication') {
     parts.push('Preserve the alternating message rhythm instead of flattening it into one generic crop.');
   } else if (args.analysis.role === 'discovery') {
@@ -4332,16 +4622,23 @@ function buildPanoramicCompositionNote(args: {
     parts.push('Keep the transaction proof legible so the frame sells confident completion, not just another product tile.');
   }
 
+  if (args.continuityRule) {
+    parts.push(args.continuityRule);
+  }
+
   return parts.join(' ');
 }
 
 function buildPanoramicPacing(args: {
+  recipe: string;
   analysis: ScreenshotAnalysis;
   storyBeat: string;
   conceptId: 'concept-c' | 'concept-d';
   index: number;
   total: number;
+  layoutArchetype?: string;
 }): string {
+  const archetype = panoramicRecipeArchetype(args.recipe);
   const semanticFlavor = inferSemanticFlavor({
     pathValue: args.analysis.path,
     note: args.analysis.note,
@@ -4350,14 +4647,22 @@ function buildPanoramicPacing(args: {
   });
 
   if (semanticFlavor === 'activity') {
-    if (args.storyBeat === 'hero') return 'open with live momentum';
-    if (args.storyBeat === 'summary' || args.index === args.total - 1) return 'land on follow-through';
-    return 'keep the feed cadence moving';
+    if (args.storyBeat === 'hero') {
+      return archetype === 'conversation' ? 'open with live social motion' : 'open with live momentum';
+    }
+    if (args.storyBeat === 'summary' || args.index === args.total - 1) {
+      return archetype === 'conversation' ? 'land on community payoff' : 'land on follow-through';
+    }
+    return archetype === 'conversation' ? 'alternate social proof and response beats' : 'keep the feed cadence moving';
   }
   if (semanticFlavor === 'document') {
-    if (args.storyBeat === 'hero') return 'open with focused proof';
-    if (args.storyBeat === 'summary' || args.index === args.total - 1) return 'close on review confidence';
-    return 'develop a readable record story';
+    if (args.storyBeat === 'hero') {
+      return archetype === 'confidence' ? 'open with proof-led clarity' : 'open with focused proof';
+    }
+    if (args.storyBeat === 'summary' || args.index === args.total - 1) {
+      return archetype === 'confidence' ? 'close on verified readiness' : 'close on review confidence';
+    }
+    return archetype === 'workflow' ? 'step through review state with calm progress' : 'develop a readable record story';
   }
   if (semanticFlavor === 'support') {
     return args.storyBeat === 'summary' || args.index === args.total - 1
@@ -4379,9 +4684,59 @@ function buildPanoramicPacing(args: {
       ? 'close on verified trust'
       : 'build trusted access';
   }
+  if (args.analysis.role === 'workflow') {
+    if (args.storyBeat === 'hero') return archetype === 'workflow' ? 'open with decisive control' : 'open with clear task flow';
+    if (args.storyBeat === 'summary' || args.index === args.total - 1) {
+      return archetype === 'workflow' ? 'close on control and follow-through' : 'close on completed flow';
+    }
+    return archetype === 'workflow' ? 'stagger progress and proof beats' : 'step the task forward';
+  }
+  if (semanticFlavor === 'catalog') {
+    return args.storyBeat === 'summary' || args.index === args.total - 1
+      ? 'close on curated confidence'
+      : 'keep the assortment feeling selective';
+  }
+  if (semanticFlavor === 'media') {
+    return args.storyBeat === 'summary' || args.index === args.total - 1
+      ? 'close on listening payoff'
+      : 'keep playback cues moving';
+  }
 
-  if (args.index === 0) return 'open strong';
-  if (args.index === args.total - 1) return args.conceptId === 'concept-c' ? 'close quietly' : 'close with payoff';
+  if (args.index === 0) {
+    switch (archetype) {
+      case 'wellness':
+        return 'open with calm presence';
+      case 'workflow':
+        return 'open with decisive structure';
+      case 'conversation':
+        return 'open with immediate social proof';
+      case 'gallery':
+        return 'open like a curated poster';
+      case 'world':
+        return 'open with atmosphere and scale';
+      default:
+        return 'open strong';
+    }
+  }
+  if (args.index === args.total - 1) {
+    switch (archetype) {
+      case 'confidence':
+        return 'close on proof and confidence';
+      case 'wellness':
+        return 'close on steady payoff';
+      case 'workflow':
+        return 'close on control and follow-through';
+      case 'conversation':
+        return 'close on collective payoff';
+      case 'gallery':
+        return 'close on polished output';
+      case 'world':
+        return 'close on cinematic reward';
+      default:
+        return args.conceptId === 'concept-c' ? 'close quietly' : 'close with payoff';
+    }
+  }
+  if (args.layoutArchetype?.includes('relay')) return 'alternate dense proof and open breathing room';
   return 'develop narrative';
 }
 
@@ -4449,6 +4804,7 @@ function buildVariantEntries(
     screens: buildIndividualVariantScreens({
       category,
       conceptId: 'concept-a',
+      recipe: conceptA.recipe,
       sequence: conceptSequences['concept-a'],
       supportUsage: assignmentState.supportUsage,
     }),
@@ -4467,6 +4823,7 @@ function buildVariantEntries(
       screens: buildIndividualVariantScreens({
         category,
         conceptId: 'concept-b',
+        recipe: conceptB.recipe,
         sequence: conceptSequences['concept-b'],
         supportUsage: assignmentState.supportUsage,
       }),
@@ -4491,12 +4848,26 @@ function buildVariantEntries(
       },
       frames: editorialSequence.map((analysis, index) => {
         const storyBeat = buildSlideRole(index, editorialSequence.length);
+        const layoutArchetype = buildPanoramicLayoutArchetype({
+          recipe: conceptC.recipe,
+          storyBeat,
+          index,
+          total: editorialSequence.length,
+        });
         const compositionFeatures = buildPanoramicCompositionFeatures({
           category,
-          recipe: 'editorial-panorama',
+          recipe: conceptC.recipe,
           analysis,
           storyBeat,
           index,
+        });
+        const continuityRule = buildPanoramicContinuityRule({
+          recipe: conceptC.recipe,
+          layoutArchetype,
+          analysis,
+          storyBeat,
+          index,
+          total: editorialSequence.length,
         });
 
         return {
@@ -4507,24 +4878,30 @@ function buildVariantEntries(
           focalPoint: analysis.focalPoint,
           cropSuitability: analysis.cropSuitability,
           storyBeat,
+          layoutArchetype,
+          continuityRule,
           cropPlan: buildCropPlan({
             analysis,
             storyBeat,
             compositionFeatures,
           }),
           pacing: buildPanoramicPacing({
+            recipe: conceptC.recipe,
             analysis,
             storyBeat,
             conceptId: 'concept-c',
             index,
             total: editorialSequence.length,
+            layoutArchetype,
           }),
           compositionFeatures,
           compositionNote: buildPanoramicCompositionNote({
-            recipe: 'editorial-panorama',
+            recipe: conceptC.recipe,
             features: compositionFeatures,
             analysis,
             storyBeat,
+            layoutArchetype,
+            continuityRule,
           }),
         };
       }),
@@ -4549,12 +4926,26 @@ function buildVariantEntries(
       },
       frames: boldSequence.map((analysis, index) => {
         const storyBeat = buildSlideRole(index, boldSequence.length);
+        const layoutArchetype = buildPanoramicLayoutArchetype({
+          recipe: conceptD.recipe,
+          storyBeat,
+          index,
+          total: boldSequence.length,
+        });
         const compositionFeatures = buildPanoramicCompositionFeatures({
           category,
-          recipe: 'bold-panorama',
+          recipe: conceptD.recipe,
           analysis,
           storyBeat,
           index,
+        });
+        const continuityRule = buildPanoramicContinuityRule({
+          recipe: conceptD.recipe,
+          layoutArchetype,
+          analysis,
+          storyBeat,
+          index,
+          total: boldSequence.length,
         });
 
         return {
@@ -4565,17 +4956,21 @@ function buildVariantEntries(
           focalPoint: analysis.focalPoint,
           cropSuitability: analysis.cropSuitability,
           storyBeat,
+          layoutArchetype,
+          continuityRule,
           cropPlan: buildCropPlan({
             analysis,
             storyBeat,
             compositionFeatures,
           }),
           pacing: buildPanoramicPacing({
+            recipe: conceptD.recipe,
             analysis,
             storyBeat,
             conceptId: 'concept-d',
             index,
             total: boldSequence.length,
+            layoutArchetype,
           }),
           assetGuidance:
             analysis.cropSuitability === 'high'
@@ -4583,10 +4978,12 @@ function buildVariantEntries(
               : 'Keep the screenshot dominant and let the typography do the extra work.',
           compositionFeatures,
           compositionNote: buildPanoramicCompositionNote({
-            recipe: 'bold-panorama',
+            recipe: conceptD.recipe,
             features: compositionFeatures,
             analysis,
             storyBeat,
+            layoutArchetype,
+            continuityRule,
           }),
         };
       }),

@@ -78,6 +78,11 @@ Implementation order:
 3. Add recipe-specific layout generators
 4. Add recipe evaluation heuristics
 
+Current status:
+
+- deterministic recipe selection now goes beyond category naming: individual recipe labels now steer composition/copy constraints more directly, and panoramic concepts now resolve into category-specific recipe archetypes such as `editorial-confidence`, `workflow-panorama`, `conversation-panorama`, `gallery-panorama`, `proof-panorama`, `launch-panorama`, and `cinematic-panorama`
+- panoramic planning now emits opener / relay / proof-close style layout archetypes plus continuity rules, and materialization uses those cues to vary text/device geometry across the strip more intentionally instead of treating most panoramas as one editorial-vs-bold split
+
 ### 3. Screenshot Understanding
 
 The agent needs to inspect the screenshots, not just place them.
@@ -109,7 +114,7 @@ Current status:
 - raster ambiguity guards now reduce some false positives where wide non-OCR panels previously over-read as settings or reporting structure
 - local semantic cue families now also separate editor/canvas, catalog/store, profile/community, activity/feed, document/review, map/navigation, media/player, capture/scan, schedule/calendar, commerce/checkout, secure-access, support/help, and rewards/loyalty screenshots from those broader buckets, reducing more note/filename-driven non-OCR false positives without bundling built-in model dependencies
 - variant plans now emit explicit per-concept frame strategies plus per-screen/per-frame crop plans, including text-occupied-region avoidance and focal-point anchoring
-- materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, safer text offsets, palette-led backgrounds, deeper device-frame treatment, family-aware panoramic pacing, and role-aware composition/background reactions for onboarding/paywall/settings/chat/reporting/workflow/discovery/editor/profile/catalog/activity/document/map/media/capture/schedule/commerce/security/support/reward-style screens
+- materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, safer text offsets, palette-led backgrounds, deeper device-frame treatment, family-aware panoramic pacing, recipe-aware opener/relay/close variation, and role-aware composition/background reactions for onboarding/paywall/settings/chat/reporting/workflow/discovery/editor/profile/catalog/activity/document/map/media/capture/schedule/commerce/security/support/reward-style screens
 
 ### 4. Generate-Then-Rank Loop
 
@@ -131,6 +136,11 @@ Implementation order:
 2. Add fast preview rendering
 3. Add heuristic scoring
 4. Add optional model-based scoring from rendered previews
+
+Current status:
+
+- heuristic scoring already blends config analysis, rendered-preview metrics, concept diversity, and optional model ranking
+- scoring now also rejects structurally generic concepts more directly by measuring recipe specificity, support-system richness, and repeated layout rhythm instead of relying on preview pixels alone
 
 ### 5. Real Agent Tooling
 
@@ -202,6 +212,7 @@ This roadmap now has three concrete pieces underway:
 - individual composition breadth: dynamic individual concepts now materialize multi-device compositions, supporting screenshots, loupes, overlays, and palette-aware backgrounds instead of staying inside a single-device layout
 - recipe-specific composition/background reactions now respond more explicitly to onboarding, paywall, settings, chat, reporting, workflow, discovery, editor, profile, catalog, activity, document, map, media, capture, schedule, commerce, security, support, and reward-style screens instead of only generic frame/crop signals
 - panoramic planning/materialization now also emits tool-ribbon, profile-spotlight, activity-wave, folio-stack, browse-strip, route-arc, playback-marquee, capture-focus, timeline-band, checkout-lane, trust-shield, support-beacon, and reward-ribbon treatments plus background accents and family-aware pacing when those local cue families are present, so the strip reacts more clearly than generic proof/decorative systems alone
+- recipe-aware panoramic planning now also varies opener / relay / close archetypes and continuity rules by category-specific recipe family, pulling the system closer to before.click-style pacing breadth without bundling model-dependent generation
 - deterministic concept planning: concepts now resequence screenshots differently, constrain support-screen reuse, and derive per-screen copy direction from screenshot role, density, quiet-space, and focal cues instead of sharing one generic ordering/story pass
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot
 - screenshot-aware copy generation: copy candidates can now consume screenshot-derived slot signals so hero, differentiator, feature, trust, and summary lines respond to actual screen content instead of only the feature list
@@ -219,4 +230,5 @@ This roadmap now has three concrete pieces underway:
 - autopilot hardening foundations: `appframe_run_autopilot` now persists a stage-by-stage run manifest with resume, forced rerun, stale-artifact detection, structured failure, and explicit preview-next-step metadata
 - preview launch helper: agents can now start the preview server directly from MCP with `appframe_open_preview_session` instead of only receiving a shell command
 - rendered preview scoring: recommendation now blends config heuristics with rendered PNG analysis for contrast, text-zone safety, whitespace balance, clutter, and panoramic seam continuity
+- rendered preview scoring now also penalizes structurally generic outputs when support systems or frame rhythm repeat too mechanically, improving local-first candidate rejection without requiring AI credentials
 - rendered preview scoring now also measures set-wide concept diversity, emits concrete layout/copy explanation text, and can run optional live model-assisted visual ranking from rendered previews when AI credentials are available

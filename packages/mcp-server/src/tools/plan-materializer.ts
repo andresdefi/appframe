@@ -472,6 +472,61 @@ function buildIndividualBackground(args: {
   return {};
 }
 
+function panoramicRecipeFamily(recipe: string): 'editorial' | 'bold' {
+  switch (recipe) {
+    case 'editorial-panorama':
+    case 'editorial-confidence':
+    case 'wellness-panorama':
+    case 'workflow-panorama':
+    case 'conversation-panorama':
+    case 'gallery-panorama':
+    case 'world-panorama':
+      return 'editorial';
+    default:
+      return 'bold';
+  }
+}
+
+function panoramicRecipeArchetype(recipe: string):
+  | 'confidence'
+  | 'wellness'
+  | 'workflow'
+  | 'conversation'
+  | 'gallery'
+  | 'world'
+  | 'default' {
+  switch (recipe) {
+    case 'editorial-confidence':
+    case 'proof-panorama':
+      return 'confidence';
+    case 'wellness-panorama':
+    case 'progress-panorama':
+      return 'wellness';
+    case 'workflow-panorama':
+    case 'momentum-panorama':
+      return 'workflow';
+    case 'conversation-panorama':
+    case 'launch-panorama':
+      return 'conversation';
+    case 'gallery-panorama':
+    case 'portfolio-panorama':
+      return 'gallery';
+    case 'world-panorama':
+    case 'cinematic-panorama':
+      return 'world';
+    default:
+      return 'default';
+  }
+}
+
+function isEditorialPanoramaRecipe(recipe: string): boolean {
+  return panoramicRecipeFamily(recipe) === 'editorial';
+}
+
+function isBoldPanoramaRecipe(recipe: string): boolean {
+  return panoramicRecipeFamily(recipe) === 'bold';
+}
+
 function panoramicTextPlacement(args: {
   frame: PlannedPanoramicFrame;
   recipe: PlannedPanoramicVariant['recipe'];
@@ -479,9 +534,11 @@ function panoramicTextPlacement(args: {
   sliceWidth: number;
   frameStrategy: PlannedFrameStrategy | undefined;
 }): { x: number; maxWidth: number; fontSize: number } {
+  const recipeFamily = panoramicRecipeFamily(args.recipe);
+  const recipeArchetype = panoramicRecipeArchetype(args.recipe);
   let x = args.frameSliceStart + 4;
   let maxWidth = Math.max(12, Math.floor(args.sliceWidth) - 6);
-  let fontSize = args.recipe === 'editorial-panorama' ? 3.4 : 3.8;
+  let fontSize = recipeFamily === 'editorial' ? 3.4 : 3.8;
 
   if (args.frame.cropPlan?.avoidRegions.includes('left')) {
     x += 4;
@@ -535,11 +592,30 @@ function panoramicTextPlacement(args: {
   if (hasCompositionFeature(args.frame, 'profile-orbit')) {
     fontSize -= 0.05;
   }
+  if (args.frame.layoutArchetype?.includes('split') || args.frame.layoutArchetype?.includes('signal-opener')) {
+    maxWidth -= 3;
+    fontSize -= 0.1;
+  }
+  if (args.frame.layoutArchetype?.includes('poster') || args.frame.layoutArchetype?.includes('gallery-opener')) {
+    maxWidth += 1;
+    fontSize += recipeFamily === 'editorial' ? 0.08 : 0.14;
+  }
+  if (args.frame.layoutArchetype?.includes('close')) {
+    maxWidth -= 1;
+  }
+  if (recipeArchetype === 'workflow') {
+    x += 0.5;
+    maxWidth -= 1;
+  } else if (recipeArchetype === 'conversation') {
+    maxWidth -= 1.5;
+  } else if (recipeArchetype === 'gallery' || recipeArchetype === 'world') {
+    fontSize += 0.06;
+  }
 
   return {
     x,
     maxWidth: Math.max(10, maxWidth),
-    fontSize: Math.max(3.1, fontSize),
+    fontSize: Math.max(3.05, fontSize),
   };
 }
 
@@ -2278,64 +2354,75 @@ function buildPanoramicDecorativeGroup(args: {
 }
 
 function panoramicTextY(frame: PlannedPanoramicFrame, recipe: PlannedPanoramicVariant['recipe']): number {
+  const boldRecipe = isBoldPanoramaRecipe(recipe);
+  const recipeArchetype = panoramicRecipeArchetype(recipe);
   if (hasCompositionFeature(frame, 'toolbar-ribbon')) {
-    return recipe === 'bold-panorama' ? 11 : 12;
+    return boldRecipe ? 11 : 12;
   }
   if (hasCompositionFeature(frame, 'trust-shield')) {
-    return recipe === 'bold-panorama' ? 11 : 12;
+    return boldRecipe ? 11 : 12;
   }
   if (hasCompositionFeature(frame, 'support-beacon')) {
-    return recipe === 'bold-panorama' ? 11 : 12;
+    return boldRecipe ? 11 : 12;
   }
   if (hasCompositionFeature(frame, 'timeline-band')) {
-    return recipe === 'bold-panorama' ? 11 : 12;
+    return boldRecipe ? 11 : 12;
   }
   if (frame.cropPlan?.avoidRegions.includes('top')) {
-    return recipe === 'bold-panorama' ? 10 : 11;
+    return boldRecipe ? 10 : 11;
   }
+  if (frame.layoutArchetype?.includes('close')) return boldRecipe ? 14 : 11;
+  if (frame.layoutArchetype?.includes('split') || frame.layoutArchetype?.includes('text-rail')) {
+    return boldRecipe ? 12 : 10;
+  }
+  if (recipeArchetype === 'gallery' || recipeArchetype === 'world') return boldRecipe ? 7 : 6.5;
   return 6;
 }
 
 function panoramicLabelY(frame: PlannedPanoramicFrame, recipe: PlannedPanoramicVariant['recipe']): number {
-  return panoramicTextY(frame, recipe) + (recipe === 'bold-panorama' ? 13 : 11);
+  return panoramicTextY(frame, recipe) + (isBoldPanoramaRecipe(recipe) ? 13 : 11);
 }
 
 function panoramicProofChipY(
   frame: PlannedPanoramicFrame,
   recipe: PlannedPanoramicVariant['recipe'],
 ): number {
+  const boldRecipe = isBoldPanoramaRecipe(recipe);
   if (frame.storyBeat === 'summary') return 72;
   if (hasCompositionFeature(frame, 'profile-orbit')) {
-    return recipe === 'bold-panorama' ? 30 : 28;
+    return boldRecipe ? 30 : 28;
   }
   if (hasCompositionFeature(frame, 'trust-shield')) {
-    return recipe === 'bold-panorama' ? 32 : 29;
+    return boldRecipe ? 32 : 29;
   }
   if (hasCompositionFeature(frame, 'support-beacon')) {
-    return recipe === 'bold-panorama' ? 32 : 29;
+    return boldRecipe ? 32 : 29;
   }
   if (hasCompositionFeature(frame, 'media-marquee')) {
-    return recipe === 'bold-panorama' ? 34 : 31;
+    return boldRecipe ? 34 : 31;
   }
   if (hasCompositionFeature(frame, 'reward-ribbon')) {
-    return recipe === 'bold-panorama' ? 34 : 31;
+    return boldRecipe ? 34 : 31;
   }
   if (hasCompositionFeature(frame, 'checkout-lane')) {
-    return recipe === 'bold-panorama' ? 35 : 32;
+    return boldRecipe ? 35 : 32;
   }
   if (hasCompositionFeature(frame, 'capture-focus')) {
-    return recipe === 'bold-panorama' ? 36 : 33;
+    return boldRecipe ? 36 : 33;
   }
   if (hasCompositionFeature(frame, 'timeline-band')) {
-    return recipe === 'bold-panorama' ? 33 : 30;
+    return boldRecipe ? 33 : 30;
   }
   if (hasCompositionFeature(frame, 'route-arc')) {
-    return recipe === 'bold-panorama' ? 32 : 30;
+    return boldRecipe ? 32 : 30;
   }
   if (frame.cropPlan?.avoidRegions.includes('top')) {
-    return recipe === 'bold-panorama' ? 34 : 31;
+    return boldRecipe ? 34 : 31;
   }
-  return recipe === 'bold-panorama' ? 26 : 24;
+  if (frame.layoutArchetype?.includes('close') || frame.layoutArchetype?.includes('punch')) {
+    return boldRecipe ? 24 : 22;
+  }
+  return boldRecipe ? 26 : 24;
 }
 
 function panoramicFocusPoint(
@@ -2363,8 +2450,10 @@ function panoramicDevicePlacement(
   frame: PlannedPanoramicFrame,
   index: number,
   frameCenter: number,
+  recipe: PlannedPanoramicVariant['recipe'],
   frameStrategy: PlannedFrameStrategy | undefined,
 ): { x: number; y: number; width: number; rotation: number } {
+  const recipeArchetype = panoramicRecipeArchetype(recipe);
   const extractDriven = frameStrategy?.defaultTreatment === 'mixed' && frame.cropPlan?.usage !== 'full-device';
   const xOffset = frame.cropPlan?.anchor === 'left-rail'
     ? -1.5
@@ -2389,13 +2478,43 @@ function panoramicDevicePlacement(
     : extractDriven
       ? (profileOrbit ? 27 : trustShield || supportBeacon || folioStack ? 27 : routeArc ? 28 : captureFocus ? 27 : activityWave ? 28 : 26)
       : (browseStrip || activityWave || checkoutLane || rewardRibbon ? 25 : mediaMarquee ? 26 : timelineBand ? 25.5 : folioStack ? 24.5 : 24);
+  let x = Math.max(2, frameCenter - (extractDriven ? 6.5 : browseStrip || activityWave || checkoutLane || rewardRibbon ? 6.6 : 7) + xOffset);
+  let width = extractDriven
+    ? (toolbarRibbon || timelineBand || trustShield || supportBeacon || folioStack ? 12.4 : 13)
+    : (browseStrip || activityWave || checkoutLane || rewardRibbon || timelineBand ? 13.2 : 14);
+  let rotation = index % 2 === 0 ? -2 : 2;
+
+  if (frame.layoutArchetype?.includes('split') || frame.layoutArchetype?.includes('text-rail')) {
+    x = frameCenter + 0.8;
+    width -= 0.9;
+    rotation = index % 2 === 0 ? 3 : -3;
+  } else if (frame.layoutArchetype?.includes('poster') || frame.layoutArchetype?.includes('gallery-opener') || frame.layoutArchetype?.includes('showcase-opener')) {
+    x = frameCenter - 7.4;
+    width += 0.8;
+    rotation = index % 2 === 0 ? -1 : 1;
+  } else if (frame.layoutArchetype?.includes('close') || frame.layoutArchetype?.includes('punch')) {
+    x -= 0.6;
+    width -= 0.4;
+    rotation = index % 2 === 0 ? -4 : 4;
+  } else if (frame.layoutArchetype?.includes('relay')) {
+    x += index % 2 === 0 ? -0.8 : 0.8;
+    rotation = index % 2 === 0 ? -3 : 3;
+  }
+
+  if (recipeArchetype === 'workflow') {
+    x += index % 2 === 0 ? -0.3 : 0.3;
+    width -= 0.2;
+  } else if (recipeArchetype === 'conversation') {
+    width -= 0.4;
+  } else if (recipeArchetype === 'gallery' || recipeArchetype === 'world') {
+    width += 0.35;
+  }
+
   return {
-    x: Math.max(2, frameCenter - (extractDriven ? 6.5 : browseStrip || activityWave || checkoutLane || rewardRibbon ? 6.6 : 7) + xOffset),
-    y,
-    width: extractDriven
-      ? (toolbarRibbon || timelineBand || trustShield || supportBeacon || folioStack ? 12.4 : 13)
-      : (browseStrip || activityWave || checkoutLane || rewardRibbon || timelineBand ? 13.2 : 14),
-    rotation: index % 2 === 0 ? -2 : 2,
+    x: Math.max(2, x),
+    y: frame.layoutArchetype?.includes('close') ? y + 2 : frame.layoutArchetype?.includes('poster') ? y - 0.8 : y,
+    width,
+    rotation,
   };
 }
 
@@ -2503,6 +2622,8 @@ function buildPanoramicElements(args: {
 }): PanoramicElement[] {
   const frames = args.variant.frames ?? [];
   const frameCount = args.variant.canvasPlan.frameCount;
+  const editorialRecipe = isEditorialPanoramaRecipe(args.variant.recipe);
+  const boldRecipe = isBoldPanoramaRecipe(args.variant.recipe);
   const elements: PanoramicElement[] = [];
   let featureIndex = 0;
 
@@ -2543,6 +2664,7 @@ function buildPanoramicElements(args: {
       frame,
       index,
       frameCenter,
+      args.variant.recipe,
       args.variant.frameStrategy,
     );
     const deviceTreatment = panoramicDeviceTreatment(
@@ -2561,7 +2683,7 @@ function buildPanoramicElements(args: {
     const labelY = panoramicLabelY(frame, args.variant.recipe);
     const supportBody = copy?.subtitle ?? storyBeatBody(frame);
     const supportCardBackground = lightPaletteColor(frame.dominantPalette)
-      ?? (args.variant.recipe === 'bold-panorama' ? '#FFFFFFF0' : '#FFFFFFF2');
+      ?? (boldRecipe ? '#FFFFFFF0' : '#FFFFFFF2');
 
     elements.push({
       type: 'device',
@@ -2638,11 +2760,11 @@ function buildPanoramicElements(args: {
                     ? 'Scheduled flow'
                 : hasRouteArc
                   ? 'Guided route'
-                  : hasMediaMarquee
-                    ? 'Playback cue'
+                : hasMediaMarquee
+                  ? 'Playback cue'
                 : hasBrowseStrip
                   ? 'Curated browse'
-                  : args.variant.recipe === 'bold-panorama'
+                  : boldRecipe
                     ? 'Campaign concept'
                     : 'Featured flow'
             : hasProfileOrbit
@@ -2657,14 +2779,14 @@ function buildPanoramicElements(args: {
                   ? 'Order proof'
               : 'Proof point',
         x: frameSliceStart + 4,
-        y: args.variant.recipe === 'bold-panorama' ? 21 : 20,
+        y: boldRecipe ? 21 : 20,
         width: Math.max(11, sliceWidth - 10),
         height: 4.8,
-        color: args.variant.recipe === 'bold-panorama' ? '#FFFFFF' : args.textColor,
-        backgroundColor: args.variant.recipe === 'bold-panorama' ? args.accentColor : '#FFFFFF',
+        color: boldRecipe ? '#FFFFFF' : args.textColor,
+        backgroundColor: boldRecipe ? args.accentColor : '#FFFFFF',
         opacity: 0.96,
-        borderColor: args.variant.recipe === 'bold-panorama' ? undefined : args.accentColor,
-        borderWidth: args.variant.recipe === 'bold-panorama' ? 0 : 1,
+        borderColor: boldRecipe ? undefined : args.accentColor,
+        borderWidth: boldRecipe ? 0 : 1,
         borderRadius: 100,
         fontSize: 1.05,
         fontWeight: 700,
@@ -2699,7 +2821,7 @@ function buildPanoramicElements(args: {
                 : hasMediaMarquee
                   ? 'Plays all day'
               : 'Power-user approved'
-            : args.variant.recipe === 'bold-panorama'
+            : boldRecipe
               ? hasToolbarRibbon
                 ? 'Built fast'
                 : hasActivityWave
@@ -2751,7 +2873,7 @@ function buildPanoramicElements(args: {
                 : hasMediaMarquee
                   ? 'Queued for repeat sessions'
               : 'Built for daily use'
-            : args.variant.recipe === 'bold-panorama'
+            : boldRecipe
               ? hasToolbarRibbon
                 ? 'Template workflow'
                 : hasActivityWave
@@ -2782,7 +2904,7 @@ function buildPanoramicElements(args: {
                 : hasRouteArc
                   ? 'Nearby and on route'
                 : 'Trusted by repeat users',
-        rating: args.variant.recipe === 'bold-panorama' ? 5 : undefined,
+        rating: boldRecipe ? 5 : undefined,
         maxRating: 5,
         x: frameSliceStart + Math.max(2.5, sliceWidth - 18),
         y: panoramicProofChipY(frame, args.variant.recipe),
@@ -2793,8 +2915,8 @@ function buildPanoramicElements(args: {
         starColor: '#F59E0B',
         backgroundColor: '#FFFFFFE8',
         opacity: 0.98,
-        borderColor: args.variant.recipe === 'bold-panorama' ? '#FFFFFF66' : args.accentColor,
-        borderWidth: args.variant.recipe === 'bold-panorama' ? 0.5 : 1,
+        borderColor: boldRecipe ? '#FFFFFF66' : args.accentColor,
+        borderWidth: boldRecipe ? 0.5 : 1,
         borderRadius: 28,
         valueSize: 1.65,
         detailSize: 0.95,
@@ -2805,7 +2927,7 @@ function buildPanoramicElements(args: {
     }
 
     if (
-      args.variant.recipe === 'editorial-panorama'
+      editorialRecipe
       && hasLayeredDetail
       && allowFramelessExtracts
       && frame.cropPlan?.usage === 'layered-extract'
@@ -2834,7 +2956,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'editorial-panorama' && hasFloatingDetailCard) {
+    if (editorialRecipe && hasFloatingDetailCard) {
       const groupWidth = Math.max(12.5, sliceWidth - 8);
       elements.push(
         buildPanoramicSupportGroup({
@@ -2917,7 +3039,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'editorial-panorama' && hasDecorativeCluster) {
+    if (editorialRecipe && hasDecorativeCluster) {
       elements.push(
         buildPanoramicDecorativeGroup({
           x: frameSliceStart + Math.max(2, sliceWidth - 11),
@@ -2958,7 +3080,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'editorial-panorama' && hasToolbarRibbon) {
+    if (editorialRecipe && hasToolbarRibbon) {
       elements.push(
         buildPanoramicToolbarRibbonGroup({
           x: frameSliceStart + 2,
@@ -2973,7 +3095,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'editorial-panorama' && hasBrowseStrip) {
+    if (editorialRecipe && hasBrowseStrip) {
       elements.push(
         buildPanoramicBrowseStripGroup({
           x: frameSliceStart + 2,
@@ -2988,7 +3110,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'editorial-panorama' && hasActivityWave) {
+    if (editorialRecipe && hasActivityWave) {
       elements.push(
         buildPanoramicActivityWaveGroup({
           x: frameSliceStart + 2,
@@ -3003,7 +3125,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'editorial-panorama' && hasFolioStack) {
+    if (editorialRecipe && hasFolioStack) {
       elements.push(
         buildPanoramicFolioStackGroup({
           x: frameSliceStart + Math.max(2, sliceWidth - 15),
@@ -3022,13 +3144,13 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicTrustShieldGroup({
           x: frameSliceStart + Math.max(2, sliceWidth - 15),
-          y: args.variant.recipe === 'bold-panorama' ? 17 : 18,
+          y: boldRecipe ? 17 : 18,
           width: Math.max(12, sliceWidth - 5),
           height: 14,
           rotation: index % 2 === 0 ? -2 : 2,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
-          dark: args.variant.recipe === 'bold-panorama',
+          dark: boldRecipe,
         }),
       );
     }
@@ -3037,13 +3159,13 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicSupportBeaconGroup({
           x: frameSliceStart + Math.max(2, sliceWidth - 15),
-          y: args.variant.recipe === 'bold-panorama' ? 17 : 18,
+          y: boldRecipe ? 17 : 18,
           width: Math.max(12, sliceWidth - 5),
           height: 14,
           rotation: index % 2 === 0 ? -2 : 2,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
-          dark: args.variant.recipe === 'bold-panorama',
+          dark: boldRecipe,
         }),
       );
     }
@@ -3052,13 +3174,13 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicCheckoutLaneGroup({
           x: frameSliceStart + 2,
-          y: args.variant.recipe === 'bold-panorama' ? 74 : 72,
+          y: boldRecipe ? 74 : 72,
           width: Math.max(12, sliceWidth - 4),
           height: 14,
           rotation: index % 2 === 0 ? -2 : 2,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
-          dark: args.variant.recipe === 'bold-panorama',
+          dark: boldRecipe,
         }),
       );
     }
@@ -3067,13 +3189,13 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicRewardRibbonGroup({
           x: frameSliceStart + 2,
-          y: args.variant.recipe === 'bold-panorama' ? 74 : 72,
+          y: boldRecipe ? 74 : 72,
           width: Math.max(12, sliceWidth - 4),
           height: 14,
           rotation: index % 2 === 0 ? -2 : 2,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
-          dark: args.variant.recipe === 'bold-panorama',
+          dark: boldRecipe,
         }),
       );
     }
@@ -3082,13 +3204,13 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicCaptureFocusGroup({
           x: frameSliceStart + 2,
-          y: args.variant.recipe === 'bold-panorama' ? 18 : 20,
+          y: boldRecipe ? 18 : 20,
           width: Math.max(12, sliceWidth - 4),
           height: 14,
           rotation: index % 2 === 0 ? -2 : 2,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
-          dark: args.variant.recipe === 'bold-panorama',
+          dark: boldRecipe,
         }),
       );
     }
@@ -3097,13 +3219,13 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicTimelineBandGroup({
           x: frameSliceStart + 2,
-          y: args.variant.recipe === 'bold-panorama' ? 18 : 20,
+          y: boldRecipe ? 18 : 20,
           width: Math.max(12, sliceWidth - 4),
           height: 12,
           rotation: index % 2 === 0 ? -2 : 2,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
-          dark: args.variant.recipe === 'bold-panorama',
+          dark: boldRecipe,
         }),
       );
     }
@@ -3112,13 +3234,13 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicRouteArcGroup({
           x: frameSliceStart + 2,
-          y: args.variant.recipe === 'bold-panorama' ? 72 : 70,
+          y: boldRecipe ? 72 : 70,
           width: Math.max(12, sliceWidth - 4),
           height: 12,
           rotation: index % 2 === 0 ? -2 : 2,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
-          dark: args.variant.recipe === 'bold-panorama',
+          dark: boldRecipe,
         }),
       );
     }
@@ -3127,19 +3249,19 @@ function buildPanoramicElements(args: {
       elements.push(
         buildPanoramicMediaMarqueeGroup({
           x: frameSliceStart + 2,
-          y: args.variant.recipe === 'bold-panorama' ? 16 : 18,
+          y: boldRecipe ? 16 : 18,
           width: Math.max(12, sliceWidth - 4),
           height: 12,
           rotation: index % 2 === 0 ? -2 : 2,
           accentColor: args.accentColor,
           secondaryColor: args.subtitleColor,
-          dark: args.variant.recipe === 'bold-panorama',
+          dark: boldRecipe,
         }),
       );
     }
 
     if (
-      args.variant.recipe === 'bold-panorama'
+      boldRecipe
       && hasLayeredDetail
       && allowFramelessExtracts
       && frame.cropPlan?.usage === 'layered-extract'
@@ -3169,7 +3291,7 @@ function buildPanoramicElements(args: {
     }
 
     if (
-      args.variant.recipe === 'bold-panorama'
+      boldRecipe
       && hasFloatingDetailCard
       && includeSupportCrop
       && frame.cropSuitability !== 'low'
@@ -3244,7 +3366,7 @@ function buildPanoramicElements(args: {
           includeCrop: allowFramelessExtracts,
         }),
       );
-    } else if (args.variant.recipe === 'bold-panorama' && hasFloatingDetailCard) {
+    } else if (boldRecipe && hasFloatingDetailCard) {
       elements.push(
         buildPanoramicSupportGroup({
           screenshot: sourceScreenshot,
@@ -3304,7 +3426,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'bold-panorama' && hasDecorativeCluster) {
+    if (boldRecipe && hasDecorativeCluster) {
       elements.push(
         buildPanoramicDecorativeGroup({
           x: frameSliceStart + 2,
@@ -3341,7 +3463,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'bold-panorama' && hasToolbarRibbon) {
+    if (boldRecipe && hasToolbarRibbon) {
       elements.push(
         buildPanoramicToolbarRibbonGroup({
           x: frameSliceStart + sliceWidth - Math.max(11.5, sliceWidth - 7) - 1.5,
@@ -3356,7 +3478,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'bold-panorama' && hasBrowseStrip) {
+    if (boldRecipe && hasBrowseStrip) {
       elements.push(
         buildPanoramicBrowseStripGroup({
           x: frameSliceStart + 2,
@@ -3371,7 +3493,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'bold-panorama' && hasActivityWave) {
+    if (boldRecipe && hasActivityWave) {
       elements.push(
         buildPanoramicActivityWaveGroup({
           x: frameSliceStart + 2,
@@ -3386,7 +3508,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (args.variant.recipe === 'bold-panorama' && hasFolioStack) {
+    if (boldRecipe && hasFolioStack) {
       elements.push(
         buildPanoramicFolioStackGroup({
           x: frameSliceStart + Math.max(2, sliceWidth - 15),

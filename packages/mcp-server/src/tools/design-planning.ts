@@ -688,6 +688,39 @@ function rasterFlavorBonus(score = 0): number {
   return 0;
 }
 
+function rasterSemanticFlavorScore(
+  signals: RasterSemanticSignals | undefined,
+  flavor: SemanticFlavor,
+): number {
+  if (!signals) return 0;
+
+  switch (flavor) {
+    case 'activity':
+      return signals.activityFlavorScore;
+    case 'profile':
+      return signals.profileFlavorScore;
+    case 'editor':
+      return signals.editorFlavorScore;
+    case 'catalog':
+      return signals.catalogFlavorScore;
+    case 'document':
+      return signals.documentFlavorScore;
+    case 'map':
+      return signals.mapFlavorScore;
+    case 'media':
+      return signals.mediaFlavorScore;
+    case 'capture':
+      return signals.captureFlavorScore;
+    case 'schedule':
+      return signals.scheduleFlavorScore;
+    case 'commerce':
+    case 'security':
+    case 'support':
+    case 'reward':
+      return 0;
+  }
+}
+
 function humanizeSemanticFlavor(flavor: SemanticFlavor): string {
   return flavor.replace(/-/g, ' ');
 }
@@ -715,48 +748,66 @@ function inferSemanticFlavorDetails(args: {
     args.textInsights && (args.textInsights.blocks.length > 0 || args.textInsights.text.trim().length > 0),
   );
   const rasterSemanticSignals = args.rasterSemanticSignals;
+  const activityRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'activity');
+  const profileRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'profile');
+  const editorRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'editor');
+  const catalogRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'catalog');
+  const documentRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'document');
+  const mapRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'map');
+  const mediaRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'media');
+  const captureRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'capture');
+  const scheduleRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'schedule');
   const activityScore = signals.activitySignalCount > 0
     ? (signals.activitySignalCount * 2)
       + (args.role === 'discovery' || args.role === 'home' ? 2 : args.role === 'communication' ? 1 : 0)
+      + rasterFlavorBonus(activityRasterScore)
+      + (activityRasterScore >= 5 ? 2 : activityRasterScore >= 4 ? 1 : 0)
+      + (activityRasterScore > profileRasterScore ? 1 : 0)
       + (signals.profileSignalCount >= 1 ? 1 : 0)
       - Math.min(2, signals.communicationConflictCount)
       - Math.min(1, signals.settingsConflictCount)
       - Math.min(1, signals.paywallConflictCount)
-    : 0;
+    : ((args.role === 'discovery' || args.role === 'home' ? 1 : args.role === 'communication' ? 1 : 0)
+      + rasterFlavorBonus(activityRasterScore)
+      + (activityRasterScore >= 5 ? 2 : activityRasterScore >= 4 ? 1 : 0)
+      - Math.min(1, signals.settingsConflictCount)
+      - Math.min(1, signals.paywallConflictCount));
   const profileScore = (signals.profileSignalCount * 2)
     + (args.role === 'detail' || args.role === 'communication' || args.role === 'discovery' ? 1 : 0)
+    + rasterFlavorBonus(profileRasterScore)
+    + (profileRasterScore > activityRasterScore ? 1 : 0)
     - (signals.settingsConflictCount >= 2 ? 3 : signals.settingsConflictCount);
   const editorScore = (signals.editorSignalCount * 2)
     + (args.role === 'workflow' ? 2 : args.role === 'detail' ? 1 : 0)
-    + rasterFlavorBonus(rasterSemanticSignals?.editorFlavorScore)
-    + ((rasterSemanticSignals?.editorFlavorScore ?? 0) > (rasterSemanticSignals?.documentFlavorScore ?? 0) ? 1 : 0)
+    + rasterFlavorBonus(editorRasterScore)
+    + (editorRasterScore > documentRasterScore ? 1 : 0)
     - Math.min(2, signals.settingsConflictCount)
     - Math.min(2, signals.paywallConflictCount);
   const catalogScore = (signals.catalogSignalCount * 2)
     + (args.role === 'discovery' ? 2 : args.role === 'home' ? 1 : 0)
-    + rasterFlavorBonus(rasterSemanticSignals?.catalogFlavorScore)
+    + rasterFlavorBonus(catalogRasterScore)
     - (signals.paywallConflictCount >= 2 ? 4 : signals.paywallConflictCount);
   const documentScore = signals.documentSignalCount > 0
     ? (signals.documentSignalCount * 2)
       + (args.role === 'detail' ? 2 : args.role === 'workflow' ? 1 : 0)
-      + rasterFlavorBonus(rasterSemanticSignals?.documentFlavorScore)
+      + rasterFlavorBonus(documentRasterScore)
       + (signals.scheduleSignalCount >= 1 ? 1 : 0)
       - Math.min(2, signals.reportingConflictCount)
       - Math.min(1, signals.editorSignalCount)
-      - ((rasterSemanticSignals?.editorFlavorScore ?? 0) > (rasterSemanticSignals?.documentFlavorScore ?? 0) ? 2 : 0)
+      - (editorRasterScore > documentRasterScore ? 2 : 0)
       - (signals.captureSignalCount > signals.documentSignalCount ? 2 : 0)
       - Math.min(1, signals.paywallConflictCount)
     : ((args.role === 'detail' ? 2 : args.role === 'workflow' ? 1 : 0)
-      + rasterFlavorBonus(rasterSemanticSignals?.documentFlavorScore)
-      - ((rasterSemanticSignals?.editorFlavorScore ?? 0) > (rasterSemanticSignals?.documentFlavorScore ?? 0) ? 2 : 0));
+      + rasterFlavorBonus(documentRasterScore)
+      - (editorRasterScore > documentRasterScore ? 2 : 0));
   const mapScore = (signals.mapSignalCount * 2)
     + (args.role === 'discovery' || args.role === 'home' ? 2 : args.role === 'detail' ? 1 : 0)
-    + rasterFlavorBonus(rasterSemanticSignals?.mapFlavorScore)
+    + rasterFlavorBonus(mapRasterScore)
     - Math.min(2, signals.settingsConflictCount)
     - Math.min(2, signals.paywallConflictCount);
   const mediaScore = (signals.mediaSignalCount * 2)
     + (args.role === 'detail' ? 2 : args.role === 'discovery' || args.role === 'communication' ? 1 : 0)
-    + rasterFlavorBonus(rasterSemanticSignals?.mediaFlavorScore)
+    + rasterFlavorBonus(mediaRasterScore)
     - Math.min(2, signals.settingsConflictCount)
     - Math.min(2, signals.paywallConflictCount);
   const commerceScore = (signals.commerceSignalCount * 2)
@@ -787,15 +838,17 @@ function inferSemanticFlavorDetails(args: {
     : 0;
   const captureScore = (signals.captureSignalCount * 2)
     + (args.role === 'workflow' || args.role === 'detail' ? 2 : args.role === 'home' ? 1 : 0)
-    + rasterFlavorBonus(rasterSemanticSignals?.captureFlavorScore)
-    + ((rasterSemanticSignals?.captureFlavorScore ?? 0) >= 6 ? 2 : (rasterSemanticSignals?.captureFlavorScore ?? 0) >= 5 ? 1 : 0)
-    + ((rasterSemanticSignals?.captureFlavorScore ?? 0) > (rasterSemanticSignals?.mediaFlavorScore ?? 0) ? 1 : 0)
+    + rasterFlavorBonus(captureRasterScore)
+    + (captureRasterScore >= 6 ? 2 : captureRasterScore >= 5 ? 1 : 0)
+    + (captureRasterScore > mediaRasterScore ? 1 : 0)
     - Math.min(2, signals.mediaConflictCount)
     - Math.min(2, signals.settingsConflictCount)
     - ((args.role === 'paywall' || (rasterSemanticSignals?.paywallScore ?? 0) >= 4) ? 4 : 0)
     - (args.role === 'onboarding' ? 4 : Math.min(2, signals.onboardingConflictCount));
   const scheduleScore = (signals.scheduleSignalCount * 2)
     + (args.role === 'workflow' ? 2 : args.role === 'home' || args.role === 'detail' ? 1 : 0)
+    + rasterFlavorBonus(scheduleRasterScore)
+    + (scheduleRasterScore > documentRasterScore ? 1 : 0)
     - Math.min(2, signals.reportingConflictCount)
     - Math.min(1, signals.settingsConflictCount)
     - Math.min(2, signals.editorSignalCount);
@@ -897,6 +950,23 @@ function inferSemanticFlavorDetails(args: {
 
   if (
     !hasTextInsights
+    && args.role === 'settings'
+    && (best.flavor === 'profile' || best.flavor === 'reward' || best.flavor === 'commerce')
+    && signalCount <= 3
+    && rasterSemanticFlavorScore(rasterSemanticSignals, best.flavor) < 4
+  ) {
+    return {
+      reason: [
+        ...reason,
+        `Generic settings structure outweighs the weak ${humanizeSemanticFlavor(best.flavor)} cues, so this falls back to generic until reviewed.`,
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
     && args.role === 'paywall'
     && (best.flavor === 'commerce' || best.flavor === 'reward')
     && signalCount <= Math.max(2, signals.paywallConflictCount)
@@ -928,6 +998,22 @@ function inferSemanticFlavorDetails(args: {
       : best.score >= (hasTextInsights ? 4 : 5) && margin >= (hasTextInsights ? 1 : 2)
         ? 'medium'
         : 'low';
+
+  if (
+    !hasTextInsights
+    && signalCount === 0
+    && rasterSemanticFlavorScore(rasterSemanticSignals, best.flavor) >= 5
+    && confidence === 'low'
+  ) {
+    reason.push('Strong raster structure keeps this family usable even without OCR text.');
+    return {
+      flavor: best.flavor,
+      confidence: 'medium',
+      reason,
+      alternatives,
+      needsReview: true,
+    };
+  }
 
   if (!hasTextInsights && confidence === 'low') {
     reason.push('Raster-only evidence is still too weak to lock this family without review.');
@@ -2262,12 +2348,15 @@ interface RasterSemanticSignals {
   discoveryScore: number;
   dashboardScore: number;
   reportingScore: number;
+  activityFlavorScore: number;
+  profileFlavorScore: number;
   editorFlavorScore: number;
   catalogFlavorScore: number;
   documentFlavorScore: number;
   mapFlavorScore: number;
   mediaFlavorScore: number;
   captureFlavorScore: number;
+  scheduleFlavorScore: number;
 }
 
 interface RasterSignals {
@@ -2521,6 +2610,9 @@ function inferRasterSemanticSignals(args: {
   let alternatingConversationRows = 0;
   let lowerHalfDenseRows = 0;
   let topInsetBarRows = 0;
+  let feedRows = 0;
+  let upperHeroPanelRows = 0;
+  let agendaRows = 0;
   let previousBubbleSide: 'left' | 'right' | null = null;
 
   for (let row = 0; row < args.blockRows; row += 1) {
@@ -2560,11 +2652,23 @@ function inferRasterSemanticSignals(args: {
     });
     if (centeredSegment) centeredPanelRows += 1;
 
+    const upperCenteredPanel = combinedSegments.some((segment) => {
+      const center = (segment.start + segment.end + 1) / 2;
+      return center >= 4 && center <= 8 && segment.width >= 3 && segment.width <= 7;
+    });
+    if (upperCenteredPanel && rowCenter >= 0.18 && rowCenter <= 0.44) upperHeroPanelRows += 1;
+
     const insetTopBar = combinedSegments.some((segment) => {
       const center = (segment.start + segment.end + 1) / 2;
       return center >= 4 && center <= 8 && segment.width >= 3 && segment.width <= 9;
     });
     if (insetTopBar && rowCenter >= 0.12 && rowCenter <= 0.28) topInsetBarRows += 1;
+
+    const feedRow = combinedSegments.some((segment) =>
+      segment.width >= 7
+      && segment.start <= 2
+      && segment.end >= args.blockColumns - 3);
+    if (feedRow && rowCenter >= 0.26 && rowCenter <= 0.86) feedRows += 1;
 
     const hasCardPair = segments.length >= 2 && segments.every((segment) => segment.width >= 2 && segment.width <= 4);
     if (hasCardPair && rowCenter >= 0.22 && rowCenter <= 0.7) cardGridRows += 1;
@@ -2592,6 +2696,19 @@ function inferRasterSemanticSignals(args: {
         alternatingConversationRows += 1;
       }
       previousBubbleSide = bubbleSide;
+    }
+
+    if (
+      segments.length === 2
+      && rowCenter >= 0.22
+      && rowCenter <= 0.86
+      && segments[0]!.start <= 1
+      && segments[0]!.width >= 1
+      && segments[0]!.width <= 2
+      && segments[1]!.width >= 4
+      && segments[1]!.end >= args.blockColumns - 3
+    ) {
+      agendaRows += 1;
     }
   }
 
@@ -2662,6 +2779,21 @@ function inferRasterSemanticSignals(args: {
     + (lowerHalfDenseRows >= 3 ? 1 : 0)
     + (args.focusStrength >= 0.5 ? 1 : 0)
   );
+  const activityFlavorScore = (
+    (feedRows >= 4 ? 2 : feedRows >= 3 ? 1 : 0)
+    + (lowerHalfDenseRows >= 3 ? 1 : 0)
+    + (topInsetBarRows >= 1 ? 1 : 0)
+    + (cardGridRows <= 1 ? 1 : 0)
+    + (splitRows <= 2 ? 1 : 0)
+  );
+  const profileFlavorScore = (
+    (upperHeroPanelRows >= 3 ? 2 : upperHeroPanelRows >= 2 ? 1 : 0)
+    + (feedRows >= 2 && feedRows <= 4 ? 1 : 0)
+    + (args.topQuietRatio >= 0.6 ? 1 : 0)
+    + (lowerCtaRows === 0 ? 1 : 0)
+    + (cardGridRows <= 1 ? 1 : 0)
+    + (wideCenterRows >= 2 ? 1 : 0)
+  );
   const editorFlavorScore = (
     (centeredPanelRows >= 4 ? 2 : centeredPanelRows >= 3 ? 1 : 0)
     + (topInsetBarRows >= 1 ? 1 : 0)
@@ -2707,6 +2839,14 @@ function inferRasterSemanticSignals(args: {
     + (splitRows <= 2 ? 1 : 0)
     + (args.averageLuminance <= 150 ? 1 : 0)
   );
+  const scheduleFlavorScore = (
+    (agendaRows >= 4 ? 2 : agendaRows >= 3 ? 1 : 0)
+    + (leftRailRows >= 3 ? 1 : 0)
+    + (topInsetBarRows >= 1 ? 1 : 0)
+    + (lowerCtaRows === 0 ? 1 : 0)
+    + (cardGridRows <= 1 ? 1 : 0)
+    + (splitRows >= 2 ? 1 : 0)
+  );
 
   return {
     occupiedRegions,
@@ -2718,12 +2858,15 @@ function inferRasterSemanticSignals(args: {
     discoveryScore,
     dashboardScore,
     reportingScore,
+    activityFlavorScore,
+    profileFlavorScore,
     editorFlavorScore,
     catalogFlavorScore,
     documentFlavorScore,
     mapFlavorScore,
     mediaFlavorScore,
     captureFlavorScore,
+    scheduleFlavorScore,
   };
 }
 

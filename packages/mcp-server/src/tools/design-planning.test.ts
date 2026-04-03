@@ -634,6 +634,64 @@ describe('design planning helpers', () => {
     expect(byPath.get(checkoutPaywallPath)?.semanticFlavor).toBeUndefined();
   });
 
+  it('uses raster structure to infer profile families without OCR or descriptive filenames', async () => {
+    const profilePath = await makePngFile('screen-2.png', 120, 200, (x, y) => {
+      if (y < 30) return [250, 250, 252, 255];
+      if (x > 34 && x < 86 && y > 42 && y < 96) return [244, 114, 182, 255];
+      if ((x > 18 && x < 102 && y > 112 && y < 128)
+        || (x > 18 && x < 102 && y > 140 && y < 156)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: profilePath },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(profilePath)?.semanticFlavor).toBe('profile');
+    expect(byPath.get(profilePath)?.semanticFlavorConfidence).toBeTruthy();
+    expect(byPath.get(profilePath)?.semanticFlavorReason?.some((line) => line.includes('raster structure'))).toBe(true);
+  });
+
+  it('rejects weak profile and reward family matches when generic settings structure dominates', async () => {
+    const profileSettingsPath = await makePngFile('screen-4.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if ((x > 18 && x < 102 && y > 42 && y < 58)
+        || (x > 18 && x < 102 && y > 70 && y < 86)
+        || (x > 18 && x < 102 && y > 98 && y < 114)
+        || (x > 18 && x < 102 && y > 126 && y < 142)
+        || (x > 18 && x < 102 && y > 154 && y < 170)) {
+        return [203, 213, 225, 255];
+      }
+      return [241, 245, 249, 255];
+    });
+    const rewardSettingsPath = await makePngFile('screen-5.png', 120, 200, (x, y) => {
+      if (y < 28) return [248, 250, 252, 255];
+      if ((x > 18 && x < 102 && y > 42 && y < 58)
+        || (x > 18 && x < 102 && y > 70 && y < 86)
+        || (x > 18 && x < 102 && y > 98 && y < 114)
+        || (x > 18 && x < 102 && y > 126 && y < 142)
+        || (x > 18 && x < 102 && y > 154 && y < 170)) {
+        return [203, 213, 225, 255];
+      }
+      return [241, 245, 249, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: profileSettingsPath, note: 'Member profile settings, privacy, and notifications' },
+      { path: rewardSettingsPath, note: 'Member rewards settings, privacy, and notifications' },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(profileSettingsPath)?.semanticFlavor).toBeUndefined();
+    expect(byPath.get(profileSettingsPath)?.semanticFlavorNeedsReview).toBe(true);
+
+    expect(byPath.get(rewardSettingsPath)?.semanticFlavor).toBeUndefined();
+    expect(byPath.get(rewardSettingsPath)?.semanticFlavorNeedsReview).toBe(true);
+  });
+
   it('builds a variant set plan with current-capability concepts', async () => {
     const homePath = await makePngFile('home-screen.png', 120, 200, (x, y) => {
       if (y < 46) return [246, 247, 250, 255];

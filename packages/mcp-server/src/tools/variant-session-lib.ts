@@ -232,7 +232,7 @@ function toCopySlot(value: string): CopySlot | null {
   }
 }
 
-function buildVariantCopyAssignments(
+export function buildVariantCopyAssignments(
   variant: PlannedVariant | undefined,
   selectedCopySet: SelectedCopySet | undefined,
 ): VariantCopyAssignment[] {

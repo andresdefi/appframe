@@ -5330,6 +5330,29 @@ export async function buildVariantSetPlan(args: {
   screenCount?: number;
 }): Promise<VariantSetPlan> {
   const analyses = await analyzeScreenshotSet(args.screenshots);
+  return buildVariantSetPlanFromAnalysis({
+    appName: args.appName,
+    appDescription: args.appDescription,
+    platforms: args.platforms,
+    analysis: analyses,
+    goals: args.goals,
+    variantCount: args.variantCount,
+    screenCount: args.screenCount,
+    category: inferCategory(args.appDescription, args.features),
+  });
+}
+
+export function buildVariantSetPlanFromAnalysis(args: {
+  appName: string;
+  appDescription: string;
+  platforms: string[];
+  analysis: ScreenshotAnalysis[];
+  goals?: string[];
+  variantCount?: number;
+  screenCount?: number;
+  category?: AppCategory;
+}): VariantSetPlan {
+  const analyses = args.analysis;
   const screenCount = Math.max(
     3,
     Math.min(args.screenCount ?? Math.min(5, analyses.length || 5), Math.max(analyses.length, 3)),
@@ -5339,7 +5362,7 @@ export async function buildVariantSetPlan(args: {
     Math.min(screenCount, analyses.length || screenCount),
   );
   const goals = args.goals ?? [];
-  const category = inferCategory(args.appDescription, args.features);
+  const category = args.category ?? inferCategory(args.appDescription, []);
 
   const roles = selected.reduce<Record<string, number>>((acc, analysis) => {
     acc[analysis.role] = (acc[analysis.role] ?? 0) + 1;

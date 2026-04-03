@@ -3,7 +3,13 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { deflateSync } from 'node:zlib';
-import { analyzeScreenshotSet, buildVariantSetPlan, readImageMetadata } from './design-planning.js';
+import {
+  analyzeScreenshotSet,
+  buildVariantSetPlan,
+  buildVariantSetPlanFromAnalysis,
+  readImageMetadata,
+  type ScreenshotAnalysis,
+} from './design-planning.js';
 
 const tempDirs: string[] = [];
 
@@ -717,6 +723,118 @@ describe('design planning helpers', () => {
       expect(plan.variants[3].canvasPlan.requiredElements.some((el) => el.type === 'proof-chip')).toBe(true);
       expect(plan.variants[3].frames?.some((frame) => frame.compositionFeatures?.includes('decorative-cluster'))).toBe(true);
       expect(plan.variants[3].frames?.some((frame) => frame.compositionFeatures?.includes('proof-stack'))).toBe(true);
+    }
+  });
+
+  it('replans concept structure from reviewed semantic-family analysis overrides', () => {
+    const baseAnalysis: ScreenshotAnalysis[] = [
+      {
+        path: '/shots/home.png',
+        basename: 'home.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'home',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 94,
+        heroExplanation: ['Strong overview screen'],
+        inferredOrder: 1,
+        orderingConfidence: 'high',
+        orderingReason: ['Manual review kept this first'],
+        focus: 'Daily overview',
+        dominantPalette: ['#F8FAFC', '#2563EB', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 28, label: 'top' }],
+        occupiedRegions: ['bottom'],
+        cropSuitability: 'high',
+        recommendedUsage: 'hero-device',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/workflow.png',
+        basename: 'workflow.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'workflow',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 82,
+        heroExplanation: ['Task flow supports the middle beats'],
+        inferredOrder: 2,
+        orderingConfidence: 'medium',
+        orderingReason: ['Follow-on workflow detail'],
+        focus: 'Task flow',
+        dominantPalette: ['#F8FAFC', '#16A34A', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 26, label: 'top' }],
+        occupiedRegions: ['center'],
+        cropSuitability: 'high',
+        recommendedUsage: 'crop-card',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/settings.png',
+        basename: 'settings.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'settings',
+        density: 'dense',
+        textRisk: 'high',
+        heroPriority: 36,
+        heroExplanation: ['Dense control surface belongs later in the sequence'],
+        inferredOrder: 3,
+        orderingConfidence: 'medium',
+        orderingReason: ['Settings screen closes the story'],
+        focus: 'Controls',
+        dominantPalette: ['#E5E7EB', '#94A3B8', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 72, width: 100, height: 28, label: 'bottom' }],
+        occupiedRegions: ['top', 'center'],
+        cropSuitability: 'medium',
+        recommendedUsage: 'support-only',
+        unsafeForTextOverlay: true,
+      },
+    ];
+
+    const defaultPlan = buildVariantSetPlanFromAnalysis({
+      appName: 'FocusFlow',
+      appDescription: 'Stay on top of your day',
+      platforms: ['ios'],
+      analysis: baseAnalysis,
+      goals: ['Feel premium'],
+      variantCount: 4,
+      screenCount: 3,
+      category: 'health',
+    });
+    const reviewedPlan = buildVariantSetPlanFromAnalysis({
+      appName: 'FocusFlow',
+      appDescription: 'Stay on top of your day',
+      platforms: ['ios'],
+      analysis: baseAnalysis.map((entry) =>
+        entry.path === '/shots/home.png'
+          ? { ...entry, semanticFlavor: 'catalog', semanticFlavorConfidence: 'high' }
+          : entry),
+      goals: ['Feel premium'],
+      variantCount: 4,
+      screenCount: 3,
+      category: 'health',
+    });
+
+    const defaultDynamic = defaultPlan.variants.find((variant) => variant.id === 'concept-b');
+    const reviewedDynamic = reviewedPlan.variants.find((variant) => variant.id === 'concept-b');
+    expect(defaultDynamic?.mode).toBe('individual');
+    expect(reviewedDynamic?.mode).toBe('individual');
+    if (defaultDynamic?.mode === 'individual' && reviewedDynamic?.mode === 'individual') {
+      const defaultHero = defaultDynamic.screens.find((screen) => screen.sourcePath === '/shots/home.png');
+      const reviewedHero = reviewedDynamic.screens.find((screen) => screen.sourcePath === '/shots/home.png');
+
+      expect(defaultPlan.selectedScreens.find((screen) => screen.path === '/shots/home.png')?.semanticFlavor).toBeUndefined();
+      expect(reviewedPlan.selectedScreens.find((screen) => screen.path === '/shots/home.png')?.semanticFlavor).toBe('catalog');
+      expect(reviewedHero?.composition).toBe('duo-overlap');
+      expect(defaultHero?.composition).not.toBe(reviewedHero?.composition);
     }
   });
 

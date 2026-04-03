@@ -4,6 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { AppframeConfig } from '@appframe/core';
+import { buildVariantSetPlanFromAnalysis, type ScreenshotAnalysis } from './design-planning.js';
 import { readSession, writeSession, type VariantSessionFile } from './variant-session-lib.js';
 
 const webPreviewMocks = vi.hoisted(() => ({
@@ -51,7 +52,11 @@ vi.mock('@appframe/core', () => ({
   validateConfig: vi.fn((config: AppframeConfig) => ({ success: true, config })),
 }));
 
-import { openPreviewSession, scoreVariantPreviews } from './variant-session-tools.js';
+import {
+  openPreviewSession,
+  rebuildAutopilotSessionFromReview,
+  scoreVariantPreviews,
+} from './variant-session-tools.js';
 
 const tempDirs: string[] = [];
 const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
@@ -415,5 +420,252 @@ describe('variant session live visual scoring', () => {
     expect(result.aiVisualScoring.status).toBe('failed');
     expect(result.aiVisualScoring.reason).toContain('503');
     expect(result.recommendedVariantId).toBe('concept-a');
+  });
+});
+
+describe('rebuildAutopilotSessionFromReview', () => {
+  it('replans and rematerializes autopilot concepts from reviewed screenshot analysis', async () => {
+    const dir = await makeTempDir();
+    const sessionPath = join(dir, 'autopilot.session.json');
+    const manifestPath = join(dir, 'manifest.json');
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          app: { name: 'FitFlow' },
+          variants: [
+            { id: 'concept-a', name: 'Workflow Hero', mode: 'individual', configPath: join(dir, 'stale-a.yml') },
+            { id: 'concept-b', name: 'Focused Momentum', mode: 'individual', configPath: join(dir, 'stale-b.yml') },
+          ],
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+
+    const reviewedAnalysis: ScreenshotAnalysis[] = [
+      {
+        path: '/shots/home.png',
+        basename: 'home.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'home',
+        semanticFlavor: 'document',
+        semanticFlavorConfidence: 'high',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 94,
+        heroExplanation: ['Reviewed as a document-style overview'],
+        inferredOrder: 1,
+        orderingConfidence: 'high',
+        orderingReason: ['Manual review'],
+        focus: 'Daily overview',
+        dominantPalette: ['#F8FAFC', '#2563EB', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 28, label: 'top' }],
+        occupiedRegions: ['bottom'],
+        cropSuitability: 'high',
+        recommendedUsage: 'hero-device',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/workflow.png',
+        basename: 'workflow.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'workflow',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 82,
+        heroExplanation: ['Task flow'],
+        inferredOrder: 2,
+        orderingConfidence: 'medium',
+        orderingReason: ['Follow-on workflow detail'],
+        focus: 'Task flow',
+        dominantPalette: ['#F8FAFC', '#16A34A', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 26, label: 'top' }],
+        occupiedRegions: ['center'],
+        cropSuitability: 'high',
+        recommendedUsage: 'crop-card',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/settings.png',
+        basename: 'settings.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'settings',
+        density: 'dense',
+        textRisk: 'high',
+        heroPriority: 36,
+        heroExplanation: ['Dense control surface belongs later'],
+        inferredOrder: 3,
+        orderingConfidence: 'medium',
+        orderingReason: ['Close on settings'],
+        focus: 'Controls',
+        dominantPalette: ['#E5E7EB', '#94A3B8', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 72, width: 100, height: 28, label: 'bottom' }],
+        occupiedRegions: ['top', 'center'],
+        cropSuitability: 'medium',
+        recommendedUsage: 'support-only',
+        unsafeForTextOverlay: true,
+      },
+    ];
+    const conceptPlan = buildVariantSetPlanFromAnalysis({
+      appName: 'FitFlow',
+      appDescription: 'Workout planning',
+      platforms: ['ios'],
+      analysis: reviewedAnalysis,
+      goals: ['Feel premium'],
+      variantCount: 2,
+      screenCount: 3,
+      category: 'health',
+    });
+    const selectedCopySet = {
+      hero: {
+        id: 'hero-1',
+        slot: 'hero' as const,
+        headline: 'Stay on track',
+        subtitle: 'Keep the plan moving',
+        wordCount: 3,
+        subtitleWordCount: 4,
+        score: 92,
+        rationale: [],
+        issues: [],
+      },
+      differentiator: {
+        id: 'diff-1',
+        slot: 'differentiator' as const,
+        headline: 'Plan with focus',
+        subtitle: 'Show the differentiator clearly',
+        wordCount: 3,
+        subtitleWordCount: 4,
+        score: 88,
+        rationale: [],
+        issues: [],
+      },
+      features: [{
+        id: 'feature-1',
+        slot: 'feature' as const,
+        headline: 'Track every session',
+        subtitle: 'Support the routine with proof',
+        sourceFeature: 'Progress tracking',
+        wordCount: 3,
+        subtitleWordCount: 5,
+        score: 86,
+        rationale: [],
+        issues: [],
+      }],
+      trust: {
+        id: 'trust-1',
+        slot: 'trust' as const,
+        headline: 'Built for repeat use',
+        subtitle: 'Keep the product feeling polished',
+        wordCount: 4,
+        subtitleWordCount: 5,
+        score: 84,
+        rationale: [],
+        issues: [],
+      },
+      summary: {
+        id: 'summary-1',
+        slot: 'summary' as const,
+        headline: 'Everything that matters',
+        subtitle: 'Close on the full routine payoff',
+        wordCount: 3,
+        subtitleWordCount: 6,
+        score: 85,
+        rationale: [],
+        issues: [],
+      },
+    };
+    const config = makeConfig();
+    const timestamp = new Date().toISOString();
+
+    await writeSession(sessionPath, {
+      version: 2,
+      sourceConfigPath: join(dir, 'source.appframe.yml'),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      activeVariantId: 'concept-a',
+      variants: [
+        {
+          id: 'concept-a',
+          name: 'Workflow Hero',
+          description: 'Stale autopilot concept.',
+          status: 'approved',
+          config,
+          artifacts: [],
+          previewArtifacts: [{
+            id: 'preview-a',
+            createdAt: timestamp,
+            outputDir: join(dir, 'preview-a'),
+            mode: 'individual',
+            platform: 'ios',
+            filePaths: [join(dir, 'preview-a.png')],
+            thumbnailPath: join(dir, 'preview-a.png'),
+          }],
+          copyAssignments: [],
+          score: {
+            total: 88,
+            breakdown: { readability: 30 },
+            flags: [],
+            reason: 'Old recommendation',
+          },
+          history: [],
+          provenance: { origin: 'autopilot', branchDepth: 0 },
+        },
+        {
+          id: 'concept-b',
+          name: 'Focused Momentum',
+          description: 'Stale alternate concept.',
+          status: 'draft',
+          config,
+          artifacts: [],
+          previewArtifacts: [],
+          copyAssignments: [],
+          history: [],
+          provenance: { origin: 'autopilot', branchDepth: 0 },
+        },
+      ],
+      autopilot: {
+        mode: 'autopilot',
+        manifestPath,
+        sourceScreenshots: reviewedAnalysis.map((entry) => entry.path),
+        screenshotAnalysis: reviewedAnalysis,
+        selectedCopySet,
+        conceptPlan,
+        recommendedVariantId: 'concept-a',
+        recommendationReason: 'Old recommendation',
+        refinementHistory: [],
+      },
+    });
+
+    const result = await rebuildAutopilotSessionFromReview({ sessionPath });
+    expect(result.updatedVariantIds).toEqual(['concept-a', 'concept-b']);
+    expect(result.clearedPreviewVariantIds).toEqual(['concept-a', 'concept-b']);
+
+    const rebuiltSession = await readSession(sessionPath);
+    expect(rebuiltSession.autopilot?.recommendedVariantId).toBeNull();
+    expect(rebuiltSession.autopilot?.conceptPlan?.selectedScreens.find((screen) => screen.path === '/shots/home.png')?.semanticFlavor).toBe('document');
+
+    const rebuiltConceptA = rebuiltSession.variants.find((variant) => variant.id === 'concept-a');
+    const rebuiltConceptB = rebuiltSession.variants.find((variant) => variant.id === 'concept-b');
+    expect(rebuiltConceptA?.status).toBe('draft');
+    expect(rebuiltConceptA?.previewArtifacts).toEqual([]);
+    expect(rebuiltConceptA?.score).toBeUndefined();
+    expect(rebuiltConceptA?.history?.[0]?.label).toBe('Rebuilt from reviewed screenshot families');
+    expect((rebuiltConceptA?.copyAssignments?.length ?? 0)).toBeGreaterThan(0);
+
+    if (rebuiltConceptB?.config.mode === 'individual') {
+      expect(rebuiltConceptB.config.screens.some((screen) => screen.composition !== 'single')).toBe(true);
+    }
   });
 });

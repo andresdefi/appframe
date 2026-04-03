@@ -7,6 +7,7 @@ import {
   analyzeScreenshotSet,
   buildCopyPlanningSignals,
   buildVariantSetPlan,
+  buildVariantSetPlanFromAnalysis,
   inferCategory,
   type AppCategory,
   type ScreenshotAnalysis,
@@ -1542,6 +1543,10 @@ export function registerSuggestionTools(server: McpServer): void {
         .min(1)
         .describe('Raw screenshot inventory'),
       goals: z.array(z.string()).optional().describe('What the screenshots should emphasize'),
+      screenshotAnalysisJson: z
+        .string()
+        .optional()
+        .describe('Optional reviewed ScreenshotAnalysis[] JSON to reuse instead of re-analyzing screenshots'),
       variantCount: z.number().min(2).max(5).default(4).describe('How many concepts to plan'),
       screenCount: z
         .number()
@@ -1557,19 +1562,34 @@ export function registerSuggestionTools(server: McpServer): void {
       features,
       screenshots,
       goals,
+      screenshotAnalysisJson,
       variantCount,
       screenCount,
     }) => {
-      const plan = await buildVariantSetPlan({
-        appName,
-        appDescription,
-        platforms,
-        features,
-        screenshots,
-        goals,
-        variantCount,
-        screenCount,
-      });
+      const reviewedAnalysis = screenshotAnalysisJson
+        ? parseJsonInput<ScreenshotAnalysis[]>('screenshotAnalysisJson', screenshotAnalysisJson)
+        : null;
+      const plan = reviewedAnalysis
+        ? buildVariantSetPlanFromAnalysis({
+            appName,
+            appDescription,
+            platforms,
+            analysis: reviewedAnalysis,
+            goals,
+            variantCount,
+            screenCount,
+            category: inferCategory(appDescription, features),
+          })
+        : await buildVariantSetPlan({
+            appName,
+            appDescription,
+            platforms,
+            features,
+            screenshots,
+            goals,
+            variantCount,
+            screenCount,
+          });
 
       return {
         content: [

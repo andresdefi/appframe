@@ -11,7 +11,11 @@ import type {
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
-import { saveSession as saveSessionApi } from './utils/api';
+import {
+  rebuildAutopilotSessionFromReview as rebuildAutopilotSessionFromReviewApi,
+  saveSession as saveSessionApi,
+  type ReviewedAutopilotRebuildResult,
+} from './utils/api';
 
 function getConfiguredLocaleText(
   locales: Record<string, LocaleConfig>,
@@ -519,6 +523,7 @@ export interface PreviewStore {
   undo: () => void;
   redo: () => void;
   saveSession: () => Promise<void>;
+  rebuildAutopilotSessionFromReview: () => Promise<ReviewedAutopilotRebuildResult>;
   isSavingSession: boolean;
 }
 
@@ -2236,5 +2241,20 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     } finally {
       set({ isSavingSession: false });
     }
+  },
+
+  rebuildAutopilotSessionFromReview: async () => {
+    const state = get();
+    if (!state.sessionBacked || !state.activeVariantId) {
+      throw new Error('Reviewed rebuild requires a file-backed session.');
+    }
+
+    await get().saveSession();
+    const result = await rebuildAutopilotSessionFromReviewApi();
+    if (!result.session || !Array.isArray((result.session as { variants?: unknown[] }).variants)) {
+      throw new Error('Reviewed rebuild returned an invalid session payload.');
+    }
+    get().hydrateSession(result.session as Parameters<PreviewStore['hydrateSession']>[0]);
+    return result;
   },
 }));

@@ -8,6 +8,7 @@ import { buildVariantSetPlanFromAnalysis, type ScreenshotAnalysis } from './desi
 import { readSession, writeSession, type VariantSessionFile } from './variant-session-lib.js';
 
 const webPreviewMocks = vi.hoisted(() => ({
+  registerSessionReviewRebuildHandler: vi.fn(),
   startPreviewServer: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -16,6 +17,7 @@ const probeState = vi.hoisted(() => ({
 }));
 
 vi.mock('@appframe/web-preview', () => ({
+  registerSessionReviewRebuildHandler: webPreviewMocks.registerSessionReviewRebuildHandler,
   startPreviewServer: webPreviewMocks.startPreviewServer,
 }));
 

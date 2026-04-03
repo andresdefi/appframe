@@ -302,6 +302,7 @@ export function VariantsTab() {
   const setVariantStatus = usePreviewStore((s) => s.setVariantStatus);
   const sessionBacked = usePreviewStore((s) => s.sessionBacked);
   const saveSession = usePreviewStore((s) => s.saveSession);
+  const rebuildAutopilotSessionFromReview = usePreviewStore((s) => s.rebuildAutopilotSessionFromReview);
   const isSavingSession = usePreviewStore((s) => s.isSavingSession);
   const platform = usePreviewStore((s) => s.platform);
   const previewW = usePreviewStore((s) => s.previewW);
@@ -323,6 +324,8 @@ export function VariantsTab() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiRefining, setIsAiRefining] = useState(false);
   const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [isReviewRebuilding, setIsReviewRebuilding] = useState(false);
+  const [reviewRebuildStatus, setReviewRebuildStatus] = useState<string | null>(null);
 
   const approvedCount = useMemo(
     () => variants.filter((variant) => variant.status === 'approved').length,
@@ -521,6 +524,29 @@ export function VariantsTab() {
       setAiStatus(err instanceof Error ? err.message : 'AI refinement failed');
     } finally {
       setIsAiRefining(false);
+    }
+  }
+
+  async function handleReviewedRebuild() {
+    const confirmed = await confirm({
+      title: 'Rebuild autopilot concepts from review?',
+      message: 'This saves the current session, regenerates autopilot concepts from reviewed screenshot-family state, clears stale previews and scores for rebuilt concepts, and reloads the session. Manual branches stay in the session.',
+      confirmLabel: 'Rebuild Concepts',
+      destructive: false,
+    });
+    if (!confirmed) return;
+
+    setIsReviewRebuilding(true);
+    setReviewRebuildStatus(null);
+    try {
+      const result = await rebuildAutopilotSessionFromReview();
+      setReviewRebuildStatus(
+        `Rebuilt ${result.updatedVariantIds.length} autopilot concept${result.updatedVariantIds.length === 1 ? '' : 's'}. Fresh previews and rescoring are now required.`,
+      );
+    } catch (err) {
+      setReviewRebuildStatus(err instanceof Error ? err.message : 'Reviewed rebuild failed');
+    } finally {
+      setIsReviewRebuilding(false);
     }
   }
 
@@ -781,8 +807,27 @@ export function VariantsTab() {
                           Reset Reviewed Families
                         </button>
                       ) : null}
+                      {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
+                        <button
+                          className="rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-[10px] text-accent hover:bg-accent/15 disabled:opacity-60"
+                          onClick={() => void handleReviewedRebuild()}
+                          disabled={isReviewRebuilding || isSavingSession}
+                        >
+                          {isReviewRebuilding ? 'Rebuilding Concepts...' : 'Rebuild Reviewed Concepts'}
+                        </button>
+                      ) : null}
                     </div>
                   )}
+                  {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
+                    <div className="mt-2 rounded-md border border-border bg-bg/60 px-2.5 py-2 text-[10px] text-text-dim">
+                      Reviewed rebuild saves the session, replans/materializes the autopilot concept set from reviewed screenshot families, and clears stale preview scores.
+                    </div>
+                  ) : null}
+                  {reviewRebuildStatus ? (
+                    <div className="mt-2 rounded-md border border-border bg-bg/60 px-2.5 py-2 text-[10px] text-text-dim">
+                      {reviewRebuildStatus}
+                    </div>
+                  ) : null}
                   <div className="space-y-1">
                     {autopilotAnalysis
                       .slice()

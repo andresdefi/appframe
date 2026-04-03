@@ -75,6 +75,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - screenshot analysis now also persists semantic-family rationale, competing family candidates, and review-needed flags so weak local matches are easier to diagnose instead of silently accepted
 - preview UI session analysis now also exposes those semantic-family diagnostics plus bulk family-review actions for flagged or already-reviewed screenshots, making deterministic review faster without bundling model-dependent features
 - reviewed screenshot semantic-family state can now feed forward into downstream generation: `appframe_plan_variant_set` accepts reviewed `screenshotAnalysisJson`, and `appframe_rebuild_autopilot_session_from_review` replans/rematerializes saved autopilot sessions from persisted review metadata while clearing stale previews and recommendations
+- preview UI can now trigger that reviewed rebuild path directly from the session review surface, saving the session, regenerating autopilot concepts from reviewed screenshot-family state, and rehydrating the refreshed session without leaving preview
 - preview scoring now also inspects panoramic support-group signature diversity and penalizes repeated support-card structure more directly, pushing generic strip rhythm down even when screenshots render cleanly
 - the AppFrame skill has been rewritten around the autopilot flow
 
@@ -529,7 +530,7 @@ Use this to start a future thread:
 - The repo may have unrelated untracked files; do not revert unrelated user changes.
 - Existing manual variant workflows still matter; preserve backward compatibility where possible.
 - Session compatibility matters now that sessions can be created from both manual configs and autopilot manifests.
-- Preview sessions now persist manual screenshot semantic-family review metadata, preview review also exposes rationale/ambiguity diagnostics plus basic bulk family actions, and MCP rebuild tooling can already reuse that saved state for replanning/materialization; the remaining gap is broader preview-side art-direction tooling and deeper family/refine controls on top of that foundation.
+- Preview sessions now persist manual screenshot semantic-family review metadata, preview review also exposes rationale/ambiguity diagnostics plus basic bulk family actions, and preview-side reviewed rebuild now reuses that saved state for replanning/materialization; the remaining gap is broader preview-side art-direction tooling and deeper family/refine controls on top of that foundation.
 - The current scoring system is now partly visual and can optionally use live model ranking, but it is still not a full art-direction loop.
 - The current screenshot understanding now includes real pixel heuristics plus optional OCR/vision text enrichment, but richer semantic scene understanding is still open.
 - The current renderer is broader than the original single-device flow, but it still limits how close AppFrame can get to before.click-style layouts.

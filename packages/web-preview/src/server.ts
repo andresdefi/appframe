@@ -70,6 +70,29 @@ export interface PreviewServerOptions {
   port?: number;
 }
 
+export interface PreviewSessionReviewRebuildResult {
+  sessionPath: string;
+  manifestPath: string;
+  updatedVariantIds: string[];
+  clearedPreviewVariantIds: string[];
+  recommendationReason: string;
+  plan: {
+    variants: unknown[];
+  };
+}
+
+export type PreviewSessionReviewRebuildHandler = (args: {
+  sessionPath: string;
+}) => Promise<PreviewSessionReviewRebuildResult>;
+
+let sessionReviewRebuildHandler: PreviewSessionReviewRebuildHandler | null = null;
+
+export function registerSessionReviewRebuildHandler(
+  handler: PreviewSessionReviewRebuildHandler | null,
+): void {
+  sessionReviewRebuildHandler = handler;
+}
+
 function createDefaultConfig(): AppframeConfig {
   return {
     mode: 'individual',
@@ -248,6 +271,43 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       await writeFile(resolvedSessionPath, JSON.stringify(nextSession, null, 2), 'utf-8');
       sessionData = nextSession;
       res.json({ success: true, updatedAt });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post('/api/session/rebuild-autopilot-from-review', async (_req, res) => {
+    if (!resolvedSessionPath) {
+      res.status(400).json({ error: 'Preview was not started with a session file' });
+      return;
+    }
+    if (!sessionReviewRebuildHandler) {
+      res.status(503).json({
+        error: 'Reviewed rebuild is unavailable for this preview server launch.',
+      });
+      return;
+    }
+
+    try {
+      const result = await sessionReviewRebuildHandler({ sessionPath: resolvedSessionPath });
+      const raw = await readFile(resolvedSessionPath, 'utf-8');
+      sessionData = JSON.parse(raw);
+
+      res.json({
+        success: true,
+        updatedAt:
+          isRecord(sessionData) && typeof sessionData.updatedAt === 'string'
+            ? sessionData.updatedAt
+            : new Date().toISOString(),
+        session: sessionData,
+        sessionPath: result.sessionPath,
+        manifestPath: result.manifestPath,
+        updatedVariantIds: result.updatedVariantIds,
+        clearedPreviewVariantIds: result.clearedPreviewVariantIds,
+        recommendationReason: result.recommendationReason,
+        planVariantCount: result.plan.variants.length,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });

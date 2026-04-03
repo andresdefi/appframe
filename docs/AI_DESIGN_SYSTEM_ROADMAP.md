@@ -210,7 +210,7 @@ This roadmap now has three concrete pieces underway:
 - generate-then-rank foundations: preview rendering plus heuristic scoring/recommendation
 - preview review surface: sessions now carry per-concept copy-slot assignments and the preview UI now supports concept filters, side-by-side comparison, score breakdown review, frame strategy, crop guidance, OCR occupied-region inspection, and persisted screenshot semantic-family review/override
 - screenshot-family diagnostics: preview review now also exposes semantic-family rationale, competing local reads, and review-needed states so weak deterministic family calls are easier to audit before rebuild
-- review-to-generation loop: reviewed screenshot-family metadata can now be reused directly for replanning/materialization through MCP instead of stopping at saved preview session state
+- review-to-generation loop: reviewed screenshot-family metadata can now be reused directly for replanning/materialization through MCP, and preview review can now trigger that rebuild path directly instead of stopping at saved session state
 - richer panoramic composition review: sessions now expose screenshot analysis, selected copy, concept-plan metadata, and composition summaries in the preview variants surface so layered-detail systems are inspectable without leaving the session
 - refinement review surface: preview sessions now support safe branch-and-refine actions, variant provenance/history, and panoramic continuity review without leaving the session flow
 - AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load

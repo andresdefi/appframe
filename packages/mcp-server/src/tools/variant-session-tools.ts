@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { startPreviewServer } from '@appframe/web-preview';
+import { registerSessionReviewRebuildHandler, startPreviewServer } from '@appframe/web-preview';
 import {
   generatePanoramicScreenshots,
   generateScreenshots,
@@ -604,6 +604,8 @@ export async function rebuildAutopilotSessionFromReview(args: {
     plan,
   };
 }
+
+registerSessionReviewRebuildHandler(rebuildAutopilotSessionFromReview);
 
 export function registerVariantSessionTools(server: McpServer): void {
   server.tool(

@@ -1,13 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const apiMocks = vi.hoisted(() => ({
+  rebuildAutopilotSessionFromReview: vi.fn(),
+  saveSession: vi.fn(),
+}));
+
 vi.mock('@appframe/core', () => ({
   validateConfigOrThrow: vi.fn((config: unknown) => config),
 }));
+
+vi.mock('./utils/api', async () => {
+  const actual = await vi.importActual<typeof import('./utils/api')>('./utils/api');
+  return {
+    ...actual,
+    rebuildAutopilotSessionFromReview: apiMocks.rebuildAutopilotSessionFromReview,
+    saveSession: apiMocks.saveSession,
+  };
+});
 
 import { buildSessionSavePayload, usePreviewStore } from './store';
 import { mergeSessionSaveRequest } from '../sessionPersistence';
 
 function resetStore() {
+  apiMocks.rebuildAutopilotSessionFromReview.mockReset();
+  apiMocks.saveSession.mockReset();
+  apiMocks.saveSession.mockResolvedValue(undefined);
   usePreviewStore.setState({
     config: null,
     sessionLocales: {},
@@ -569,5 +586,151 @@ describe('preview session refinement round-trips', () => {
     expect(state.autopilotAnalysis.map((entry) => entry.semanticFlavorOverride)).toEqual([null, null]);
     expect(state.autopilotAnalysis.map((entry) => entry.semanticFlavor)).toEqual(['reward', 'support']);
     expect(state.autopilotConceptPlan?.selectedScreens?.map((entry) => entry.semanticFlavorOverride)).toEqual([null, null]);
+  });
+
+  it('saves reviewed family overrides and rehydrates the rebuilt autopilot session', async () => {
+    const baseConfig = makeIndividualConfig();
+    const session = makeSession(baseConfig, 'concept-a', 'Clean Hero', {
+      screenshotAnalysis: [
+        {
+          path: 'screenshots/home.png',
+          role: 'detail',
+          semanticFlavor: 'reward',
+          semanticFlavorConfidence: 'low',
+          semanticFlavorNeedsReview: true,
+          heroPriority: 72,
+          inferredOrder: 1,
+          focus: 'center',
+          unsafeForTextOverlay: false,
+        },
+      ],
+      conceptPlan: {
+        app: {
+          name: 'FocusFlow',
+          description: 'Stay on top of your routine',
+          category: 'productivity',
+          platforms: ['ios'],
+        },
+        goals: ['Highlight calmer planning'],
+        analysisSummary: {
+          screenshotCount: 1,
+          selectedCount: 1,
+          roles: { detail: 1 },
+          topHeroCandidate: 'screenshots/home.png',
+          topHeroExplanation: ['Clear hero candidate'],
+        },
+        selectedScreens: [
+          {
+            path: 'screenshots/home.png',
+            role: 'detail',
+            semanticFlavor: 'reward',
+            semanticFlavorConfidence: 'low',
+            semanticFlavorNeedsReview: true,
+            inferredOrder: 1,
+            unsafeForTextOverlay: false,
+          },
+        ],
+        variants: [],
+      },
+    });
+    const rebuiltSession = {
+      ...session,
+      updatedAt: '2026-03-20T13:00:00.000Z',
+      autopilot: {
+        ...session.autopilot,
+        recommendationReason: 'Reviewed screenshot-family changes require fresh previews and rescoring.',
+        screenshotAnalysis: [
+          {
+            path: 'screenshots/home.png',
+            role: 'detail',
+            semanticFlavor: 'document',
+            semanticFlavorOverride: 'document',
+            inferredSemanticFlavor: 'reward',
+            inferredSemanticFlavorConfidence: 'low',
+            semanticFlavorNeedsReview: true,
+            heroPriority: 72,
+            inferredOrder: 1,
+            focus: 'center',
+            unsafeForTextOverlay: false,
+          },
+        ],
+        conceptPlan: {
+          ...(session.autopilot?.conceptPlan as Record<string, unknown>),
+          selectedScreens: [
+            {
+              path: 'screenshots/home.png',
+              role: 'detail',
+              semanticFlavor: 'document',
+              semanticFlavorOverride: 'document',
+              inferredSemanticFlavor: 'reward',
+              inferredSemanticFlavorConfidence: 'low',
+              semanticFlavorNeedsReview: true,
+              inferredOrder: 1,
+              unsafeForTextOverlay: false,
+            },
+          ],
+        },
+      },
+      variants: [
+        {
+          ...session.variants[0],
+          previewArtifacts: [],
+          score: undefined,
+          history: [
+            {
+              id: 'history-reviewed-rebuild',
+              createdAt: '2026-03-20T13:00:00.000Z',
+              type: 'saved',
+              label: 'Rebuilt from reviewed screenshot families',
+            },
+            ...session.variants[0].history,
+          ],
+        },
+      ],
+    };
+
+    apiMocks.rebuildAutopilotSessionFromReview.mockResolvedValue({
+      success: true,
+      updatedAt: rebuiltSession.updatedAt,
+      session: rebuiltSession,
+      sessionPath: '/tmp/focusflow.session.json',
+      manifestPath: '/tmp/focusflow.manifest.json',
+      updatedVariantIds: ['concept-a'],
+      clearedPreviewVariantIds: ['concept-a'],
+      recommendationReason: 'Reviewed screenshot-family changes require fresh previews and rescoring.',
+      planVariantCount: 1,
+    });
+
+    usePreviewStore.getState().hydrateSession(session as any);
+    usePreviewStore.getState().setAutopilotSemanticFlavorOverride('screenshots/home.png', 'document');
+
+    const result = await usePreviewStore.getState().rebuildAutopilotSessionFromReview();
+
+    expect(apiMocks.saveSession).toHaveBeenCalledTimes(1);
+    expect(apiMocks.saveSession.mock.calls[0]?.[0]).toMatchObject({
+      screenshotAnalysis: [
+        expect.objectContaining({
+          path: 'screenshots/home.png',
+          semanticFlavor: 'document',
+          semanticFlavorOverride: 'document',
+        }),
+      ],
+    });
+    expect(apiMocks.rebuildAutopilotSessionFromReview).toHaveBeenCalledTimes(1);
+    expect(result.updatedVariantIds).toEqual(['concept-a']);
+
+    const state = usePreviewStore.getState();
+    expect(state.recommendationReason).toBe('Reviewed screenshot-family changes require fresh previews and rescoring.');
+    expect(state.autopilotAnalysis[0]).toMatchObject({
+      semanticFlavor: 'document',
+      semanticFlavorOverride: 'document',
+      inferredSemanticFlavor: 'reward',
+    });
+    expect(state.autopilotConceptPlan?.selectedScreens?.[0]).toMatchObject({
+      semanticFlavor: 'document',
+      semanticFlavorOverride: 'document',
+    });
+    expect(state.sessionSaveBaseline).not.toBeNull();
+    expect(state.variants[0]?.history[0]?.label).toBe('Rebuilt from reviewed screenshot families');
   });
 });

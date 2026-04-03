@@ -127,6 +127,17 @@ function semanticFlavorSelectValue(entry: {
   return '';
 }
 
+function formatSemanticAlternatives(entry: {
+  semanticFlavor?: string;
+  semanticFlavorAlternatives?: Array<{ flavor: string; score: number }>;
+}): string | null {
+  const alternatives = (entry.semanticFlavorAlternatives ?? [])
+    .filter((alternative) => alternative.flavor !== entry.semanticFlavor)
+    .slice(0, 2)
+    .map((alternative) => `${formatSlugLabel(alternative.flavor)} (${alternative.score})`);
+  return alternatives.length > 0 ? alternatives.join(' · ') : null;
+}
+
 function summarizePanoramicComposition(snapshot: VariantSnapshot): string[] {
   if (!snapshot.isPanoramic) return [];
 
@@ -281,6 +292,8 @@ export function VariantsTab() {
   const applyRefinementToActive = usePreviewStore((s) => s.applyRefinementToActive);
   const applyAiRefinementPlanToActive = usePreviewStore((s) => s.applyAiRefinementPlanToActive);
   const setAutopilotSemanticFlavorOverride = usePreviewStore((s) => s.setAutopilotSemanticFlavorOverride);
+  const setAutopilotSemanticFlavorOverrides = usePreviewStore((s) => s.setAutopilotSemanticFlavorOverrides);
+  const resetAutopilotSemanticFlavorOverrides = usePreviewStore((s) => s.resetAutopilotSemanticFlavorOverrides);
   const createVariantSet = usePreviewStore((s) => s.createVariantSet);
   const selectVariant = usePreviewStore((s) => s.selectVariant);
   const approveVariant = usePreviewStore((s) => s.approveVariant);
@@ -437,6 +450,17 @@ export function VariantsTab() {
   }, [filteredVariants, variants, activeVariantId, activeVariant, recommendedVariantId]);
   const analysisUnsafeCount = useMemo(
     () => autopilotAnalysis.filter((entry) => entry.unsafeForTextOverlay).length,
+    [autopilotAnalysis],
+  );
+  const flaggedSemanticFlavorPaths = useMemo(
+    () =>
+      autopilotAnalysis
+        .filter((entry) => entry.semanticFlavorNeedsReview)
+        .map((entry) => entry.path),
+    [autopilotAnalysis],
+  );
+  const reviewedSemanticFlavorCount = useMemo(
+    () => autopilotAnalysis.filter((entry) => Boolean(entry.semanticFlavorOverride)).length,
     [autopilotAnalysis],
   );
   const activePlanVariant = useMemo<AutopilotPlanVariant | null>(
@@ -729,6 +753,36 @@ export function VariantsTab() {
                       Hero candidate: {basenameLabel(autopilotConceptPlan.analysisSummary.topHeroCandidate)}
                     </div>
                   )}
+                  {(flaggedSemanticFlavorPaths.length > 0 || reviewedSemanticFlavorCount > 0) && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {flaggedSemanticFlavorPaths.length > 0 ? (
+                        <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-100">
+                          {flaggedSemanticFlavorPaths.length} screenshot {flaggedSemanticFlavorPaths.length === 1 ? 'needs' : 'need'} family review
+                        </span>
+                      ) : null}
+                      {reviewedSemanticFlavorCount > 0 ? (
+                        <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
+                          {reviewedSemanticFlavorCount} reviewed override{reviewedSemanticFlavorCount === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                      {flaggedSemanticFlavorPaths.length > 0 ? (
+                        <button
+                          className="rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text-dim hover:text-text"
+                          onClick={() => setAutopilotSemanticFlavorOverrides(flaggedSemanticFlavorPaths, 'none')}
+                        >
+                          Mark Flagged Generic
+                        </button>
+                      ) : null}
+                      {reviewedSemanticFlavorCount > 0 ? (
+                        <button
+                          className="rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text-dim hover:text-text"
+                          onClick={() => resetAutopilotSemanticFlavorOverrides()}
+                        >
+                          Reset Reviewed Families
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
                   <div className="space-y-1">
                     {autopilotAnalysis
                       .slice()
@@ -738,6 +792,8 @@ export function VariantsTab() {
                           <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
                             {(entry.inferredOrder ?? '?')} · {entry.role}
                             {entry.semanticFlavor ? ` · ${formatSlugLabel(entry.semanticFlavor)}` : ''}
+                            {!entry.semanticFlavor && entry.semanticFlavorNeedsReview ? ' · generic fallback' : ''}
+                            {entry.semanticFlavorNeedsReview ? ' · needs review' : ''}
                             {entry.unsafeForTextOverlay ? ' · text risk' : ''}
                           </div>
                           <div className="mt-1 text-[11px] text-text">{basenameLabel(entry.path)}</div>
@@ -776,6 +832,18 @@ export function VariantsTab() {
                           {entry.semanticFlavor && entry.semanticFlavorConfidence ? (
                             <div className="mt-1 text-[10px] text-text-dim">
                               Family confidence: {entry.semanticFlavorConfidence}
+                            </div>
+                          ) : null}
+                          {entry.semanticFlavorReason?.length ? (
+                            <div className="mt-1 space-y-1 text-[10px] text-text-dim">
+                              {entry.semanticFlavorReason.slice(0, 3).map((line, index) => (
+                                <div key={`${entry.path}-reason-${index}`}>{line}</div>
+                              ))}
+                            </div>
+                          ) : null}
+                          {formatSemanticAlternatives(entry) ? (
+                            <div className="mt-1 text-[10px] text-text-dim">
+                              Alternatives: {formatSemanticAlternatives(entry)}
                             </div>
                           ) : null}
                           {entry.semanticFlavorOverride ? (

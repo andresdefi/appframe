@@ -125,6 +125,9 @@ export interface ScreenshotAnalysis {
   role: ScreenshotRole;
   semanticFlavor?: ScreenshotSemanticFlavor;
   semanticFlavorConfidence?: OrderingConfidence;
+  semanticFlavorReason?: string[];
+  semanticFlavorAlternatives?: ScreenshotSemanticFlavorAlternative[];
+  semanticFlavorNeedsReview?: boolean;
   density: ScreenshotDensity;
   textRisk: TextRisk;
   heroPriority: number;
@@ -177,6 +180,9 @@ export interface VariantSetPlan {
     role: ScreenshotRole;
     semanticFlavor?: ScreenshotSemanticFlavor;
     semanticFlavorConfidence?: OrderingConfidence;
+    semanticFlavorReason?: string[];
+    semanticFlavorAlternatives?: ScreenshotSemanticFlavorAlternative[];
+    semanticFlavorNeedsReview?: boolean;
     heroPriority: number;
     inferredOrder: number | null;
     focus: string;
@@ -198,6 +204,11 @@ export interface CopyPlanningSignal {
   unsafeForTextOverlay: boolean;
   topQuietRatio: number;
   focusStrength: number;
+}
+
+export interface ScreenshotSemanticFlavorAlternative {
+  flavor: ScreenshotSemanticFlavor;
+  score: number;
 }
 
 export interface PlannedIndividualScreen {
@@ -677,6 +688,14 @@ function rasterFlavorBonus(score = 0): number {
   return 0;
 }
 
+function humanizeSemanticFlavor(flavor: SemanticFlavor): string {
+  return flavor.replace(/-/g, ' ');
+}
+
+function sentenceCase(value: string): string {
+  return value.length > 0 ? `${value[0]!.toUpperCase()}${value.slice(1)}` : value;
+}
+
 function inferSemanticFlavorDetails(args: {
   pathValue: string;
   note?: string;
@@ -686,6 +705,9 @@ function inferSemanticFlavorDetails(args: {
 }): {
   flavor?: SemanticFlavor;
   confidence?: OrderingConfidence;
+  reason?: string[];
+  alternatives?: ScreenshotSemanticFlavorAlternative[];
+  needsReview?: boolean;
 } {
   const haystack = buildSemanticHaystack(args.pathValue, args.note, args.textInsights);
   const signals = deriveSemanticFlavorSignals(haystack);
@@ -795,8 +817,26 @@ function inferSemanticFlavorDetails(args: {
   ranked.sort((left, right) => right.score - left.score);
   const best = ranked[0];
   const runnerUp = ranked[1];
+  const alternatives = ranked
+    .filter((entry) => entry.score > 0)
+    .slice(0, 3)
+    .map((entry) => ({ flavor: entry.flavor, score: entry.score }));
+  const reason: string[] = [];
 
-  if (!best || best.score < 3) return {};
+  if (!best || best.score < 3) {
+    if (best && best.score > 0) {
+      reason.push(`Weak ${humanizeSemanticFlavor(best.flavor)} cues were found, but not enough to commit to a family.`);
+      if (runnerUp && runnerUp.score > 0) {
+        reason.push(`The nearest competing cue was ${humanizeSemanticFlavor(runnerUp.flavor)}.`);
+      }
+      reason.push(hasTextInsights ? 'Keep this generic unless review context says otherwise.' : 'Raster-only evidence stays too weak to trust without review.');
+    }
+    return {
+      reason,
+      alternatives,
+      needsReview: Boolean(best && best.score > 0),
+    };
+  }
 
   const signalCount = semanticFlavorSignalCount(signals, best.flavor);
   const margin = best.score - (runnerUp?.score ?? 0);
@@ -814,13 +854,45 @@ function inferSemanticFlavorDetails(args: {
     minMargin += 1;
   }
 
+  if (signalCount > 0) {
+    reason.push(`${sentenceCase(humanizeSemanticFlavor(best.flavor))} cues came through in the screenshot metadata or OCR text.`);
+  } else if (hasTextInsights) {
+    reason.push(`${sentenceCase(humanizeSemanticFlavor(best.flavor))} was inferred mostly from role alignment and structural evidence.`);
+  } else {
+    reason.push(`${sentenceCase(humanizeSemanticFlavor(best.flavor))} came from raster structure and local deterministic cues.`);
+  }
+  if (args.role && args.role !== 'unknown' && args.role !== 'feature') {
+    reason.push(
+      roleAligned
+        ? `${sentenceCase(args.role)} role aligns with ${humanizeSemanticFlavor(best.flavor)} treatment.`
+        : `${sentenceCase(args.role)} role conflicts with ${humanizeSemanticFlavor(best.flavor)} treatment, so confidence stays lower.`,
+    );
+  }
+  if (!hasTextInsights) {
+    reason.push('No OCR/text sidecar was available, so this family call remains more conservative.');
+  }
+  if (runnerUp && runnerUp.score > 0) {
+    if (margin <= 1) {
+      reason.push(`${sentenceCase(humanizeSemanticFlavor(runnerUp.flavor))} remained a close competing family.`);
+    } else if (margin <= 3) {
+      reason.push(`${sentenceCase(humanizeSemanticFlavor(runnerUp.flavor))} was the nearest alternate read.`);
+    }
+  }
+
   if (
     !hasTextInsights
     && args.role === 'settings'
     && (best.flavor === 'security' || best.flavor === 'support')
     && signals.settingsConflictCount > signalCount
   ) {
-    return {};
+    return {
+      reason: [
+        ...reason,
+        'Generic settings evidence outweighs the special-family cues, so this falls back to generic until reviewed.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
   }
 
   if (
@@ -831,10 +903,24 @@ function inferSemanticFlavorDetails(args: {
     && (rasterSemanticSignals?.paywallScore ?? 0) >= 4
     && (rasterSemanticSignals?.discoveryScore ?? 0) <= 4
   ) {
-    return {};
+    return {
+      reason: [
+        ...reason,
+        'Generic premium/paywall structure outweighs the weak commerce or reward cues, so this falls back to generic until reviewed.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
   }
 
-  if (best.score < minScore || margin < minMargin) return {};
+  if (best.score < minScore || margin < minMargin) {
+    reason.push('Competing signals stay too close to make this family dependable without review.');
+    return {
+      reason,
+      alternatives,
+      needsReview: true,
+    };
+  }
 
   const confidence: OrderingConfidence =
     best.score >= (hasTextInsights ? 7 : 8) && margin >= 3 && signalCount >= 2
@@ -843,11 +929,27 @@ function inferSemanticFlavorDetails(args: {
         ? 'medium'
         : 'low';
 
-  if (!hasTextInsights && confidence === 'low') return {};
+  if (!hasTextInsights && confidence === 'low') {
+    reason.push('Raster-only evidence is still too weak to lock this family without review.');
+    return {
+      reason,
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (confidence === 'high') {
+    reason.push('Signals are consistent enough to treat this family as dependable.');
+  } else {
+    reason.push('This family is usable, but it is still worth a quick review.');
+  }
 
   return {
     flavor: best.flavor,
     confidence,
+    reason,
+    alternatives,
+    needsReview: confidence !== 'high',
   };
 }
 
@@ -3002,6 +3104,9 @@ export async function analyzeScreenshotSet(
         role,
         semanticFlavor: semanticFlavorDetails.flavor,
         semanticFlavorConfidence: semanticFlavorDetails.confidence,
+        semanticFlavorReason: semanticFlavorDetails.reason,
+        semanticFlavorAlternatives: semanticFlavorDetails.alternatives,
+        semanticFlavorNeedsReview: semanticFlavorDetails.needsReview,
         density,
         textRisk,
         heroPriority,
@@ -5389,6 +5494,9 @@ export function buildVariantSetPlanFromAnalysis(args: {
       role: analysis.role,
       semanticFlavor: analysis.semanticFlavor,
       semanticFlavorConfidence: analysis.semanticFlavorConfidence,
+      semanticFlavorReason: analysis.semanticFlavorReason,
+      semanticFlavorAlternatives: analysis.semanticFlavorAlternatives,
+      semanticFlavorNeedsReview: analysis.semanticFlavorNeedsReview,
       heroPriority: analysis.heroPriority,
       inferredOrder: analysis.inferredOrder,
       focus: analysis.focus,

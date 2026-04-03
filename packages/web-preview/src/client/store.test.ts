@@ -353,6 +353,12 @@ describe('preview session refinement round-trips', () => {
           role: 'detail',
           semanticFlavor: 'reward',
           semanticFlavorConfidence: 'low',
+          semanticFlavorReason: ['Reward cues were stronger than the generic detail fallback.'],
+          semanticFlavorAlternatives: [
+            { flavor: 'reward', score: 5 },
+            { flavor: 'commerce', score: 3 },
+          ],
+          semanticFlavorNeedsReview: true,
           heroPriority: 72,
           inferredOrder: 1,
           focus: 'center',
@@ -366,6 +372,12 @@ describe('preview session refinement round-trips', () => {
             role: 'detail',
             semanticFlavor: 'reward',
             semanticFlavorConfidence: 'low',
+            semanticFlavorReason: ['Reward cues were stronger than the generic detail fallback.'],
+            semanticFlavorAlternatives: [
+              { flavor: 'reward', score: 5 },
+              { flavor: 'commerce', score: 3 },
+            ],
+            semanticFlavorNeedsReview: true,
             inferredOrder: 1,
             unsafeForTextOverlay: false,
           },
@@ -411,6 +423,7 @@ describe('preview session refinement round-trips', () => {
       semanticFlavor: 'document',
       semanticFlavorOverride: 'document',
       inferredSemanticFlavor: 'reward',
+      semanticFlavorNeedsReview: true,
     });
 
     resetStore();
@@ -421,10 +434,17 @@ describe('preview session refinement round-trips', () => {
       semanticFlavorOverride: 'document',
       inferredSemanticFlavor: 'reward',
       inferredSemanticFlavorConfidence: 'low',
+      semanticFlavorReason: ['Reward cues were stronger than the generic detail fallback.'],
+      semanticFlavorAlternatives: [
+        { flavor: 'reward', score: 5 },
+        { flavor: 'commerce', score: 3 },
+      ],
+      semanticFlavorNeedsReview: true,
     });
     expect(roundTrippedState.autopilotConceptPlan?.selectedScreens?.[0]).toMatchObject({
       semanticFlavor: 'document',
       semanticFlavorOverride: 'document',
+      semanticFlavorNeedsReview: true,
     });
   });
 
@@ -480,5 +500,74 @@ describe('preview session refinement round-trips', () => {
       semanticFlavor: 'reward',
       semanticFlavorOverride: null,
     });
+  });
+
+  it('supports bulk semantic-family review updates and reset', () => {
+    const baseConfig = makeIndividualConfig();
+    const session = makeSession(baseConfig, 'concept-a', 'Clean Hero', {
+      screenshotAnalysis: [
+        {
+          path: 'screenshots/home.png',
+          role: 'detail',
+          semanticFlavor: 'reward',
+          semanticFlavorConfidence: 'low',
+          semanticFlavorNeedsReview: true,
+          heroPriority: 72,
+          inferredOrder: 1,
+          focus: 'center',
+          unsafeForTextOverlay: false,
+        },
+        {
+          path: 'screenshots/settings.png',
+          role: 'settings',
+          semanticFlavor: 'support',
+          semanticFlavorConfidence: 'low',
+          semanticFlavorNeedsReview: true,
+          heroPriority: 30,
+          inferredOrder: 2,
+          focus: 'controls',
+          unsafeForTextOverlay: true,
+        },
+      ],
+      conceptPlan: {
+        selectedScreens: [
+          {
+            path: 'screenshots/home.png',
+            role: 'detail',
+            semanticFlavor: 'reward',
+            semanticFlavorConfidence: 'low',
+            semanticFlavorNeedsReview: true,
+            inferredOrder: 1,
+            unsafeForTextOverlay: false,
+          },
+          {
+            path: 'screenshots/settings.png',
+            role: 'settings',
+            semanticFlavor: 'support',
+            semanticFlavorConfidence: 'low',
+            semanticFlavorNeedsReview: true,
+            inferredOrder: 2,
+            unsafeForTextOverlay: true,
+          },
+        ],
+        variants: [],
+      },
+    });
+
+    usePreviewStore.getState().hydrateSession(session as any);
+    usePreviewStore.getState().setAutopilotSemanticFlavorOverrides(
+      ['screenshots/home.png', 'screenshots/settings.png'],
+      'none',
+    );
+
+    let state = usePreviewStore.getState();
+    expect(state.autopilotAnalysis.map((entry) => entry.semanticFlavorOverride)).toEqual(['none', 'none']);
+    expect(state.autopilotConceptPlan?.selectedScreens?.map((entry) => entry.semanticFlavorOverride)).toEqual(['none', 'none']);
+
+    usePreviewStore.getState().resetAutopilotSemanticFlavorOverrides();
+    state = usePreviewStore.getState();
+    expect(state.autopilotAnalysis.map((entry) => entry.semanticFlavorOverride)).toEqual([null, null]);
+    expect(state.autopilotAnalysis.map((entry) => entry.semanticFlavor)).toEqual(['reward', 'support']);
+    expect(state.autopilotConceptPlan?.selectedScreens?.map((entry) => entry.semanticFlavorOverride)).toEqual([null, null]);
   });
 });

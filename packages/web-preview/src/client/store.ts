@@ -231,11 +231,19 @@ export interface AutopilotRefinementHistoryEntry {
   referenceVariantName?: string;
 }
 
+export interface ScreenshotSemanticFlavorAlternative {
+  flavor: string;
+  score: number;
+}
+
 export interface AutopilotScreenshotAnalysis {
   path: string;
   role: string;
   semanticFlavor?: string;
   semanticFlavorConfidence?: string;
+  semanticFlavorReason?: string[];
+  semanticFlavorAlternatives?: ScreenshotSemanticFlavorAlternative[];
+  semanticFlavorNeedsReview?: boolean;
   inferredSemanticFlavor?: string;
   inferredSemanticFlavorConfidence?: string;
   semanticFlavorOverride?: string | null;
@@ -335,6 +343,9 @@ export interface AutopilotConceptPlan {
     role: string;
     semanticFlavor?: string;
     semanticFlavorConfidence?: string;
+    semanticFlavorReason?: string[];
+    semanticFlavorAlternatives?: ScreenshotSemanticFlavorAlternative[];
+    semanticFlavorNeedsReview?: boolean;
     inferredSemanticFlavor?: string;
     inferredSemanticFlavorConfidence?: string;
     semanticFlavorOverride?: string | null;
@@ -432,6 +443,8 @@ export interface PreviewStore {
   setLocale: (locale: string) => void;
   upsertLocaleConfig: (locale: string, localeConfig: LocaleConfig) => void;
   setAutopilotSemanticFlavorOverride: (path: string, semanticFlavor: string | null) => void;
+  setAutopilotSemanticFlavorOverrides: (paths: string[], semanticFlavor: string | null) => void;
+  resetAutopilotSemanticFlavorOverrides: () => void;
   createVariant: (name?: string) => void;
   duplicateActiveVariant: () => void;
   applyRefinementToActive: (actionId: RefinementActionId) => void;
@@ -1344,23 +1357,46 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       },
     })),
   setAutopilotSemanticFlavorOverride: (path, semanticFlavor) =>
+    get().setAutopilotSemanticFlavorOverrides([path], semanticFlavor),
+  setAutopilotSemanticFlavorOverrides: (paths, semanticFlavor) =>
     set((state) => {
+      if (paths.length === 0) return state;
+      const pathSet = new Set(paths);
       let changed = false;
       const autopilotAnalysis = state.autopilotAnalysis.map((entry) => {
-        if (entry.path !== path) return entry;
+        if (!pathSet.has(entry.path)) return entry;
         changed = true;
         return applySemanticFlavorOverride(entry, semanticFlavor);
       });
 
-      const autopilotConceptPlan = state.autopilotConceptPlan?.selectedScreens?.some((entry) => entry.path === path)
+      const autopilotConceptPlan = state.autopilotConceptPlan?.selectedScreens?.some((entry) => pathSet.has(entry.path))
         ? {
             ...state.autopilotConceptPlan,
             selectedScreens: state.autopilotConceptPlan.selectedScreens.map((entry) =>
-              entry.path === path ? applySemanticFlavorOverride(entry, semanticFlavor) : entry),
+              pathSet.has(entry.path) ? applySemanticFlavorOverride(entry, semanticFlavor) : entry),
           }
         : state.autopilotConceptPlan;
 
       return changed ? { autopilotAnalysis, autopilotConceptPlan } : state;
+    }),
+  resetAutopilotSemanticFlavorOverrides: () =>
+    set((state) => {
+      const overridePaths = state.autopilotAnalysis
+        .filter((entry) => entry.semanticFlavorOverride)
+        .map((entry) => entry.path);
+      if (overridePaths.length === 0) return state;
+      const pathSet = new Set(overridePaths);
+      return {
+        autopilotAnalysis: state.autopilotAnalysis.map((entry) =>
+          pathSet.has(entry.path) ? applySemanticFlavorOverride(entry, null) : entry),
+        autopilotConceptPlan: state.autopilotConceptPlan?.selectedScreens?.some((entry) => pathSet.has(entry.path))
+          ? {
+              ...state.autopilotConceptPlan,
+              selectedScreens: state.autopilotConceptPlan.selectedScreens.map((entry) =>
+                pathSet.has(entry.path) ? applySemanticFlavorOverride(entry, null) : entry),
+            }
+          : state.autopilotConceptPlan,
+      };
     }),
   createVariant: (name) =>
     set((state) => {

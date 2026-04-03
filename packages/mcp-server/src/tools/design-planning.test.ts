@@ -838,6 +838,26 @@ describe('design planning helpers', () => {
     }
   });
 
+  it('flags ambiguous settings-like family reads with review diagnostics instead of forcing a weak special family', async () => {
+    const settingsPath = await makePngFile('support-settings-screen.png', 120, 200, (x, y) => {
+      if (y < 30) return [244, 246, 248, 255];
+      const inRow = y > 42 && y < 182 && y % 22 < 12;
+      if (inRow && x > 10 && x < 110) return [203, 213, 225, 255];
+      return [226, 232, 240, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: settingsPath, note: 'Support center settings with notifications, privacy, and ticket help' },
+    ]);
+    const first = analysis[0]!;
+
+    expect(first.role).toBe('settings');
+    expect(first.semanticFlavor).toBe('support');
+    expect(first.semanticFlavorNeedsReview).toBe(true);
+    expect(first.semanticFlavorAlternatives?.map((entry) => entry.flavor)).toContain('support');
+    expect(first.semanticFlavorReason?.some((line) => line.includes('worth a quick review'))).toBe(true);
+  });
+
   it('selects finance-specific concept recipes and planning tone', async () => {
     const homePath = await makeSvgFile('home-dashboard.svg', 1290, 2796);
     const detailPath = await makeSvgFile('weekly-report.svg', 1290, 2796);

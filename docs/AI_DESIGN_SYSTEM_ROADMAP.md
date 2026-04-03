@@ -82,6 +82,8 @@ Current status:
 
 - deterministic recipe selection now goes beyond category naming: individual recipe labels now steer composition/copy constraints more directly, and panoramic concepts now resolve into category-specific recipe archetypes such as `editorial-confidence`, `workflow-panorama`, `conversation-panorama`, `gallery-panorama`, `proof-panorama`, `launch-panorama`, and `cinematic-panorama`
 - panoramic planning now emits opener / relay / proof-close style layout archetypes plus continuity rules, and materialization uses those cues to vary text/device geometry across the strip more intentionally instead of treating most panoramas as one editorial-vs-bold split
+- panoramic planning now also emits explicit per-frame support systems and transition intents, making recipe rhythm more legible in both the generated plan and the preview review surface
+- panoramic materialization now maps those support systems into deterministic quote-stack / metric-ladder / signal-chain / milestone-band / curation-shelf / proof-column groups so the strip can vary proof pacing and non-device rhythm without model-dependent generation
 
 ### 3. Screenshot Understanding
 
@@ -141,6 +143,7 @@ Current status:
 
 - heuristic scoring already blends config analysis, rendered-preview metrics, concept diversity, and optional model ranking
 - scoring now also rejects structurally generic concepts more directly by measuring recipe specificity, support-system richness, and repeated layout rhythm instead of relying on preview pixels alone
+- scoring now also inspects panoramic support-group signature diversity, so strips that reuse the same support-card structure across frames are penalized more directly
 
 ### 5. Real Agent Tooling
 
@@ -213,6 +216,7 @@ This roadmap now has three concrete pieces underway:
 - recipe-specific composition/background reactions now respond more explicitly to onboarding, paywall, settings, chat, reporting, workflow, discovery, editor, profile, catalog, activity, document, map, media, capture, schedule, commerce, security, support, and reward-style screens instead of only generic frame/crop signals
 - panoramic planning/materialization now also emits tool-ribbon, profile-spotlight, activity-wave, folio-stack, browse-strip, route-arc, playback-marquee, capture-focus, timeline-band, checkout-lane, trust-shield, support-beacon, and reward-ribbon treatments plus background accents and family-aware pacing when those local cue families are present, so the strip reacts more clearly than generic proof/decorative systems alone
 - recipe-aware panoramic planning now also varies opener / relay / close archetypes and continuity rules by category-specific recipe family, pulling the system closer to before.click-style pacing breadth without bundling model-dependent generation
+- recipe-aware panoramic planning/materialization now also carries explicit support-system and transition-intent metadata through to the preview UI, improving local-first review tooling for continuity and frame-to-frame rhythm
 - deterministic concept planning: concepts now resequence screenshots differently, constrain support-screen reuse, and derive per-screen copy direction from screenshot role, density, quiet-space, and focal cues instead of sharing one generic ordering/story pass
 - cross-concept screenshot assignment: planning now runs a deterministic shared assignment pass so lead/closing emphasis and support-screen reuse are diversified across concepts instead of repeatedly centering the same screenshot
 - screenshot-aware copy generation: copy candidates can now consume screenshot-derived slot signals so hero, differentiator, feature, trust, and summary lines respond to actual screen content instead of only the feature list
@@ -231,4 +235,5 @@ This roadmap now has three concrete pieces underway:
 - preview launch helper: agents can now start the preview server directly from MCP with `appframe_open_preview_session` instead of only receiving a shell command
 - rendered preview scoring: recommendation now blends config heuristics with rendered PNG analysis for contrast, text-zone safety, whitespace balance, clutter, and panoramic seam continuity
 - rendered preview scoring now also penalizes structurally generic outputs when support systems or frame rhythm repeat too mechanically, improving local-first candidate rejection without requiring AI credentials
+- rendered preview scoring now also penalizes repeated support-group signatures across panoramic frames, so deterministic support-system breadth shows up in ranking more directly
 - rendered preview scoring now also measures set-wide concept diversity, emits concrete layout/copy explanation text, and can run optional live model-assisted visual ranking from rendered previews when AI credentials are available

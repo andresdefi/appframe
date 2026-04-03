@@ -700,7 +700,7 @@ describe('plan materializer', () => {
     expect(
       panoramicGroups.some((group: { children?: Array<{ type: string; content?: string }> }) =>
         (group.children ?? []).some((child) =>
-          child.type === 'badge' && (child.content === 'Creator card' || child.content === 'Community card')),
+          child.type === 'badge' && (child.content === 'Signal chain' || child.content === 'Curated shelf')),
     )).toBe(true);
     expect((panoramic.panoramic.background.layers?.length ?? 0)).toBeGreaterThan(2);
   });

@@ -65,6 +65,9 @@ AppFrame now has an initial autopilot pipeline implemented:
 - dynamic planning/materialization now also reacts more explicitly to editor/profile/catalog/activity/document/map/media/capture/schedule/commerce/security/support/reward-style screens with dedicated individual backgrounds, copy guidance, family-aware panoramic pacing, and richer panoramic tool-ribbon / profile-spotlight / activity-wave / folio-stack / browse-strip / route-arc / playback-marquee / capture-focus / timeline-band / checkout-lane / trust-shield / support-beacon / reward-ribbon treatments
 - planning/materialization is now more explicitly recipe-aware instead of only family-aware: existing individual recipes now steer composition/copy constraints more directly, and panoramic concepts now resolve into category-specific recipe archetypes like `editorial-confidence`, `workflow-panorama`, `conversation-panorama`, `gallery-panorama`, `proof-panorama`, `launch-panorama`, and `cinematic-panorama`
 - panoramic planning now emits explicit opener / relay / proof-close style layout archetypes plus continuity rules, and materialization uses those cues to vary device/text geometry across the strip more intentionally
+- panoramic planning now also emits explicit per-frame support systems and transition intents, and the preview UI surfaces those recipe cues for manual review instead of hiding them in generated configs
+- panoramic materialization now turns those plan-time support systems into deterministic quote-stack / metric-ladder / signal-chain / milestone-band / curation-shelf / proof-column groups so opener / relay / close beats stop defaulting to the same floating support-card rhythm
+- preview scoring now also inspects panoramic support-group signature diversity and penalizes repeated support-card structure more directly, pushing generic strip rhythm down even when screenshots render cleanly
 - the AppFrame skill has been rewritten around the autopilot flow
 
 The current default concept contract is:
@@ -292,7 +295,7 @@ Recommended order:
 - [ ] Add concept-specific per-screen/per-frame composition rules.
   Status: the materializer now responds to `cropPlan` and `frameStrategy`, pushes that metadata into subtitle sizing, support-card copy, palette-led backgrounds, and frameless device treatment, and now varies panoramic opener/relay/close geometry from explicit layout archetypes; deeper recipe-specific coverage is still open.
 - [ ] Add richer panoramic element layout logic after new primitives land.
-  Status: panoramic layout logic now recognizes category-specific recipe families plus opener/relay/close continuity cues, but more non-device support systems and frame-to-frame transitions still need expansion.
+  Status: panoramic layout logic now recognizes category-specific recipe families, opener/relay/close continuity cues, and explicit support-system rhythms, but more non-device support-system breadth and frame-to-frame transitions still need expansion.
 
 ### 6. Variant Sessions
 

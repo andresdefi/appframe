@@ -5,6 +5,7 @@ import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { stringify } from 'yaml';
 import type {
   PanoramicCompositionFeature,
+  PanoramicSupportSystem,
   PlannedCropPlan,
   PlannedFrameStrategy,
   PlannedIndividualScreen,
@@ -589,6 +590,13 @@ function panoramicTextPlacement(args: {
     maxWidth -= 2;
     fontSize -= 0.05;
   }
+  if (args.frame.supportSystem === 'quote-stack' || args.frame.supportSystem === 'proof-column' || args.frame.supportSystem === 'metric-ladder') {
+    maxWidth -= 2;
+  }
+  if (args.frame.supportSystem === 'milestone-band') {
+    maxWidth -= 1;
+    fontSize -= 0.05;
+  }
   if (hasCompositionFeature(args.frame, 'profile-orbit')) {
     fontSize -= 0.05;
   }
@@ -783,11 +791,96 @@ function storyBeatBody(frame: PlannedPanoramicFrame): string {
   );
 }
 
+function supportSystemLabel(system: PanoramicSupportSystem | undefined): string | null {
+  switch (system) {
+    case 'quote-stack':
+      return 'Quote stack';
+    case 'metric-ladder':
+      return 'Metric ladder';
+    case 'signal-chain':
+      return 'Signal chain';
+    case 'milestone-band':
+      return 'Milestone band';
+    case 'curation-shelf':
+      return 'Curation shelf';
+    case 'proof-column':
+      return 'Proof column';
+    default:
+      return null;
+  }
+}
+
 function hasCompositionFeature(
   frame: PlannedPanoramicFrame,
   feature: PanoramicCompositionFeature,
 ): boolean {
   return frame.compositionFeatures?.includes(feature) ?? false;
+}
+
+function panoramicSupportSystemPlacement(args: {
+  frame: PlannedPanoramicFrame;
+  index: number;
+  frameSliceStart: number;
+  sliceWidth: number;
+  boldRecipe: boolean;
+}): { x: number; y: number; width: number; height: number; rotation: number } | null {
+  const supportSystem = args.frame.supportSystem;
+  if (!supportSystem) return null;
+
+  const isClose = args.frame.storyBeat === 'summary' || args.frame.layoutArchetype?.includes('close');
+  const width = Math.max(12.5, args.sliceWidth - (args.boldRecipe ? 5.5 : 6.5));
+  const rotation = args.index % 2 === 0 ? (args.boldRecipe ? -4 : -3) : (args.boldRecipe ? 4 : 3);
+
+  switch (supportSystem) {
+    case 'quote-stack':
+      return {
+        x: args.boldRecipe ? args.frameSliceStart + 2.5 : args.frameSliceStart + args.sliceWidth - width - 2,
+        y: isClose ? 50 : 38,
+        width,
+        height: 29,
+        rotation,
+      };
+    case 'metric-ladder':
+      return {
+        x: args.frameSliceStart + args.sliceWidth - width - 2,
+        y: args.frame.storyBeat === 'hero' ? 18 : isClose ? 56 : 46,
+        width,
+        height: 20,
+        rotation,
+      };
+    case 'signal-chain':
+      return {
+        x: args.frameSliceStart + 2,
+        y: isClose ? 74 : 68,
+        width,
+        height: 15,
+        rotation,
+      };
+    case 'milestone-band':
+      return {
+        x: args.frameSliceStart + 2,
+        y: args.frame.storyBeat === 'hero' ? 18 : isClose ? 70 : 60,
+        width,
+        height: 18,
+        rotation,
+      };
+    case 'curation-shelf':
+      return {
+        x: args.frameSliceStart + 2,
+        y: isClose ? 70 : 66,
+        width,
+        height: 20,
+        rotation,
+      };
+    case 'proof-column':
+      return {
+        x: args.boldRecipe ? args.frameSliceStart + 2.5 : args.frameSliceStart + args.sliceWidth - width - 2,
+        y: isClose ? 52 : 40,
+        width,
+        height: 22,
+        rotation,
+      };
+  }
 }
 
 function buildShadow(args: {
@@ -989,6 +1082,634 @@ function buildPanoramicSupportGroup(args: {
     height: args.height,
     rotation: args.rotation,
     opacity: 1,
+    z: 8,
+    children,
+  };
+}
+
+function buildPanoramicQuoteStackGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  textColor: string;
+  subtitleColor: string;
+  dark: boolean;
+  title: string;
+  body: string;
+}): PanoramicElement {
+  const cardBackground = args.dark ? '#111827E8' : '#FFFFFFEE';
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : args.textColor;
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Story quote',
+      x: 0,
+      y: 0,
+      width: 38,
+      height: 9,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.9,
+      fontWeight: 700,
+      letterSpacing: 7,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'card',
+      x: 0,
+      y: 12,
+      width: 78,
+      height: 36,
+      eyebrow: 'Lead',
+      title: args.title,
+      body: args.body,
+      align: 'left',
+      backgroundColor: cardBackground,
+      opacity: 0.97,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 22,
+      padding: 2.2,
+      rotation: -2,
+      eyebrowColor: args.subtitleColor,
+      titleColor: args.dark ? '#FFFFFF' : args.textColor,
+      bodyColor: args.dark ? '#CBD5E1' : args.subtitleColor,
+      eyebrowSize: 2.8,
+      titleSize: 6.4,
+      bodySize: 3.5,
+      shadow: buildShadow({ opacity: 0.16, blur: 18, offsetY: 6, color: args.dark ? '#020617' : '#0F172A' }),
+      z: 2,
+    },
+    {
+      type: 'card',
+      x: 18,
+      y: 42,
+      width: 74,
+      height: 28,
+      eyebrow: 'Why it lands',
+      title: 'Proof stays readable',
+      body: 'Keep the support copy shorter than the headline so the stack closes cleanly.',
+      align: 'left',
+      backgroundColor: cardBackground,
+      opacity: 0.94,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 22,
+      padding: 2.1,
+      rotation: 3,
+      eyebrowColor: args.subtitleColor,
+      titleColor: args.dark ? '#FFFFFF' : args.textColor,
+      bodyColor: args.dark ? '#CBD5E1' : args.subtitleColor,
+      eyebrowSize: 2.4,
+      titleSize: 5.4,
+      bodySize: 3.1,
+      shadow: buildShadow({ opacity: 0.12, blur: 16, offsetY: 5, color: args.dark ? '#020617' : '#0F172A' }),
+      z: 1,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 8,
+    children,
+  };
+}
+
+function buildPanoramicMetricLadderGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const trackColor = args.dark ? '#FFFFFF66' : '#CBD5E1';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Metric ladder',
+      x: 0,
+      y: 0,
+      width: 38,
+      height: 9,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.9,
+      fontWeight: 700,
+      letterSpacing: 7,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 4,
+    },
+    {
+      type: 'badge',
+      content: 'Lift',
+      x: 72,
+      y: 14,
+      width: 18,
+      height: 8,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.92,
+      borderColor: args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.78,
+      fontWeight: 700,
+      letterSpacing: 5,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 4,
+    },
+  ];
+
+  [0, 1, 2].forEach((step) => {
+    children.push({
+      type: 'decoration',
+      shape: 'line',
+      x: 8,
+      y: 20 + (step * 14),
+      width: 38 + (step * 14),
+      height: 3,
+      color: step === 2 ? args.accentColor : step === 1 ? args.secondaryColor : trackColor,
+      opacity: args.dark ? 0.58 - (step * 0.08) : 0.34 + (step * 0.08),
+      rotation: 0,
+      z: 2,
+    });
+  });
+
+  children.push(
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 50,
+      y: 44,
+      width: 8,
+      height: 8,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.52 : 0.28,
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'decoration',
+      shape: 'circle',
+      x: 72,
+      y: 58,
+      width: 10,
+      height: 10,
+      color: args.accentColor,
+      opacity: args.dark ? 0.58 : 0.34,
+      rotation: 0,
+      z: 3,
+    },
+  );
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 8,
+    children,
+  };
+}
+
+function buildPanoramicSignalChainGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Signal chain',
+      x: 0,
+      y: 0,
+      width: 34,
+      height: 8.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 4,
+    },
+  ];
+
+  const labels = ['Live', 'Reply', 'Share', 'Return'];
+  labels.forEach((label, index) => {
+    children.push({
+      type: 'badge',
+      content: label,
+      x: 4 + (index * 22),
+      y: 18 + ((index % 2) * 10),
+      width: 18,
+      height: 7.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.92,
+      borderColor: index % 2 === 0 ? args.accentColor : args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.72,
+      fontWeight: 700,
+      letterSpacing: 5,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    });
+    if (index < labels.length - 1) {
+      children.push({
+        type: 'decoration',
+        shape: 'line',
+        x: 20 + (index * 22),
+        y: index % 2 === 0 ? 27 : 35,
+        width: 10,
+        height: 2,
+        color: index % 2 === 0 ? args.secondaryColor : args.accentColor,
+        opacity: args.dark ? 0.42 : 0.24,
+        rotation: index % 2 === 0 ? 10 : -10,
+        z: 2,
+      });
+    }
+  });
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 8,
+    children,
+  };
+}
+
+function buildPanoramicMilestoneBandGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  textColor: string;
+  subtitleColor: string;
+  dark: boolean;
+  title: string;
+}): PanoramicElement {
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const cardBackground = args.dark ? '#111827E6' : '#FFFFFFEE';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Milestone band',
+      x: 0,
+      y: 0,
+      width: 36,
+      height: 8.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 4,
+    },
+    {
+      type: 'card',
+      x: 56,
+      y: 28,
+      width: 40,
+      height: 22,
+      eyebrow: 'Next',
+      title: args.title,
+      body: 'Keep the next checkpoint obvious.',
+      align: 'left',
+      backgroundColor: cardBackground,
+      opacity: 0.96,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 18,
+      padding: 1.8,
+      rotation: 0,
+      eyebrowColor: args.subtitleColor,
+      titleColor: args.dark ? '#FFFFFF' : args.textColor,
+      bodyColor: args.dark ? '#CBD5E1' : args.subtitleColor,
+      eyebrowSize: 2.3,
+      titleSize: 4.8,
+      bodySize: 2.8,
+      shadow: buildShadow({ opacity: 0.12, blur: 14, offsetY: 5, color: args.dark ? '#020617' : '#0F172A' }),
+      z: 3,
+    },
+  ];
+
+  [0, 1, 2].forEach((step) => {
+    children.push({
+      type: 'decoration',
+      shape: 'circle',
+      x: 8 + (step * 18),
+      y: 34,
+      width: step === 2 ? 10 : 8,
+      height: step === 2 ? 10 : 8,
+      color: step === 2 ? args.accentColor : step === 1 ? args.secondaryColor : badgeColor,
+      opacity: args.dark ? 0.58 - (step * 0.06) : 0.26 + (step * 0.08),
+      rotation: 0,
+      z: 3,
+    });
+    if (step < 2) {
+      children.push({
+        type: 'decoration',
+        shape: 'line',
+        x: 16 + (step * 18),
+        y: 37,
+        width: 16,
+        height: 2,
+        color: step === 0 ? args.secondaryColor : args.accentColor,
+        opacity: args.dark ? 0.42 : 0.24,
+        rotation: 0,
+        z: 2,
+      });
+    }
+  });
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 8,
+    children,
+  };
+}
+
+function buildPanoramicCurationShelfGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  textColor: string;
+  subtitleColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const cardBackground = args.dark ? '#111827E6' : '#FFFFFFEE';
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Curated shelf',
+      x: 0,
+      y: 0,
+      width: 34,
+      height: 8.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 4,
+    },
+  ];
+
+  const cards = [
+    { title: 'Pick', body: 'Lead with one strong surface.', borderColor: args.accentColor },
+    { title: 'Mix', body: 'Keep one support beat lighter.', borderColor: args.secondaryColor },
+    { title: 'Close', body: 'Land on the cleanest payoff.', borderColor: args.accentColor },
+  ];
+
+  cards.forEach((card, index) => {
+    children.push({
+      type: 'card',
+      x: 2 + (index * 30),
+      y: 16 + ((index % 2) * 6),
+      width: 28,
+      height: 28,
+      eyebrow: `0${index + 1}`,
+      title: card.title,
+      body: card.body,
+      align: 'left',
+      backgroundColor: cardBackground,
+      opacity: 0.96,
+      borderColor: card.borderColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 18,
+      padding: 1.7,
+      rotation: index === 1 ? 0 : index === 0 ? -2 : 2,
+      eyebrowColor: args.subtitleColor,
+      titleColor: args.dark ? '#FFFFFF' : args.textColor,
+      bodyColor: args.dark ? '#CBD5E1' : args.subtitleColor,
+      eyebrowSize: 2.2,
+      titleSize: 4.6,
+      bodySize: 2.7,
+      shadow: buildShadow({ opacity: 0.1, blur: 12, offsetY: 4, color: args.dark ? '#020617' : '#0F172A' }),
+      z: 3,
+    });
+  });
+
+  children.push({
+    type: 'decoration',
+    shape: 'line',
+    x: 6,
+    y: 52,
+    width: 82,
+    height: 2,
+    color: args.secondaryColor,
+    opacity: args.dark ? 0.34 : 0.18,
+    rotation: 0,
+    z: 1,
+  });
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
+    z: 8,
+    children,
+  };
+}
+
+function buildPanoramicProofColumnGroup(args: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  accentColor: string;
+  secondaryColor: string;
+  textColor: string;
+  subtitleColor: string;
+  dark: boolean;
+}): PanoramicElement {
+  const cardBackground = args.dark ? '#111827E6' : '#FFFFFFEE';
+  const badgeBackground = args.dark ? '#0F172ACC' : '#FFFFFFE8';
+  const badgeColor = args.dark ? '#FFFFFF' : '#0F172A';
+  const children: PanoramicGroupChild[] = [
+    {
+      type: 'badge',
+      content: 'Proof column',
+      x: 0,
+      y: 0,
+      width: 34,
+      height: 8.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.95,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.82,
+      fontWeight: 700,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 4,
+    },
+    {
+      type: 'badge',
+      content: 'Trusted',
+      x: 0,
+      y: 16,
+      width: 24,
+      height: 7.5,
+      color: badgeColor,
+      backgroundColor: badgeBackground,
+      opacity: 0.92,
+      borderColor: args.secondaryColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 100,
+      fontSize: 0.72,
+      fontWeight: 700,
+      letterSpacing: 5,
+      textTransform: 'uppercase',
+      rotation: 0,
+      z: 3,
+    },
+    {
+      type: 'card',
+      x: 0,
+      y: 28,
+      width: 56,
+      height: 24,
+      eyebrow: 'Proof',
+      title: 'Trust stays visible',
+      body: 'Stack validation and reassurance as one vertical beat.',
+      align: 'left',
+      backgroundColor: cardBackground,
+      opacity: 0.96,
+      borderColor: args.accentColor,
+      borderWidth: args.dark ? 0 : 1,
+      borderRadius: 18,
+      padding: 1.8,
+      rotation: 0,
+      eyebrowColor: args.subtitleColor,
+      titleColor: args.dark ? '#FFFFFF' : args.textColor,
+      bodyColor: args.dark ? '#CBD5E1' : args.subtitleColor,
+      eyebrowSize: 2.3,
+      titleSize: 4.6,
+      bodySize: 2.8,
+      shadow: buildShadow({ opacity: 0.1, blur: 12, offsetY: 4, color: args.dark ? '#020617' : '#0F172A' }),
+      z: 3,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 64,
+      y: 18,
+      width: 3,
+      height: 40,
+      color: args.accentColor,
+      opacity: args.dark ? 0.4 : 0.22,
+      rotation: 0,
+      z: 1,
+    },
+    {
+      type: 'decoration',
+      shape: 'line',
+      x: 74,
+      y: 24,
+      width: 3,
+      height: 28,
+      color: args.secondaryColor,
+      opacity: args.dark ? 0.34 : 0.18,
+      rotation: 0,
+      z: 1,
+    },
+  ];
+
+  return {
+    type: 'group',
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    rotation: args.rotation,
+    opacity: 0.98,
     z: 8,
     children,
   };
@@ -2647,6 +3368,7 @@ function buildPanoramicElements(args: {
     const hasMediaMarquee = hasCompositionFeature(frame, 'media-marquee');
     const hasCaptureFocus = hasCompositionFeature(frame, 'capture-focus');
     const hasTimelineBand = hasCompositionFeature(frame, 'timeline-band');
+    const supportSystem = frame.supportSystem;
     const allowFramelessExtracts = args.variant.frameStrategy?.defaultTreatment === 'mixed';
     const includeSupportCrop = frame.cropPlan?.usage === 'supporting-crop'
       || frame.cropPlan?.usage === 'layered-extract'
@@ -2684,6 +3406,15 @@ function buildPanoramicElements(args: {
     const supportBody = copy?.subtitle ?? storyBeatBody(frame);
     const supportCardBackground = lightPaletteColor(frame.dominantPalette)
       ?? (boldRecipe ? '#FFFFFFF0' : '#FFFFFFF2');
+    const supportSystemBadge = supportSystemLabel(supportSystem);
+    const supportSystemPlacement = panoramicSupportSystemPlacement({
+      frame,
+      index,
+      frameSliceStart,
+      sliceWidth,
+      boldRecipe,
+    });
+    const usesSpecificSupportSystem = Boolean(supportSystem && supportSystemPlacement);
 
     elements.push({
       type: 'device',
@@ -2766,7 +3497,7 @@ function buildPanoramicElements(args: {
                   ? 'Curated browse'
                   : boldRecipe
                     ? 'Campaign concept'
-                    : 'Featured flow'
+                    : supportSystemBadge ?? 'Featured flow'
             : hasProfileOrbit
               ? 'Community proof'
               : hasActivityWave
@@ -2777,7 +3508,7 @@ function buildPanoramicElements(args: {
                   ? 'Review proof'
                 : hasCheckoutLane
                   ? 'Order proof'
-              : 'Proof point',
+              : supportSystemBadge ?? 'Proof point',
         x: frameSliceStart + 4,
         y: boldRecipe ? 21 : 20,
         width: Math.max(11, sliceWidth - 10),
@@ -2926,6 +3657,81 @@ function buildPanoramicElements(args: {
       });
     }
 
+    if (supportSystem && supportSystemPlacement) {
+      switch (supportSystem) {
+        case 'quote-stack':
+          elements.push(
+            buildPanoramicQuoteStackGroup({
+              ...supportSystemPlacement,
+              accentColor: args.accentColor,
+              textColor: boldRecipe ? '#FFFFFF' : args.textColor,
+              subtitleColor: boldRecipe ? '#CBD5E1' : args.subtitleColor,
+              dark: boldRecipe,
+              title: supportTitle,
+              body: supportBody,
+            }),
+          );
+          break;
+        case 'metric-ladder':
+          elements.push(
+            buildPanoramicMetricLadderGroup({
+              ...supportSystemPlacement,
+              accentColor: args.accentColor,
+              secondaryColor: boldRecipe ? '#FFFFFF' : args.subtitleColor,
+              dark: boldRecipe,
+            }),
+          );
+          break;
+        case 'signal-chain':
+          elements.push(
+            buildPanoramicSignalChainGroup({
+              ...supportSystemPlacement,
+              accentColor: args.accentColor,
+              secondaryColor: boldRecipe ? '#FFFFFF' : args.subtitleColor,
+              dark: boldRecipe,
+            }),
+          );
+          break;
+        case 'milestone-band':
+          elements.push(
+            buildPanoramicMilestoneBandGroup({
+              ...supportSystemPlacement,
+              accentColor: args.accentColor,
+              secondaryColor: boldRecipe ? '#FFFFFF' : args.subtitleColor,
+              textColor: boldRecipe ? '#FFFFFF' : args.textColor,
+              subtitleColor: boldRecipe ? '#CBD5E1' : args.subtitleColor,
+              dark: boldRecipe,
+              title: supportTitle,
+            }),
+          );
+          break;
+        case 'curation-shelf':
+          elements.push(
+            buildPanoramicCurationShelfGroup({
+              ...supportSystemPlacement,
+              accentColor: args.accentColor,
+              secondaryColor: boldRecipe ? '#FFFFFF' : args.subtitleColor,
+              textColor: boldRecipe ? '#FFFFFF' : args.textColor,
+              subtitleColor: boldRecipe ? '#CBD5E1' : args.subtitleColor,
+              dark: boldRecipe,
+            }),
+          );
+          break;
+        case 'proof-column':
+          elements.push(
+            buildPanoramicProofColumnGroup({
+              ...supportSystemPlacement,
+              accentColor: args.accentColor,
+              secondaryColor: boldRecipe ? '#FFFFFF' : args.subtitleColor,
+              textColor: boldRecipe ? '#FFFFFF' : args.textColor,
+              subtitleColor: boldRecipe ? '#CBD5E1' : args.subtitleColor,
+              dark: boldRecipe,
+            }),
+          );
+          break;
+      }
+    }
+
     if (
       editorialRecipe
       && hasLayeredDetail
@@ -2956,7 +3762,7 @@ function buildPanoramicElements(args: {
       );
     }
 
-    if (editorialRecipe && hasFloatingDetailCard) {
+    if (editorialRecipe && hasFloatingDetailCard && !usesSpecificSupportSystem) {
       const groupWidth = Math.max(12.5, sliceWidth - 8);
       elements.push(
         buildPanoramicSupportGroup({
@@ -3293,6 +4099,7 @@ function buildPanoramicElements(args: {
     if (
       boldRecipe
       && hasFloatingDetailCard
+      && !usesSpecificSupportSystem
       && includeSupportCrop
       && frame.cropSuitability !== 'low'
     ) {
@@ -3366,7 +4173,7 @@ function buildPanoramicElements(args: {
           includeCrop: allowFramelessExtracts,
         }),
       );
-    } else if (boldRecipe && hasFloatingDetailCard) {
+    } else if (boldRecipe && hasFloatingDetailCard && !usesSpecificSupportSystem) {
       elements.push(
         buildPanoramicSupportGroup({
           screenshot: sourceScreenshot,

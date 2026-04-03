@@ -196,6 +196,17 @@ function collectPanoramicElementsByType<T extends PanoramicElement['type']>(
   return acc;
 }
 
+function groupStructureSignature(group: Extract<PanoramicElement, { type: 'group' }>): string {
+  const counts = new Map<string, number>();
+  for (const child of group.children ?? []) {
+    counts.set(child.type, (counts.get(child.type) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([type, count]) => `${type}:${count}`)
+    .join('|');
+}
+
 function bucket(value: number, size: number): string {
   return `${Math.round(value / size) * size}`;
 }
@@ -209,6 +220,12 @@ function assessStructureSpecificity(config: AppframeConfig): StructureAssessment
     const cards = collectPanoramicElementsByType(elements, 'card').length;
     const crops = collectPanoramicElementsByType(elements, 'crop').length;
     const devices = collectPanoramicElementsByType(elements, 'device');
+    const groupSignatures = collectPanoramicElementsByType(elements, 'group').map(groupStructureSignature);
+    const uniqueGroupSignatureCount = new Set(groupSignatures).size;
+    const dominantGroupSignatureCount = groupSignatures.reduce((best, signature) => {
+      const count = groupSignatures.filter((value) => value === signature).length;
+      return Math.max(best, count);
+    }, 0);
     const layerCount = config.panoramic?.background.layers?.length ?? 0;
     const rhythmSignature = devices
       .slice(0, 4)
@@ -223,25 +240,30 @@ function assessStructureSpecificity(config: AppframeConfig): StructureAssessment
         + Math.min(18, layerCount * 5)
         + Math.min(18, supportSystems * 2)
         + Math.min(12, uniqueRhythmCount * 4)
+        + Math.min(12, uniqueGroupSignatureCount * 3)
         + (supportSystems >= 6 ? 6 : 0)
+        + (uniqueGroupSignatureCount >= 3 ? 4 : 0)
         - (supportSystems <= 2 ? 14 : 0)
-        - (uniqueRhythmCount <= 1 && devices.length >= 3 ? 10 : 0),
+        - (uniqueRhythmCount <= 1 && devices.length >= 3 ? 10 : 0)
+        - (dominantGroupSignatureCount >= 3 ? 10 : 0),
       36,
       98,
     );
 
     return {
       score,
-      signature: `panoramic:${Math.min(layerCount, 4)}:${Math.min(supportSystems, 9)}:${rhythmSignature}`,
+      signature: `panoramic:${Math.min(layerCount, 4)}:${Math.min(supportSystems, 9)}:${Math.min(uniqueGroupSignatureCount, 5)}:${rhythmSignature}`,
       issue:
         supportSystems <= 2
           ? 'the strip relies on too few support systems, so it risks reading like repeated device-plus-headline panels'
+          : dominantGroupSignatureCount >= 3
+            ? 'too many support groups reuse the same child structure, so the strip still falls into repeated support-card rhythm'
           : uniqueRhythmCount <= 1 && devices.length >= 3
             ? 'device rhythm barely changes across frames, so the panoramic pacing feels generic'
             : null,
       strength:
-        supportSystems >= 6 && uniqueRhythmCount >= 3
-          ? 'recipe structure stays specific with distinct support systems and changing frame rhythm'
+        supportSystems >= 6 && uniqueRhythmCount >= 3 && uniqueGroupSignatureCount >= 3
+          ? 'recipe structure stays specific with distinct support systems, varied support-group shapes, and changing frame rhythm'
           : layerCount >= 3
             ? 'background and support systems create a stronger panoramic recipe identity'
             : null,

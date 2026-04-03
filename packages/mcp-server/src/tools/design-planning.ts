@@ -51,6 +51,13 @@ export type PanoramicCompositionFeature =
   | 'trust-shield'
   | 'support-beacon'
   | 'reward-ribbon';
+export type PanoramicSupportSystem =
+  | 'quote-stack'
+  | 'metric-ladder'
+  | 'signal-chain'
+  | 'milestone-band'
+  | 'curation-shelf'
+  | 'proof-column';
 
 export interface SafeTextZone {
   x: number;
@@ -202,6 +209,8 @@ export interface PlannedPanoramicFrame {
   storyBeat: string;
   layoutArchetype?: string;
   continuityRule?: string;
+  supportSystem?: PanoramicSupportSystem;
+  transitionIntent?: string;
   cropPlan?: PlannedCropPlan;
   assetGuidance?: string;
   pacing?: string;
@@ -3990,6 +3999,194 @@ function panoramicRecipeArchetype(recipe: string):
   }
 }
 
+function panoramicSupportSystemLabel(system: PanoramicSupportSystem): string {
+  switch (system) {
+    case 'quote-stack':
+      return 'quote stack';
+    case 'metric-ladder':
+      return 'metric ladder';
+    case 'signal-chain':
+      return 'signal chain';
+    case 'milestone-band':
+      return 'milestone band';
+    case 'curation-shelf':
+      return 'curation shelf';
+    case 'proof-column':
+      return 'proof column';
+  }
+}
+
+function buildPanoramicSupportSystem(args: {
+  category: AppCategory;
+  recipe: string;
+  analysis: ScreenshotAnalysis;
+  storyBeat: string;
+  index: number;
+  total: number;
+}): PanoramicSupportSystem {
+  const archetype = panoramicRecipeArchetype(args.recipe);
+  const semanticFlavor = inferSemanticFlavor({
+    pathValue: args.analysis.path,
+    note: args.analysis.note,
+    textInsights: args.analysis.textInsights,
+    role: args.analysis.role,
+  });
+  const isClose = args.storyBeat === 'summary' || args.index === args.total - 1;
+
+  if (isClose) {
+    if (
+      semanticFlavor === 'activity'
+      || semanticFlavor === 'profile'
+      || args.analysis.role === 'communication'
+      || archetype === 'conversation'
+    ) {
+      return 'signal-chain';
+    }
+    if (
+      args.analysis.role === 'workflow'
+      || semanticFlavor === 'schedule'
+      || archetype === 'workflow'
+      || archetype === 'wellness'
+    ) {
+      return 'milestone-band';
+    }
+    if (
+      semanticFlavor === 'catalog'
+      || semanticFlavor === 'media'
+      || args.analysis.role === 'discovery'
+      || archetype === 'gallery'
+      || archetype === 'world'
+    ) {
+      return 'curation-shelf';
+    }
+    if (semanticFlavor === 'document' || semanticFlavor === 'commerce') {
+      return 'proof-column';
+    }
+    return 'quote-stack';
+  }
+
+  if (args.storyBeat === 'hero') {
+    if (
+      semanticFlavor === 'activity'
+      || semanticFlavor === 'profile'
+      || args.analysis.role === 'communication'
+      || archetype === 'conversation'
+    ) {
+      return 'signal-chain';
+    }
+    if (
+      args.analysis.role === 'workflow'
+      || semanticFlavor === 'schedule'
+      || archetype === 'workflow'
+      || archetype === 'wellness'
+    ) {
+      return 'milestone-band';
+    }
+    if (
+      semanticFlavor === 'catalog'
+      || semanticFlavor === 'media'
+      || args.analysis.role === 'discovery'
+      || semanticFlavor === 'editor'
+      || archetype === 'gallery'
+      || archetype === 'world'
+    ) {
+      return 'curation-shelf';
+    }
+    if (args.category === 'finance' || semanticFlavor === 'document' || args.analysis.role === 'detail') {
+      return 'metric-ladder';
+    }
+    return 'quote-stack';
+  }
+
+  if (args.storyBeat === 'trust') {
+    if (
+      semanticFlavor === 'activity'
+      || semanticFlavor === 'profile'
+      || args.analysis.role === 'communication'
+      || archetype === 'conversation'
+    ) {
+      return 'signal-chain';
+    }
+    if (
+      args.analysis.role === 'workflow'
+      || semanticFlavor === 'schedule'
+      || archetype === 'workflow'
+    ) {
+      return 'metric-ladder';
+    }
+    if (
+      semanticFlavor === 'catalog'
+      || semanticFlavor === 'media'
+      || args.analysis.role === 'discovery'
+      || archetype === 'gallery'
+      || archetype === 'world'
+    ) {
+      return 'curation-shelf';
+    }
+    return 'proof-column';
+  }
+
+  if (
+    semanticFlavor === 'activity'
+    || semanticFlavor === 'profile'
+    || args.analysis.role === 'communication'
+  ) {
+    return 'signal-chain';
+  }
+  if (
+    args.analysis.role === 'workflow'
+    || semanticFlavor === 'schedule'
+    || archetype === 'workflow'
+    || archetype === 'wellness'
+  ) {
+    return 'milestone-band';
+  }
+  if (
+    semanticFlavor === 'catalog'
+    || semanticFlavor === 'media'
+    || args.analysis.role === 'discovery'
+    || semanticFlavor === 'editor'
+    || archetype === 'gallery'
+    || archetype === 'world'
+  ) {
+    return 'curation-shelf';
+  }
+  if (args.category === 'finance' || args.analysis.role === 'detail') {
+    return 'metric-ladder';
+  }
+  if (
+    semanticFlavor === 'support'
+    || semanticFlavor === 'security'
+    || semanticFlavor === 'document'
+    || semanticFlavor === 'commerce'
+    || semanticFlavor === 'reward'
+  ) {
+    return 'proof-column';
+  }
+
+  return panoramicRecipeFamily(args.recipe) === 'editorial' ? 'quote-stack' : 'metric-ladder';
+}
+
+function buildPanoramicTransitionIntent(args: {
+  supportSystem: PanoramicSupportSystem;
+  storyBeat: string;
+  index: number;
+  total: number;
+}): string {
+  const systemLabel = panoramicSupportSystemLabel(args.supportSystem);
+
+  if (args.index === 0) {
+    return `Open with a ${systemLabel} so the strip establishes a clear support rhythm before repeating devices.`;
+  }
+  if (args.storyBeat === 'summary' || args.index === args.total - 1) {
+    return `Collapse the close into a ${systemLabel} so the strip lands on payoff instead of another repeated support card.`;
+  }
+  if (args.storyBeat === 'trust') {
+    return `Turn the middle seam into a ${systemLabel} so proof feels escalated rather than recycled from the opener.`;
+  }
+  return `Pivot the relay beat into a ${systemLabel} so the support treatment changes shape across the seam.`;
+}
+
 function buildPanoramicLayoutArchetype(args: {
   recipe: string;
   storyBeat: string;
@@ -4075,6 +4272,7 @@ function buildPanoramicLayoutArchetype(args: {
 function buildPanoramicContinuityRule(args: {
   recipe: string;
   layoutArchetype: string;
+  supportSystem: PanoramicSupportSystem;
   analysis: ScreenshotAnalysis;
   storyBeat: string;
   index: number;
@@ -4094,6 +4292,8 @@ function buildPanoramicContinuityRule(args: {
   } else {
     rules.push('Let the dominant device step across the strip while badges and proof systems repeat with intent.');
   }
+
+  rules.push(`Carry the ${panoramicSupportSystemLabel(args.supportSystem)} rhythm across the seam instead of resetting to the same generic support card.`);
 
   if (args.layoutArchetype.includes('opener')) {
     rules.push('Make the opening feel poster-led with a single dominant silhouette.');
@@ -4403,6 +4603,7 @@ function buildCategoryConceptSpecs(
 function buildPanoramicCompositionFeatures(args: {
   category: AppCategory;
   recipe: string;
+  supportSystem: PanoramicSupportSystem;
   analysis: ScreenshotAnalysis;
   storyBeat: string;
   index: number;
@@ -4431,6 +4632,13 @@ function buildPanoramicCompositionFeatures(args: {
 
   if (args.storyBeat === 'trust' || args.storyBeat === 'summary') {
     features.push('proof-stack');
+  }
+
+  if (args.supportSystem === 'quote-stack' || args.supportSystem === 'proof-column' || args.supportSystem === 'metric-ladder') {
+    features.push('proof-stack');
+  }
+  if (args.supportSystem === 'signal-chain' || args.supportSystem === 'curation-shelf') {
+    features.push('decorative-cluster');
   }
 
   if (args.analysis.role === 'paywall') {
@@ -4526,6 +4734,8 @@ function buildPanoramicCompositionFeatures(args: {
 
 function buildPanoramicCompositionNote(args: {
   recipe: string;
+  supportSystem: PanoramicSupportSystem;
+  transitionIntent?: string;
   features: PanoramicCompositionFeature[];
   analysis: ScreenshotAnalysis;
   storyBeat: string;
@@ -4534,6 +4744,27 @@ function buildPanoramicCompositionNote(args: {
 }): string {
   const parts: string[] = [];
   const recipeFamily = panoramicRecipeFamily(args.recipe);
+
+  switch (args.supportSystem) {
+    case 'quote-stack':
+      parts.push('Use a quote-stack support system so the frame can carry editorial proof without repeating another crop-card block.');
+      break;
+    case 'metric-ladder':
+      parts.push('Use a metric-ladder support system so proof climbs in short steps instead of flattening into one static badge row.');
+      break;
+    case 'signal-chain':
+      parts.push('Use a signal-chain support system so the frame reads like linked activity beats instead of isolated support chips.');
+      break;
+    case 'milestone-band':
+      parts.push('Use a milestone-band support system so the frame shows progression and checkpoint rhythm across the strip.');
+      break;
+    case 'curation-shelf':
+      parts.push('Use a curation-shelf support system so the frame sells breadth and selective range without repeating a generic card stack.');
+      break;
+    case 'proof-column':
+      parts.push('Use a proof-column support system so the frame stacks endorsement and trust cues with more vertical contrast than a floating card alone.');
+      break;
+  }
 
   if (args.features.includes('layered-detail-extract')) {
     parts.push('Pull cropped UI details into a layered supporting stack.');
@@ -4604,6 +4835,10 @@ function buildPanoramicCompositionNote(args: {
 
   if (args.layoutArchetype) {
     parts.push(`Shape the frame like a ${args.layoutArchetype.replace(/-/g, ' ')} instead of repeating the previous panel.`);
+  }
+
+  if (args.transitionIntent) {
+    parts.push(args.transitionIntent);
   }
 
   if (args.analysis.role === 'communication') {
@@ -4848,6 +5083,14 @@ function buildVariantEntries(
       },
       frames: editorialSequence.map((analysis, index) => {
         const storyBeat = buildSlideRole(index, editorialSequence.length);
+        const supportSystem = buildPanoramicSupportSystem({
+          category,
+          recipe: conceptC.recipe,
+          analysis,
+          storyBeat,
+          index,
+          total: editorialSequence.length,
+        });
         const layoutArchetype = buildPanoramicLayoutArchetype({
           recipe: conceptC.recipe,
           storyBeat,
@@ -4857,13 +5100,21 @@ function buildVariantEntries(
         const compositionFeatures = buildPanoramicCompositionFeatures({
           category,
           recipe: conceptC.recipe,
+          supportSystem,
           analysis,
           storyBeat,
           index,
         });
+        const transitionIntent = buildPanoramicTransitionIntent({
+          supportSystem,
+          storyBeat,
+          index,
+          total: editorialSequence.length,
+        });
         const continuityRule = buildPanoramicContinuityRule({
           recipe: conceptC.recipe,
           layoutArchetype,
+          supportSystem,
           analysis,
           storyBeat,
           index,
@@ -4880,6 +5131,8 @@ function buildVariantEntries(
           storyBeat,
           layoutArchetype,
           continuityRule,
+          supportSystem,
+          transitionIntent,
           cropPlan: buildCropPlan({
             analysis,
             storyBeat,
@@ -4897,6 +5150,8 @@ function buildVariantEntries(
           compositionFeatures,
           compositionNote: buildPanoramicCompositionNote({
             recipe: conceptC.recipe,
+            supportSystem,
+            transitionIntent,
             features: compositionFeatures,
             analysis,
             storyBeat,
@@ -4926,6 +5181,14 @@ function buildVariantEntries(
       },
       frames: boldSequence.map((analysis, index) => {
         const storyBeat = buildSlideRole(index, boldSequence.length);
+        const supportSystem = buildPanoramicSupportSystem({
+          category,
+          recipe: conceptD.recipe,
+          analysis,
+          storyBeat,
+          index,
+          total: boldSequence.length,
+        });
         const layoutArchetype = buildPanoramicLayoutArchetype({
           recipe: conceptD.recipe,
           storyBeat,
@@ -4935,13 +5198,21 @@ function buildVariantEntries(
         const compositionFeatures = buildPanoramicCompositionFeatures({
           category,
           recipe: conceptD.recipe,
+          supportSystem,
           analysis,
           storyBeat,
           index,
         });
+        const transitionIntent = buildPanoramicTransitionIntent({
+          supportSystem,
+          storyBeat,
+          index,
+          total: boldSequence.length,
+        });
         const continuityRule = buildPanoramicContinuityRule({
           recipe: conceptD.recipe,
           layoutArchetype,
+          supportSystem,
           analysis,
           storyBeat,
           index,
@@ -4958,6 +5229,8 @@ function buildVariantEntries(
           storyBeat,
           layoutArchetype,
           continuityRule,
+          supportSystem,
+          transitionIntent,
           cropPlan: buildCropPlan({
             analysis,
             storyBeat,
@@ -4979,6 +5252,8 @@ function buildVariantEntries(
           compositionFeatures,
           compositionNote: buildPanoramicCompositionNote({
             recipe: conceptD.recipe,
+            supportSystem,
+            transitionIntent,
             features: compositionFeatures,
             analysis,
             storyBeat,

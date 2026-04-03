@@ -851,6 +851,20 @@ export function VariantsTab() {
                           <div className="mt-1 text-[10px] text-text-dim">
                             {basenameLabel(frame.sourcePath)} · crop {frame.cropSuitability}
                           </div>
+                          {(frame.layoutArchetype || frame.supportSystem) && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {frame.layoutArchetype ? (
+                                <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
+                                  {formatSlugLabel(frame.layoutArchetype)}
+                                </span>
+                              ) : null}
+                              {frame.supportSystem ? (
+                                <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
+                                  {formatSlugLabel(frame.supportSystem)}
+                                </span>
+                              ) : null}
+                            </div>
+                          )}
                           {frame.cropPlan && (
                             <div className="mt-2 rounded-md border border-border bg-bg/60 px-2 py-2 text-[10px] text-text-dim">
                               Crop {formatSlugLabel(frame.cropPlan.usage)} · anchor {formatSlugLabel(frame.cropPlan.anchor)}
@@ -874,6 +888,12 @@ export function VariantsTab() {
                           ) : null}
                           {frame.compositionNote && (
                             <div className="mt-2 text-[11px] text-text">{frame.compositionNote}</div>
+                          )}
+                          {frame.transitionIntent && (
+                            <div className="mt-2 text-[10px] text-text-dim">{frame.transitionIntent}</div>
+                          )}
+                          {frame.continuityRule && (
+                            <div className="mt-1 text-[10px] text-text-dim">{frame.continuityRule}</div>
                           )}
                         </div>
                       ))}

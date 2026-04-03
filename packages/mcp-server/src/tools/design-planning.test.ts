@@ -1065,13 +1065,17 @@ describe('design planning helpers', () => {
       const profileFrame = editorialConcept.frames?.find((frame) => frame.sourcePath === profilePath);
 
       expect(editorFrame?.compositionFeatures).toContain('toolbar-ribbon');
+      expect(editorFrame?.supportSystem).toBeTruthy();
       expect(editorFrame?.compositionNote).toContain('tool-ribbon treatment');
 
       expect(catalogFrame?.compositionFeatures).toContain('browse-strip');
+      expect(catalogFrame?.supportSystem).toBeTruthy();
       expect(catalogFrame?.compositionNote).toContain('curated strip');
 
       expect(profileFrame?.compositionFeatures).toContain('profile-orbit');
+      expect(profileFrame?.supportSystem).toBe('signal-chain');
       expect(profileFrame?.compositionNote).toContain('creator/profile spotlight');
+      expect(profileFrame?.transitionIntent).toContain('support treatment');
     }
   });
 

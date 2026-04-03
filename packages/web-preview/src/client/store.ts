@@ -259,6 +259,12 @@ export interface AutopilotCopyCandidate {
   sourceFeature?: string;
 }
 
+export interface PanoramicFrameArtDirectionOverrides {
+  rhythmRole?: string;
+  continuityMotif?: string;
+  supportSystem?: string;
+}
+
 export interface AutopilotSelectedCopySet {
   hero: AutopilotCopyCandidate;
   differentiator: AutopilotCopyCandidate;
@@ -311,10 +317,14 @@ export interface AutopilotPlanVariant {
     cropSuitability: string;
     storyBeat: string;
     rhythmRole?: string;
+    inferredRhythmRole?: string;
     layoutArchetype?: string;
     continuityRule?: string;
     continuityMotif?: string;
+    inferredContinuityMotif?: string;
     supportSystem?: string;
+    inferredSupportSystem?: string;
+    artDirectionOverrides?: PanoramicFrameArtDirectionOverrides;
     transitionIntent?: string;
     cropPlan?: {
       usage: string;
@@ -436,6 +446,12 @@ export interface PreviewStore {
   setLocale: (locale: string) => void;
   upsertLocaleConfig: (locale: string, localeConfig: LocaleConfig) => void;
   setAutopilotSemanticFlavorOverride: (path: string, semanticFlavor: string | null) => void;
+  setAutopilotPanoramicFrameArtDirection: (args: {
+    variantId: string;
+    frameNumber: number;
+    field: 'rhythmRole' | 'continuityMotif' | 'supportSystem';
+    value: string | null;
+  }) => void;
   createVariant: (name?: string) => void;
   duplicateActiveVariant: () => void;
   applyRefinementToActive: (actionId: RefinementActionId) => void;
@@ -612,13 +628,60 @@ function normalizeAutopilotAnalysis(
   return analysis.map((entry) => normalizeSemanticFlavorReview(entry));
 }
 
+function normalizePanoramicFrameArtDirection(
+  frame: NonNullable<AutopilotPlanVariant['frames']>[number],
+): NonNullable<AutopilotPlanVariant['frames']>[number] {
+  const inferredRhythmRole = frame.inferredRhythmRole ?? frame.rhythmRole;
+  const inferredContinuityMotif = frame.inferredContinuityMotif ?? frame.continuityMotif;
+  const inferredSupportSystem = frame.inferredSupportSystem ?? frame.supportSystem;
+
+  const artDirectionOverrides = {
+    rhythmRole:
+      frame.artDirectionOverrides?.rhythmRole
+      && frame.artDirectionOverrides.rhythmRole !== inferredRhythmRole
+        ? frame.artDirectionOverrides.rhythmRole
+        : undefined,
+    continuityMotif:
+      frame.artDirectionOverrides?.continuityMotif
+      && frame.artDirectionOverrides.continuityMotif !== inferredContinuityMotif
+        ? frame.artDirectionOverrides.continuityMotif
+        : undefined,
+    supportSystem:
+      frame.artDirectionOverrides?.supportSystem
+      && frame.artDirectionOverrides.supportSystem !== inferredSupportSystem
+        ? frame.artDirectionOverrides.supportSystem
+        : undefined,
+  };
+
+  const hasOverrides = Boolean(
+    artDirectionOverrides.rhythmRole
+    || artDirectionOverrides.continuityMotif
+    || artDirectionOverrides.supportSystem,
+  );
+
+  return {
+    ...frame,
+    rhythmRole: frame.rhythmRole ?? inferredRhythmRole,
+    inferredRhythmRole,
+    continuityMotif: frame.continuityMotif ?? inferredContinuityMotif,
+    inferredContinuityMotif,
+    supportSystem: frame.supportSystem ?? inferredSupportSystem,
+    inferredSupportSystem,
+    artDirectionOverrides: hasOverrides ? artDirectionOverrides : undefined,
+  };
+}
+
 function normalizeAutopilotConceptPlan(
   conceptPlan: AutopilotConceptPlan | null,
 ): AutopilotConceptPlan | null {
-  if (!conceptPlan?.selectedScreens?.length) return conceptPlan;
+  if (!conceptPlan) return conceptPlan;
   return {
     ...conceptPlan,
-    selectedScreens: conceptPlan.selectedScreens.map((entry) => normalizeSemanticFlavorReview(entry)),
+    selectedScreens: conceptPlan.selectedScreens?.map((entry) => normalizeSemanticFlavorReview(entry)),
+    variants: (conceptPlan.variants ?? []).map((variant) => ({
+      ...variant,
+      frames: variant.frames?.map((frame) => normalizePanoramicFrameArtDirection(frame)),
+    })),
   };
 }
 
@@ -1368,6 +1431,51 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         : state.autopilotConceptPlan;
 
       return changed ? { autopilotAnalysis, autopilotConceptPlan } : state;
+    }),
+  setAutopilotPanoramicFrameArtDirection: ({ variantId, frameNumber, field, value }) =>
+    set((state) => {
+      if (!state.autopilotConceptPlan) return state;
+
+      let changed = false;
+      const variants = (state.autopilotConceptPlan.variants ?? []).map((variant) => {
+        if (variant.id !== variantId || !variant.frames?.length) return variant;
+
+        const frames = variant.frames.map((frame) => {
+          if (frame.frame !== frameNumber) return frame;
+
+          const inferredField =
+            field === 'rhythmRole'
+              ? frame.inferredRhythmRole ?? frame.rhythmRole
+              : field === 'continuityMotif'
+                ? frame.inferredContinuityMotif ?? frame.continuityMotif
+                : frame.inferredSupportSystem ?? frame.supportSystem;
+          const nextOverride = value && value !== inferredField ? value : undefined;
+          const nextOverrides = {
+            ...frame.artDirectionOverrides,
+            [field]: nextOverride,
+          };
+          if (!nextOverride) delete nextOverrides[field];
+
+          const hasOverrides = Object.values(nextOverrides).some((entry) => typeof entry === 'string' && entry.length > 0);
+          changed = true;
+          return normalizePanoramicFrameArtDirection({
+            ...frame,
+            [field]: nextOverride ?? inferredField,
+            artDirectionOverrides: hasOverrides ? nextOverrides : undefined,
+          });
+        });
+
+        return { ...variant, frames };
+      });
+
+      return changed
+        ? {
+            autopilotConceptPlan: {
+              ...state.autopilotConceptPlan,
+              variants,
+            },
+          }
+        : state;
     }),
   createVariant: (name) =>
     set((state) => {

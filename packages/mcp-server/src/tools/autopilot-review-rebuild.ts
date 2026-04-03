@@ -3,7 +3,11 @@ import { readFile } from 'node:fs/promises';
 import { parse } from 'yaml';
 import { validateConfig } from '@appframe/core';
 import type { AppframeConfig } from '@appframe/core';
-import { buildVariantSetPlanFromAnalysis, type VariantSetPlan } from './design-planning.js';
+import {
+  applyReviewedPlanArtDirectionOverrides,
+  buildVariantSetPlanFromAnalysis,
+  type VariantSetPlan,
+} from './design-planning.js';
 import { materializeVariantPlan } from './plan-materializer.js';
 import {
   buildVariantCopyAssignments,
@@ -95,7 +99,7 @@ export async function rebuildAutopilotSessionFromReview(args: {
     throw new Error('Autopilot session is missing screenshotAnalysis metadata.');
   }
 
-  const plan = buildVariantSetPlanFromAnalysis({
+  const rebuiltPlan = buildVariantSetPlanFromAnalysis({
     appName: autopilot.conceptPlan.app.name,
     appDescription: autopilot.conceptPlan.app.description,
     platforms: autopilot.conceptPlan.app.platforms,
@@ -106,6 +110,11 @@ export async function rebuildAutopilotSessionFromReview(args: {
       autopilot.conceptPlan.analysisSummary.selectedCount
       || autopilot.conceptPlan.selectedScreens.length,
     category: autopilot.conceptPlan.app.category,
+  });
+  const plan = applyReviewedPlanArtDirectionOverrides({
+    plan: rebuiltPlan,
+    analysis: autopilot.screenshotAnalysis,
+    reviewedPlan: autopilot.conceptPlan,
   });
   const plannedVariantIds = plan.variants.map((variant) => variant.id);
   const plannedVariantIdSet = new Set(plannedVariantIds);

@@ -593,4 +593,158 @@ describe('preview session refinement round-trips', () => {
     expect(state.variants[0]?.previewArtifacts).toEqual([]);
     expect(state.sessionSaveBaseline).not.toBeNull();
   });
+
+  it('persists panoramic art-direction overrides through reviewed-session rebuild payloads', async () => {
+    const session = makeSession(makePanoramicConfig(), 'concept-c', 'Editorial Panorama', {
+      recommendedVariantId: 'concept-c',
+      recommendationReason: 'Needs review',
+      screenshotAnalysis: [
+        {
+          path: 'screenshots/home.png',
+          role: 'detail',
+          semanticFlavor: 'document',
+          inferredSemanticFlavor: 'document',
+          inferredSemanticFlavorConfidence: 'high',
+          semanticFlavorOverride: null,
+          heroPriority: 72,
+          inferredOrder: 1,
+          focus: 'center',
+          unsafeForTextOverlay: false,
+        },
+      ],
+      conceptPlan: {
+        selectedScreens: [
+          {
+            path: 'screenshots/home.png',
+            role: 'detail',
+            semanticFlavor: 'document',
+            inferredSemanticFlavor: 'document',
+            inferredSemanticFlavorConfidence: 'high',
+            semanticFlavorOverride: null,
+            inferredOrder: 1,
+            unsafeForTextOverlay: false,
+          },
+        ],
+        variants: [
+          {
+            id: 'concept-c',
+            name: 'Editorial Panorama',
+            mode: 'panoramic',
+            style: 'editorial',
+            recipe: 'editorial-confidence',
+            strategy: 'Proof-led panoramic sequence',
+            frames: [
+              {
+                frame: 1,
+                sourcePath: 'screenshots/home.png',
+                sourceRole: 'detail',
+                cropSuitability: 'high',
+                storyBeat: 'hero',
+                rhythmRole: 'open',
+                inferredRhythmRole: 'open',
+                continuityMotif: 'proof-lane',
+                inferredContinuityMotif: 'proof-lane',
+                supportSystem: 'metric-ladder',
+                inferredSupportSystem: 'metric-ladder',
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const rebuiltSession = makeSession(makePanoramicConfig(), 'concept-c', 'Editorial Panorama', {
+      recommendedVariantId: null,
+      recommendationReason: 'Reviewed screenshot-family changes require fresh previews and rescoring.',
+      screenshotAnalysis: session.autopilot.screenshotAnalysis,
+      conceptPlan: {
+        selectedScreens: session.autopilot.conceptPlan.selectedScreens,
+        variants: [
+          {
+            id: 'concept-c',
+            name: 'Editorial Panorama',
+            mode: 'panoramic',
+            style: 'editorial',
+            recipe: 'editorial-confidence',
+            strategy: 'Proof-led panoramic sequence',
+            frames: [
+              {
+                frame: 1,
+                sourcePath: 'screenshots/home.png',
+                sourceRole: 'detail',
+                cropSuitability: 'high',
+                storyBeat: 'hero',
+                rhythmRole: 'open',
+                inferredRhythmRole: 'open',
+                continuityMotif: 'text-rail',
+                inferredContinuityMotif: 'proof-lane',
+                supportSystem: 'quote-stack',
+                inferredSupportSystem: 'metric-ladder',
+                artDirectionOverrides: {
+                  continuityMotif: 'text-rail',
+                  supportSystem: 'quote-stack',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    vi.mocked(rebuildSessionFromReview).mockResolvedValue({
+      success: true,
+      updatedVariantIds: ['concept-c'],
+      clearedPreviewVariantIds: ['concept-c'],
+      recommendationReason: 'Reviewed screenshot-family changes require fresh previews and rescoring.',
+      planVariantCount: 1,
+      session: rebuiltSession,
+    });
+
+    usePreviewStore.getState().hydrateSession(session as any);
+    usePreviewStore.getState().setAutopilotPanoramicFrameArtDirection({
+      variantId: 'concept-c',
+      frameNumber: 1,
+      field: 'supportSystem',
+      value: 'quote-stack',
+    });
+    usePreviewStore.getState().setAutopilotPanoramicFrameArtDirection({
+      variantId: 'concept-c',
+      frameNumber: 1,
+      field: 'continuityMotif',
+      value: 'text-rail',
+    });
+
+    await usePreviewStore.getState().rebuildAutopilotSessionFromReview();
+
+    expect(vi.mocked(rebuildSessionFromReview).mock.calls[0]?.[0]).toMatchObject({
+      conceptPlan: {
+        variants: [
+          {
+            id: 'concept-c',
+            frames: [
+              expect.objectContaining({
+                supportSystem: 'quote-stack',
+                continuityMotif: 'text-rail',
+                artDirectionOverrides: {
+                  supportSystem: 'quote-stack',
+                  continuityMotif: 'text-rail',
+                },
+              }),
+            ],
+          },
+        ],
+      },
+    });
+
+    const state = usePreviewStore.getState();
+    expect(state.autopilotConceptPlan?.variants[0]?.frames?.[0]).toMatchObject({
+      supportSystem: 'quote-stack',
+      inferredSupportSystem: 'metric-ladder',
+      continuityMotif: 'text-rail',
+      inferredContinuityMotif: 'proof-lane',
+      artDirectionOverrides: {
+        supportSystem: 'quote-stack',
+        continuityMotif: 'text-rail',
+      },
+    });
+  });
 });

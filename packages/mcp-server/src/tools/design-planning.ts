@@ -73,6 +73,24 @@ export type PanoramicCompositionFeature =
   | 'support-beacon'
   | 'reward-ribbon';
 
+const PANORAMIC_RHYTHM_ROLES: PanoramicRhythmRole[] = ['open', 'intensify', 'resolve'];
+const PANORAMIC_SUPPORT_SYSTEMS: PanoramicSupportSystem[] = [
+  'quote-stack',
+  'metric-ladder',
+  'signal-chain',
+  'milestone-band',
+  'curation-shelf',
+  'proof-column',
+];
+const PANORAMIC_CONTINUITY_MOTIFS: PanoramicContinuityMotif[] = [
+  'text-rail',
+  'proof-lane',
+  'signal-wave',
+  'progress-track',
+  'curation-run',
+  'poster-anchor',
+];
+
 export interface SafeTextZone {
   x: number;
   y: number;
@@ -226,16 +244,26 @@ export interface PlannedPanoramicFrame {
   cropSuitability: CropSuitability;
   storyBeat: string;
   rhythmRole?: PanoramicRhythmRole;
+  inferredRhythmRole?: PanoramicRhythmRole;
   layoutArchetype?: string;
   continuityRule?: string;
   continuityMotif?: PanoramicContinuityMotif;
+  inferredContinuityMotif?: PanoramicContinuityMotif;
   supportSystem?: PanoramicSupportSystem;
+  inferredSupportSystem?: PanoramicSupportSystem;
+  artDirectionOverrides?: PanoramicFrameArtDirectionOverrides;
   transitionIntent?: string;
   cropPlan?: PlannedCropPlan;
   assetGuidance?: string;
   pacing?: string;
   compositionFeatures?: PanoramicCompositionFeature[];
   compositionNote?: string;
+}
+
+export interface PanoramicFrameArtDirectionOverrides {
+  rhythmRole?: PanoramicRhythmRole;
+  continuityMotif?: PanoramicContinuityMotif;
+  supportSystem?: PanoramicSupportSystem;
 }
 
 export interface PlannedPanoramicCanvasPlan {
@@ -5038,6 +5066,35 @@ function buildPanoramicPacing(args: {
   return 'develop narrative';
 }
 
+function hasPanoramicFrameArtDirectionOverrides(
+  overrides: PanoramicFrameArtDirectionOverrides | undefined,
+): overrides is PanoramicFrameArtDirectionOverrides {
+  return Boolean(
+    overrides?.rhythmRole
+    || overrides?.supportSystem
+    || overrides?.continuityMotif,
+  );
+}
+
+function sanitizePanoramicFrameArtDirectionOverrides(
+  frame: Partial<PlannedPanoramicFrame> | null | undefined,
+): PanoramicFrameArtDirectionOverrides | undefined {
+  const candidate = frame?.artDirectionOverrides;
+  const overrides: PanoramicFrameArtDirectionOverrides = {};
+
+  if (candidate?.rhythmRole && PANORAMIC_RHYTHM_ROLES.includes(candidate.rhythmRole)) {
+    overrides.rhythmRole = candidate.rhythmRole;
+  }
+  if (candidate?.supportSystem && PANORAMIC_SUPPORT_SYSTEMS.includes(candidate.supportSystem)) {
+    overrides.supportSystem = candidate.supportSystem;
+  }
+  if (candidate?.continuityMotif && PANORAMIC_CONTINUITY_MOTIFS.includes(candidate.continuityMotif)) {
+    overrides.continuityMotif = candidate.continuityMotif;
+  }
+
+  return hasPanoramicFrameArtDirectionOverrides(overrides) ? overrides : undefined;
+}
+
 function buildPanoramicFramePlan(args: {
   category: AppCategory;
   recipe: string;
@@ -5046,32 +5103,54 @@ function buildPanoramicFramePlan(args: {
   storyBeat: string;
   index: number;
   total: number;
+  overrides?: PanoramicFrameArtDirectionOverrides;
 }): PlannedPanoramicFrame {
-  const rhythmRole = resolvePanoramicRhythmRole({
+  const inferredRhythmRole = resolvePanoramicRhythmRole({
     storyBeat: args.storyBeat,
     index: args.index,
     total: args.total,
   });
+  const rhythmRole = args.overrides?.rhythmRole ?? inferredRhythmRole;
   const layoutArchetype = buildPanoramicLayoutArchetype({
     recipe: args.recipe,
     storyBeat: args.storyBeat,
     index: args.index,
     total: args.total,
   });
-  const supportSystem = buildPanoramicSupportSystem({
+  const inferredSupportSystem = buildPanoramicSupportSystem({
     category: args.category,
     recipe: args.recipe,
     analysis: args.analysis,
     storyBeat: args.storyBeat,
     index: args.index,
     total: args.total,
-    rhythmRole,
+    rhythmRole: inferredRhythmRole,
   });
-  const continuityMotif = buildPanoramicContinuityMotif({
+  const autoSupportSystem = args.overrides?.rhythmRole
+    ? buildPanoramicSupportSystem({
+        category: args.category,
+        recipe: args.recipe,
+        analysis: args.analysis,
+        storyBeat: args.storyBeat,
+        index: args.index,
+        total: args.total,
+        rhythmRole,
+      })
+    : inferredSupportSystem;
+  const supportSystem = args.overrides?.supportSystem ?? autoSupportSystem;
+  const inferredContinuityMotif = buildPanoramicContinuityMotif({
     recipe: args.recipe,
     analysis: args.analysis,
-    supportSystem,
+    supportSystem: inferredSupportSystem,
   });
+  const autoContinuityMotif = args.overrides?.rhythmRole || args.overrides?.supportSystem
+    ? buildPanoramicContinuityMotif({
+        recipe: args.recipe,
+        analysis: args.analysis,
+        supportSystem,
+      })
+    : inferredContinuityMotif;
+  const continuityMotif = args.overrides?.continuityMotif ?? autoContinuityMotif;
   const compositionFeatures = buildPanoramicCompositionFeatures({
     category: args.category,
     recipe: args.recipe,
@@ -5109,10 +5188,16 @@ function buildPanoramicFramePlan(args: {
     cropSuitability: args.analysis.cropSuitability,
     storyBeat: args.storyBeat,
     rhythmRole,
+    inferredRhythmRole,
     layoutArchetype,
     continuityRule,
     continuityMotif,
+    inferredContinuityMotif,
     supportSystem,
+    inferredSupportSystem,
+    artDirectionOverrides: hasPanoramicFrameArtDirectionOverrides(args.overrides)
+      ? args.overrides
+      : undefined,
     transitionIntent,
     cropPlan: buildCropPlan({
       analysis: args.analysis,
@@ -5317,6 +5402,84 @@ function buildVariantEntries(
   }
 
   return variants.slice(0, variantCount);
+}
+
+function isPanoramicConceptId(value: string): value is 'concept-c' | 'concept-d' {
+  return value === 'concept-c' || value === 'concept-d';
+}
+
+export function applyReviewedPlanArtDirectionOverrides(args: {
+  plan: VariantSetPlan;
+  analysis: ScreenshotAnalysis[];
+  reviewedPlan?: {
+    variants?: Array<{
+      id?: string;
+      frames?: Array<Partial<PlannedPanoramicFrame>>;
+    }>;
+  } | null;
+}): VariantSetPlan {
+  if (!args.reviewedPlan?.variants?.length) return args.plan;
+
+  const analysisByPath = new Map(args.analysis.map((entry) => [entry.path, entry]));
+  const reviewedVariants = new Map(
+    args.reviewedPlan.variants
+      .flatMap((variant) => (
+        typeof variant.id === 'string'
+          ? [[variant.id, variant] as const]
+          : []
+      )),
+  );
+
+  let changed = false;
+  const variants = args.plan.variants.map((variant) => {
+    if (variant.mode !== 'panoramic' || !variant.frames?.length || !isPanoramicConceptId(variant.id)) {
+      return variant;
+    }
+    const conceptId = variant.id;
+
+    const reviewedVariant = reviewedVariants.get(variant.id);
+    if (!reviewedVariant?.frames?.length) return variant;
+
+    const reviewedFrames = new Map(
+      reviewedVariant.frames.flatMap((frame) => {
+        const key = typeof frame.frame === 'number'
+          ? `${frame.frame}`
+          : typeof frame.sourcePath === 'string'
+            ? frame.sourcePath
+            : null;
+        return key ? [[key, frame] as const] : [];
+      }),
+    );
+
+    const frames = variant.frames.map((frame, index) => {
+      const reviewedFrame = reviewedFrames.get(`${frame.frame}`) ?? reviewedFrames.get(frame.sourcePath);
+      const overrides = sanitizePanoramicFrameArtDirectionOverrides(reviewedFrame);
+      if (!overrides) return frame;
+
+      const analysis = analysisByPath.get(frame.sourcePath);
+      if (!analysis) return frame;
+
+      changed = true;
+      const rebuiltFrame = buildPanoramicFramePlan({
+        category: args.plan.app.category,
+        recipe: variant.recipe,
+        conceptId,
+        analysis,
+        storyBeat: frame.storyBeat,
+        index,
+        total: variant.frames!.length,
+        overrides,
+      });
+
+      return frame.assetGuidance
+        ? { ...rebuiltFrame, assetGuidance: frame.assetGuidance }
+        : rebuiltFrame;
+    });
+
+    return { ...variant, frames };
+  });
+
+  return changed ? { ...args.plan, variants } : args.plan;
 }
 
 export async function buildVariantSetPlan(args: {

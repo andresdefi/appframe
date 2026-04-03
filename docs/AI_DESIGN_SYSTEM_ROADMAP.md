@@ -86,6 +86,7 @@ Current status:
 - panoramic materialization now maps those support systems into deterministic quote-stack / metric-ladder / signal-chain / milestone-band / curation-shelf / proof-column groups so the strip can vary proof pacing and non-device rhythm without model-dependent generation
 - panoramic recipe metadata is now partially centralized in a shared profile system, so family/archetype defaults plus opener / intensify / resolve layout and support-system blueprints are less hardcoded across multiple files
 - panoramic plans now carry explicit `rhythmRole` and `continuityMotif` frame metadata, and materialization plus the preview inspector consume those cues so continuity intent is more legible and more actionable during local-first review
+- preview sessions now also expose first-pass per-frame panoramic rhythm / continuity / support-system overrides, persist them with the session, and feed them back through reviewed-session rebuilds instead of dropping those art-direction choices after review
 
 ### 3. Screenshot Understanding
 
@@ -122,6 +123,7 @@ Current status:
 - preview sessions now support manual semantic-family override/reset with session persistence, so borderline local screenshot classification can be corrected during review without adding a built-in model dependency
 - reviewed semantic-family state can now also feed forward into deterministic replanning/materialization through `appframe_plan_variant_set` reviewed-analysis input and `appframe_rebuild_autopilot_session_from_review`, so saved review metadata is no longer preview-only
 - preview sessions now also expose a direct reviewed-family rebuild control that saves the current in-preview review state, triggers the shared replanning/rematerialization path, and reloads the session with stale previews/recommendations cleared
+- reviewed-session rebuilds now also preserve explicit per-frame panoramic rhythm / continuity / support-system overrides from the preview concept-plan inspector, so early art-direction edits are no longer lost when concepts are regenerated
 - variant plans now emit explicit per-concept frame strategies plus per-screen/per-frame crop plans, including text-occupied-region avoidance and focal-point anchoring
 - materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, safer text offsets, palette-led backgrounds, deeper device-frame treatment, family-aware panoramic pacing, recipe-aware opener/relay/close variation, and role-aware composition/background reactions for onboarding/paywall/settings/chat/reporting/workflow/discovery/editor/profile/catalog/activity/document/map/media/capture/schedule/commerce/security/support/reward-style screens
 
@@ -210,6 +212,7 @@ This roadmap now has three concrete pieces underway:
 - generate-then-rank foundations: preview rendering plus heuristic scoring/recommendation
 - preview review surface: sessions now carry per-concept copy-slot assignments and the preview UI now supports concept filters, side-by-side comparison, score breakdown review, frame strategy, crop guidance, OCR occupied-region inspection, and persisted screenshot semantic-family review/override
 - review-to-generation loop: reviewed screenshot-family metadata can now be reused directly for replanning/materialization through MCP and direct preview-side rebuild controls instead of stopping at saved preview session state
+- preview-side art-direction loop: panoramic concept-plan review now includes first-pass per-frame rhythm / continuity / support-system controls that persist into session save/rebuild instead of staying as read-only metadata
 - richer panoramic composition review: sessions now expose screenshot analysis, selected copy, concept-plan metadata, and composition summaries in the preview variants surface so layered-detail systems are inspectable without leaving the session
 - refinement review surface: preview sessions now support safe branch-and-refine actions, variant provenance/history, and panoramic continuity review without leaving the session flow
 - AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load

@@ -44,6 +44,24 @@ const SEMANTIC_FLAVOR_OPTIONS = [
   'reward',
 ] as const;
 
+const PANORAMIC_RHYTHM_OPTIONS = ['open', 'intensify', 'resolve'] as const;
+const PANORAMIC_CONTINUITY_OPTIONS = [
+  'text-rail',
+  'proof-lane',
+  'signal-wave',
+  'progress-track',
+  'curation-run',
+  'poster-anchor',
+] as const;
+const PANORAMIC_SUPPORT_SYSTEM_OPTIONS = [
+  'quote-stack',
+  'metric-ladder',
+  'signal-chain',
+  'milestone-band',
+  'curation-shelf',
+  'proof-column',
+] as const;
+
 function formatCopySlot(slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary'): string {
   switch (slot) {
     case 'hero':
@@ -125,6 +143,13 @@ function semanticFlavorSelectValue(entry: {
 }): string {
   if (entry.semanticFlavorOverride) return entry.semanticFlavorOverride;
   return '';
+}
+
+function planFrameOverrideValue(
+  frame: NonNullable<AutopilotPlanVariant['frames']>[number],
+  field: 'rhythmRole' | 'continuityMotif' | 'supportSystem',
+): string {
+  return frame.artDirectionOverrides?.[field] ?? '';
 }
 
 function summarizePanoramicComposition(snapshot: VariantSnapshot): string[] {
@@ -281,6 +306,7 @@ export function VariantsTab() {
   const applyRefinementToActive = usePreviewStore((s) => s.applyRefinementToActive);
   const applyAiRefinementPlanToActive = usePreviewStore((s) => s.applyAiRefinementPlanToActive);
   const setAutopilotSemanticFlavorOverride = usePreviewStore((s) => s.setAutopilotSemanticFlavorOverride);
+  const setAutopilotPanoramicFrameArtDirection = usePreviewStore((s) => s.setAutopilotPanoramicFrameArtDirection);
   const createVariantSet = usePreviewStore((s) => s.createVariantSet);
   const selectVariant = usePreviewStore((s) => s.selectVariant);
   const approveVariant = usePreviewStore((s) => s.approveVariant);
@@ -1013,6 +1039,89 @@ export function VariantsTab() {
                               ) : null}
                             </div>
                           )}
+                          <div className="mt-2 rounded-md border border-border bg-bg/60 px-2 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
+                                Panoramic Art Direction
+                              </div>
+                              {frame.artDirectionOverrides ? (
+                                <span className="rounded-full border border-amber-300/50 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200">
+                                  Override saved
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-2 grid gap-2 md:grid-cols-3">
+                              <label className="space-y-1 text-[10px] text-text-dim">
+                                <span className="block uppercase tracking-[0.12em]">Rhythm</span>
+                                <select
+                                  className="w-full rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-text"
+                                  value={planFrameOverrideValue(frame, 'rhythmRole')}
+                                  onChange={(event) => setAutopilotPanoramicFrameArtDirection({
+                                    variantId: activePlanVariant.id,
+                                    frameNumber: frame.frame,
+                                    field: 'rhythmRole',
+                                    value: event.target.value || null,
+                                  })}
+                                >
+                                  <option value="">
+                                    Auto{frame.inferredRhythmRole ? ` (${formatSlugLabel(frame.inferredRhythmRole)})` : ''}
+                                  </option>
+                                  {PANORAMIC_RHYTHM_OPTIONS.map((option) => (
+                                    <option key={`${activePlanVariant.id}-frame-${frame.frame}-rhythm-${option}`} value={option}>
+                                      {formatSlugLabel(option)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="space-y-1 text-[10px] text-text-dim">
+                                <span className="block uppercase tracking-[0.12em]">Continuity</span>
+                                <select
+                                  className="w-full rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-text"
+                                  value={planFrameOverrideValue(frame, 'continuityMotif')}
+                                  onChange={(event) => setAutopilotPanoramicFrameArtDirection({
+                                    variantId: activePlanVariant.id,
+                                    frameNumber: frame.frame,
+                                    field: 'continuityMotif',
+                                    value: event.target.value || null,
+                                  })}
+                                >
+                                  <option value="">
+                                    Auto{frame.inferredContinuityMotif ? ` (${formatSlugLabel(frame.inferredContinuityMotif)})` : ''}
+                                  </option>
+                                  {PANORAMIC_CONTINUITY_OPTIONS.map((option) => (
+                                    <option key={`${activePlanVariant.id}-frame-${frame.frame}-continuity-${option}`} value={option}>
+                                      {formatSlugLabel(option)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="space-y-1 text-[10px] text-text-dim">
+                                <span className="block uppercase tracking-[0.12em]">Support System</span>
+                                <select
+                                  className="w-full rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-text"
+                                  value={planFrameOverrideValue(frame, 'supportSystem')}
+                                  onChange={(event) => setAutopilotPanoramicFrameArtDirection({
+                                    variantId: activePlanVariant.id,
+                                    frameNumber: frame.frame,
+                                    field: 'supportSystem',
+                                    value: event.target.value || null,
+                                  })}
+                                >
+                                  <option value="">
+                                    Auto{frame.inferredSupportSystem ? ` (${formatSlugLabel(frame.inferredSupportSystem)})` : ''}
+                                  </option>
+                                  {PANORAMIC_SUPPORT_SYSTEM_OPTIONS.map((option) => (
+                                    <option key={`${activePlanVariant.id}-frame-${frame.frame}-support-${option}`} value={option}>
+                                      {formatSlugLabel(option)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </div>
+                            <div className="mt-2 text-[10px] text-text-dim">
+                              Saved with the session and applied the next time concepts are rebuilt from review.
+                            </div>
+                          </div>
                           {frame.cropPlan && (
                             <div className="mt-2 rounded-md border border-border bg-bg/60 px-2 py-2 text-[10px] text-text-dim">
                               Crop {formatSlugLabel(frame.cropPlan.usage)} · anchor {formatSlugLabel(frame.cropPlan.anchor)}

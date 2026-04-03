@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { deflateSync } from 'node:zlib';
 import {
+  applyReviewedPlanArtDirectionOverrides,
   analyzeScreenshotSet,
   buildVariantSetPlan,
   buildVariantSetPlanFromAnalysis,
@@ -1877,5 +1878,67 @@ describe('design planning helpers', () => {
     expect(individualScreens.find((screen) => screen.sourcePath === reportPath)?.copyDirection).toContain(
       'decision-ready payoff',
     );
+  });
+
+  it('reapplies explicit panoramic art-direction overrides onto rebuilt plans', async () => {
+    const homePath = await makeSvgFile('home-screen.svg', 1290, 2796);
+    const detailPath = await makeSvgFile('detail-review.svg', 1290, 2796);
+    const analysis = await analyzeScreenshotSet([
+      { path: homePath, note: 'Main dashboard' },
+      { path: detailPath, note: 'Document review' },
+    ]);
+
+    const plan = buildVariantSetPlanFromAnalysis({
+      appName: 'FocusFlow',
+      appDescription: 'Task planning and document review.',
+      platforms: ['ios'],
+      analysis,
+      category: 'productivity',
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    const editorialConcept = plan.variants.find((variant) => variant.id === 'concept-c');
+    expect(editorialConcept?.mode).toBe('panoramic');
+    if (editorialConcept?.mode !== 'panoramic' || !editorialConcept.frames?.length) return;
+
+    const firstFrame = editorialConcept.frames[0]!;
+    const overrideSupportSystem = firstFrame.supportSystem === 'quote-stack' ? 'signal-chain' : 'quote-stack';
+    const overrideContinuityMotif = firstFrame.continuityMotif === 'text-rail' ? 'signal-wave' : 'text-rail';
+
+    const rebuiltPlan = applyReviewedPlanArtDirectionOverrides({
+      plan,
+      analysis,
+      reviewedPlan: {
+        variants: [
+          {
+            id: 'concept-c',
+            frames: [
+              {
+                frame: firstFrame.frame,
+                artDirectionOverrides: {
+                  supportSystem: overrideSupportSystem,
+                  continuityMotif: overrideContinuityMotif,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const rebuiltConcept = rebuiltPlan.variants.find((variant) => variant.id === 'concept-c');
+    expect(rebuiltConcept?.mode).toBe('panoramic');
+    if (rebuiltConcept?.mode !== 'panoramic' || !rebuiltConcept.frames?.length) return;
+
+    const rebuiltFrame = rebuiltConcept.frames[0]!;
+    expect(rebuiltFrame.supportSystem).toBe(overrideSupportSystem);
+    expect(rebuiltFrame.inferredSupportSystem).toBe(firstFrame.supportSystem);
+    expect(rebuiltFrame.continuityMotif).toBe(overrideContinuityMotif);
+    expect(rebuiltFrame.inferredContinuityMotif).toBe(firstFrame.continuityMotif);
+    expect(rebuiltFrame.artDirectionOverrides).toMatchObject({
+      supportSystem: overrideSupportSystem,
+      continuityMotif: overrideContinuityMotif,
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { RebuildSessionFromReviewResult } from './utils/api';
 import type {
   ScreenState,
   AppframeConfig,
@@ -11,7 +12,10 @@ import type {
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
-import { saveSession as saveSessionApi } from './utils/api';
+import {
+  rebuildSessionFromReview as rebuildSessionFromReviewApi,
+  saveSession as saveSessionApi,
+} from './utils/api';
 
 function getConfiguredLocaleText(
   locales: Record<string, LocaleConfig>,
@@ -506,7 +510,9 @@ export interface PreviewStore {
   undo: () => void;
   redo: () => void;
   saveSession: () => Promise<void>;
+  rebuildAutopilotSessionFromReview: () => Promise<RebuildSessionFromReviewResult>;
   isSavingSession: boolean;
+  isRebuildingAutopilot: boolean;
 }
 
 // Simple undo/redo history for screen and panoramic state
@@ -1329,6 +1335,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   screens: [],
   sessionLocales: {},
   isSavingSession: false,
+  isRebuildingAutopilot: false,
 
   setConfig: (config) => set({ config }),
   setPlatform: (platform) => set({ platform }),
@@ -2199,6 +2206,37 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       throw err;
     } finally {
       set({ isSavingSession: false });
+    }
+  },
+
+  rebuildAutopilotSessionFromReview: async () => {
+    const state = get();
+    if (!state.sessionBacked || !state.activeVariantId) {
+      throw new Error('Preview was not started with a session file.');
+    }
+
+    set({ isRebuildingAutopilot: true });
+    try {
+      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const payload = buildSessionSavePayload({
+        activeVariantId: state.activeVariantId,
+        recommendedVariantId: state.recommendedVariantId,
+        recommendationReason: state.recommendationReason,
+        autopilotAnalysis: state.autopilotAnalysis,
+        autopilotSelectedCopySet: state.autopilotSelectedCopySet,
+        autopilotConceptPlan: state.autopilotConceptPlan,
+        autopilotRefinementHistory: state.autopilotRefinementHistory,
+        variants,
+      });
+      const result = await rebuildSessionFromReviewApi(payload);
+      set({ variants });
+      get().hydrateSession(result.session as Parameters<PreviewStore['hydrateSession']>[0]);
+      return result;
+    } catch (err) {
+      console.error('Failed to rebuild autopilot session from review:', err);
+      throw err;
+    } finally {
+      set({ isRebuildingAutopilot: false });
     }
   },
 }));

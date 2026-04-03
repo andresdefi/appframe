@@ -290,6 +290,8 @@ export function VariantsTab() {
   const sessionBacked = usePreviewStore((s) => s.sessionBacked);
   const saveSession = usePreviewStore((s) => s.saveSession);
   const isSavingSession = usePreviewStore((s) => s.isSavingSession);
+  const rebuildAutopilotSessionFromReview = usePreviewStore((s) => s.rebuildAutopilotSessionFromReview);
+  const isRebuildingAutopilot = usePreviewStore((s) => s.isRebuildingAutopilot);
   const platform = usePreviewStore((s) => s.platform);
   const previewW = usePreviewStore((s) => s.previewW);
   const previewH = usePreviewStore((s) => s.previewH);
@@ -310,6 +312,10 @@ export function VariantsTab() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiRefining, setIsAiRefining] = useState(false);
   const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [reviewRebuildStatus, setReviewRebuildStatus] = useState<{
+    tone: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const approvedCount = useMemo(
     () => variants.filter((variant) => variant.status === 'approved').length,
@@ -439,6 +445,10 @@ export function VariantsTab() {
     () => autopilotAnalysis.filter((entry) => entry.unsafeForTextOverlay).length,
     [autopilotAnalysis],
   );
+  const reviewedSemanticFamilyCount = useMemo(
+    () => autopilotAnalysis.filter((entry) => entry.semanticFlavorOverride != null).length,
+    [autopilotAnalysis],
+  );
   const activePlanVariant = useMemo<AutopilotPlanVariant | null>(
     () => autopilotConceptPlan?.variants.find((variant) => variant.id === activeVariantId) ?? null,
     [autopilotConceptPlan, activeVariantId],
@@ -497,6 +507,22 @@ export function VariantsTab() {
       setAiStatus(err instanceof Error ? err.message : 'AI refinement failed');
     } finally {
       setIsAiRefining(false);
+    }
+  }
+
+  async function handleRebuildFromReview() {
+    setReviewRebuildStatus(null);
+    try {
+      const result = await rebuildAutopilotSessionFromReview();
+      setReviewRebuildStatus({
+        tone: 'success',
+        message: `Rebuilt ${result.updatedVariantIds.length} concepts from reviewed families. Preview thumbnails and recommendation were cleared for rerendering and rescoring.`,
+      });
+    } catch (err) {
+      setReviewRebuildStatus({
+        tone: 'error',
+        message: err instanceof Error ? err.message : 'Failed to rebuild concepts from review state.',
+      });
     }
   }
 
@@ -717,6 +743,37 @@ export function VariantsTab() {
                   Session Analysis
                 </summary>
                 <div className="space-y-2 border-t border-border px-3 py-2 text-[11px] text-text-dim">
+                  {sessionBacked && (
+                    <div className="rounded-md border border-border bg-surface px-2.5 py-2">
+                      <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
+                        Review Rebuild
+                      </div>
+                      <div className="mt-1">
+                        Replan the autopilot concepts directly from the current reviewed screenshot-family state.
+                        {reviewedSemanticFamilyCount > 0
+                          ? ` ${reviewedSemanticFamilyCount} reviewed override${reviewedSemanticFamilyCount === 1 ? '' : 's'} will feed into the rebuild.`
+                          : ' Current inferred families will still feed forward if you rebuild now.'}
+                      </div>
+                      <button
+                        className="mt-2 w-full rounded-md bg-accent py-2 text-xs text-white disabled:opacity-60"
+                        onClick={() => void handleRebuildFromReview()}
+                        disabled={isRebuildingAutopilot}
+                      >
+                        {isRebuildingAutopilot ? 'Rebuilding From Review...' : 'Rebuild Concepts From Reviewed Families'}
+                      </button>
+                      {reviewRebuildStatus && (
+                        <div
+                          className={`mt-2 rounded-md border px-2.5 py-2 text-[10px] ${
+                            reviewRebuildStatus.tone === 'success'
+                              ? 'border-emerald-500/20 bg-emerald-500/8 text-emerald-200'
+                              : 'border-amber-500/20 bg-amber-500/8 text-amber-100'
+                          }`}
+                        >
+                          {reviewRebuildStatus.message}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div>
                     {autopilotConceptPlan?.analysisSummary?.selectedCount ?? autopilotAnalysis.length}
                     {' of '}

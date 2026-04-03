@@ -12,6 +12,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./review-rebuild": {
+      "types": "./dist/review-rebuild.d.ts",
+      "import": "./dist/review-rebuild.js"
     }
   },
   "scripts": {

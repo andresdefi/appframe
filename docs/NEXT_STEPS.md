@@ -73,6 +73,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - panoramic planning now emits explicit `rhythmRole` and `continuityMotif` metadata per frame, materialization uses those cues to push text/device/support placement more intentionally, and the preview UI surfaces them for manual continuity review
 - preview UI session analysis now also surfaces screenshot semantic-family labels/confidence and now supports manual family override/reset with session persistence so borderline local classification can be corrected during review instead of only observed
 - reviewed screenshot semantic-family state can now feed forward into downstream generation: `appframe_plan_variant_set` accepts reviewed `screenshotAnalysisJson`, and `appframe_rebuild_autopilot_session_from_review` replans/rematerializes saved autopilot sessions from persisted review metadata while clearing stale previews and recommendations
+- preview UI session analysis now also exposes a direct rebuild action that saves current review/editor state, triggers the shared reviewed-family rebuild path, and rehydrates the session with cleared preview/recommendation state so feed-forward no longer requires MCP tooling once preview is open
 - preview scoring now also inspects panoramic support-group signature diversity and penalizes repeated support-card structure more directly, pushing generic strip rhythm down even when screenshots render cleanly
 - the AppFrame skill has been rewritten around the autopilot flow
 
@@ -96,6 +97,7 @@ Primary MCP/autopilot files:
 - [copy-planning.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/copy-planning.ts)
 - [preview-scoring.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/preview-scoring.ts)
 - [variant-session-lib.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/variant-session-lib.ts)
+- [autopilot-review-rebuild.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/autopilot-review-rebuild.ts)
 - [variant-session-tools.ts](/Users/bastianvidela/appframe/packages/mcp-server/src/tools/variant-session-tools.ts)
 
 Tests:
@@ -416,6 +418,8 @@ This is the most important remaining capability area for before.click-level qual
 - [x] Add "duplicate concept" in session-aware autopilot flows without losing metadata.
 - [x] Add "edit manually" affordance that preserves autopilot metadata.
 - [x] Add "refine with AI" buttons in the UI.
+- [x] Add a direct preview UI rebuild action for reviewed screenshot-family state.
+  Status: Session Analysis can now save current review/editor state, trigger the shared reviewed-family rebuild path, and reload the rebuilt session without leaving preview.
 - [x] Add preview thumbnails to any future concept comparison grid.
 - [x] Improve panoramic concept preview UX so users can evaluate cross-frame continuity more clearly.
 
@@ -512,7 +516,7 @@ If a future thread should continue immediately, the best next slice is:
 3. keep expanding recipe-specific composition, background mapping, and panoramic pacing now that role-aware onboarding/paywall/settings/chat/reporting/workflow/discovery/editor/profile/catalog/activity/document/map/media/capture/schedule/commerce/security/support/reward reactions are landed
 4. continue refinement flow polish and richer panoramic composition systems after the screenshot-intelligence slice
 
-That is the next quality step now that reviewed screenshot-family metadata no longer stops at preview persistence and can already feed plan/materialization refreshes through MCP/session rebuild paths.
+That is the next quality step now that reviewed screenshot-family metadata no longer stops at preview persistence and can already feed plan/materialization refreshes through both MCP and direct preview-side rebuild paths.
 
 ## Suggested Concrete Next Task Prompt
 
@@ -525,7 +529,7 @@ Use this to start a future thread:
 - The repo may have unrelated untracked files; do not revert unrelated user changes.
 - Existing manual variant workflows still matter; preserve backward compatibility where possible.
 - Session compatibility matters now that sessions can be created from both manual configs and autopilot manifests.
-- Preview sessions now persist manual screenshot semantic-family review metadata, and MCP rebuild tooling can already reuse that saved state for replanning/materialization; the remaining gap is broader preview-side art-direction tooling on top of that foundation.
+- Preview sessions now persist manual screenshot semantic-family review metadata, and both MCP/session tooling plus the preview-side rebuild action can already reuse current review state for replanning/materialization; the remaining gap is broader preview-side art-direction tooling on top of that foundation.
 - The current scoring system is now partly visual and can optionally use live model ranking, but it is still not a full art-direction loop.
 - The current screenshot understanding now includes real pixel heuristics plus optional OCR/vision text enrichment, but richer semantic scene understanding is still open.
 - The current renderer is broader than the original single-device flow, but it still limits how close AppFrame can get to before.click-style layouts.

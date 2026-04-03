@@ -121,6 +121,7 @@ Current status:
 - raster-family structural scoring now also helps some distinctive non-OCR document/editor/catalog/map/media/capture layouts resolve into the right semantic family without OCR text, and generic paywall structure now blocks more weak reward/commerce family overreads from filenames alone
 - preview sessions now support manual semantic-family override/reset with session persistence, so borderline local screenshot classification can be corrected during review without adding a built-in model dependency
 - reviewed semantic-family state can now also feed forward into deterministic replanning/materialization through `appframe_plan_variant_set` reviewed-analysis input and `appframe_rebuild_autopilot_session_from_review`, so saved review metadata is no longer preview-only
+- preview sessions now also expose a direct reviewed-family rebuild control that saves the current in-preview review state, triggers the shared replanning/rematerialization path, and reloads the session with stale previews/recommendations cleared
 - variant plans now emit explicit per-concept frame strategies plus per-screen/per-frame crop plans, including text-occupied-region avoidance and focal-point anchoring
 - materialized configs now consume that planning metadata to drive frameless support treatment, loupe anchoring, support-card crop behavior, safer text offsets, palette-led backgrounds, deeper device-frame treatment, family-aware panoramic pacing, recipe-aware opener/relay/close variation, and role-aware composition/background reactions for onboarding/paywall/settings/chat/reporting/workflow/discovery/editor/profile/catalog/activity/document/map/media/capture/schedule/commerce/security/support/reward-style screens
 
@@ -208,7 +209,7 @@ This roadmap now has three concrete pieces underway:
 - real agent tooling: variant planning/materialization with file-backed autopilot sessions
 - generate-then-rank foundations: preview rendering plus heuristic scoring/recommendation
 - preview review surface: sessions now carry per-concept copy-slot assignments and the preview UI now supports concept filters, side-by-side comparison, score breakdown review, frame strategy, crop guidance, OCR occupied-region inspection, and persisted screenshot semantic-family review/override
-- review-to-generation loop: reviewed screenshot-family metadata can now be reused directly for replanning/materialization through MCP instead of stopping at saved preview session state
+- review-to-generation loop: reviewed screenshot-family metadata can now be reused directly for replanning/materialization through MCP and direct preview-side rebuild controls instead of stopping at saved preview session state
 - richer panoramic composition review: sessions now expose screenshot analysis, selected copy, concept-plan metadata, and composition summaries in the preview variants surface so layered-detail systems are inspectable without leaving the session
 - refinement review surface: preview sessions now support safe branch-and-refine actions, variant provenance/history, and panoramic continuity review without leaving the session flow
 - AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load

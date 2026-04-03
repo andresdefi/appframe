@@ -57,6 +57,15 @@ export interface AiRefinementPlanResult {
   referenceVariantName?: string;
 }
 
+export interface RebuildSessionFromReviewResult {
+  success: boolean;
+  updatedVariantIds: string[];
+  clearedPreviewVariantIds: string[];
+  recommendationReason: string;
+  planVariantCount: number;
+  session: unknown;
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
   if (!res.ok) throw new Error(`Request failed: ${res.statusText}`);
@@ -132,6 +141,34 @@ export async function refineWithAi(body: {
     throw new Error(message);
   }
   return res.json() as Promise<AiRefinementPlanResult>;
+}
+
+export async function rebuildSessionFromReview(body: {
+  activeVariantId: string;
+  recommendedVariantId?: string | null;
+  recommendationReason?: string | null;
+  screenshotAnalysis?: unknown[] | null;
+  selectedCopySet?: unknown | null;
+  conceptPlan?: unknown | null;
+  refinementHistory?: unknown[];
+  variants: PersistedSessionVariant[];
+}): Promise<RebuildSessionFromReviewResult> {
+  const res = await fetch(`${API}/api/session/rebuild-from-review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `Failed to rebuild session from review: ${res.statusText}`;
+    try {
+      const data = await res.json() as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // Keep default status text.
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<RebuildSessionFromReviewResult>;
 }
 
 export async function fetchPreviewHtml(body: Record<string, unknown>, signal?: AbortSignal): Promise<string> {

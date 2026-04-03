@@ -70,6 +70,25 @@ export interface PreviewServerOptions {
   port?: number;
 }
 
+type ReviewRebuildModule = {
+  rebuildAutopilotSessionFromReview: (args: { sessionPath: string }) => Promise<{
+    updatedVariantIds: string[];
+    clearedPreviewVariantIds: string[];
+    recommendationReason: string;
+    plan: { variants: unknown[] };
+  }>;
+};
+
+async function loadReviewRebuildModule(): Promise<ReviewRebuildModule> {
+  try {
+    const packageSpecifier = '@appframe/mcp-server/review-rebuild';
+    return await import(packageSpecifier) as ReviewRebuildModule;
+  } catch {
+    const fallbackModuleUrl = new URL('../../mcp-server/dist/review-rebuild.js', import.meta.url);
+    return await import(fallbackModuleUrl.href) as ReviewRebuildModule;
+  }
+}
+
 function createDefaultConfig(): AppframeConfig {
   return {
     mode: 'individual',
@@ -248,6 +267,55 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       await writeFile(resolvedSessionPath, JSON.stringify(nextSession, null, 2), 'utf-8');
       sessionData = nextSession;
       res.json({ success: true, updatedAt });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post('/api/session/rebuild-from-review', async (req, res) => {
+    if (!resolvedSessionPath) {
+      res.status(400).json({ error: 'Preview was not started with a session file' });
+      return;
+    }
+
+    try {
+      const body = req.body as SessionSaveRequestBody;
+      const raw = await readFile(resolvedSessionPath, 'utf-8');
+      const session = JSON.parse(raw) as PersistedSessionRecord;
+
+      if (!Array.isArray(session.variants)) {
+        res.status(400).json({ error: 'Session file is missing variants' });
+        return;
+      }
+
+      const mergedSession = mergeSessionSaveRequest({
+        session,
+        body,
+        fallbackConfig: config,
+        updatedAt: new Date().toISOString(),
+      });
+      await writeFile(resolvedSessionPath, JSON.stringify(mergedSession, null, 2), 'utf-8');
+      sessionData = mergedSession;
+
+      const { rebuildAutopilotSessionFromReview } = await loadReviewRebuildModule();
+      const result = await rebuildAutopilotSessionFromReview({ sessionPath: resolvedSessionPath });
+      const refreshedSession = JSON.parse(await readFile(resolvedSessionPath, 'utf-8')) as PersistedSessionRecord;
+      sessionData = refreshedSession;
+
+      const activeVariant = refreshedSession.variants.find((variant) => variant.id === refreshedSession.activeVariantId);
+      if (isRecord(activeVariant?.config)) {
+        config = validateConfigOrThrow(activeVariant.config as AppframeConfig);
+      }
+
+      res.json({
+        success: true,
+        session: refreshedSession,
+        updatedVariantIds: result.updatedVariantIds,
+        clearedPreviewVariantIds: result.clearedPreviewVariantIds,
+        recommendationReason: result.recommendationReason,
+        planVariantCount: result.plan.variants.length,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });

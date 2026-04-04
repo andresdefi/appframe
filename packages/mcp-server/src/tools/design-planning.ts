@@ -761,7 +761,18 @@ function inferSemanticFlavorDetails(args: {
   const captureRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'capture');
   const scheduleRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'schedule');
   const commerceRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'commerce');
+  const securityRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'security');
   const supportRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'support');
+  const securityStructureBonus = securityRasterScore >= 5
+    ? rasterFlavorBonus(securityRasterScore)
+      + (securityRasterScore >= 6 ? 2 : 1)
+      + (securityRasterScore > supportRasterScore ? 1 : 0)
+      + (securityRasterScore > commerceRasterScore ? 1 : 0)
+    : 0;
+  const allowRasterOnlySecurity = securityStructureBonus > 0
+    && (args.role === 'onboarding' || args.role === 'detail' || args.role === 'unknown' || args.role === 'feature')
+    && securityRasterScore > profileRasterScore + 1
+    && securityRasterScore > documentRasterScore;
   const activityScore = signals.activitySignalCount > 0
     ? (signals.activitySignalCount * 2)
       + (args.role === 'discovery' || args.role === 'home' ? 2 : args.role === 'communication' ? 1 : 0)
@@ -831,10 +842,19 @@ function inferSemanticFlavorDetails(args: {
   const securityScore = signals.securitySignalCount > 0
     ? (signals.securitySignalCount * 2)
       + (args.role === 'onboarding' ? 2 : args.role === 'detail' || args.role === 'settings' ? 1 : 0)
+      + securityStructureBonus
       + Math.min(1, signals.onboardingConflictCount)
       - Math.min(2, signals.paywallConflictCount)
+      - Math.min(1, signals.settingsConflictCount)
       - Math.min(1, signals.catalogSignalCount)
-    : 0;
+    : allowRasterOnlySecurity
+      ? ((args.role === 'onboarding' ? 2 : args.role === 'detail' ? 1 : 0)
+      + securityStructureBonus
+      + Math.min(1, signals.onboardingConflictCount)
+      - Math.min(2, signals.paywallConflictCount)
+      - Math.min(1, signals.settingsConflictCount)
+      - Math.min(1, signals.catalogSignalCount))
+      : 0;
   const supportScore = signals.supportSignalCount > 0
     ? (signals.supportSignalCount * 2)
       + (args.role === 'communication' ? 2 : args.role === 'detail' || args.role === 'settings' ? 1 : 0)
@@ -963,6 +983,38 @@ function inferSemanticFlavorDetails(args: {
       reason: [
         ...reason,
         'Generic settings evidence outweighs the special-family cues, so this falls back to generic until reviewed.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor === 'security'
+    && args.role === 'settings'
+    && signalCount < 3
+  ) {
+    return {
+      reason: [
+        ...reason,
+        'Settings structure stays too generic to treat this as secure-access art direction automatically, so it falls back until reviewed.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor === 'security'
+    && args.role === 'paywall'
+    && securityRasterScore < 7
+  ) {
+    return {
+      reason: [
+        ...reason,
+        'Premium/paywall structure still dominates the raster read, so this stays generic until reviewed.',
       ],
       alternatives,
       needsReview: true,
@@ -2920,9 +2972,16 @@ function inferRasterSemanticSignals(args: {
     + (upperHeroPanelRows >= 2 ? 1 : 0)
     + (lowerCtaRows >= 1 ? 2 : 0)
     + (args.topQuietRatio >= 0.62 ? 1 : 0)
+    + (args.topQuietRatio >= 0.5 && lowerCtaRows >= 1 ? 1 : 0)
     + (leftRailRows <= 2 && rightRailRows <= 2 ? 1 : 0)
     + (cardGridRows === 0 ? 1 : 0)
     + (agendaRows <= 1 ? 1 : 0)
+    + (topInsetBarRows >= 1 ? 1 : 0)
+    + (fullWidthRows <= 3 ? 1 : 0)
+    + (centeredPanelRows >= 4 && lowerCtaRows >= 1 && fullWidthRows <= 2 ? 2 : 0)
+    - (fullWidthRows >= 4 ? 3 : fullWidthRows >= 3 ? 1 : 0)
+    - (agendaRows >= 2 ? 2 : 0)
+    - (leftRailRows >= 3 || rightRailRows >= 3 ? 2 : 0)
   );
   const supportFlavorScore = (
     (agendaRows >= 4 ? 2 : agendaRows >= 3 ? 1 : 0)

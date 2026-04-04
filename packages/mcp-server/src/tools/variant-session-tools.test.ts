@@ -56,6 +56,7 @@ vi.mock('@appframe/core', () => ({
 
 import {
   openPreviewSession,
+  registerPreviewSessionReviewHandlers,
   rebuildAutopilotSessionFromReview,
   scoreVariantPreviews,
 } from './variant-session-tools.js';
@@ -266,6 +267,17 @@ afterEach(async () => {
 beforeEach(() => {
   vi.clearAllMocks();
   probeState.nextProbeError = null;
+});
+
+describe('preview review handler registration', () => {
+  it('registers the reviewed rebuild hook explicitly', () => {
+    registerPreviewSessionReviewHandlers();
+
+    expect(webPreviewMocks.registerSessionReviewRebuildHandler).toHaveBeenCalledTimes(1);
+    expect(webPreviewMocks.registerSessionReviewRebuildHandler).toHaveBeenCalledWith(
+      rebuildAutopilotSessionFromReview,
+    );
+  });
 });
 
 describe('openPreviewSession', () => {

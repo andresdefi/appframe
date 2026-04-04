@@ -605,9 +605,13 @@ export async function rebuildAutopilotSessionFromReview(args: {
   };
 }
 
-registerSessionReviewRebuildHandler(rebuildAutopilotSessionFromReview);
+export function registerPreviewSessionReviewHandlers(): void {
+  registerSessionReviewRebuildHandler(rebuildAutopilotSessionFromReview);
+}
 
 export function registerVariantSessionTools(server: McpServer): void {
+  registerPreviewSessionReviewHandlers();
+
   server.tool(
     'appframe_create_variant_session',
     'Create a file-backed appframe variant session from a base config. This is intended for agent workflows: it creates 2-3 explicit concepts, tracks the active concept, and stores approval/export history.',

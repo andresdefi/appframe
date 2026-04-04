@@ -76,6 +76,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - preview UI session analysis now also exposes those semantic-family diagnostics plus bulk family-review actions for flagged or already-reviewed screenshots, making deterministic review faster without bundling model-dependent features
 - reviewed screenshot semantic-family state can now feed forward into downstream generation: `appframe_plan_variant_set` accepts reviewed `screenshotAnalysisJson`, and `appframe_rebuild_autopilot_session_from_review` replans/rematerializes saved autopilot sessions from persisted review metadata while clearing stale previews and recommendations
 - preview UI can now trigger that reviewed rebuild path directly from the session review surface, saving the session, regenerating autopilot concepts from reviewed screenshot-family state, and rehydrating the refreshed session without leaving preview
+- plain CLI preview launches now also wire the same reviewed rebuild handler, so `appframe preview --session ...` can use the review-to-rebuild loop instead of limiting that flow to MCP-started preview sessions
 - preview scoring now also inspects panoramic support-group signature diversity and penalizes repeated support-card structure more directly, pushing generic strip rhythm down even when screenshots render cleanly
 - the AppFrame skill has been rewritten around the autopilot flow
 
@@ -210,6 +211,7 @@ Recommended order:
 - [x] Add structured failure payloads for each autopilot stage.
 - [x] Add better output for the agent to know when it should call `appframe preview --session <sessionPath>`.
 - [x] Optionally add a direct preview-open helper if the product wants the MCP layer to initiate preview itself.
+- [x] Wire reviewed autopilot rebuild into plain CLI preview launches, not only MCP/open-preview launches.
 
 ### 2. Copy System
 

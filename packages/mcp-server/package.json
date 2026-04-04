@@ -12,6 +12,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./preview-hooks": {
+      "types": "./dist/preview-hooks.d.ts",
+      "import": "./dist/preview-hooks.js"
     }
   },
   "scripts": {

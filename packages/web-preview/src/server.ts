@@ -98,10 +98,12 @@ export interface PreviewSessionReviewRefreshResult extends PreviewSessionReviewR
 
 export type PreviewSessionReviewRebuildHandler = (args: {
   sessionPath: string;
+  branchVariants?: boolean;
 }) => Promise<PreviewSessionReviewRebuildResult>;
 
 export type PreviewSessionReviewRefreshHandler = (args: {
   sessionPath: string;
+  branchVariants?: boolean;
 }) => Promise<PreviewSessionReviewRefreshResult>;
 
 let sessionReviewRebuildHandler: PreviewSessionReviewRebuildHandler | null = null;
@@ -310,6 +312,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
     const requestBody = isRecord(req.body) ? req.body : {};
     const refreshPreviews = requestBody.refreshPreviews === true;
+    const branchVariants = requestBody.branchVariants === true;
 
     if (refreshPreviews && !sessionReviewRefreshHandler) {
       res.status(503).json({
@@ -326,8 +329,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
     try {
       const result = refreshPreviews
-        ? await sessionReviewRefreshHandler!({ sessionPath: resolvedSessionPath })
-        : await sessionReviewRebuildHandler!({ sessionPath: resolvedSessionPath });
+        ? await sessionReviewRefreshHandler!({ sessionPath: resolvedSessionPath, branchVariants })
+        : await sessionReviewRebuildHandler!({ sessionPath: resolvedSessionPath, branchVariants });
       const raw = await readFile(resolvedSessionPath, 'utf-8');
       sessionData = JSON.parse(raw);
 

@@ -77,6 +77,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - reviewed screenshot semantic-family state can now feed forward into downstream generation: `appframe_plan_variant_set` accepts reviewed `screenshotAnalysisJson`, and `appframe_rebuild_autopilot_session_from_review` replans/rematerializes saved autopilot sessions from persisted review metadata while clearing stale previews and recommendations
 - preview UI can now trigger that reviewed rebuild path directly from the session review surface, saving the session, regenerating autopilot concepts from reviewed screenshot-family state, and rehydrating the refreshed session without leaving preview
 - preview review can now also run the full reviewed refresh loop locally from the same surface, rebuilding autopilot concepts, rerendering previews, and rescoring the refreshed session in one pass instead of stopping at stale-preview cleanup
+- preview review can now also create reviewed comparison branches instead of only rebuilding in place, preserving existing concepts while rerendering only the new reviewed branches and rescoring the session for side-by-side comparison
 - plain CLI preview launches now also wire the same reviewed rebuild handler, so `appframe preview --session ...` can use the review-to-rebuild loop instead of limiting that flow to MCP-started preview sessions
 - preview scoring now also inspects panoramic support-group signature diversity and penalizes repeated support-card structure more directly, pushing generic strip rhythm down even when screenshots render cleanly
 - the AppFrame skill has been rewritten around the autopilot flow
@@ -336,6 +337,8 @@ Recommended order:
   Status: `appframe_rebuild_autopilot_session_from_review` now replans/rematerializes saved autopilot sessions from reviewed screenshot-family metadata and clears stale preview/recommendation state before rerendering.
 - [x] Add a preview-side reviewed refresh loop that rerenders and rescores the session after screenshot-family rebuilds.
   Status: preview review can now run a combined rebuild, preview rerender, and local rescoring pass directly from the session analysis surface, preserving manual branches while refreshing recommendation state in one step.
+- [x] Add a reviewed branch-and-compare path so family-review changes do not have to overwrite the current autopilot concepts.
+  Status: preview review can now create reviewed comparison branches, preserve the existing concepts, rerender only the new reviewed branches, and rescore the session for faster side-by-side comparison.
 
 ### 7. Preview Rendering
 

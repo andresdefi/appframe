@@ -689,6 +689,263 @@ describe('rebuildAutopilotSessionFromReview', () => {
       expect(rebuiltConceptB.config.screens.some((screen) => screen.composition !== 'single')).toBe(true);
     }
   });
+
+  it('can branch reviewed autopilot concepts without overwriting the existing concepts', async () => {
+    const dir = await makeTempDir();
+    const sessionPath = join(dir, 'autopilot.session.json');
+    const manifestPath = join(dir, 'manifest.json');
+    const conceptPlan = buildVariantSetPlanFromAnalysis({
+      appName: 'FitFlow',
+      appDescription: 'Workout planning',
+      platforms: ['ios'],
+      analysis: [
+        {
+          path: '/shots/home.png',
+          basename: 'home.png',
+          format: 'png',
+          width: 1290,
+          height: 2796,
+          aspectRatio: 0.461,
+          role: 'home',
+          semanticFlavor: 'document',
+          semanticFlavorConfidence: 'high',
+          density: 'balanced',
+          textRisk: 'medium',
+          heroPriority: 94,
+          heroExplanation: ['Reviewed as a document-style overview'],
+          inferredOrder: 1,
+          orderingConfidence: 'high',
+          orderingReason: ['Manual review'],
+          focus: 'Daily overview',
+          dominantPalette: ['#F8FAFC', '#2563EB', '#0F172A'],
+          safeTextZones: [{ x: 0, y: 0, width: 100, height: 28, label: 'top' }],
+          occupiedRegions: ['bottom'],
+          cropSuitability: 'high',
+          recommendedUsage: 'hero-device',
+          unsafeForTextOverlay: false,
+        },
+        {
+          path: '/shots/workflow.png',
+          basename: 'workflow.png',
+          format: 'png',
+          width: 1290,
+          height: 2796,
+          aspectRatio: 0.461,
+          role: 'workflow',
+          density: 'balanced',
+          textRisk: 'medium',
+          heroPriority: 82,
+          heroExplanation: ['Task flow'],
+          inferredOrder: 2,
+          orderingConfidence: 'medium',
+          orderingReason: ['Follow-on workflow detail'],
+          focus: 'Task flow',
+          dominantPalette: ['#F8FAFC', '#16A34A', '#0F172A'],
+          safeTextZones: [{ x: 0, y: 0, width: 100, height: 26, label: 'top' }],
+          occupiedRegions: ['center'],
+          cropSuitability: 'high',
+          recommendedUsage: 'crop-card',
+          unsafeForTextOverlay: false,
+        },
+      ],
+      goals: ['Feel premium'],
+      variantCount: 2,
+      screenCount: 2,
+      category: 'health',
+    });
+    const config = makeConfig();
+    const timestamp = new Date().toISOString();
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          app: { name: 'FitFlow' },
+          variants: [
+            { id: 'concept-a', name: 'Workflow Hero', mode: 'individual', configPath: join(dir, 'stale-a.yml') },
+            { id: 'concept-b', name: 'Focused Momentum', mode: 'individual', configPath: join(dir, 'stale-b.yml') },
+          ],
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+
+    await writeSession(sessionPath, {
+      version: 2,
+      sourceConfigPath: join(dir, 'source.appframe.yml'),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      activeVariantId: 'concept-a',
+      variants: [
+        {
+          id: 'concept-a',
+          name: 'Workflow Hero',
+          description: 'Original autopilot concept.',
+          status: 'approved',
+          config,
+          artifacts: [],
+          previewArtifacts: [{
+            id: 'preview-existing-a',
+            createdAt: timestamp,
+            outputDir: join(dir, 'preview-existing-a'),
+            mode: 'individual',
+            platform: 'ios',
+            filePaths: ['/tmp/original-a.png'],
+            thumbnailPath: '/tmp/original-a.png',
+          }],
+          copyAssignments: [],
+          score: {
+            total: 82,
+            breakdown: { readability: 28 },
+            flags: [],
+            reason: 'Original score',
+          },
+          history: [],
+          provenance: { origin: 'autopilot', branchDepth: 0 },
+        },
+        {
+          id: 'concept-b',
+          name: 'Focused Momentum',
+          description: 'Original alternate concept.',
+          status: 'draft',
+          config,
+          artifacts: [],
+          previewArtifacts: [{
+            id: 'preview-existing-b',
+            createdAt: timestamp,
+            outputDir: join(dir, 'preview-existing-b'),
+            mode: 'individual',
+            platform: 'ios',
+            filePaths: ['/tmp/original-b.png'],
+            thumbnailPath: '/tmp/original-b.png',
+          }],
+          copyAssignments: [],
+          score: {
+            total: 77,
+            breakdown: { readability: 24 },
+            flags: [],
+            reason: 'Original alternate score',
+          },
+          history: [],
+          provenance: { origin: 'autopilot', branchDepth: 0 },
+        },
+      ],
+      autopilot: {
+        mode: 'autopilot',
+        manifestPath,
+        sourceScreenshots: conceptPlan.selectedScreens.map((entry) => entry.path),
+        screenshotAnalysis: conceptPlan.selectedScreens.map((entry) => ({
+          path: entry.path,
+          basename: entry.path.split('/').pop() ?? entry.path,
+          format: 'png',
+          width: 1290,
+          height: 2796,
+          aspectRatio: 0.461,
+          role: entry.role,
+          semanticFlavor: entry.semanticFlavor,
+          semanticFlavorConfidence: entry.semanticFlavorConfidence,
+          density: 'balanced',
+          textRisk: 'medium',
+          heroPriority: entry.heroPriority,
+          heroExplanation: ['Reviewed branch source'],
+          inferredOrder: entry.inferredOrder,
+          orderingConfidence: 'medium',
+          orderingReason: ['Reviewed branch'],
+          focus: entry.focus,
+          dominantPalette: ['#F8FAFC', '#2563EB', '#0F172A'],
+          safeTextZones: [{ x: 0, y: 0, width: 100, height: 28, label: 'top' }],
+          occupiedRegions: entry.textOccupiedRegions ?? [],
+          cropSuitability: 'high',
+          recommendedUsage: 'hero-device',
+          unsafeForTextOverlay: entry.unsafeForTextOverlay,
+        })),
+        selectedCopySet: {
+          hero: {
+            id: 'hero-1',
+            slot: 'hero',
+            headline: 'Stay on track',
+            subtitle: 'Keep the plan moving',
+            wordCount: 3,
+            subtitleWordCount: 4,
+            score: 92,
+            rationale: [],
+            issues: [],
+          },
+          differentiator: {
+            id: 'diff-1',
+            slot: 'differentiator',
+            headline: 'Plan with focus',
+            subtitle: 'Show the differentiator clearly',
+            wordCount: 3,
+            subtitleWordCount: 4,
+            score: 88,
+            rationale: [],
+            issues: [],
+          },
+          features: [],
+          trust: {
+            id: 'trust-1',
+            slot: 'trust',
+            headline: 'Built for repeat use',
+            subtitle: 'Keep the product feeling polished',
+            wordCount: 4,
+            subtitleWordCount: 5,
+            score: 84,
+            rationale: [],
+            issues: [],
+          },
+          summary: {
+            id: 'summary-1',
+            slot: 'summary',
+            headline: 'Everything that matters',
+            subtitle: 'Close on the full routine payoff',
+            wordCount: 3,
+            subtitleWordCount: 6,
+            score: 85,
+            rationale: [],
+            issues: [],
+          },
+        },
+        conceptPlan,
+        recommendedVariantId: 'concept-a',
+        recommendationReason: 'Original recommendation',
+        refinementHistory: [],
+      },
+    });
+
+    const result = await rebuildAutopilotSessionFromReview({
+      sessionPath,
+      branchVariants: true,
+    });
+
+    expect(result.updatedVariantIds).toEqual(['concept-a-review-1', 'concept-b-review-1']);
+    expect(result.clearedPreviewVariantIds).toEqual([]);
+
+    const rebuiltSession = await readSession(sessionPath);
+    const originalConceptA = rebuiltSession.variants.find((variant) => variant.id === 'concept-a');
+    const branchConceptA = rebuiltSession.variants.find((variant) => variant.id === 'concept-a-review-1');
+    const branchConceptB = rebuiltSession.variants.find((variant) => variant.id === 'concept-b-review-1');
+
+    expect(rebuiltSession.activeVariantId).toBe('concept-a-review-1');
+    expect(rebuiltSession.variants).toHaveLength(4);
+    expect(rebuiltSession.autopilot?.recommendedVariantId).toBeNull();
+    expect(rebuiltSession.autopilot?.recommendationReason).toContain('comparison branches');
+    expect(originalConceptA?.previewArtifacts?.[0]?.thumbnailPath).toBe('/tmp/original-a.png');
+    expect(originalConceptA?.score?.total).toBe(82);
+    expect(branchConceptA?.name).toBe('Workflow Hero Reviewed');
+    expect(branchConceptA?.previewArtifacts).toEqual([]);
+    expect(branchConceptA?.score).toBeUndefined();
+    expect(branchConceptA?.history?.[0]?.label).toBe('Branched from reviewed screenshot families');
+    expect(branchConceptA?.provenance).toMatchObject({
+      origin: 'refinement',
+      parentVariantId: 'concept-a',
+      parentVariantName: 'Workflow Hero',
+      branchDepth: 1,
+    });
+    expect(branchConceptB?.name).toBe('Focused Momentum Reviewed');
+  });
 });
 
 describe('refreshAutopilotSessionFromReview', () => {
@@ -916,6 +1173,266 @@ describe('refreshAutopilotSessionFromReview', () => {
     const refreshedSession = await readSession(sessionPath);
     expect(refreshedSession.variants.every((variant) => (variant.previewArtifacts?.length ?? 0) > 0)).toBe(true);
     expect(refreshedSession.variants.every((variant) => variant.score)).toBe(true);
+    expect(refreshedSession.autopilot?.recommendedVariantId).toBe(result.recommendedVariantId);
+    expect(refreshedSession.autopilot?.recommendationReason).toBe(result.recommendationReason);
+  });
+
+  it('can branch reviewed concepts and rerender only the new comparison branches', async () => {
+    const dir = await makeTempDir();
+    const sessionPath = join(dir, 'autopilot.session.json');
+    const manifestPath = join(dir, 'manifest.json');
+    const originalConceptAPreview = await makePngFile(dir, 'original-concept-a-preview', 200, 200, (x, y) => {
+      if (y < 40) return [245, 247, 250, 255];
+      if (x > 40 && x < 160 && y > 56 && y < 180) return [37, 99, 235, 255];
+      return [248, 250, 252, 255];
+    });
+    const originalConceptBPreview = await makePngFile(dir, 'original-concept-b-preview', 200, 200, (x, y) => {
+      if ((x + y) % 6 < 3) return [148, 163, 184, 255];
+      return [30, 41, 59, 255];
+    });
+    const branchConceptAPreview = await makePngFile(dir, 'branch-concept-a-preview', 200, 200, (x, y) => {
+      if (y < 48) return [245, 247, 250, 255];
+      if (x > 44 && x < 156 && y > 60 && y < 180) return [59, 130, 246, 255];
+      return [248, 250, 252, 255];
+    });
+    const branchConceptBPreview = await makePngFile(dir, 'branch-concept-b-preview', 200, 200, (x, y) => {
+      if (y < 54) return [248, 250, 252, 255];
+      if (x > 38 && x < 162 && y > 70 && y < 184) return [16, 185, 129, 255];
+      return [226, 232, 240, 255];
+    });
+    const reviewedAnalysis: ScreenshotAnalysis[] = [
+      {
+        path: '/shots/home.png',
+        basename: 'home.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'home',
+        semanticFlavor: 'document',
+        semanticFlavorConfidence: 'high',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 94,
+        heroExplanation: ['Reviewed as a document-style overview'],
+        inferredOrder: 1,
+        orderingConfidence: 'high',
+        orderingReason: ['Manual review'],
+        focus: 'Daily overview',
+        dominantPalette: ['#F8FAFC', '#2563EB', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 28, label: 'top' }],
+        occupiedRegions: ['bottom'],
+        cropSuitability: 'high',
+        recommendedUsage: 'hero-device',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/workflow.png',
+        basename: 'workflow.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'workflow',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 82,
+        heroExplanation: ['Task flow'],
+        inferredOrder: 2,
+        orderingConfidence: 'medium',
+        orderingReason: ['Follow-on workflow detail'],
+        focus: 'Task flow',
+        dominantPalette: ['#F8FAFC', '#16A34A', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 26, label: 'top' }],
+        occupiedRegions: ['center'],
+        cropSuitability: 'high',
+        recommendedUsage: 'crop-card',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/settings.png',
+        basename: 'settings.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'settings',
+        density: 'dense',
+        textRisk: 'high',
+        heroPriority: 36,
+        heroExplanation: ['Dense control surface belongs later'],
+        inferredOrder: 3,
+        orderingConfidence: 'medium',
+        orderingReason: ['Close on settings'],
+        focus: 'Controls',
+        dominantPalette: ['#E5E7EB', '#94A3B8', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 72, width: 100, height: 28, label: 'bottom' }],
+        occupiedRegions: ['top', 'center'],
+        cropSuitability: 'medium',
+        recommendedUsage: 'support-only',
+        unsafeForTextOverlay: true,
+      },
+    ];
+    const conceptPlan = buildVariantSetPlanFromAnalysis({
+      appName: 'FitFlow',
+      appDescription: 'Workout planning',
+      platforms: ['ios'],
+      analysis: reviewedAnalysis,
+      goals: ['Feel premium'],
+      variantCount: 2,
+      screenCount: 3,
+      category: 'health',
+    });
+    const config = makeConfig();
+    const timestamp = new Date().toISOString();
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          app: { name: 'FitFlow' },
+          variants: [
+            { id: 'concept-a', name: 'Workflow Hero', mode: 'individual', configPath: join(dir, 'stale-a.yml') },
+            { id: 'concept-b', name: 'Focused Momentum', mode: 'individual', configPath: join(dir, 'stale-b.yml') },
+          ],
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+
+    await writeSession(sessionPath, {
+      version: 2,
+      sourceConfigPath: join(dir, 'source.appframe.yml'),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      activeVariantId: 'concept-a',
+      variants: [
+        {
+          id: 'concept-a',
+          name: 'Workflow Hero',
+          description: 'Stale autopilot concept.',
+          status: 'approved',
+          config,
+          artifacts: [],
+          previewArtifacts: [{
+            id: 'preview-existing-a',
+            createdAt: timestamp,
+            outputDir: join(dir, 'preview-existing-a'),
+            mode: 'individual',
+            platform: 'ios',
+            filePaths: [originalConceptAPreview],
+            thumbnailPath: originalConceptAPreview,
+          }],
+          copyAssignments: [],
+          history: [],
+          provenance: { origin: 'autopilot', branchDepth: 0 },
+        },
+        {
+          id: 'concept-b',
+          name: 'Focused Momentum',
+          description: 'Stale alternate concept.',
+          status: 'draft',
+          config,
+          artifacts: [],
+          previewArtifacts: [{
+            id: 'preview-existing-b',
+            createdAt: timestamp,
+            outputDir: join(dir, 'preview-existing-b'),
+            mode: 'individual',
+            platform: 'ios',
+            filePaths: [originalConceptBPreview],
+            thumbnailPath: originalConceptBPreview,
+          }],
+          copyAssignments: [],
+          history: [],
+          provenance: { origin: 'autopilot', branchDepth: 0 },
+        },
+      ],
+      autopilot: {
+        mode: 'autopilot',
+        manifestPath,
+        sourceScreenshots: reviewedAnalysis.map((entry) => entry.path),
+        screenshotAnalysis: reviewedAnalysis,
+        selectedCopySet: {
+          hero: {
+            id: 'hero-1',
+            slot: 'hero',
+            headline: 'Stay on track',
+            subtitle: 'Keep the plan moving',
+            wordCount: 3,
+            subtitleWordCount: 4,
+            score: 92,
+            rationale: [],
+            issues: [],
+          },
+          differentiator: {
+            id: 'diff-1',
+            slot: 'differentiator',
+            headline: 'Plan with focus',
+            subtitle: 'Show the differentiator clearly',
+            wordCount: 3,
+            subtitleWordCount: 4,
+            score: 88,
+            rationale: [],
+            issues: [],
+          },
+          features: [],
+          trust: {
+            id: 'trust-1',
+            slot: 'trust',
+            headline: 'Built for repeat use',
+            subtitle: 'Keep the product feeling polished',
+            wordCount: 4,
+            subtitleWordCount: 5,
+            score: 84,
+            rationale: [],
+            issues: [],
+          },
+          summary: {
+            id: 'summary-1',
+            slot: 'summary',
+            headline: 'Everything that matters',
+            subtitle: 'Close on the full routine payoff',
+            wordCount: 3,
+            subtitleWordCount: 6,
+            score: 85,
+            rationale: [],
+            issues: [],
+          },
+        },
+        conceptPlan,
+        recommendedVariantId: 'concept-a',
+        recommendationReason: 'Original recommendation',
+        refinementHistory: [],
+      },
+    });
+
+    const generateScreenshotsMock = vi.mocked(generateScreenshots);
+    generateScreenshotsMock.mockResolvedValueOnce({
+      screenshots: [{ outputPath: branchConceptAPreview }],
+    } as Awaited<ReturnType<typeof generateScreenshotsMock>>);
+    generateScreenshotsMock.mockResolvedValueOnce({
+      screenshots: [{ outputPath: branchConceptBPreview }],
+    } as Awaited<ReturnType<typeof generateScreenshotsMock>>);
+
+    const result = await refreshAutopilotSessionFromReview({
+      sessionPath,
+      branchVariants: true,
+    });
+
+    expect(generateScreenshotsMock).toHaveBeenCalledTimes(2);
+    expect(result.updatedVariantIds).toEqual(['concept-a-review-1', 'concept-b-review-1']);
+    expect(result.previewArtifacts.map((entry) => entry.variantId)).toEqual(['concept-a-review-1', 'concept-b-review-1']);
+    expect(result.scores).toHaveLength(4);
+
+    const refreshedSession = await readSession(sessionPath);
+    expect(refreshedSession.variants).toHaveLength(4);
+    expect(refreshedSession.variants.find((variant) => variant.id === 'concept-a')?.previewArtifacts?.[0]?.thumbnailPath)
+      .toBe(originalConceptAPreview);
+    expect(refreshedSession.variants.find((variant) => variant.id === 'concept-a-review-1')?.previewArtifacts?.[0]?.thumbnailPath)
+      .toBe(branchConceptAPreview);
     expect(refreshedSession.autopilot?.recommendedVariantId).toBe(result.recommendedVariantId);
     expect(refreshedSession.autopilot?.recommendationReason).toBe(result.recommendationReason);
   });

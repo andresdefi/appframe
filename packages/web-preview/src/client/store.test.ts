@@ -846,4 +846,152 @@ describe('preview session refinement round-trips', () => {
     expect(state.variants[0]?.previewArtifacts[0]?.thumbnailPath).toBe('/tmp/preview-artifacts/concept-a/shot.png');
     expect(state.variants[0]?.score?.total).toBe(91);
   });
+
+  it('passes review-branch options through and hydrates the returned comparison branches', async () => {
+    const session = makeSession(makeIndividualConfig(), 'concept-a', 'Clean Hero', {
+      screenshotAnalysis: [
+        {
+          path: 'screenshots/home.png',
+          role: 'detail',
+          semanticFlavor: 'reward',
+          semanticFlavorConfidence: 'low',
+          semanticFlavorNeedsReview: true,
+          heroPriority: 72,
+          inferredOrder: 1,
+          focus: 'center',
+          unsafeForTextOverlay: false,
+        },
+      ],
+      conceptPlan: {
+        app: {
+          name: 'FocusFlow',
+          description: 'Stay on top of your routine',
+          category: 'productivity',
+          platforms: ['ios'],
+        },
+        goals: ['Highlight calmer planning'],
+        analysisSummary: {
+          screenshotCount: 1,
+          selectedCount: 1,
+          roles: { detail: 1 },
+          topHeroCandidate: 'screenshots/home.png',
+          topHeroExplanation: ['Clear hero candidate'],
+        },
+        selectedScreens: [
+          {
+            path: 'screenshots/home.png',
+            role: 'detail',
+            semanticFlavor: 'document',
+            semanticFlavorConfidence: 'medium',
+            inferredOrder: 1,
+            unsafeForTextOverlay: false,
+          },
+        ],
+        variants: [],
+      },
+    });
+    const branchedSession = {
+      ...session,
+      activeVariantId: 'concept-a-review-1',
+      updatedAt: '2026-03-21T10:30:00.000Z',
+      autopilot: {
+        ...session.autopilot,
+        recommendedVariantId: 'concept-a-review-1',
+        recommendationReason: 'Reviewed comparison branch now leads after refreshed scoring.',
+      },
+      variants: [
+        ...session.variants,
+        {
+          ...session.variants[0],
+          id: 'concept-a-review-1',
+          name: 'Clean Hero Reviewed',
+          status: 'draft',
+          previewArtifacts: [
+            {
+              id: 'preview-reviewed-1',
+              createdAt: '2026-03-21T10:30:00.000Z',
+              outputDir: '/tmp/preview-artifacts/concept-a-review-1',
+              mode: 'individual',
+              platform: 'ios',
+              filePaths: ['/tmp/preview-artifacts/concept-a-review-1/shot.png'],
+              thumbnailPath: '/tmp/preview-artifacts/concept-a-review-1/shot.png',
+            },
+          ],
+          score: {
+            total: 94,
+            breakdown: { readability: 34 },
+            flags: [],
+            reason: 'Reviewed branch wins',
+          },
+          history: [
+            {
+              id: 'history-reviewed-branch',
+              createdAt: '2026-03-21T10:30:00.000Z',
+              type: 'refined',
+              label: 'Branched from reviewed screenshot families',
+              sourceVariantId: 'concept-a',
+            },
+            ...session.variants[0].history,
+          ],
+          provenance: {
+            origin: 'refinement',
+            parentVariantId: 'concept-a',
+            parentVariantName: 'Clean Hero',
+            branchDepth: 1,
+            note: 'Reviewed screenshot-family rebuild branch.',
+          },
+        },
+      ],
+    };
+
+    apiMocks.rebuildAutopilotSessionFromReview.mockResolvedValue({
+      success: true,
+      updatedAt: branchedSession.updatedAt,
+      session: branchedSession,
+      sessionPath: '/tmp/focusflow.session.json',
+      manifestPath: '/tmp/focusflow.manifest.json',
+      updatedVariantIds: ['concept-a-review-1'],
+      clearedPreviewVariantIds: [],
+      recommendationReason: 'Reviewed comparison branch now leads after refreshed scoring.',
+      planVariantCount: 1,
+      previewArtifacts: [
+        {
+          variantId: 'concept-a-review-1',
+          filePaths: ['/tmp/preview-artifacts/concept-a-review-1/shot.png'],
+          thumbnailPath: '/tmp/preview-artifacts/concept-a-review-1/shot.png',
+        },
+      ],
+      recommendedVariantId: 'concept-a-review-1',
+      scores: [
+        { variantId: 'concept-a', total: 83 },
+        { variantId: 'concept-a-review-1', total: 94 },
+      ],
+      aiVisualScoring: { status: 'disabled' },
+    });
+
+    usePreviewStore.getState().hydrateSession(session as any);
+
+    const result = await usePreviewStore.getState().rebuildAutopilotSessionFromReview({
+      refreshPreviews: true,
+      branchVariants: true,
+    });
+
+    expect(apiMocks.rebuildAutopilotSessionFromReview).toHaveBeenCalledWith({
+      refreshPreviews: true,
+      branchVariants: true,
+    });
+    expect(result.updatedVariantIds).toEqual(['concept-a-review-1']);
+
+    const state = usePreviewStore.getState();
+    expect(state.activeVariantId).toBe('concept-a-review-1');
+    expect(state.recommendedVariantId).toBe('concept-a-review-1');
+    expect(state.variants).toHaveLength(2);
+    expect(state.variants[1]?.name).toBe('Clean Hero Reviewed');
+    expect(state.variants[1]?.previewArtifacts[0]?.thumbnailPath).toBe('/tmp/preview-artifacts/concept-a-review-1/shot.png');
+    expect(state.variants[1]?.provenance).toMatchObject({
+      origin: 'refinement',
+      parentVariantId: 'concept-a',
+      branchDepth: 1,
+    });
+  });
 });

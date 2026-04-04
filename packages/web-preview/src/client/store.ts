@@ -525,6 +525,7 @@ export interface PreviewStore {
   saveSession: () => Promise<void>;
   rebuildAutopilotSessionFromReview: (options?: {
     refreshPreviews?: boolean;
+    branchVariants?: boolean;
   }) => Promise<ReviewedAutopilotRebuildResult>;
   isSavingSession: boolean;
 }

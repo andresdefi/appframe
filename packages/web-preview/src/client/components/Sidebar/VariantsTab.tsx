@@ -527,16 +527,30 @@ export function VariantsTab() {
     }
   }
 
-  async function handleReviewedRebuild(options?: { refreshPreviews?: boolean }) {
+  async function handleReviewedRebuild(options?: {
+    refreshPreviews?: boolean;
+    branchVariants?: boolean;
+  }) {
     const refreshPreviews = options?.refreshPreviews === true;
+    const branchVariants = options?.branchVariants === true;
     const confirmed = await confirm({
-      title: refreshPreviews
+      title: branchVariants
+        ? (refreshPreviews
+            ? 'Branch, rerender, and rescore from review?'
+            : 'Create reviewed comparison branches?')
+        : refreshPreviews
         ? 'Rebuild, rerender, and rescore from review?'
         : 'Rebuild autopilot concepts from review?',
-      message: refreshPreviews
+      message: branchVariants
+        ? (refreshPreviews
+            ? 'This saves the current session, regenerates reviewed autopilot concepts into fresh comparison branches, rerenders only those new branches, rescoring the session so you can compare new and existing concepts side by side. Existing concepts stay intact.'
+            : 'This saves the current session and regenerates reviewed autopilot concepts into fresh comparison branches without overwriting the existing concepts. Existing concepts stay intact until you rerender and rescore.')
+        : refreshPreviews
         ? 'This saves the current session, regenerates autopilot concepts from reviewed screenshot-family state, rerenders fresh previews, rescoring the rebuilt concepts, and reloads the session. Manual branches stay in the session.'
         : 'This saves the current session, regenerates autopilot concepts from reviewed screenshot-family state, clears stale previews and scores for rebuilt concepts, and reloads the session. Manual branches stay in the session.',
-      confirmLabel: refreshPreviews ? 'Rebuild + Rescore' : 'Rebuild Concepts',
+      confirmLabel: branchVariants
+        ? (refreshPreviews ? 'Branch + Rescore' : 'Branch Concepts')
+        : refreshPreviews ? 'Rebuild + Rescore' : 'Rebuild Concepts',
       destructive: false,
     });
     if (!confirmed) return;
@@ -544,10 +558,14 @@ export function VariantsTab() {
     setIsReviewRebuilding(true);
     setReviewRebuildStatus(null);
     try {
-      const result = await rebuildAutopilotSessionFromReview({ refreshPreviews });
-      setReviewRebuildStatus(refreshPreviews
-        ? `Rebuilt ${result.updatedVariantIds.length} autopilot concept${result.updatedVariantIds.length === 1 ? '' : 's'}, refreshed previews, and rescored ${result.scores?.length ?? 0} concept${(result.scores?.length ?? 0) === 1 ? '' : 's'}.`
-        : `Rebuilt ${result.updatedVariantIds.length} autopilot concept${result.updatedVariantIds.length === 1 ? '' : 's'}. Fresh previews and rescoring are now required.`);
+      const result = await rebuildAutopilotSessionFromReview({ refreshPreviews, branchVariants });
+      setReviewRebuildStatus(branchVariants
+        ? (refreshPreviews
+            ? `Created ${result.updatedVariantIds.length} reviewed branch${result.updatedVariantIds.length === 1 ? '' : 'es'}, rerendered those concepts, and rescored ${result.scores?.length ?? 0} session variant${(result.scores?.length ?? 0) === 1 ? '' : 's'}.`
+            : `Created ${result.updatedVariantIds.length} reviewed branch${result.updatedVariantIds.length === 1 ? '' : 'es'}. Rerender previews and rescore when you are ready to compare them.`)
+        : refreshPreviews
+          ? `Rebuilt ${result.updatedVariantIds.length} autopilot concept${result.updatedVariantIds.length === 1 ? '' : 's'}, refreshed previews, and rescored ${result.scores?.length ?? 0} concept${(result.scores?.length ?? 0) === 1 ? '' : 's'}.`
+          : `Rebuilt ${result.updatedVariantIds.length} autopilot concept${result.updatedVariantIds.length === 1 ? '' : 's'}. Fresh previews and rescoring are now required.`);
     } catch (err) {
       setReviewRebuildStatus(err instanceof Error ? err.message : 'Reviewed rebuild failed');
     } finally {
@@ -814,6 +832,15 @@ export function VariantsTab() {
                       ) : null}
                       {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
                         <button
+                          className="rounded-md border border-accent/40 bg-accent/15 px-2 py-1 text-[10px] text-accent hover:bg-accent/20 disabled:opacity-60"
+                          onClick={() => void handleReviewedRebuild({ refreshPreviews: true, branchVariants: true })}
+                          disabled={isReviewRebuilding || isSavingSession}
+                        >
+                          {isReviewRebuilding ? 'Branching Reviews...' : 'Branch + Rescore'}
+                        </button>
+                      ) : null}
+                      {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
+                        <button
                           className="rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-[10px] text-accent hover:bg-accent/15 disabled:opacity-60"
                           onClick={() => void handleReviewedRebuild()}
                           disabled={isReviewRebuilding || isSavingSession}
@@ -834,7 +861,7 @@ export function VariantsTab() {
                   )}
                   {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
                     <div className="mt-2 rounded-md border border-border bg-bg/60 px-2.5 py-2 text-[10px] text-text-dim">
-                      Reviewed rebuild can now either clear stale preview scores or run the full local rebuild, rerender, and rescore loop from the same review surface.
+                      Reviewed rebuild can now update concepts in place or create fresh comparison branches, and the full refresh loop rerenders only the reviewed concepts instead of repainting every variant in the session.
                     </div>
                   ) : null}
                   {reviewRebuildStatus ? (

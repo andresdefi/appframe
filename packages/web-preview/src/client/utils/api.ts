@@ -137,12 +137,14 @@ export async function saveSession(body: {
 
 export async function rebuildAutopilotSessionFromReview(options?: {
   refreshPreviews?: boolean;
+  branchVariants?: boolean;
 }): Promise<ReviewedAutopilotRebuildResult> {
   const res = await fetch(`${API}/api/session/rebuild-autopilot-from-review`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       refreshPreviews: options?.refreshPreviews === true,
+      branchVariants: options?.branchVariants === true,
     }),
   });
   if (!res.ok) {

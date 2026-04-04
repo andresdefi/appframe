@@ -46,6 +46,16 @@ function clone<T>(value: T): T {
 type VariantArtifact = VariantExportArtifact;
 type PortProbeResult = { available: boolean; error?: NodeJS.ErrnoException };
 
+interface ReviewRebuildOptions {
+  sessionPath: string;
+  branchVariants?: boolean;
+}
+
+interface ReviewRefreshOptions extends ReviewRebuildOptions {
+  platform?: string;
+  useAiVisualScoring?: boolean;
+}
+
 async function probePort(port: number): Promise<PortProbeResult> {
   return new Promise((resolve) => {
     const server = createServer();
@@ -260,6 +270,37 @@ function summarizeVariant(variant: VariantSessionVariant): string {
   return `- ${variant.id}: ${variant.name} [${variant.status}] (${mode}, ${screenCount}, ${variant.artifacts.length} exports)`;
 }
 
+function nextReviewedBranchId(
+  variants: VariantSessionVariant[],
+  baseVariantId: string,
+): string {
+  let index = 1;
+  let candidate = `${baseVariantId}-review-${index}`;
+  while (variants.some((variant) => variant.id === candidate)) {
+    index += 1;
+    candidate = `${baseVariantId}-review-${index}`;
+  }
+  return candidate;
+}
+
+function nextReviewedBranchName(
+  variants: VariantSessionVariant[],
+  baseName: string,
+): string {
+  const rootName = `${baseName} Reviewed`;
+  if (!variants.some((variant) => variant.name === rootName)) {
+    return rootName;
+  }
+
+  let index = 2;
+  let candidate = `${rootName} ${index}`;
+  while (variants.some((variant) => variant.name === candidate)) {
+    index += 1;
+    candidate = `${rootName} ${index}`;
+  }
+  return candidate;
+}
+
 function createSessionVariants(config: AppframeConfig, variantCount: number): VariantSessionVariant[] {
   const secondConceptConfig = config.mode === 'panoramic' || config.screens.length === 0
     ? createPanoramicStoryboardVariant(config)
@@ -332,14 +373,21 @@ export async function renderVariantPreviews(args: {
   sessionPath: string;
   outputDir?: string;
   platform?: string;
+  variantIds?: string[];
 }): Promise<{
   sessionPath: string;
   previewArtifacts: Array<{ variantId: string; filePaths: string[]; thumbnailPath: string | null }>;
 }> {
   const session = await readSession(args.sessionPath);
+  const variantIdSet = args.variantIds && args.variantIds.length > 0
+    ? new Set(args.variantIds)
+    : null;
+  const variantsToRender = variantIdSet
+    ? session.variants.filter((variant) => variantIdSet.has(variant.id))
+    : session.variants;
   const previewArtifacts: Array<{ variantId: string; artifact: VariantPreviewArtifact }> = [];
 
-  for (const variant of session.variants) {
+  for (const variant of variantsToRender) {
     const variantOutputDir = join(
       args.outputDir ?? join(dirname(args.sessionPath), 'preview-artifacts'),
       slugify(variant.name),
@@ -499,9 +547,7 @@ async function inferAssetImagePath(args: {
   return undefined;
 }
 
-export async function rebuildAutopilotSessionFromReview(args: {
-  sessionPath: string;
-}): Promise<{
+export async function rebuildAutopilotSessionFromReview(args: ReviewRebuildOptions): Promise<{
   sessionPath: string;
   manifestPath: string;
   updatedVariantIds: string[];
@@ -510,6 +556,7 @@ export async function rebuildAutopilotSessionFromReview(args: {
   plan: VariantSetPlan;
 }> {
   const session = await readSession(args.sessionPath);
+  const branchVariants = args.branchVariants === true;
   const autopilot = session.autopilot;
   if (!autopilot || autopilot.mode !== 'autopilot') {
     throw new Error('Session does not contain autopilot metadata to rebuild from review state.');
@@ -557,37 +604,95 @@ export async function rebuildAutopilotSessionFromReview(args: {
   const materializedConfigs = await loadMaterializedConfigsFromManifest(materialized.manifestPath);
   const rebuildTimestamp = new Date().toISOString();
   const updatedVariantIds: string[] = [];
+  let activeVariantId = session.activeVariantId;
 
-  session.variants = session.variants.map((variant) => {
-    const plannedVariant = plannedVariantById.get(variant.id);
-    const nextConfig = materializedConfigs.get(variant.id);
-    if (!plannedVariant || !nextConfig) return variant;
+  if (branchVariants) {
+    const nextVariants = [...session.variants];
+    const activeParentVariantId = plannedVariantIdSet.has(session.activeVariantId)
+      ? session.activeVariantId
+      : null;
 
-    updatedVariantIds.push(variant.id);
-    const rebuiltVariant = {
-      ...variant,
-      description: plannedVariant.strategy,
-      status: 'draft' as const,
-      config: nextConfig,
-      previewArtifacts: [],
-      copyAssignments: buildVariantCopyAssignments(plannedVariant, autopilot.selectedCopySet),
-      score: undefined,
-      history: [
-        {
-          id: makeId('history'),
-          createdAt: rebuildTimestamp,
-          type: 'saved' as const,
-          label: 'Rebuilt from reviewed screenshot families',
-          detail: 'Regenerated the autopilot concept from persisted screenshot semantic-family review state.',
+    for (const plannedVariantId of plannedVariantIds) {
+      const parentVariant = session.variants.find((variant) => variant.id === plannedVariantId);
+      const plannedVariant = plannedVariantById.get(plannedVariantId);
+      const nextConfig = materializedConfigs.get(plannedVariantId);
+      if (!parentVariant || !plannedVariant || !nextConfig) continue;
+
+      const branchId = nextReviewedBranchId(nextVariants, plannedVariantId);
+      const branchName = nextReviewedBranchName(nextVariants, parentVariant.name);
+      updatedVariantIds.push(branchId);
+
+      if (activeParentVariantId === parentVariant.id) {
+        activeVariantId = branchId;
+      }
+
+      nextVariants.push({
+        ...parentVariant,
+        id: branchId,
+        name: branchName,
+        description: plannedVariant.strategy,
+        status: 'draft',
+        config: nextConfig,
+        artifacts: [],
+        previewArtifacts: [],
+        copyAssignments: buildVariantCopyAssignments(plannedVariant, autopilot.selectedCopySet),
+        score: undefined,
+        history: [
+          {
+            id: makeId('history'),
+            createdAt: rebuildTimestamp,
+            type: 'refined',
+            label: 'Branched from reviewed screenshot families',
+            detail: 'Created a fresh comparison branch from persisted screenshot semantic-family review state.',
+            sourceVariantId: parentVariant.id,
+          },
+          ...(parentVariant.history ?? []),
+        ],
+        provenance: {
+          origin: 'refinement',
+          parentVariantId: parentVariant.id,
+          parentVariantName: parentVariant.name,
+          branchDepth: (parentVariant.provenance?.branchDepth ?? 0) + 1,
+          note: 'Reviewed screenshot-family rebuild branch.',
         },
-        ...(variant.history ?? []),
-      ],
-    } as VariantSessionVariant & { editorSnapshot?: unknown };
-    rebuiltVariant.editorSnapshot = undefined;
-    return rebuiltVariant;
-  });
+      });
+    }
 
-  const recommendationReason = 'Reviewed screenshot-family changes require fresh previews and rescoring.';
+    session.variants = nextVariants;
+  } else {
+    session.variants = session.variants.map((variant) => {
+      const plannedVariant = plannedVariantById.get(variant.id);
+      const nextConfig = materializedConfigs.get(variant.id);
+      if (!plannedVariant || !nextConfig) return variant;
+
+      updatedVariantIds.push(variant.id);
+      const rebuiltVariant = {
+        ...variant,
+        description: plannedVariant.strategy,
+        status: 'draft' as const,
+        config: nextConfig,
+        previewArtifacts: [],
+        copyAssignments: buildVariantCopyAssignments(plannedVariant, autopilot.selectedCopySet),
+        score: undefined,
+        history: [
+          {
+            id: makeId('history'),
+            createdAt: rebuildTimestamp,
+            type: 'saved' as const,
+            label: 'Rebuilt from reviewed screenshot families',
+            detail: 'Regenerated the autopilot concept from persisted screenshot semantic-family review state.',
+          },
+          ...(variant.history ?? []),
+        ],
+      } as VariantSessionVariant & { editorSnapshot?: unknown };
+      rebuiltVariant.editorSnapshot = undefined;
+      return rebuiltVariant;
+    });
+  }
+
+  const recommendationReason = branchVariants
+    ? 'Reviewed screenshot-family changes created fresh comparison branches. Rerender previews and rescore to compare them against existing concepts.'
+    : 'Reviewed screenshot-family changes require fresh previews and rescoring.';
   session.autopilot = {
     ...autopilot,
     manifestPath: materialized.manifestPath,
@@ -596,6 +701,7 @@ export async function rebuildAutopilotSessionFromReview(args: {
     recommendedVariantId: null,
     recommendationReason,
   };
+  session.activeVariantId = activeVariantId;
   session.updatedAt = rebuildTimestamp;
   await writeSession(args.sessionPath, session);
 
@@ -603,17 +709,13 @@ export async function rebuildAutopilotSessionFromReview(args: {
     sessionPath: args.sessionPath,
     manifestPath: materialized.manifestPath,
     updatedVariantIds,
-    clearedPreviewVariantIds: updatedVariantIds,
+    clearedPreviewVariantIds: branchVariants ? [] : updatedVariantIds,
     recommendationReason,
     plan,
   };
 }
 
-export async function refreshAutopilotSessionFromReview(args: {
-  sessionPath: string;
-  platform?: string;
-  useAiVisualScoring?: boolean;
-}): Promise<{
+export async function refreshAutopilotSessionFromReview(args: ReviewRefreshOptions): Promise<{
   sessionPath: string;
   manifestPath: string;
   updatedVariantIds: string[];
@@ -625,10 +727,14 @@ export async function refreshAutopilotSessionFromReview(args: {
   scores: Array<{ variantId: string; total: number }>;
   aiVisualScoring: VisualModelScoringStatus;
 }> {
-  const rebuilt = await rebuildAutopilotSessionFromReview({ sessionPath: args.sessionPath });
+  const rebuilt = await rebuildAutopilotSessionFromReview({
+    sessionPath: args.sessionPath,
+    branchVariants: args.branchVariants,
+  });
   const rendered = await renderVariantPreviews({
     sessionPath: args.sessionPath,
     platform: args.platform,
+    variantIds: rebuilt.updatedVariantIds,
   });
   const scored = await scoreVariantPreviews({
     sessionPath: args.sessionPath,

@@ -18,6 +18,7 @@ declare module '@appframe/web-preview' {
 
   export type PreviewSessionReviewRebuildHandler = (args: {
     sessionPath: string;
+    branchVariants?: boolean;
   }) => Promise<PreviewSessionReviewRebuildResult>;
 
   export interface PreviewSessionReviewRefreshResult extends PreviewSessionReviewRebuildResult {
@@ -37,6 +38,7 @@ declare module '@appframe/web-preview' {
 
   export type PreviewSessionReviewRefreshHandler = (args: {
     sessionPath: string;
+    branchVariants?: boolean;
   }) => Promise<PreviewSessionReviewRefreshResult>;
 
   export function startPreviewServer(options: PreviewServerOptions): Promise<void>;

@@ -733,4 +733,117 @@ describe('preview session refinement round-trips', () => {
     expect(state.sessionSaveBaseline).not.toBeNull();
     expect(state.variants[0]?.history[0]?.label).toBe('Rebuilt from reviewed screenshot families');
   });
+
+  it('can rebuild, rerender, and rescore reviewed concepts in one pass', async () => {
+    const baseConfig = makeIndividualConfig();
+    const session = makeSession(baseConfig, 'concept-a', 'Clean Hero', {
+      screenshotAnalysis: [
+        {
+          path: 'screenshots/home.png',
+          role: 'detail',
+          semanticFlavor: 'reward',
+          semanticFlavorConfidence: 'low',
+          semanticFlavorNeedsReview: true,
+          heroPriority: 72,
+          inferredOrder: 1,
+          focus: 'center',
+          unsafeForTextOverlay: false,
+        },
+      ],
+      conceptPlan: {
+        app: {
+          name: 'FocusFlow',
+          description: 'Stay on top of your routine',
+          category: 'productivity',
+          platforms: ['ios'],
+        },
+        goals: ['Highlight calmer planning'],
+        analysisSummary: {
+          screenshotCount: 1,
+          selectedCount: 1,
+          roles: { detail: 1 },
+          topHeroCandidate: 'screenshots/home.png',
+          topHeroExplanation: ['Clear hero candidate'],
+        },
+        selectedScreens: [
+          {
+            path: 'screenshots/home.png',
+            role: 'detail',
+            semanticFlavor: 'reward',
+            semanticFlavorConfidence: 'low',
+            semanticFlavorNeedsReview: true,
+            inferredOrder: 1,
+            unsafeForTextOverlay: false,
+          },
+        ],
+        variants: [],
+      },
+    });
+    const refreshedSession = {
+      ...session,
+      updatedAt: '2026-03-21T09:30:00.000Z',
+      autopilot: {
+        ...session.autopilot,
+        recommendedVariantId: 'concept-a',
+        recommendationReason: 'Clean Hero leads after refreshed preview scoring.',
+      },
+      variants: [
+        {
+          ...session.variants[0],
+          previewArtifacts: [
+            {
+              id: 'preview-1',
+              createdAt: '2026-03-21T09:30:00.000Z',
+              outputDir: '/tmp/preview-artifacts/concept-a',
+              mode: 'individual',
+              platform: 'ios',
+              filePaths: ['/tmp/preview-artifacts/concept-a/shot.png'],
+              thumbnailPath: '/tmp/preview-artifacts/concept-a/shot.png',
+            },
+          ],
+          score: {
+            total: 91,
+            breakdown: { readability: 32 },
+            flags: [],
+            reason: 'Strong refreshed preview score',
+          },
+        },
+      ],
+    };
+
+    apiMocks.rebuildAutopilotSessionFromReview.mockResolvedValue({
+      success: true,
+      updatedAt: refreshedSession.updatedAt,
+      session: refreshedSession,
+      sessionPath: '/tmp/focusflow.session.json',
+      manifestPath: '/tmp/focusflow.manifest.json',
+      updatedVariantIds: ['concept-a'],
+      clearedPreviewVariantIds: ['concept-a'],
+      recommendationReason: 'Clean Hero leads after refreshed preview scoring.',
+      planVariantCount: 1,
+      previewArtifacts: [
+        {
+          variantId: 'concept-a',
+          filePaths: ['/tmp/preview-artifacts/concept-a/shot.png'],
+          thumbnailPath: '/tmp/preview-artifacts/concept-a/shot.png',
+        },
+      ],
+      recommendedVariantId: 'concept-a',
+      scores: [{ variantId: 'concept-a', total: 91 }],
+      aiVisualScoring: { status: 'disabled' },
+    });
+
+    usePreviewStore.getState().hydrateSession(session as any);
+
+    const result = await usePreviewStore.getState().rebuildAutopilotSessionFromReview({ refreshPreviews: true });
+
+    expect(apiMocks.rebuildAutopilotSessionFromReview).toHaveBeenCalledWith({ refreshPreviews: true });
+    expect(result.recommendedVariantId).toBe('concept-a');
+
+    const state = usePreviewStore.getState();
+    expect(state.recommendedVariantId).toBe('concept-a');
+    expect(state.recommendationReason).toBe('Clean Hero leads after refreshed preview scoring.');
+    expect(state.variants[0]?.previewArtifacts[0]?.thumbnailPath).toBe('/tmp/preview-artifacts/concept-a/shot.png');
+    expect(state.variants[0]?.score?.total).toBe(91);
+  });
 });

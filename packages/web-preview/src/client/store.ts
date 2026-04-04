@@ -523,7 +523,9 @@ export interface PreviewStore {
   undo: () => void;
   redo: () => void;
   saveSession: () => Promise<void>;
-  rebuildAutopilotSessionFromReview: () => Promise<ReviewedAutopilotRebuildResult>;
+  rebuildAutopilotSessionFromReview: (options?: {
+    refreshPreviews?: boolean;
+  }) => Promise<ReviewedAutopilotRebuildResult>;
   isSavingSession: boolean;
 }
 
@@ -2243,14 +2245,14 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     }
   },
 
-  rebuildAutopilotSessionFromReview: async () => {
+  rebuildAutopilotSessionFromReview: async (options) => {
     const state = get();
     if (!state.sessionBacked || !state.activeVariantId) {
       throw new Error('Reviewed rebuild requires a file-backed session.');
     }
 
     await get().saveSession();
-    const result = await rebuildAutopilotSessionFromReviewApi();
+    const result = await rebuildAutopilotSessionFromReviewApi(options);
     if (!result.session || !Array.isArray((result.session as { variants?: unknown[] }).variants)) {
       throw new Error('Reviewed rebuild returned an invalid session payload.');
     }

@@ -20,6 +20,26 @@ declare module '@appframe/web-preview' {
     sessionPath: string;
   }) => Promise<PreviewSessionReviewRebuildResult>;
 
+  export interface PreviewSessionReviewRefreshResult extends PreviewSessionReviewRebuildResult {
+    previewArtifacts: Array<{
+      variantId: string;
+      filePaths: string[];
+      thumbnailPath: string | null;
+    }>;
+    recommendedVariantId: string | null;
+    scores: Array<{ variantId: string; total: number }>;
+    aiVisualScoring: {
+      status: string;
+      reason?: string;
+      model?: string;
+    };
+  }
+
+  export type PreviewSessionReviewRefreshHandler = (args: {
+    sessionPath: string;
+  }) => Promise<PreviewSessionReviewRefreshResult>;
+
   export function startPreviewServer(options: PreviewServerOptions): Promise<void>;
   export function registerSessionReviewRebuildHandler(handler: PreviewSessionReviewRebuildHandler | null): void;
+  export function registerSessionReviewRefreshHandler(handler: PreviewSessionReviewRefreshHandler | null): void;
 }

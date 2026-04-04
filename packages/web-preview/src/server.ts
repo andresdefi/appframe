@@ -81,16 +81,42 @@ export interface PreviewSessionReviewRebuildResult {
   };
 }
 
+export interface PreviewSessionReviewRefreshResult extends PreviewSessionReviewRebuildResult {
+  previewArtifacts: Array<{
+    variantId: string;
+    filePaths: string[];
+    thumbnailPath: string | null;
+  }>;
+  recommendedVariantId: string | null;
+  scores: Array<{ variantId: string; total: number }>;
+  aiVisualScoring: {
+    status: string;
+    reason?: string;
+    model?: string;
+  };
+}
+
 export type PreviewSessionReviewRebuildHandler = (args: {
   sessionPath: string;
 }) => Promise<PreviewSessionReviewRebuildResult>;
 
+export type PreviewSessionReviewRefreshHandler = (args: {
+  sessionPath: string;
+}) => Promise<PreviewSessionReviewRefreshResult>;
+
 let sessionReviewRebuildHandler: PreviewSessionReviewRebuildHandler | null = null;
+let sessionReviewRefreshHandler: PreviewSessionReviewRefreshHandler | null = null;
 
 export function registerSessionReviewRebuildHandler(
   handler: PreviewSessionReviewRebuildHandler | null,
 ): void {
   sessionReviewRebuildHandler = handler;
+}
+
+export function registerSessionReviewRefreshHandler(
+  handler: PreviewSessionReviewRefreshHandler | null,
+): void {
+  sessionReviewRefreshHandler = handler;
 }
 
 function createDefaultConfig(): AppframeConfig {
@@ -277,12 +303,21 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
-  app.post('/api/session/rebuild-autopilot-from-review', async (_req, res) => {
+  app.post('/api/session/rebuild-autopilot-from-review', async (req, res) => {
     if (!resolvedSessionPath) {
       res.status(400).json({ error: 'Preview was not started with a session file' });
       return;
     }
-    if (!sessionReviewRebuildHandler) {
+    const requestBody = isRecord(req.body) ? req.body : {};
+    const refreshPreviews = requestBody.refreshPreviews === true;
+
+    if (refreshPreviews && !sessionReviewRefreshHandler) {
+      res.status(503).json({
+        error: 'Reviewed refresh is unavailable for this preview server launch.',
+      });
+      return;
+    }
+    if (!refreshPreviews && !sessionReviewRebuildHandler) {
       res.status(503).json({
         error: 'Reviewed rebuild is unavailable for this preview server launch.',
       });
@@ -290,11 +325,13 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
 
     try {
-      const result = await sessionReviewRebuildHandler({ sessionPath: resolvedSessionPath });
+      const result = refreshPreviews
+        ? await sessionReviewRefreshHandler!({ sessionPath: resolvedSessionPath })
+        : await sessionReviewRebuildHandler!({ sessionPath: resolvedSessionPath });
       const raw = await readFile(resolvedSessionPath, 'utf-8');
       sessionData = JSON.parse(raw);
 
-      res.json({
+      const responseBody = {
         success: true,
         updatedAt:
           isRecord(sessionData) && typeof sessionData.updatedAt === 'string'
@@ -307,7 +344,21 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         clearedPreviewVariantIds: result.clearedPreviewVariantIds,
         recommendationReason: result.recommendationReason,
         planVariantCount: result.plan.variants.length,
-      });
+      };
+
+      if (refreshPreviews) {
+        const refreshResult = result as PreviewSessionReviewRefreshResult;
+        res.json({
+          ...responseBody,
+          previewArtifacts: refreshResult.previewArtifacts,
+          recommendedVariantId: refreshResult.recommendedVariantId,
+          scores: refreshResult.scores,
+          aiVisualScoring: refreshResult.aiVisualScoring,
+        });
+        return;
+      }
+
+      res.json(responseBody);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });

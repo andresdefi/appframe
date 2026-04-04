@@ -76,6 +76,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - preview UI session analysis now also exposes those semantic-family diagnostics plus bulk family-review actions for flagged or already-reviewed screenshots, making deterministic review faster without bundling model-dependent features
 - reviewed screenshot semantic-family state can now feed forward into downstream generation: `appframe_plan_variant_set` accepts reviewed `screenshotAnalysisJson`, and `appframe_rebuild_autopilot_session_from_review` replans/rematerializes saved autopilot sessions from persisted review metadata while clearing stale previews and recommendations
 - preview UI can now trigger that reviewed rebuild path directly from the session review surface, saving the session, regenerating autopilot concepts from reviewed screenshot-family state, and rehydrating the refreshed session without leaving preview
+- preview review can now also run the full reviewed refresh loop locally from the same surface, rebuilding autopilot concepts, rerendering previews, and rescoring the refreshed session in one pass instead of stopping at stale-preview cleanup
 - plain CLI preview launches now also wire the same reviewed rebuild handler, so `appframe preview --session ...` can use the review-to-rebuild loop instead of limiting that flow to MCP-started preview sessions
 - preview scoring now also inspects panoramic support-group signature diversity and penalizes repeated support-card structure more directly, pushing generic strip rhythm down even when screenshots render cleanly
 - the AppFrame skill has been rewritten around the autopilot flow
@@ -333,6 +334,8 @@ Recommended order:
 - [ ] Add support for session-safe rerendering after manual config edits.
 - [x] Add an autopilot-session rebuild path that rematerializes concepts from persisted screenshot review state.
   Status: `appframe_rebuild_autopilot_session_from_review` now replans/rematerializes saved autopilot sessions from reviewed screenshot-family metadata and clears stale preview/recommendation state before rerendering.
+- [x] Add a preview-side reviewed refresh loop that rerenders and rescores the session after screenshot-family rebuilds.
+  Status: preview review can now run a combined rebuild, preview rerender, and local rescoring pass directly from the session analysis surface, preserving manual branches while refreshing recommendation state in one step.
 
 ### 7. Preview Rendering
 
@@ -519,7 +522,7 @@ If a future thread should continue immediately, the best next slice is:
 3. keep expanding recipe-specific composition, background mapping, and panoramic pacing now that role-aware onboarding/paywall/settings/chat/reporting/workflow/discovery/editor/profile/catalog/activity/document/map/media/capture/schedule/commerce/security/support/reward reactions are landed
 4. continue refinement flow polish and richer panoramic composition systems after the screenshot-intelligence slice
 
-That is the next quality step now that reviewed screenshot-family metadata no longer stops at preview persistence and can already feed plan/materialization refreshes through MCP/session rebuild paths.
+That is the next quality step now that reviewed screenshot-family metadata no longer stops at preview persistence and can already feed plan/materialization refreshes plus local rebuild/rerender/rescore review loops.
 
 ## Suggested Concrete Next Task Prompt
 
@@ -532,7 +535,7 @@ Use this to start a future thread:
 - The repo may have unrelated untracked files; do not revert unrelated user changes.
 - Existing manual variant workflows still matter; preserve backward compatibility where possible.
 - Session compatibility matters now that sessions can be created from both manual configs and autopilot manifests.
-- Preview sessions now persist manual screenshot semantic-family review metadata, preview review also exposes rationale/ambiguity diagnostics plus basic bulk family actions, and preview-side reviewed rebuild now reuses that saved state for replanning/materialization; the remaining gap is broader preview-side art-direction tooling and deeper family/refine controls on top of that foundation.
+- Preview sessions now persist manual screenshot semantic-family review metadata, preview review also exposes rationale/ambiguity diagnostics plus basic bulk family actions, and preview-side reviewed rebuild can now optionally rerender/rescore the refreshed session; the remaining gap is broader preview-side art-direction tooling and deeper family/refine controls on top of that foundation.
 - The current scoring system is now partly visual and can optionally use live model ranking, but it is still not a full art-direction loop.
 - The current screenshot understanding now includes real pixel heuristics plus optional OCR/vision text enrichment, but richer semantic scene understanding is still open.
 - The current renderer is broader than the original single-device flow, but it still limits how close AppFrame can get to before.click-style layouts.

@@ -527,11 +527,16 @@ export function VariantsTab() {
     }
   }
 
-  async function handleReviewedRebuild() {
+  async function handleReviewedRebuild(options?: { refreshPreviews?: boolean }) {
+    const refreshPreviews = options?.refreshPreviews === true;
     const confirmed = await confirm({
-      title: 'Rebuild autopilot concepts from review?',
-      message: 'This saves the current session, regenerates autopilot concepts from reviewed screenshot-family state, clears stale previews and scores for rebuilt concepts, and reloads the session. Manual branches stay in the session.',
-      confirmLabel: 'Rebuild Concepts',
+      title: refreshPreviews
+        ? 'Rebuild, rerender, and rescore from review?'
+        : 'Rebuild autopilot concepts from review?',
+      message: refreshPreviews
+        ? 'This saves the current session, regenerates autopilot concepts from reviewed screenshot-family state, rerenders fresh previews, rescoring the rebuilt concepts, and reloads the session. Manual branches stay in the session.'
+        : 'This saves the current session, regenerates autopilot concepts from reviewed screenshot-family state, clears stale previews and scores for rebuilt concepts, and reloads the session. Manual branches stay in the session.',
+      confirmLabel: refreshPreviews ? 'Rebuild + Rescore' : 'Rebuild Concepts',
       destructive: false,
     });
     if (!confirmed) return;
@@ -539,10 +544,10 @@ export function VariantsTab() {
     setIsReviewRebuilding(true);
     setReviewRebuildStatus(null);
     try {
-      const result = await rebuildAutopilotSessionFromReview();
-      setReviewRebuildStatus(
-        `Rebuilt ${result.updatedVariantIds.length} autopilot concept${result.updatedVariantIds.length === 1 ? '' : 's'}. Fresh previews and rescoring are now required.`,
-      );
+      const result = await rebuildAutopilotSessionFromReview({ refreshPreviews });
+      setReviewRebuildStatus(refreshPreviews
+        ? `Rebuilt ${result.updatedVariantIds.length} autopilot concept${result.updatedVariantIds.length === 1 ? '' : 's'}, refreshed previews, and rescored ${result.scores?.length ?? 0} concept${(result.scores?.length ?? 0) === 1 ? '' : 's'}.`
+        : `Rebuilt ${result.updatedVariantIds.length} autopilot concept${result.updatedVariantIds.length === 1 ? '' : 's'}. Fresh previews and rescoring are now required.`);
     } catch (err) {
       setReviewRebuildStatus(err instanceof Error ? err.message : 'Reviewed rebuild failed');
     } finally {
@@ -816,11 +821,20 @@ export function VariantsTab() {
                           {isReviewRebuilding ? 'Rebuilding Concepts...' : 'Rebuild Reviewed Concepts'}
                         </button>
                       ) : null}
+                      {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
+                        <button
+                          className="rounded-md border border-accent bg-accent px-2 py-1 text-[10px] text-white hover:bg-accent-hover disabled:opacity-60"
+                          onClick={() => void handleReviewedRebuild({ refreshPreviews: true })}
+                          disabled={isReviewRebuilding || isSavingSession}
+                        >
+                          {isReviewRebuilding ? 'Refreshing Reviews...' : 'Rebuild + Rescore'}
+                        </button>
+                      ) : null}
                     </div>
                   )}
                   {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
                     <div className="mt-2 rounded-md border border-border bg-bg/60 px-2.5 py-2 text-[10px] text-text-dim">
-                      Reviewed rebuild saves the session, replans/materializes the autopilot concept set from reviewed screenshot families, and clears stale preview scores.
+                      Reviewed rebuild can now either clear stale preview scores or run the full local rebuild, rerender, and rescore loop from the same review surface.
                     </div>
                   ) : null}
                   {reviewRebuildStatus ? (

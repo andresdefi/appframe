@@ -1,6 +1,10 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { registerSessionReviewRebuildHandler, startPreviewServer } from '@appframe/web-preview';
+import {
+  registerSessionReviewRebuildHandler,
+  registerSessionReviewRefreshHandler,
+  startPreviewServer,
+} from '@appframe/web-preview';
 import {
   generatePanoramicScreenshots,
   generateScreenshots,
@@ -605,8 +609,45 @@ export async function rebuildAutopilotSessionFromReview(args: {
   };
 }
 
+export async function refreshAutopilotSessionFromReview(args: {
+  sessionPath: string;
+  platform?: string;
+  useAiVisualScoring?: boolean;
+}): Promise<{
+  sessionPath: string;
+  manifestPath: string;
+  updatedVariantIds: string[];
+  clearedPreviewVariantIds: string[];
+  recommendationReason: string;
+  plan: VariantSetPlan;
+  previewArtifacts: Array<{ variantId: string; filePaths: string[]; thumbnailPath: string | null }>;
+  recommendedVariantId: string | null;
+  scores: Array<{ variantId: string; total: number }>;
+  aiVisualScoring: VisualModelScoringStatus;
+}> {
+  const rebuilt = await rebuildAutopilotSessionFromReview({ sessionPath: args.sessionPath });
+  const rendered = await renderVariantPreviews({
+    sessionPath: args.sessionPath,
+    platform: args.platform,
+  });
+  const scored = await scoreVariantPreviews({
+    sessionPath: args.sessionPath,
+    useAiVisualScoring: args.useAiVisualScoring,
+  });
+
+  return {
+    ...rebuilt,
+    previewArtifacts: rendered.previewArtifacts,
+    recommendedVariantId: scored.recommendedVariantId,
+    recommendationReason: scored.recommendationReason ?? rebuilt.recommendationReason,
+    scores: scored.scores,
+    aiVisualScoring: scored.aiVisualScoring,
+  };
+}
+
 export function registerPreviewSessionReviewHandlers(): void {
   registerSessionReviewRebuildHandler(rebuildAutopilotSessionFromReview);
+  registerSessionReviewRefreshHandler(refreshAutopilotSessionFromReview);
 }
 
 export function registerVariantSessionTools(server: McpServer): void {

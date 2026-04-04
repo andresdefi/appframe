@@ -67,6 +67,18 @@ export interface ReviewedAutopilotRebuildResult {
   clearedPreviewVariantIds: string[];
   recommendationReason: string;
   planVariantCount: number;
+  previewArtifacts?: Array<{
+    variantId: string;
+    filePaths: string[];
+    thumbnailPath: string | null;
+  }>;
+  recommendedVariantId?: string | null;
+  scores?: Array<{ variantId: string; total: number }>;
+  aiVisualScoring?: {
+    status: string;
+    reason?: string;
+    model?: string;
+  };
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
@@ -123,10 +135,15 @@ export async function saveSession(body: {
   }
 }
 
-export async function rebuildAutopilotSessionFromReview(): Promise<ReviewedAutopilotRebuildResult> {
+export async function rebuildAutopilotSessionFromReview(options?: {
+  refreshPreviews?: boolean;
+}): Promise<ReviewedAutopilotRebuildResult> {
   const res = await fetch(`${API}/api/session/rebuild-autopilot-from-review`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      refreshPreviews: options?.refreshPreviews === true,
+    }),
   });
   if (!res.ok) {
     let message = `Reviewed rebuild failed: ${res.statusText}`;

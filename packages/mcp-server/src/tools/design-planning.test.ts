@@ -655,6 +655,34 @@ describe('design planning helpers', () => {
     expect(byPath.get(profilePath)?.semanticFlavorReason?.some((line) => line.includes('raster structure'))).toBe(true);
   });
 
+  it('uses raster structure to infer support families without OCR or descriptive filenames', async () => {
+    const supportPath = await makePngFile('screen-6.png', 120, 200, (x, y) => {
+      if (x > 28 && x < 92 && y > 16 && y < 28) return [100, 116, 139, 255];
+      if ((x > 12 && x < 30 && y > 40 && y < 64)
+        || (x > 12 && x < 30 && y > 72 && y < 96)
+        || (x > 12 && x < 30 && y > 104 && y < 128)
+        || (x > 12 && x < 30 && y > 136 && y < 160)) {
+        return [59, 130, 246, 255];
+      }
+      if ((x > 36 && x < 108 && y > 38 && y < 66)
+        || (x > 36 && x < 108 && y > 70 && y < 98)
+        || (x > 36 && x < 108 && y > 102 && y < 130)
+        || (x > 36 && x < 108 && y > 134 && y < 162)) {
+        return [71, 85, 105, 255];
+      }
+      return [248, 250, 252, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: supportPath },
+    ]);
+
+    const supportAnalysis = analysis.find((entry) => entry.path === supportPath);
+    expect(supportAnalysis?.semanticFlavor).toBe('support');
+    expect(supportAnalysis?.semanticFlavorConfidence).toBeTruthy();
+    expect(supportAnalysis?.semanticFlavorReason?.some((line) => line.includes('raster structure'))).toBe(true);
+  });
+
   it('rejects weak profile and reward family matches when generic settings structure dominates', async () => {
     const profileSettingsPath = await makePngFile('screen-4.png', 120, 200, (x, y) => {
       if (y < 28) return [248, 250, 252, 255];

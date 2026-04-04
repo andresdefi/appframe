@@ -714,10 +714,13 @@ function rasterSemanticFlavorScore(
     case 'schedule':
       return signals.scheduleFlavorScore;
     case 'commerce':
+      return signals.commerceFlavorScore;
     case 'security':
+      return signals.securityFlavorScore;
     case 'support':
+      return signals.supportFlavorScore;
     case 'reward':
-      return 0;
+      return signals.rewardFlavorScore;
   }
 }
 
@@ -757,6 +760,8 @@ function inferSemanticFlavorDetails(args: {
   const mediaRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'media');
   const captureRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'capture');
   const scheduleRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'schedule');
+  const commerceRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'commerce');
+  const supportRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'support');
   const activityScore = signals.activitySignalCount > 0
     ? (signals.activitySignalCount * 2)
       + (args.role === 'discovery' || args.role === 'home' ? 2 : args.role === 'communication' ? 1 : 0)
@@ -812,8 +817,11 @@ function inferSemanticFlavorDetails(args: {
     - Math.min(2, signals.paywallConflictCount);
   const commerceScore = (signals.commerceSignalCount * 2)
     + (args.role === 'detail' || args.role === 'workflow' ? 2 : args.role === 'discovery' || args.role === 'home' ? 1 : 0)
+    + rasterFlavorBonus(commerceRasterScore)
+    + (commerceRasterScore >= 6 ? 2 : commerceRasterScore >= 5 ? 1 : 0)
+    + (commerceRasterScore > scheduleRasterScore ? 1 : 0)
     + (signals.catalogSignalCount >= 1 ? 1 : 0)
-    - (signals.paywallConflictCount > signals.commerceSignalCount ? 2 : 0)
+    - (signals.paywallConflictCount > signals.commerceSignalCount && commerceRasterScore < 6 ? 2 : 0)
     - Math.min(1, signals.settingsConflictCount);
   const securityScore = signals.securitySignalCount > 0
     ? (signals.securitySignalCount * 2)
@@ -825,9 +833,16 @@ function inferSemanticFlavorDetails(args: {
   const supportScore = signals.supportSignalCount > 0
     ? (signals.supportSignalCount * 2)
       + (args.role === 'communication' ? 2 : args.role === 'detail' || args.role === 'settings' ? 1 : 0)
+      + rasterFlavorBonus(supportRasterScore)
+      + (supportRasterScore >= 5 ? 2 : supportRasterScore >= 4 ? 1 : 0)
+      + (supportRasterScore > scheduleRasterScore ? 1 : 0)
       - Math.min(2, signals.settingsConflictCount)
       - Math.min(1, signals.onboardingConflictCount)
-    : 0;
+    : ((args.role === 'communication' ? 2 : args.role === 'detail' || args.role === 'settings' ? 1 : 0)
+      + rasterFlavorBonus(supportRasterScore)
+      + (supportRasterScore >= 5 ? 2 : supportRasterScore >= 4 ? 1 : 0)
+      + (supportRasterScore > scheduleRasterScore ? 1 : 0)
+      - Math.min(1, signals.onboardingConflictCount));
   const rewardScore = signals.rewardSignalCount > 0
     ? (signals.rewardSignalCount * 2)
       + (args.role === 'detail' || args.role === 'discovery' ? 2 : args.role === 'home' ? 1 : 0)
@@ -937,6 +952,7 @@ function inferSemanticFlavorDetails(args: {
     && args.role === 'settings'
     && (best.flavor === 'security' || best.flavor === 'support')
     && signals.settingsConflictCount > signalCount
+    && rasterSemanticFlavorScore(rasterSemanticSignals, best.flavor) < 4
   ) {
     return {
       reason: [
@@ -972,6 +988,7 @@ function inferSemanticFlavorDetails(args: {
     && signalCount <= Math.max(2, signals.paywallConflictCount)
     && (rasterSemanticSignals?.paywallScore ?? 0) >= 4
     && (rasterSemanticSignals?.discoveryScore ?? 0) <= 4
+    && rasterSemanticFlavorScore(rasterSemanticSignals, best.flavor) < 6
   ) {
     return {
       reason: [
@@ -2357,6 +2374,10 @@ interface RasterSemanticSignals {
   mediaFlavorScore: number;
   captureFlavorScore: number;
   scheduleFlavorScore: number;
+  commerceFlavorScore: number;
+  securityFlavorScore: number;
+  supportFlavorScore: number;
+  rewardFlavorScore: number;
 }
 
 interface RasterSignals {
@@ -2847,6 +2868,38 @@ function inferRasterSemanticSignals(args: {
     + (cardGridRows <= 1 ? 1 : 0)
     + (splitRows >= 2 ? 1 : 0)
   );
+  const commerceFlavorScore = (
+    (agendaRows >= 3 ? 2 : agendaRows >= 2 ? 1 : 0)
+    + (lowerCtaRows >= 1 ? 2 : 0)
+    + (upperHeroPanelRows >= 2 ? 1 : 0)
+    + (topInsetBarRows >= 1 ? 1 : 0)
+  );
+  const securityFlavorScore = (
+    (centeredPanelRows >= 4 ? 2 : centeredPanelRows >= 3 ? 1 : 0)
+    + (upperHeroPanelRows >= 2 ? 1 : 0)
+    + (lowerCtaRows >= 1 ? 2 : 0)
+    + (args.topQuietRatio >= 0.62 ? 1 : 0)
+    + (leftRailRows <= 2 && rightRailRows <= 2 ? 1 : 0)
+    + (cardGridRows === 0 ? 1 : 0)
+    + (agendaRows <= 1 ? 1 : 0)
+  );
+  const supportFlavorScore = (
+    (agendaRows >= 4 ? 2 : agendaRows >= 3 ? 1 : 0)
+    + (leftRailRows >= 3 ? 1 : 0)
+    + (topInsetBarRows >= 1 ? 1 : 0)
+    + (lowerCtaRows >= 1 ? 1 : 0)
+    + (feedRows <= 2 ? 1 : 0)
+    + (cardGridRows <= 1 ? 1 : 0)
+    + (splitRows >= 2 ? 1 : 0)
+  );
+  const rewardFlavorScore = (
+    (upperHeroPanelRows >= 3 ? 2 : upperHeroPanelRows >= 2 ? 1 : 0)
+    + (wideCenterRows >= 2 ? 1 : 0)
+    + (lowerCtaRows >= 1 ? 1 : 0)
+    + (args.topQuietRatio >= 0.58 ? 1 : 0)
+    + (args.averageLuminance >= 150 ? 1 : 0)
+    + (cardGridRows <= 1 ? 1 : 0)
+  );
 
   return {
     occupiedRegions,
@@ -2867,6 +2920,10 @@ function inferRasterSemanticSignals(args: {
     mediaFlavorScore,
     captureFlavorScore,
     scheduleFlavorScore,
+    commerceFlavorScore,
+    securityFlavorScore,
+    supportFlavorScore,
+    rewardFlavorScore,
   };
 }
 

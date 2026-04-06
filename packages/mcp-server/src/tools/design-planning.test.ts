@@ -713,6 +713,41 @@ describe('design planning helpers', () => {
     expect(commerceAnalysis?.semanticFlavorAlternatives?.some((entry) => entry.flavor === 'commerce')).toBe(true);
   });
 
+  it('keeps settings toggle rails from auto-resolving as commerce without explicit checkout cues', async () => {
+    const billingSettingsPath = await makePngFile('billing-settings.png', 120, 200, (x, y) => {
+      if (y < 10) return [255, 251, 235, 255];
+      if (x > 18 && x < 102 && y > 20 && y < 70) return [254, 215, 170, 255];
+      if (
+        ((x > 18 && x < 90) && (y > 86 && y < 102))
+        || ((x > 18 && x < 90) && (y > 110 && y < 126))
+      ) {
+        return [148, 163, 184, 255];
+      }
+      if (
+        ((x > 96 && x < 110) && (y > 86 && y < 102))
+        || ((x > 96 && x < 110) && (y > 110 && y < 126))
+      ) {
+        return [30, 64, 175, 255];
+      }
+      if (x > 28 && x < 92 && y > 150 && y < 172) return [37, 99, 235, 255];
+      return [255, 247, 237, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      {
+        path: billingSettingsPath,
+        note: 'Billing settings, privacy controls, and notification toggles',
+      },
+    ]);
+
+    const settingsAnalysis = analysis.find((entry) => entry.path === billingSettingsPath);
+    expect(settingsAnalysis?.role).toBe('settings');
+    expect(settingsAnalysis?.semanticFlavor).toBeUndefined();
+    expect(settingsAnalysis?.semanticFlavorNeedsReview).toBe(true);
+    expect(settingsAnalysis?.semanticFlavorAlternatives?.some((entry) => entry.flavor === 'commerce')).toBe(true);
+    expect(settingsAnalysis?.semanticFlavorReason?.some((line) => line.includes('Settings/account evidence'))).toBe(true);
+  });
+
   it('rejects weak profile and reward family matches when generic settings structure dominates', async () => {
     const profileSettingsPath = await makePngFile('screen-4.png', 120, 200, (x, y) => {
       if (y < 28) return [248, 250, 252, 255];

@@ -1040,6 +1040,23 @@ function inferSemanticFlavorDetails(args: {
 
   if (
     !hasTextInsights
+    && args.role === 'settings'
+    && (best.flavor === 'commerce' || (commerceScore > 0 && commerceScore >= best.score - 2))
+    && signals.commerceSignalCount === 0
+    && signals.settingsConflictCount >= 1
+  ) {
+    return {
+      reason: [
+        ...reason,
+        'Settings/account evidence outweighs checkout-like right-rail structure, so this stays generic until reviewed.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
     && args.role === 'paywall'
     && (best.flavor === 'commerce' || best.flavor === 'reward')
     && signalCount <= Math.max(2, signals.paywallConflictCount)

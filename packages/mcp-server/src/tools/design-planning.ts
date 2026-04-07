@@ -597,11 +597,11 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
     ),
     commerceSignalCount: countRegexMatches(
       haystack,
-      /\b(cart|bag|basket|checkout|order|orders|shipping|shipment|shipments|delivery|deliveries|merchant|merchants|purchase|purchases|buy|storefront|fulfillment|tracking order|track order)\b/g,
+      /\b(cart|bag|basket|checkout|order|orders|shipping|shipment|shipments|delivery|deliveries|merchant|merchants|purchase|purchases|buy|storefront|fulfillment|tracking order|track order|subtotal|total|tax|discount|coupon|promo code|delivery window|shipping address|billing address)\b/g,
     ),
     securitySignalCount: countRegexMatches(
       haystack,
-      /\b(login|log in|sign in|signin|password|passwords|passcode|passcodes|passkey|passkeys|authentication|authenticate|auth|security|secure|vault|biometric|face id|touch id|verification|verify|verified|otp|2fa|identity)\b/g,
+      /\b(login|log in|sign in|signin|password|passwords|passcode|passcodes|passkey|passkeys|authentication|authenticate|auth|security|secure|vault|biometric|face id|touch id|verification|verify|verified|otp|2fa|identity|magic link|one time code|one-time code|recovery code|trusted device|device approval|unlock code)\b/g,
     ),
     supportSignalCount: countRegexMatches(
       haystack,
@@ -2982,6 +2982,7 @@ function inferRasterSemanticSignals(args: {
     + (agendaRows >= 2 && centeredPanelRows >= 3 ? 1 : 0)
     + (agendaRows >= 2 && centeredPanelRows >= 3 && lowerCtaRows >= 1 ? 2 : 0)
     + (agendaRows >= 2 && fullWidthRows >= 2 ? 1 : 0)
+    + (priceRailRows >= 3 && lowerCtaRows >= 1 ? 3 : 0)
     - (agendaRows <= 1 && args.averageLuminance <= 148 ? 1 : 0)
   );
   const securityFlavorScore = (
@@ -2999,6 +3000,7 @@ function inferRasterSemanticSignals(args: {
     - (fullWidthRows >= 4 ? 3 : fullWidthRows >= 3 ? 1 : 0)
     - (agendaRows >= 2 ? 2 : 0)
     - (leftRailRows >= 3 || rightRailRows >= 3 ? 2 : 0)
+    - (priceRailRows >= 3 ? 5 : priceRailRows >= 2 ? 3 : priceRailRows >= 1 ? 1 : 0)
   );
   const supportFlavorScore = (
     (agendaRows >= 4 ? 2 : agendaRows >= 3 ? 1 : 0)

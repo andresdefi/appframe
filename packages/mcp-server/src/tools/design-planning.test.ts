@@ -748,6 +748,40 @@ describe('design planning helpers', () => {
     expect(settingsAnalysis?.semanticFlavorReason?.some((line) => line.includes('Settings/account evidence'))).toBe(true);
   });
 
+  it('uses broader checkout and secure-access text cues as deterministic semantic families', async () => {
+    const checkoutPath = await makePngFile('screen-8.png', 120, 200, (x, y) => {
+      if (x > 18 && x < 102 && y > 28 && y < 72) return [254, 215, 170, 255];
+      if (x > 16 && x < 104 && y > 88 && y < 150) return [226, 232, 240, 255];
+      if (x > 28 && x < 92 && y > 166 && y < 188) return [37, 99, 235, 255];
+      return [255, 247, 237, 255];
+    });
+    const securityPath = await makePngFile('screen-9.png', 120, 200, (x, y) => {
+      if (x > 24 && x < 96 && y > 42 && y < 150) return [30, 41, 59, 255];
+      if (x > 34 && x < 86 && y > 168 && y < 188) return [59, 130, 246, 255];
+      return [15, 23, 42, 255];
+    });
+    const checkoutOcrPath = await makeJsonFile('checkout.ocr.json', {
+      text: 'Subtotal\nDelivery window\nShipping address\nPromo code\nTotal',
+    });
+    const securityOcrPath = await makeJsonFile('security.ocr.json', {
+      text: 'Magic link\nOne-time code\nTrusted device\nRecovery code',
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: checkoutPath, ocrJsonPath: checkoutOcrPath },
+      { path: securityPath, ocrJsonPath: securityOcrPath },
+    ]);
+
+    const byPath = new Map(analysis.map((entry) => [entry.path, entry]));
+    expect(byPath.get(checkoutPath)?.role).not.toBe('paywall');
+    expect(byPath.get(checkoutPath)?.semanticFlavor).toBe('commerce');
+    expect(byPath.get(checkoutPath)?.semanticFlavorConfidence).toBeTruthy();
+
+    expect(byPath.get(securityPath)?.role).not.toBe('settings');
+    expect(byPath.get(securityPath)?.semanticFlavor).toBe('security');
+    expect(byPath.get(securityPath)?.semanticFlavorConfidence).toBeTruthy();
+  });
+
   it('rejects weak profile and reward family matches when generic settings structure dominates', async () => {
     const profileSettingsPath = await makePngFile('screen-4.png', 120, 200, (x, y) => {
       if (y < 28) return [248, 250, 252, 255];

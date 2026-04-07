@@ -228,6 +228,9 @@ export const themeConfigSchema = z.object({
   subtitleOpacity: z.number().min(0).max(1).optional(),
   subtitleLetterSpacing: z.string().optional(),
   subtitleTextTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).optional(),
+  // Device positioning overrides (override preset defaults when specified)
+  deviceScale: z.number().min(50).max(100).optional(),
+  deviceTop: z.number().min(-80).max(80).optional(),
 });
 
 // --- Frames section ---

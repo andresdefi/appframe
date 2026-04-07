@@ -274,6 +274,8 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         subtitleOpacity: config.theme.subtitleOpacity,
         subtitleLetterSpacing: config.theme.subtitleLetterSpacing,
         subtitleTextTransform: config.theme.subtitleTextTransform,
+        ...(config.theme.deviceScale != null ? { deviceScale: config.theme.deviceScale } : {}),
+        ...(config.theme.deviceTop != null ? { deviceTop: config.theme.deviceTop } : {}),
       };
 
       // Render template to HTML

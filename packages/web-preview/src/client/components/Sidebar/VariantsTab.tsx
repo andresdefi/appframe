@@ -11,6 +11,11 @@ import type {
 } from '../../store';
 import { refineWithAi } from '../../utils/api';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
+import {
+  countReviewedPanoramicControlVariants,
+  describeReviewedRebuildInputs,
+  hasReviewedRebuildInputs,
+} from './variantsTabReview';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -522,6 +527,24 @@ export function VariantsTab() {
     () => autopilotAnalysis.filter((entry) => Boolean(entry.semanticFlavorOverride)).length,
     [autopilotAnalysis],
   );
+  const reviewedPanoramicControlVariantCount = useMemo(
+    () => countReviewedPanoramicControlVariants(autopilotReviewControls),
+    [autopilotReviewControls],
+  );
+  const hasReviewedInputs = useMemo(
+    () => hasReviewedRebuildInputs({
+      reviewedSemanticFlavorCount,
+      reviewedPanoramicControlVariantCount,
+    }),
+    [reviewedSemanticFlavorCount, reviewedPanoramicControlVariantCount],
+  );
+  const reviewedRebuildSourceLabel = useMemo(
+    () => describeReviewedRebuildInputs({
+      reviewedSemanticFlavorCount,
+      reviewedPanoramicControlVariantCount,
+    }),
+    [reviewedSemanticFlavorCount, reviewedPanoramicControlVariantCount],
+  );
   const activePlanVariant = useMemo<AutopilotPlanVariant | null>(
     () => autopilotConceptPlan?.variants.find((variant) => variant.id === activeVariantId) ?? null,
     [autopilotConceptPlan, activeVariantId],
@@ -530,6 +553,11 @@ export function VariantsTab() {
     () => (activeVariantId ? autopilotReviewControls[activeVariantId] : undefined),
     [autopilotReviewControls, activeVariantId],
   );
+  const activePanoramicReviewControlSummary = useMemo(
+    () => summarizePanoramicReviewControls(activePanoramicReviewControls),
+    [activePanoramicReviewControls],
+  );
+  const hasActivePanoramicReviewControls = activePanoramicReviewControlSummary !== null;
   const aiPromptSuggestions = useMemo(() => {
     const suggestions = [
       'Make this more premium without losing clarity',
@@ -604,11 +632,11 @@ export function VariantsTab() {
         : 'Rebuild autopilot concepts from review?',
       message: branchVariants
         ? (refreshPreviews
-            ? 'This saves the current session, regenerates reviewed autopilot concepts into fresh comparison branches, rerenders only those new branches, rescoring the session so you can compare new and existing concepts side by side. Existing concepts stay intact.'
-            : 'This saves the current session and regenerates reviewed autopilot concepts into fresh comparison branches without overwriting the existing concepts. Existing concepts stay intact until you rerender and rescore.')
+            ? `This saves the current session, regenerates reviewed autopilot concepts into fresh comparison branches using ${reviewedRebuildSourceLabel}, rerenders only those new branches, rescoring the session so you can compare new and existing concepts side by side. Existing concepts stay intact.`
+            : `This saves the current session and regenerates reviewed autopilot concepts into fresh comparison branches using ${reviewedRebuildSourceLabel} without overwriting the existing concepts. Existing concepts stay intact until you rerender and rescore.`)
         : refreshPreviews
-        ? 'This saves the current session, regenerates autopilot concepts from reviewed screenshot-family state, rerenders fresh previews, rescoring the rebuilt concepts, and reloads the session. Manual branches stay in the session.'
-        : 'This saves the current session, regenerates autopilot concepts from reviewed screenshot-family state, clears stale previews and scores for rebuilt concepts, and reloads the session. Manual branches stay in the session.',
+        ? `This saves the current session, regenerates autopilot concepts from ${reviewedRebuildSourceLabel}, rerenders fresh previews, rescoring the rebuilt concepts, and reloads the session. Manual branches stay in the session.`
+        : `This saves the current session, regenerates autopilot concepts from ${reviewedRebuildSourceLabel}, clears stale previews and scores for rebuilt concepts, and reloads the session. Manual branches stay in the session.`,
       confirmLabel: branchVariants
         ? (refreshPreviews ? 'Branch + Rescore' : 'Branch Concepts')
         : refreshPreviews ? 'Rebuild + Rescore' : 'Rebuild Concepts',
@@ -863,7 +891,7 @@ export function VariantsTab() {
                       Hero candidate: {basenameLabel(autopilotConceptPlan.analysisSummary.topHeroCandidate)}
                     </div>
                   )}
-                  {(flaggedSemanticFlavorPaths.length > 0 || reviewedSemanticFlavorCount > 0) && (
+                  {(flaggedSemanticFlavorPaths.length > 0 || hasReviewedInputs) && (
                     <div className="flex flex-wrap items-center gap-2">
                       {flaggedSemanticFlavorPaths.length > 0 ? (
                         <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-100">
@@ -873,6 +901,11 @@ export function VariantsTab() {
                       {reviewedSemanticFlavorCount > 0 ? (
                         <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
                           {reviewedSemanticFlavorCount} reviewed override{reviewedSemanticFlavorCount === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                      {reviewedPanoramicControlVariantCount > 0 ? (
+                        <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
+                          {reviewedPanoramicControlVariantCount} panoramic concept override{reviewedPanoramicControlVariantCount === 1 ? '' : 's'}
                         </span>
                       ) : null}
                       {flaggedSemanticFlavorPaths.length > 0 ? (
@@ -891,7 +924,7 @@ export function VariantsTab() {
                           Reset Reviewed Families
                         </button>
                       ) : null}
-                      {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
+                      {hasReviewedInputs && sessionBacked ? (
                         <button
                           className="rounded-md border border-accent/40 bg-accent/15 px-2 py-1 text-[10px] text-accent hover:bg-accent/20 disabled:opacity-60"
                           onClick={() => void handleReviewedRebuild({ refreshPreviews: true, branchVariants: true })}
@@ -900,7 +933,7 @@ export function VariantsTab() {
                           {isReviewRebuilding ? 'Branching Reviews...' : 'Branch + Rescore'}
                         </button>
                       ) : null}
-                      {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
+                      {hasReviewedInputs && sessionBacked ? (
                         <button
                           className="rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-[10px] text-accent hover:bg-accent/15 disabled:opacity-60"
                           onClick={() => void handleReviewedRebuild()}
@@ -909,7 +942,7 @@ export function VariantsTab() {
                           {isReviewRebuilding ? 'Rebuilding Concepts...' : 'Rebuild Reviewed Concepts'}
                         </button>
                       ) : null}
-                      {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
+                      {hasReviewedInputs && sessionBacked ? (
                         <button
                           className="rounded-md border border-accent bg-accent px-2 py-1 text-[10px] text-white hover:bg-accent-hover disabled:opacity-60"
                           onClick={() => void handleReviewedRebuild({ refreshPreviews: true })}
@@ -920,9 +953,9 @@ export function VariantsTab() {
                       ) : null}
                     </div>
                   )}
-                  {reviewedSemanticFlavorCount > 0 && sessionBacked ? (
+                  {hasReviewedInputs && sessionBacked ? (
                     <div className="mt-2 rounded-md border border-border bg-bg/60 px-2.5 py-2 text-[10px] text-text-dim">
-                      Reviewed rebuild can now update concepts in place or create fresh comparison branches, and the full refresh loop rerenders only the reviewed concepts instead of repainting every variant in the session.
+                      Reviewed rebuild can now update concepts in place or create fresh comparison branches from {reviewedRebuildSourceLabel}, and the full refresh loop rerenders only the reviewed concepts instead of repainting every variant in the session.
                     </div>
                   ) : null}
                   {reviewRebuildStatus ? (
@@ -1066,9 +1099,9 @@ export function VariantsTab() {
                         <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
                           Recipe Controls
                         </div>
-                        {summarizePanoramicReviewControls(activePanoramicReviewControls) ? (
+                        {activePanoramicReviewControlSummary ? (
                           <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
-                            {summarizePanoramicReviewControls(activePanoramicReviewControls)}
+                            {activePanoramicReviewControlSummary}
                           </span>
                         ) : null}
                       </div>
@@ -1135,8 +1168,28 @@ export function VariantsTab() {
                         </label>
                       </div>
                       <div className="mt-2 text-[10px] text-text-dim">
-                        Save the session, then use reviewed rebuild or reviewed refresh to materialize these deterministic panoramic overrides.
+                        {hasActivePanoramicReviewControls
+                          ? 'These saved overrides will be reapplied during reviewed rebuilds for this concept.'
+                          : 'Adjust these controls, save the session, then rebuild or rescore to materialize deterministic panoramic overrides.'}
                       </div>
+                      {sessionBacked && hasActivePanoramicReviewControls ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            className="rounded-md border border-accent/40 bg-accent/15 px-2 py-1 text-[10px] text-accent hover:bg-accent/20 disabled:opacity-60"
+                            onClick={() => void handleReviewedRebuild({ refreshPreviews: true, branchVariants: true })}
+                            disabled={isReviewRebuilding || isSavingSession}
+                          >
+                            {isReviewRebuilding ? 'Branching Reviews...' : 'Branch + Rescore'}
+                          </button>
+                          <button
+                            className="rounded-md border border-accent bg-accent px-2 py-1 text-[10px] text-white hover:bg-accent-hover disabled:opacity-60"
+                            onClick={() => void handleReviewedRebuild({ refreshPreviews: true })}
+                            disabled={isReviewRebuilding || isSavingSession}
+                          >
+                            {isReviewRebuilding ? 'Refreshing Reviews...' : 'Rebuild + Rescore'}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -1339,6 +1392,7 @@ export function VariantsTab() {
             const compositionSummary = summarizePanoramicComposition(variant.snapshot);
             const continuity = summarizeContinuity(variant.snapshot);
             const provenance = describeProvenance(variant);
+            const reviewControlSummary = summarizePanoramicReviewControls(autopilotReviewControls[variant.id]);
 
             return (
               <div
@@ -1381,6 +1435,12 @@ export function VariantsTab() {
                 {provenance && (
                   <div className="mb-3 rounded-md border border-border bg-bg/40 px-2.5 py-2 text-[10px] text-text-dim">
                     {provenance}
+                  </div>
+                )}
+
+                {reviewControlSummary && (
+                  <div className="mb-3 rounded-md border border-border bg-bg/40 px-2.5 py-2 text-[10px] text-text-dim">
+                    Review controls: {reviewControlSummary}
                   </div>
                 )}
 

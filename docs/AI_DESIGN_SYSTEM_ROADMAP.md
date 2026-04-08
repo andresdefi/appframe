@@ -87,6 +87,7 @@ Current status:
 - panoramic recipe metadata is now partially centralized in a shared profile system, so family/archetype defaults plus opener / intensify / resolve layout and support-system blueprints are less hardcoded across multiple files
 - panoramic plans now carry explicit `rhythmRole` and `continuityMotif` frame metadata, and materialization plus the preview inspector consume those cues so continuity intent is more legible and more actionable during local-first review
 - preview review now also supports persisted deterministic overrides for panoramic recipe, continuity motif, and support system, and reviewed rebuilds reuse those saved controls so art-direction changes survive session reloads and local refresh loops
+- preview review now also exposes rebuild / branch / rescore actions whenever those saved panoramic overrides exist, so the first art-direction controls plug directly into the reviewed refresh loop instead of waiting on screenshot-family edits
 
 ### 3. Screenshot Understanding
 

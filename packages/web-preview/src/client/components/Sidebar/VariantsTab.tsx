@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Section } from '../Controls/Section';
 import { buildSessionSavePayload, getRefinementLabel, usePreviewStore, variantSnapshotFromState } from '../../store';
 import type {
+  AutopilotPanoramicReviewControls,
   AutopilotPlanVariant,
   AutopilotSelectedCopySet,
   RefinementActionId,
@@ -42,6 +43,41 @@ const SEMANTIC_FLAVOR_OPTIONS = [
   'security',
   'support',
   'reward',
+] as const;
+
+const PANORAMIC_RECIPE_OPTIONS = [
+  'editorial-panorama',
+  'bold-panorama',
+  'editorial-confidence',
+  'proof-panorama',
+  'wellness-panorama',
+  'progress-panorama',
+  'workflow-panorama',
+  'momentum-panorama',
+  'conversation-panorama',
+  'launch-panorama',
+  'gallery-panorama',
+  'portfolio-panorama',
+  'world-panorama',
+  'cinematic-panorama',
+] as const;
+
+const PANORAMIC_CONTINUITY_OPTIONS = [
+  'text-rail',
+  'proof-lane',
+  'signal-wave',
+  'progress-track',
+  'curation-run',
+  'poster-anchor',
+] as const;
+
+const PANORAMIC_SUPPORT_SYSTEM_OPTIONS = [
+  'quote-stack',
+  'metric-ladder',
+  'signal-chain',
+  'milestone-band',
+  'curation-shelf',
+  'proof-column',
 ] as const;
 
 function formatCopySlot(slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary'): string {
@@ -165,6 +201,22 @@ function summarizePanoramicComposition(snapshot: VariantSnapshot): string[] {
   ].filter((value): value is string => value !== null);
 }
 
+function panoramicReviewControlValue(value: string | null | undefined): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function summarizePanoramicReviewControls(
+  controls: AutopilotPanoramicReviewControls | undefined,
+): string | null {
+  if (!controls) return null;
+  const parts = [
+    controls.recipe ? `recipe ${formatSlugLabel(controls.recipe)}` : null,
+    controls.continuityMotif ? `continuity ${formatSlugLabel(controls.continuityMotif)}` : null,
+    controls.supportSystem ? `support ${formatSlugLabel(controls.supportSystem)}` : null,
+  ].filter((value): value is string => value !== null);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 function describeProvenance(variant: VariantRecord): string | null {
   const provenance = variant.provenance;
   if (!provenance) return null;
@@ -285,6 +337,7 @@ export function VariantsTab() {
   const autopilotAnalysis = usePreviewStore((s) => s.autopilotAnalysis);
   const autopilotSelectedCopySet = usePreviewStore((s) => s.autopilotSelectedCopySet);
   const autopilotConceptPlan = usePreviewStore((s) => s.autopilotConceptPlan);
+  const autopilotReviewControls = usePreviewStore((s) => s.autopilotReviewControls);
   const autopilotRefinementHistory = usePreviewStore((s) => s.autopilotRefinementHistory);
   const sessionSaveBaseline = usePreviewStore((s) => s.sessionSaveBaseline);
   const createVariant = usePreviewStore((s) => s.createVariant);
@@ -294,6 +347,7 @@ export function VariantsTab() {
   const setAutopilotSemanticFlavorOverride = usePreviewStore((s) => s.setAutopilotSemanticFlavorOverride);
   const setAutopilotSemanticFlavorOverrides = usePreviewStore((s) => s.setAutopilotSemanticFlavorOverrides);
   const resetAutopilotSemanticFlavorOverrides = usePreviewStore((s) => s.resetAutopilotSemanticFlavorOverrides);
+  const setAutopilotPanoramicReviewControls = usePreviewStore((s) => s.setAutopilotPanoramicReviewControls);
   const createVariantSet = usePreviewStore((s) => s.createVariantSet);
   const selectVariant = usePreviewStore((s) => s.selectVariant);
   const approveVariant = usePreviewStore((s) => s.approveVariant);
@@ -393,6 +447,7 @@ export function VariantsTab() {
             autopilotAnalysis,
             autopilotSelectedCopySet,
             autopilotConceptPlan,
+            autopilotReviewControls,
             autopilotRefinementHistory,
             variants: syncedVariants,
           }))
@@ -406,6 +461,7 @@ export function VariantsTab() {
       autopilotAnalysis,
       autopilotSelectedCopySet,
       autopilotConceptPlan,
+      autopilotReviewControls,
       autopilotRefinementHistory,
       syncedVariants,
     ],
@@ -470,6 +526,10 @@ export function VariantsTab() {
     () => autopilotConceptPlan?.variants.find((variant) => variant.id === activeVariantId) ?? null,
     [autopilotConceptPlan, activeVariantId],
   );
+  const activePanoramicReviewControls = useMemo(
+    () => (activeVariantId ? autopilotReviewControls[activeVariantId] : undefined),
+    [autopilotReviewControls, activeVariantId],
+  );
   const aiPromptSuggestions = useMemo(() => {
     const suggestions = [
       'Make this more premium without losing clarity',
@@ -501,6 +561,7 @@ export function VariantsTab() {
         autopilotAnalysis,
         autopilotSelectedCopySet,
         autopilotConceptPlan,
+        autopilotReviewControls,
         autopilotRefinementHistory,
         variants: syncedVariants,
       });
@@ -998,6 +1059,86 @@ export function VariantsTab() {
                     <div>{activePlanVariant.recipe} · {activePlanVariant.style}</div>
                     <div className="mt-1">{activePlanVariant.strategy}</div>
                   </div>
+
+                  {sessionBacked && activePlanVariant.mode === 'panoramic' && activeVariantId ? (
+                    <div className="rounded-md border border-border bg-surface px-2.5 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
+                          Recipe Controls
+                        </div>
+                        {summarizePanoramicReviewControls(activePanoramicReviewControls) ? (
+                          <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
+                            {summarizePanoramicReviewControls(activePanoramicReviewControls)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-2 grid gap-2 md:grid-cols-3">
+                        <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Recipe</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.recipe)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                recipe: value.length > 0 ? value : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto recipe</option>
+                            {PANORAMIC_RECIPE_OPTIONS.map((recipe) => (
+                              <option key={recipe} value={recipe}>
+                                {formatSlugLabel(recipe)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Continuity</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.continuityMotif)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                continuityMotif: value.length > 0 ? value : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto motif</option>
+                            {PANORAMIC_CONTINUITY_OPTIONS.map((motif) => (
+                              <option key={motif} value={motif}>
+                                {formatSlugLabel(motif)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Support System</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.supportSystem)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                supportSystem: value.length > 0 ? value : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto support</option>
+                            {PANORAMIC_SUPPORT_SYSTEM_OPTIONS.map((system) => (
+                              <option key={system} value={system}>
+                                {formatSlugLabel(system)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="mt-2 text-[10px] text-text-dim">
+                        Save the session, then use reviewed rebuild or reviewed refresh to materialize these deterministic panoramic overrides.
+                      </div>
+                    </div>
+                  ) : null}
 
                   {activePlanVariant.frameStrategy && (
                     <div className="rounded-md border border-border bg-surface px-2.5 py-2">

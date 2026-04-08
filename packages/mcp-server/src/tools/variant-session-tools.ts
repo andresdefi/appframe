@@ -31,7 +31,11 @@ import {
   type VariantSessionFile,
   type VariantSessionVariant,
 } from './variant-session-lib.js';
-import { buildVariantSetPlanFromAnalysis, type VariantSetPlan } from './design-planning.js';
+import {
+  applyPanoramicReviewControlsToVariantSetPlan,
+  buildVariantSetPlanFromAnalysis,
+  type VariantSetPlan,
+} from './design-planning.js';
 import { materializeVariantPlan } from './plan-materializer.js';
 import { scoreVariantSet, type ModelAssistedVisualRanking } from './preview-scoring.js';
 import {
@@ -571,7 +575,7 @@ export async function rebuildAutopilotSessionFromReview(args: ReviewRebuildOptio
     throw new Error('Autopilot session is missing screenshotAnalysis metadata.');
   }
 
-  const plan = buildVariantSetPlanFromAnalysis({
+  const basePlan = buildVariantSetPlanFromAnalysis({
     appName: autopilot.conceptPlan.app.name,
     appDescription: autopilot.conceptPlan.app.description,
     platforms: autopilot.conceptPlan.app.platforms,
@@ -582,6 +586,11 @@ export async function rebuildAutopilotSessionFromReview(args: ReviewRebuildOptio
       autopilot.conceptPlan.analysisSummary.selectedCount
       || autopilot.conceptPlan.selectedScreens.length,
     category: autopilot.conceptPlan.app.category,
+  });
+  const plan = applyPanoramicReviewControlsToVariantSetPlan({
+    plan: basePlan,
+    analysis: autopilot.screenshotAnalysis,
+    reviewControls: autopilot.reviewControls,
   });
   const plannedVariantIds = plan.variants.map((variant) => variant.id);
   const plannedVariantIdSet = new Set(plannedVariantIds);

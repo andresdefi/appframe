@@ -3,7 +3,13 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { loadConfig } from '@appframe/core';
 import type { AppframeConfig } from '@appframe/core';
 import type { CopyCandidate, CopyCandidateSet, CopySlot, SelectedCopySet } from './copy-planning.js';
-import type { PlannedVariant, ScreenshotAnalysis, ScreenshotRole, VariantSetPlan } from './design-planning.js';
+import type {
+  PanoramicVariantReviewControls,
+  PlannedVariant,
+  ScreenshotAnalysis,
+  ScreenshotRole,
+  VariantSetPlan,
+} from './design-planning.js';
 import type { VariantScore } from './preview-scoring.js';
 
 export type VariantStatus = 'draft' | 'approved';
@@ -81,6 +87,7 @@ export interface VariantSessionAutopilot {
   copyCandidates?: CopyCandidateSet;
   selectedCopySet?: SelectedCopySet;
   conceptPlan?: VariantSetPlan;
+  reviewControls?: Record<string, PanoramicVariantReviewControls | undefined>;
   recommendedVariantId?: string | null;
   recommendationReason?: string | null;
   refinementHistory: Array<{
@@ -174,6 +181,7 @@ export async function readSession(sessionPath: string): Promise<VariantSessionFi
         ? {
             ...raw.autopilot,
             refinementHistory: raw.autopilot.refinementHistory ?? [],
+            reviewControls: raw.autopilot.reviewControls ?? {},
           }
         : undefined,
     };
@@ -352,6 +360,7 @@ export async function createSessionFromManifest(args: {
       copyCandidates: args.copyCandidates,
       selectedCopySet: args.selectedCopySet,
       conceptPlan: args.conceptPlan,
+      reviewControls: {},
       recommendedVariantId: null,
       recommendationReason: null,
       refinementHistory: [],

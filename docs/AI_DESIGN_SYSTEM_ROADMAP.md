@@ -86,6 +86,7 @@ Current status:
 - panoramic materialization now maps those support systems into deterministic quote-stack / metric-ladder / signal-chain / milestone-band / curation-shelf / proof-column groups so the strip can vary proof pacing and non-device rhythm without model-dependent generation
 - panoramic recipe metadata is now partially centralized in a shared profile system, so family/archetype defaults plus opener / intensify / resolve layout and support-system blueprints are less hardcoded across multiple files
 - panoramic plans now carry explicit `rhythmRole` and `continuityMotif` frame metadata, and materialization plus the preview inspector consume those cues so continuity intent is more legible and more actionable during local-first review
+- preview review now also supports persisted deterministic overrides for panoramic recipe, continuity motif, and support system, and reviewed rebuilds reuse those saved controls so art-direction changes survive session reloads and local refresh loops
 
 ### 3. Screenshot Understanding
 
@@ -215,6 +216,7 @@ This roadmap now has three concrete pieces underway:
 - review-to-generation loop now also supports reviewed comparison branches, so family-review changes can preserve the current concepts, rerender only the new reviewed branches, and rescore the session for quicker side-by-side comparison
 - plain CLI preview launches now also register the reviewed-session rebuild hook, so the same review-to-generation loop works in `appframe preview --session ...` and not only in MCP-started preview flows
 - richer panoramic composition review: sessions now expose screenshot analysis, selected copy, concept-plan metadata, and composition summaries in the preview variants surface so layered-detail systems are inspectable without leaving the session
+- panoramic review controls: session-backed preview can now persist deterministic per-concept recipe / continuity / support-system overrides and feed them back into reviewed rebuilds, giving the local-first review loop a first dedicated art-direction control surface beyond screenshot-family correction
 - refinement review surface: preview sessions now support safe branch-and-refine actions, variant provenance/history, and panoramic continuity review without leaving the session flow
 - AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load
 - manual refinement path: users can now approve the recommended concept, persist manual edits back into the active variant session, export the selected variant as a standalone config, and materialize the approved concept into an export-ready artifact directory without depending on an AI agent for every change

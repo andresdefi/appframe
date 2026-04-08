@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { deflateSync } from 'node:zlib';
 import {
+  applyPanoramicReviewControlsToVariantSetPlan,
   analyzeScreenshotSet,
   buildVariantSetPlan,
   buildVariantSetPlanFromAnalysis,
@@ -420,6 +421,118 @@ describe('design planning helpers', () => {
     ]);
     expect(plan.analysisSummary.topHeroExplanation.length).toBeGreaterThan(0);
     expect(plan.selectedScreens[2]?.unsafeForTextOverlay).toBe(true);
+  });
+
+  it('applies reviewed panoramic recipe controls deterministically during replanning', () => {
+    const analysis: ScreenshotAnalysis[] = [
+      {
+        path: '/shots/home.png',
+        basename: 'home.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'home',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 92,
+        heroExplanation: ['Clear hero candidate'],
+        inferredOrder: 1,
+        orderingConfidence: 'high',
+        orderingReason: ['Starts the story'],
+        focus: 'Overview',
+        dominantPalette: ['#F8FAFC', '#2563EB', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 24, label: 'top' }],
+        occupiedRegions: ['bottom'],
+        cropSuitability: 'high',
+        recommendedUsage: 'hero-device',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/workflow.png',
+        basename: 'workflow.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'workflow',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 80,
+        heroExplanation: ['Strong workflow follow-through'],
+        inferredOrder: 2,
+        orderingConfidence: 'medium',
+        orderingReason: ['Middle beat'],
+        focus: 'Planning flow',
+        dominantPalette: ['#F8FAFC', '#16A34A', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 24, label: 'top' }],
+        occupiedRegions: ['center'],
+        cropSuitability: 'high',
+        recommendedUsage: 'crop-card',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/detail.png',
+        basename: 'detail.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'detail',
+        semanticFlavor: 'document',
+        semanticFlavorConfidence: 'high',
+        density: 'dense',
+        textRisk: 'medium',
+        heroPriority: 70,
+        heroExplanation: ['Detailed proof screen'],
+        inferredOrder: 3,
+        orderingConfidence: 'medium',
+        orderingReason: ['Proof close'],
+        focus: 'Review state',
+        dominantPalette: ['#E2E8F0', '#0F172A', '#16A34A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 18, label: 'top' }],
+        occupiedRegions: ['center', 'bottom'],
+        cropSuitability: 'high',
+        recommendedUsage: 'support-only',
+        unsafeForTextOverlay: true,
+      },
+    ];
+
+    const plan = buildVariantSetPlanFromAnalysis({
+      appName: 'FocusFlow',
+      appDescription: 'Stay on top of your routine',
+      platforms: ['ios'],
+      analysis,
+      goals: ['Feel premium'],
+      variantCount: 4,
+      screenCount: 3,
+      category: 'productivity',
+    });
+
+    const reviewedPlan = applyPanoramicReviewControlsToVariantSetPlan({
+      plan,
+      analysis,
+      reviewControls: {
+        'concept-c': {
+          recipe: 'cinematic-panorama',
+          continuityMotif: 'poster-anchor',
+          supportSystem: 'curation-shelf',
+        },
+      },
+    });
+
+    const conceptC = reviewedPlan.variants.find((variant) => variant.id === 'concept-c');
+    expect(conceptC?.mode).toBe('panoramic');
+    if (conceptC?.mode === 'panoramic') {
+      expect(conceptC.recipe).toBe('cinematic-panorama');
+      expect(conceptC.style).toBe('branded');
+      expect(conceptC.canvasPlan.requiredElements.some((element) => element.type === 'badge')).toBe(true);
+      expect(conceptC.frames?.every((frame) => frame.continuityMotif === 'poster-anchor')).toBe(true);
+      expect(conceptC.frames?.every((frame) => frame.supportSystem === 'curation-shelf')).toBe(true);
+      expect(conceptC.frames?.[0]?.layoutArchetype).toContain('cinematic');
+      expect(conceptC.frames?.[0]?.transitionIntent).toContain('curation shelf');
+      expect(conceptC.frames?.[0]?.continuityRule).toContain('poster-like anchor');
+    }
   });
 
   it('extends deterministic non-OCR semantic inference to workflow and discovery layouts', async () => {

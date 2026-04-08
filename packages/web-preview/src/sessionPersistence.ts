@@ -22,6 +22,7 @@ export interface SessionSaveRequestBody {
   screenshotAnalysis?: unknown;
   selectedCopySet?: unknown;
   conceptPlan?: unknown;
+  reviewControls?: unknown;
   refinementHistory?: unknown;
   variants?: SessionSaveVariantInput[];
 }
@@ -392,6 +393,11 @@ export function mergeSessionSaveRequest(args: {
         : args.body.conceptPlan === null
           ? null
           : nextSession.autopilot.conceptPlan,
+      reviewControls: isRecord(args.body.reviewControls)
+        ? args.body.reviewControls
+        : args.body.reviewControls === null
+          ? null
+          : nextSession.autopilot.reviewControls,
       refinementHistory: Array.isArray(args.body.refinementHistory)
         ? args.body.refinementHistory
         : nextSession.autopilot.refinementHistory,

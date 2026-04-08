@@ -115,6 +115,7 @@ export async function saveSession(body: {
   screenshotAnalysis?: unknown[] | null;
   selectedCopySet?: unknown | null;
   conceptPlan?: unknown | null;
+  reviewControls?: unknown | null;
   refinementHistory?: unknown[];
   variants: PersistedSessionVariant[];
 }): Promise<void> {

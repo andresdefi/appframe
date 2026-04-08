@@ -361,6 +361,14 @@ export interface AutopilotConceptPlan {
   variants: AutopilotPlanVariant[];
 }
 
+export interface AutopilotPanoramicReviewControls {
+  recipe?: string | null;
+  continuityMotif?: string | null;
+  supportSystem?: string | null;
+}
+
+export type AutopilotReviewControls = Record<string, AutopilotPanoramicReviewControls | undefined>;
+
 export interface VariantSnapshot {
   platform: string;
   previewW: number;
@@ -406,6 +414,7 @@ export interface PreviewStore {
   autopilotAnalysis: AutopilotScreenshotAnalysis[];
   autopilotSelectedCopySet: AutopilotSelectedCopySet | null;
   autopilotConceptPlan: AutopilotConceptPlan | null;
+  autopilotReviewControls: AutopilotReviewControls;
   autopilotRefinementHistory: AutopilotRefinementHistoryEntry[];
   sessionSaveBaseline: string | null;
   sessionBacked: boolean;
@@ -449,6 +458,10 @@ export interface PreviewStore {
   setAutopilotSemanticFlavorOverride: (path: string, semanticFlavor: string | null) => void;
   setAutopilotSemanticFlavorOverrides: (paths: string[], semanticFlavor: string | null) => void;
   resetAutopilotSemanticFlavorOverrides: () => void;
+  setAutopilotPanoramicReviewControls: (
+    variantId: string,
+    controls: Partial<AutopilotPanoramicReviewControls>,
+  ) => void;
   createVariant: (name?: string) => void;
   duplicateActiveVariant: () => void;
   applyRefinementToActive: (actionId: RefinementActionId) => void;
@@ -501,6 +514,7 @@ export interface PreviewStore {
       screenshotAnalysis?: AutopilotScreenshotAnalysis[];
       selectedCopySet?: AutopilotSelectedCopySet;
       conceptPlan?: AutopilotConceptPlan;
+      reviewControls?: AutopilotReviewControls;
       refinementHistory?: AutopilotRefinementHistoryEntry[];
     };
   }) => void;
@@ -635,6 +649,37 @@ function normalizeAutopilotConceptPlan(
     ...conceptPlan,
     selectedScreens: conceptPlan.selectedScreens.map((entry) => normalizeSemanticFlavorReview(entry)),
   };
+}
+
+function normalizeAutopilotPanoramicReviewControlsEntry(
+  controls: AutopilotPanoramicReviewControls | null | undefined,
+): AutopilotPanoramicReviewControls | undefined {
+  if (!controls) return undefined;
+  const normalized: AutopilotPanoramicReviewControls = {};
+  if (typeof controls.recipe === 'string' && controls.recipe.trim().length > 0) {
+    normalized.recipe = controls.recipe.trim();
+  }
+  if (typeof controls.continuityMotif === 'string' && controls.continuityMotif.trim().length > 0) {
+    normalized.continuityMotif = controls.continuityMotif.trim();
+  }
+  if (typeof controls.supportSystem === 'string' && controls.supportSystem.trim().length > 0) {
+    normalized.supportSystem = controls.supportSystem.trim();
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeAutopilotReviewControls(
+  controls: unknown,
+): AutopilotReviewControls {
+  if (!isRecord(controls)) return {};
+  const normalized: AutopilotReviewControls = {};
+  for (const [variantId, value] of Object.entries(controls)) {
+    const entry = normalizeAutopilotPanoramicReviewControlsEntry(
+      isRecord(value) ? value as AutopilotPanoramicReviewControls : undefined,
+    );
+    if (entry) normalized[variantId] = entry;
+  }
+  return normalized;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1267,6 +1312,7 @@ export function buildSessionSavePayload(args: {
   autopilotAnalysis: AutopilotScreenshotAnalysis[];
   autopilotSelectedCopySet: AutopilotSelectedCopySet | null;
   autopilotConceptPlan: AutopilotConceptPlan | null;
+  autopilotReviewControls: AutopilotReviewControls;
   autopilotRefinementHistory: AutopilotRefinementHistoryEntry[];
   variants: VariantRecord[];
 }) {
@@ -1277,6 +1323,7 @@ export function buildSessionSavePayload(args: {
     screenshotAnalysis: deepCopy(args.autopilotAnalysis),
     selectedCopySet: args.autopilotSelectedCopySet ? deepCopy(args.autopilotSelectedCopySet) : null,
     conceptPlan: args.autopilotConceptPlan ? deepCopy(args.autopilotConceptPlan) : null,
+    reviewControls: deepCopy(args.autopilotReviewControls),
     refinementHistory: deepCopy(args.autopilotRefinementHistory),
     variants: args.variants.map((variant) => serializeSaveVariant(variant)),
   };
@@ -1323,6 +1370,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   autopilotAnalysis: [],
   autopilotSelectedCopySet: null,
   autopilotConceptPlan: null,
+  autopilotReviewControls: {},
   autopilotRefinementHistory: [],
   sessionSaveBaseline: null,
   sessionBacked: false,
@@ -1405,6 +1453,20 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
             }
           : state.autopilotConceptPlan,
       };
+    }),
+  setAutopilotPanoramicReviewControls: (variantId, controls) =>
+    set((state) => {
+      const current = state.autopilotReviewControls[variantId];
+      const nextEntry = normalizeAutopilotPanoramicReviewControlsEntry({
+        ...(current ?? {}),
+        ...controls,
+      });
+      if (!nextEntry && !current) return state;
+
+      const autopilotReviewControls = { ...state.autopilotReviewControls };
+      if (nextEntry) autopilotReviewControls[variantId] = nextEntry;
+      else delete autopilotReviewControls[variantId];
+      return { autopilotReviewControls };
     }),
   createVariant: (name) =>
     set((state) => {
@@ -1792,6 +1854,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       autopilotAnalysis: [],
       autopilotSelectedCopySet: null,
       autopilotConceptPlan: null,
+      autopilotReviewControls: {},
       autopilotRefinementHistory: [],
       sessionSaveBaseline: null,
       sessionBacked: false,
@@ -1875,6 +1938,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     const active = variants.find((v) => v.id === activeId)!;
     const autopilotAnalysis = normalizeAutopilotAnalysis(session.autopilot?.screenshotAnalysis ?? []);
     const autopilotConceptPlan = normalizeAutopilotConceptPlan(session.autopilot?.conceptPlan ?? null);
+    const autopilotReviewControls = normalizeAutopilotReviewControls(session.autopilot?.reviewControls);
 
     const sessionSaveBaseline = JSON.stringify(buildSessionSavePayload({
       activeVariantId: activeId,
@@ -1883,6 +1947,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       autopilotAnalysis,
       autopilotSelectedCopySet: session.autopilot?.selectedCopySet ?? null,
       autopilotConceptPlan,
+      autopilotReviewControls,
       autopilotRefinementHistory: session.autopilot?.refinementHistory ?? [],
       variants,
     }));
@@ -1895,6 +1960,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       autopilotAnalysis,
       autopilotSelectedCopySet: session.autopilot?.selectedCopySet ?? null,
       autopilotConceptPlan,
+      autopilotReviewControls,
       autopilotRefinementHistory: session.autopilot?.refinementHistory ?? [],
       sessionSaveBaseline,
       sessionBacked: true,
@@ -2232,6 +2298,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         autopilotAnalysis: state.autopilotAnalysis,
         autopilotSelectedCopySet: state.autopilotSelectedCopySet,
         autopilotConceptPlan: state.autopilotConceptPlan,
+        autopilotReviewControls: state.autopilotReviewControls,
         autopilotRefinementHistory: state.autopilotRefinementHistory,
         variants,
       });

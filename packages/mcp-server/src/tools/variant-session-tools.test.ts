@@ -690,6 +690,188 @@ describe('rebuildAutopilotSessionFromReview', () => {
     }
   });
 
+  it('applies persisted panoramic review controls during reviewed rebuilds', async () => {
+    const dir = await makeTempDir();
+    const sessionPath = join(dir, 'autopilot.session.json');
+    const manifestPath = join(dir, 'manifest.json');
+    const reviewedAnalysis: ScreenshotAnalysis[] = [
+      {
+        path: '/shots/home.png',
+        basename: 'home.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'home',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 94,
+        heroExplanation: ['Overview'],
+        inferredOrder: 1,
+        orderingConfidence: 'high',
+        orderingReason: ['First screen'],
+        focus: 'Overview',
+        dominantPalette: ['#F8FAFC', '#2563EB', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 28, label: 'top' }],
+        occupiedRegions: ['bottom'],
+        cropSuitability: 'high',
+        recommendedUsage: 'hero-device',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/workflow.png',
+        basename: 'workflow.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'workflow',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 82,
+        heroExplanation: ['Task flow'],
+        inferredOrder: 2,
+        orderingConfidence: 'medium',
+        orderingReason: ['Middle screen'],
+        focus: 'Task flow',
+        dominantPalette: ['#F8FAFC', '#16A34A', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 26, label: 'top' }],
+        occupiedRegions: ['center'],
+        cropSuitability: 'high',
+        recommendedUsage: 'crop-card',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/detail.png',
+        basename: 'detail.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'detail',
+        semanticFlavor: 'document',
+        semanticFlavorConfidence: 'high',
+        density: 'dense',
+        textRisk: 'medium',
+        heroPriority: 74,
+        heroExplanation: ['Proof close'],
+        inferredOrder: 3,
+        orderingConfidence: 'medium',
+        orderingReason: ['Last screen'],
+        focus: 'Review state',
+        dominantPalette: ['#E2E8F0', '#0F172A', '#16A34A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 18, label: 'top' }],
+        occupiedRegions: ['center', 'bottom'],
+        cropSuitability: 'high',
+        recommendedUsage: 'support-only',
+        unsafeForTextOverlay: true,
+      },
+    ];
+    const conceptPlan = buildVariantSetPlanFromAnalysis({
+      appName: 'FitFlow',
+      appDescription: 'Workout planning',
+      platforms: ['ios'],
+      analysis: reviewedAnalysis,
+      goals: ['Feel premium'],
+      variantCount: 3,
+      screenCount: 3,
+      category: 'health',
+    });
+    const config = makeConfig();
+    const timestamp = new Date().toISOString();
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          app: { name: 'FitFlow' },
+          variants: [
+            { id: 'concept-a', name: 'Calm Hero', mode: 'individual', configPath: join(dir, 'stale-a.yml') },
+            { id: 'concept-b', name: 'Routine Momentum', mode: 'individual', configPath: join(dir, 'stale-b.yml') },
+            { id: 'concept-c', name: 'Wellness Panorama', mode: 'panoramic', configPath: join(dir, 'stale-c.yml') },
+          ],
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+
+    await writeSession(sessionPath, {
+      version: 2,
+      sourceConfigPath: join(dir, 'source.appframe.yml'),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      activeVariantId: 'concept-c',
+      variants: [
+        {
+          id: 'concept-a',
+          name: 'Calm Hero',
+          description: 'Autopilot concept.',
+          status: 'draft',
+          config,
+          artifacts: [],
+          previewArtifacts: [],
+          copyAssignments: [],
+          history: [],
+          provenance: { origin: 'autopilot', branchDepth: 0 },
+        },
+        {
+          id: 'concept-b',
+          name: 'Routine Momentum',
+          description: 'Autopilot concept.',
+          status: 'draft',
+          config,
+          artifacts: [],
+          previewArtifacts: [],
+          copyAssignments: [],
+          history: [],
+          provenance: { origin: 'autopilot', branchDepth: 0 },
+        },
+        {
+          id: 'concept-c',
+          name: 'Wellness Panorama',
+          description: 'Autopilot concept.',
+          status: 'draft',
+          config,
+          artifacts: [],
+          previewArtifacts: [],
+          copyAssignments: [],
+          history: [],
+          provenance: { origin: 'autopilot', branchDepth: 0 },
+        },
+      ],
+      autopilot: {
+        mode: 'autopilot',
+        manifestPath,
+        sourceScreenshots: reviewedAnalysis.map((entry) => entry.path),
+        screenshotAnalysis: reviewedAnalysis,
+        conceptPlan,
+        reviewControls: {
+          'concept-c': {
+            recipe: 'cinematic-panorama',
+            continuityMotif: 'poster-anchor',
+            supportSystem: 'curation-shelf',
+          },
+        },
+        recommendedVariantId: 'concept-a',
+        recommendationReason: 'Old recommendation',
+        refinementHistory: [],
+      },
+    });
+
+    const result = await rebuildAutopilotSessionFromReview({ sessionPath });
+    const rebuiltConceptC = result.plan.variants.find((variant) => variant.id === 'concept-c');
+
+    expect(rebuiltConceptC?.mode).toBe('panoramic');
+    if (rebuiltConceptC?.mode === 'panoramic') {
+      expect(rebuiltConceptC.recipe).toBe('cinematic-panorama');
+      expect(rebuiltConceptC.style).toBe('branded');
+      expect(rebuiltConceptC.frames?.every((frame) => frame.continuityMotif === 'poster-anchor')).toBe(true);
+      expect(rebuiltConceptC.frames?.every((frame) => frame.supportSystem === 'curation-shelf')).toBe(true);
+    }
+  });
+
   it('can branch reviewed autopilot concepts without overwriting the existing concepts', async () => {
     const dir = await makeTempDir();
     const sessionPath = join(dir, 'autopilot.session.json');

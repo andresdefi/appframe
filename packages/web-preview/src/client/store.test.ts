@@ -35,6 +35,7 @@ function resetStore() {
     autopilotAnalysis: [],
     autopilotSelectedCopySet: null,
     autopilotConceptPlan: null,
+    autopilotReviewControls: {},
     autopilotRefinementHistory: [],
     sessionSaveBaseline: null,
     sessionBacked: false,
@@ -262,6 +263,7 @@ describe('preview session refinement round-trips', () => {
       autopilotAnalysis: state.autopilotAnalysis,
       autopilotSelectedCopySet: state.autopilotSelectedCopySet,
       autopilotConceptPlan: state.autopilotConceptPlan,
+      autopilotReviewControls: state.autopilotReviewControls,
       autopilotRefinementHistory: state.autopilotRefinementHistory,
       variants: state.variants,
     });
@@ -322,6 +324,7 @@ describe('preview session refinement round-trips', () => {
       autopilotAnalysis: state.autopilotAnalysis,
       autopilotSelectedCopySet: state.autopilotSelectedCopySet,
       autopilotConceptPlan: state.autopilotConceptPlan,
+      autopilotReviewControls: state.autopilotReviewControls,
       autopilotRefinementHistory: state.autopilotRefinementHistory,
       variants: state.variants,
     });
@@ -425,6 +428,7 @@ describe('preview session refinement round-trips', () => {
       autopilotAnalysis: state.autopilotAnalysis,
       autopilotSelectedCopySet: state.autopilotSelectedCopySet,
       autopilotConceptPlan: state.autopilotConceptPlan,
+      autopilotReviewControls: state.autopilotReviewControls,
       autopilotRefinementHistory: state.autopilotRefinementHistory,
       variants: state.variants,
     });
@@ -462,6 +466,93 @@ describe('preview session refinement round-trips', () => {
       semanticFlavor: 'document',
       semanticFlavorOverride: 'document',
       semanticFlavorNeedsReview: true,
+    });
+  });
+
+  it('persists panoramic recipe review controls through session save round-trips', () => {
+    const baseConfig = makePanoramicConfig();
+    const session = makeSession(baseConfig, 'concept-c', 'Editorial Panorama', {
+      conceptPlan: {
+        app: {
+          name: 'FocusFlow',
+          description: 'Stay on top of your routine',
+          category: 'productivity',
+          platforms: ['ios'],
+        },
+        variants: [
+          {
+            id: 'concept-c',
+            name: 'Editorial Panorama',
+            mode: 'panoramic',
+            style: 'editorial',
+            recipe: 'workflow-panorama',
+            strategy: 'Build a calmer connected strip.',
+            canvasPlan: {
+              frameCount: 4,
+              designGoal: 'Connected workflow story',
+              requiredElements: [{ type: 'text', purpose: 'headline' }],
+            },
+            frames: [
+              {
+                frame: 1,
+                sourcePath: 'screenshots/home.png',
+                sourceRole: 'workflow',
+                cropSuitability: 'high',
+                storyBeat: 'hero',
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    usePreviewStore.getState().hydrateSession(session as any);
+    usePreviewStore.getState().setAutopilotPanoramicReviewControls('concept-c', {
+      recipe: 'cinematic-panorama',
+      continuityMotif: 'poster-anchor',
+      supportSystem: 'curation-shelf',
+    });
+
+    const state = usePreviewStore.getState();
+    expect(state.autopilotReviewControls['concept-c']).toEqual({
+      recipe: 'cinematic-panorama',
+      continuityMotif: 'poster-anchor',
+      supportSystem: 'curation-shelf',
+    });
+
+    const payload = buildSessionSavePayload({
+      activeVariantId: state.activeVariantId!,
+      recommendedVariantId: state.recommendedVariantId,
+      recommendationReason: state.recommendationReason,
+      autopilotAnalysis: state.autopilotAnalysis,
+      autopilotSelectedCopySet: state.autopilotSelectedCopySet,
+      autopilotConceptPlan: state.autopilotConceptPlan,
+      autopilotReviewControls: state.autopilotReviewControls,
+      autopilotRefinementHistory: state.autopilotRefinementHistory,
+      variants: state.variants,
+    });
+
+    const mergedSession = mergeSessionSaveRequest({
+      session,
+      body: payload,
+      fallbackConfig: baseConfig,
+      updatedAt: '2026-03-20T12:10:00.000Z',
+    });
+
+    expect((mergedSession.autopilot as { reviewControls?: Record<string, unknown> }).reviewControls).toMatchObject({
+      'concept-c': {
+        recipe: 'cinematic-panorama',
+        continuityMotif: 'poster-anchor',
+        supportSystem: 'curation-shelf',
+      },
+    });
+
+    resetStore();
+    usePreviewStore.getState().hydrateSession(mergedSession as any);
+    expect(usePreviewStore.getState().autopilotReviewControls['concept-c']).toEqual({
+      recipe: 'cinematic-panorama',
+      continuityMotif: 'poster-anchor',
+      supportSystem: 'curation-shelf',
     });
   });
 

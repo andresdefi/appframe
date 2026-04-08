@@ -72,6 +72,13 @@ export type PanoramicCompositionFeature =
   | 'trust-shield'
   | 'support-beacon'
   | 'reward-ribbon';
+export type PanoramicReviewControlSupportSystem = PanoramicSupportSystem;
+export type PanoramicReviewControlContinuityMotif = PanoramicContinuityMotif;
+export interface PanoramicVariantReviewControls {
+  recipe?: string | null;
+  continuityMotif?: PanoramicReviewControlContinuityMotif | null;
+  supportSystem?: PanoramicReviewControlSupportSystem | null;
+}
 
 export interface SafeTextZone {
   x: number;
@@ -192,6 +199,8 @@ export interface VariantSetPlan {
   }>;
   variants: PlannedVariant[];
 }
+
+type PanoramicVariantReviewControlMap = Record<string, PanoramicVariantReviewControls | undefined>;
 
 export interface CopyPlanningSignal {
   slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary';
@@ -5569,6 +5578,175 @@ function buildPanoramicFramePlan(args: {
       continuityRule,
     }),
   };
+}
+
+function normalizePanoramicVariantReviewControls(
+  controls: PanoramicVariantReviewControls | undefined,
+): PanoramicVariantReviewControls | null {
+  if (!controls) return null;
+  const normalized: PanoramicVariantReviewControls = {};
+  if (typeof controls.recipe === 'string' && controls.recipe.trim().length > 0) {
+    normalized.recipe = controls.recipe.trim();
+  }
+  if (typeof controls.continuityMotif === 'string' && controls.continuityMotif.length > 0) {
+    normalized.continuityMotif = controls.continuityMotif;
+  }
+  if (typeof controls.supportSystem === 'string' && controls.supportSystem.length > 0) {
+    normalized.supportSystem = controls.supportSystem;
+  }
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
+function applyPanoramicVariantReviewControls(args: {
+  category: AppCategory;
+  variant: PlannedPanoramicVariant;
+  analysisByPath: Map<string, ScreenshotAnalysis>;
+  controls: PanoramicVariantReviewControls;
+}): PlannedPanoramicVariant {
+  const reviewControls = normalizePanoramicVariantReviewControls(args.controls);
+  if (!reviewControls || !args.variant.frames?.length) return args.variant;
+
+  const recipe = reviewControls.recipe ?? args.variant.recipe;
+  const frames = args.variant.frames.map((frame, index, allFrames) => {
+    const analysis = args.analysisByPath.get(frame.sourcePath);
+    if (!analysis) return frame;
+
+    const total = allFrames.length;
+    const rhythmRole = resolvePanoramicRhythmRole({
+      storyBeat: frame.storyBeat,
+      index,
+      total,
+    });
+    const layoutArchetype = buildPanoramicLayoutArchetype({
+      recipe,
+      storyBeat: frame.storyBeat,
+      index,
+      total,
+    });
+    const supportSystem = reviewControls.supportSystem ?? buildPanoramicSupportSystem({
+      category: args.category,
+      recipe,
+      analysis,
+      storyBeat: frame.storyBeat,
+      index,
+      total,
+      rhythmRole,
+    });
+    const continuityMotif = reviewControls.continuityMotif ?? buildPanoramicContinuityMotif({
+      recipe,
+      analysis,
+      supportSystem,
+    });
+    const compositionFeatures = buildPanoramicCompositionFeatures({
+      category: args.category,
+      recipe,
+      supportSystem,
+      analysis,
+      storyBeat: frame.storyBeat,
+      index,
+    });
+    const transitionIntent = buildPanoramicTransitionIntent({
+      supportSystem,
+      continuityMotif,
+      rhythmRole,
+      storyBeat: frame.storyBeat,
+      index,
+      total,
+    });
+    const continuityRule = buildPanoramicContinuityRule({
+      recipe,
+      rhythmRole,
+      layoutArchetype,
+      continuityMotif,
+      supportSystem,
+      analysis,
+      storyBeat: frame.storyBeat,
+      index,
+      total,
+    });
+
+    return {
+      ...frame,
+      rhythmRole,
+      layoutArchetype,
+      continuityRule,
+      continuityMotif,
+      supportSystem,
+      transitionIntent,
+      cropPlan: buildCropPlan({
+        analysis,
+        storyBeat: frame.storyBeat,
+        compositionFeatures,
+      }),
+      pacing: buildPanoramicPacing({
+        recipe,
+        analysis,
+        storyBeat: frame.storyBeat,
+        rhythmRole,
+        continuityMotif,
+        conceptId: args.variant.id as 'concept-c' | 'concept-d',
+        index,
+        total,
+        layoutArchetype,
+      }),
+      compositionFeatures,
+      compositionNote: buildPanoramicCompositionNote({
+        recipe,
+        supportSystem,
+        continuityMotif,
+        transitionIntent,
+        features: compositionFeatures,
+        analysis,
+        storyBeat: frame.storyBeat,
+        layoutArchetype,
+        continuityRule,
+      }),
+    };
+  });
+
+  const recipeFamily = panoramicRecipeFamily(recipe);
+  return {
+    ...args.variant,
+    recipe,
+    style: recipeFamily === 'editorial' ? 'editorial' : 'branded',
+    canvasPlan: args.variant.canvasPlan
+      ? {
+          ...args.variant.canvasPlan,
+          requiredElements: recipeFamily === 'editorial'
+            ? defaultEditorialElements()
+            : defaultBoldElements(),
+        }
+      : args.variant.canvasPlan,
+    frames,
+  };
+}
+
+export function applyPanoramicReviewControlsToVariantSetPlan(args: {
+  plan: VariantSetPlan;
+  analysis: ScreenshotAnalysis[];
+  reviewControls?: PanoramicVariantReviewControlMap;
+}): VariantSetPlan {
+  const reviewControls = args.reviewControls;
+  if (!reviewControls || Object.keys(reviewControls).length === 0) {
+    return args.plan;
+  }
+
+  const analysisByPath = new Map(args.analysis.map((entry) => [entry.path, entry]));
+  let changed = false;
+  const variants = args.plan.variants.map((variant) => {
+    if (variant.mode !== 'panoramic') return variant;
+    const controls = reviewControls[variant.id];
+    if (!controls) return variant;
+    changed = true;
+    return applyPanoramicVariantReviewControls({
+      category: args.plan.app.category,
+      variant,
+      analysisByPath,
+      controls,
+    });
+  });
+
+  return changed ? { ...args.plan, variants } : args.plan;
 }
 
 function buildVariantEntries(

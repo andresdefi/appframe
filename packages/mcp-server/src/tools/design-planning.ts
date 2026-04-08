@@ -574,7 +574,7 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
     ),
     profileSignalCount: countRegexMatches(
       haystack,
-      /\b(profile|creator|creators|community|communities|followers|following|member|members|bio|audience|channel|supporters?)\b/g,
+      /\b(profile|creator|creators|community|communities|followers|following|member|members|bio|audience|channel|supporters?|username|joined|about me|about|public profile)\b/g,
     ),
     editorSignalCount: countRegexMatches(
       haystack,
@@ -582,7 +582,7 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
     ),
     catalogSignalCount: countRegexMatches(
       haystack,
-      /\b(shop|store|catalog|collection|collections|product|products|item|items|listing|listings|wishlist|marketplace|featured|price|prices)\b/g,
+      /\b(shop|store|catalog|collection|collections|product|products|item|items|listing|listings|wishlist|marketplace|featured|price|prices|shop all|browse all|new arrivals|featured picks|featured products|deals|brands)\b/g,
     ),
     documentSignalCount: countRegexMatches(
       haystack,
@@ -606,7 +606,7 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
     ),
     commerceSignalCount: countRegexMatches(
       haystack,
-      /\b(cart|bag|basket|checkout|order|orders|shipping|shipment|shipments|delivery|deliveries|merchant|merchants|purchase|purchases|buy|storefront|fulfillment|tracking order|track order|subtotal|total|tax|discount|coupon|promo code|delivery window|shipping address|billing address)\b/g,
+      /\b(cart|bag|basket|checkout|order|orders|shipping|shipment|shipments|delivery|deliveries|merchant|merchants|purchase|purchases|buy|storefront|fulfillment|tracking order|track order|subtotal|total|tax|discount|coupon|promo code|delivery window|shipping address|billing address|payment method|place order|line items?)\b/g,
     ),
     securitySignalCount: countRegexMatches(
       haystack,
@@ -614,11 +614,11 @@ function deriveSemanticFlavorSignals(haystack: string): SemanticFlavorSignals {
     ),
     supportSignalCount: countRegexMatches(
       haystack,
-      /\b(help|help center|helpdesk|support|support center|support hub|faq|faqs|knowledge base|ticket|tickets|case|cases|troubleshoot|troubleshooting|resolution|resolve|issue status)\b/g,
+      /\b(help|help center|helpdesk|support|support center|support hub|faq|faqs|knowledge base|ticket|tickets|case|cases|troubleshoot|troubleshooting|resolution|resolve|issue status|contact us|contact support|live chat|need help|assist|assistance|guide|guides|help article|help articles)\b/g,
     ),
     rewardSignalCount: countRegexMatches(
       haystack,
-      /\b(reward|rewards|loyalty|points|perk|perks|cashback|cash back|redeem|redemption|bonus|bonuses|membership|member benefits|member perks|tier|tiers)\b/g,
+      /\b(reward|rewards|loyalty|points|perk|perks|cashback|cash back|redeem|redemption|bonus|bonuses|membership|member benefits|member perks|tier|tiers|voucher|vouchers|wallet credits|credits|gift card|gift cards)\b/g,
     ),
     communicationConflictCount: countRegexMatches(
       haystack,
@@ -773,6 +773,13 @@ function inferSemanticFlavorDetails(args: {
   const securityRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'security');
   const supportRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'support');
   const rewardRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'reward');
+  const rasterCardGridRows = rasterSemanticSignals?.cardGridRows ?? 0;
+  const rasterFeedRows = rasterSemanticSignals?.feedRows ?? 0;
+  const rasterUpperHeroPanelRows = rasterSemanticSignals?.upperHeroPanelRows ?? 0;
+  const rasterLowerCtaRows = rasterSemanticSignals?.lowerCtaRows ?? 0;
+  const rasterAgendaRows = rasterSemanticSignals?.agendaRows ?? 0;
+  const rasterPriceRailRows = rasterSemanticSignals?.priceRailRows ?? 0;
+  const rasterInsetHelpRows = rasterSemanticSignals?.insetHelpRows ?? 0;
   const securityStructureBonus = securityRasterScore >= 5
     ? rasterFlavorBonus(securityRasterScore)
       + (securityRasterScore >= 6 ? 2 : 1)
@@ -1079,6 +1086,25 @@ function inferSemanticFlavorDetails(args: {
 
   if (
     !hasTextInsights
+    && best.flavor === 'commerce'
+    && signalCount === 0
+    && rasterPriceRailRows >= 2
+    && rasterAgendaRows <= 1
+    && rasterUpperHeroPanelRows <= 1
+    && rasterLowerCtaRows <= 1
+  ) {
+    return {
+      reason: [
+        ...reason,
+        'Checkout-like value rails appear, but there is not enough summary-panel or CTA structure to separate this from generic account controls yet.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
     && args.role === 'paywall'
     && (best.flavor === 'commerce' || best.flavor === 'reward')
     && signalCount <= Math.max(2, signals.paywallConflictCount)
@@ -1090,6 +1116,162 @@ function inferSemanticFlavorDetails(args: {
       reason: [
         ...reason,
         'Generic premium/paywall structure outweighs the weak commerce or reward cues, so this falls back to generic until reviewed.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor !== 'support'
+    && signalCount === 0
+    && supportRasterScore >= 3
+    && (
+      rasterAgendaRows >= 3
+      || rasterInsetHelpRows >= 2
+      || (
+        (best.flavor === 'document' || best.flavor === 'profile' || best.flavor === 'security')
+        && supportRasterScore >= best.score - 2
+        && (args.role === 'onboarding' || args.role === 'detail')
+      )
+    )
+  ) {
+    return {
+      flavor: 'support',
+      confidence: 'medium',
+      reason: [
+        ...reason,
+        'Repeated help-list structure outweighs the generic list read, so this upgrades to a reviewed support family.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor === 'reward'
+    && signalCount === 0
+    && rasterCardGridRows >= 2
+    && rasterLowerCtaRows <= 1
+  ) {
+    return {
+      flavor: 'catalog',
+      confidence: 'medium',
+      reason: [
+        ...reason,
+        'Repeated browse-grid structure outweighs the warm promotional styling, so this upgrades to a reviewed catalog family.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor === 'reward'
+    && signalCount === 0
+    && rasterUpperHeroPanelRows >= 2
+    && rasterLowerCtaRows === 0
+    && rasterCardGridRows <= 1
+    && profileRasterScore >= 6
+  ) {
+    return {
+      flavor: 'profile',
+      confidence: 'medium',
+      reason: [
+        ...reason,
+        'Identity-led hero structure outweighs the warm palette here, so this upgrades to a reviewed profile family.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor === 'security'
+    && signalCount === 0
+    && args.role === 'onboarding'
+  ) {
+    return {
+      reason: [
+        ...reason,
+        'Quiet onboarding-style structure alone is still too weak to force secure-access treatment without explicit auth cues.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor === 'security'
+    && signalCount === 0
+    && rasterPriceRailRows >= 2
+    && rasterAgendaRows <= 1
+    && rasterUpperHeroPanelRows <= 1
+    && rasterLowerCtaRows <= 1
+  ) {
+    return {
+      reason: [
+        ...reason,
+        'Control-rail structure alone is not enough to treat this as secure-access art direction without clearer auth-gate evidence.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor === 'security'
+    && signalCount === 0
+    && rasterLowerCtaRows === 0
+    && rasterUpperHeroPanelRows <= 1
+  ) {
+    return {
+      reason: [
+        ...reason,
+        'Without a focused auth gate or explicit verification cues, this structure stays too generic to force secure-access treatment.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor === 'reward'
+    && signalCount === 0
+    && rewardRasterScore < 7
+    && rasterCardGridRows >= 3
+    && catalogRasterScore >= rewardRasterScore - 1
+  ) {
+    return {
+      reason: [
+        ...reason,
+        'Warm promotional color is present, but the underlying structure still reads like a browse or catalog surface, so this stays reviewed instead of forcing reward art direction.',
+      ],
+      alternatives,
+      needsReview: true,
+    };
+  }
+
+  if (
+    !hasTextInsights
+    && best.flavor === 'reward'
+    && signalCount === 0
+    && rewardRasterScore < 7
+    && rasterUpperHeroPanelRows >= 2
+    && rasterFeedRows >= 2
+    && profileRasterScore >= rewardRasterScore - 1
+  ) {
+    return {
+      reason: [
+        ...reason,
+        'Warm color alone is not enough to override a profile-like spotlight and feed structure, so this stays reviewed instead of forcing reward treatment.',
       ],
       alternatives,
       needsReview: true,
@@ -1118,7 +1300,14 @@ function inferSemanticFlavorDetails(args: {
     && rasterSemanticFlavorScore(rasterSemanticSignals, best.flavor) >= 5
     && confidence === 'low'
   ) {
-    reason.push('Strong raster structure keeps this family usable even without OCR text.');
+    if (
+      best.flavor === 'support'
+      && (rasterInsetHelpRows >= 2 || rasterAgendaRows >= 3)
+    ) {
+      reason.push('Repeated help-list structure makes the support read usable even without OCR text.');
+    } else {
+      reason.push('Strong raster structure keeps this family usable even without OCR text.');
+    }
     return {
       flavor: best.flavor,
       confidence: 'medium',
@@ -2454,6 +2643,13 @@ interface DecodedPng {
 interface RasterSemanticSignals {
   warmAccentShare: number;
   occupiedRegions: SafeTextZone['label'][];
+  cardGridRows: number;
+  feedRows: number;
+  upperHeroPanelRows: number;
+  lowerCtaRows: number;
+  agendaRows: number;
+  priceRailRows: number;
+  insetHelpRows: number;
   onboardingScore: number;
   paywallScore: number;
   settingsScore: number;
@@ -2733,6 +2929,7 @@ function inferRasterSemanticSignals(args: {
   let upperHeroPanelRows = 0;
   let agendaRows = 0;
   let priceRailRows = 0;
+  let insetHelpRows = 0;
   let previousBubbleSide: 'left' | 'right' | null = null;
 
   for (let row = 0; row < args.blockRows; row += 1) {
@@ -2832,6 +3029,29 @@ function inferRasterSemanticSignals(args: {
     }
 
     if (
+      (segments.length === 2 || segments.length === 3)
+      && rowCenter >= 0.22
+      && rowCenter <= 0.86
+      && segments[0]!.start <= 2
+      && segments[0]!.width >= 1
+      && segments[0]!.width <= 2
+      && segments[1]!.start >= 3
+      && segments[1]!.width >= 4
+      && segments[1]!.width <= 7
+      && segments[1]!.end <= args.blockColumns - 2
+      && (
+        segments.length === 2
+        || (
+          segments[2]!.width >= 1
+          && segments[2]!.width <= 2
+          && segments[2]!.end >= args.blockColumns - 2
+        )
+      )
+    ) {
+      insetHelpRows += 1;
+    }
+
+    if (
       segments.length === 3
       && rowCenter >= 0.22
       && rowCenter <= 0.86
@@ -2891,6 +3111,7 @@ function inferRasterSemanticSignals(args: {
     + (splitRows <= 2 ? 1 : 0)
     + (args.topQuietRatio <= 0.46 ? 1 : 0)
     + (centeredPanelRows <= 2 ? 1 : 0)
+    - (insetHelpRows >= 3 ? 2 : insetHelpRows >= 2 ? 1 : 0)
   );
   const communicationScore = (
     (alternatingConversationRows >= 2 ? 2 : 0)
@@ -2939,10 +3160,12 @@ function inferRasterSemanticSignals(args: {
   const profileFlavorScore = (
     (upperHeroPanelRows >= 3 ? 2 : upperHeroPanelRows >= 2 ? 1 : 0)
     + (feedRows >= 2 && feedRows <= 4 ? 1 : 0)
+    + (upperHeroPanelRows >= 2 && feedRows >= 2 ? 2 : 0)
     + (args.topQuietRatio >= 0.6 ? 1 : 0)
     + (lowerCtaRows === 0 ? 1 : 0)
     + (cardGridRows <= 1 ? 1 : 0)
     + (wideCenterRows >= 2 ? 1 : 0)
+    + (feedRows >= 2 && args.warmAccentShare >= 0.04 ? 1 : 0)
   );
   const editorFlavorScore = (
     (centeredPanelRows >= 4 ? 2 : centeredPanelRows >= 3 ? 1 : 0)
@@ -2958,6 +3181,7 @@ function inferRasterSemanticSignals(args: {
     + (splitRows >= 3 ? 1 : 0)
     + (fullWidthRows <= 2 ? 1 : 0)
     + (lowerCtaRows === 0 ? 1 : 0)
+    + (cardGridRows >= 3 && args.warmAccentShare >= 0.04 ? 2 : 0)
   );
   const documentFlavorScore = (
     (wideCenterRows >= 3 ? 2 : 0)
@@ -3008,6 +3232,7 @@ function inferRasterSemanticSignals(args: {
     + (agendaRows >= 2 && fullWidthRows >= 2 ? 1 : 0)
     + (priceRailRows >= 3 && lowerCtaRows >= 1 ? 3 : 0)
     - (agendaRows <= 1 && args.averageLuminance <= 148 ? 1 : 0)
+    - (priceRailRows >= 2 && agendaRows <= 1 && upperHeroPanelRows <= 1 && lowerCtaRows <= 1 ? 4 : 0)
   );
   const securityFlavorScore = (
     (centeredPanelRows >= 4 ? 2 : centeredPanelRows >= 3 ? 1 : 0)
@@ -3022,21 +3247,26 @@ function inferRasterSemanticSignals(args: {
     + (fullWidthRows <= 3 ? 1 : 0)
     + (centeredPanelRows >= 4 && lowerCtaRows >= 1 && fullWidthRows <= 2 ? 2 : 0)
     - (args.warmAccentShare >= 0.08 && args.averageLuminance >= 155 ? 2 : 0)
+    - (insetHelpRows >= 2 ? 3 : 0)
     - (fullWidthRows >= 4 ? 3 : fullWidthRows >= 3 ? 1 : 0)
     - (agendaRows >= 2 ? 2 : 0)
     - (leftRailRows >= 3 || rightRailRows >= 3 ? 2 : 0)
     - (priceRailRows >= 3 ? 5 : priceRailRows >= 2 ? 3 : priceRailRows >= 1 ? 1 : 0)
+    - (priceRailRows >= 2 && agendaRows <= 1 && lowerCtaRows <= 1 ? 3 : 0)
   );
   const supportFlavorScore = (
-    (agendaRows >= 4 ? 2 : agendaRows >= 3 ? 1 : 0)
+    (agendaRows >= 4 ? 3 : agendaRows >= 3 ? 2 : agendaRows >= 2 ? 1 : 0)
+    + (insetHelpRows >= 4 ? 4 : insetHelpRows >= 3 ? 3 : insetHelpRows >= 2 ? 2 : 0)
     + (leftRailRows >= 3 ? 1 : 0)
     + (topInsetBarRows >= 1 ? 1 : 0)
+    + (topInsetBarRows >= 1 && insetHelpRows >= 2 ? 1 : 0)
     + (lowerCtaRows >= 1 ? 1 : 0)
     + (feedRows <= 2 ? 1 : 0)
     + (cardGridRows <= 1 ? 1 : 0)
     + (splitRows >= 2 ? 1 : 0)
     - (priceRailRows >= 1 ? 2 : 0)
     - (agendaRows >= 2 && centeredPanelRows >= 3 && lowerCtaRows >= 1 ? 2 : 0)
+    - (fullWidthRows >= 5 && insetHelpRows <= 1 ? 2 : 0)
   );
   const rewardFlavorScore = (
     (upperHeroPanelRows >= 3 ? 2 : upperHeroPanelRows >= 2 ? 1 : 0)
@@ -3047,11 +3277,20 @@ function inferRasterSemanticSignals(args: {
     + (cardGridRows <= 1 ? 1 : 0)
     + (args.warmAccentShare >= 0.14 ? 4 : args.warmAccentShare >= 0.08 ? 3 : args.warmAccentShare >= 0.04 ? 1 : 0)
     - (args.warmAccentShare <= 0.02 ? 3 : args.warmAccentShare <= 0.04 ? 1 : 0)
+    - (cardGridRows >= 3 ? 4 : cardGridRows >= 2 ? 2 : 0)
+    - (feedRows >= 2 ? 3 : 0)
   );
 
   return {
     warmAccentShare: Number(args.warmAccentShare.toFixed(3)),
     occupiedRegions,
+    cardGridRows,
+    feedRows,
+    upperHeroPanelRows,
+    lowerCtaRows,
+    agendaRows,
+    priceRailRows,
+    insetHelpRows,
     onboardingScore,
     paywallScore,
     settingsScore,

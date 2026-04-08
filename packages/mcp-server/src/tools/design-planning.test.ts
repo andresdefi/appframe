@@ -795,6 +795,46 @@ describe('design planning helpers', () => {
     expect(supportAnalysis?.semanticFlavorReason?.some((line) => line.includes('raster structure'))).toBe(true);
   });
 
+  it('keeps help-center card stacks reviewed instead of forcing the wrong family without OCR or descriptive filenames', async () => {
+    const supportPath = await makePngFile('screen-12.png', 120, 200, (x, y) => {
+      if (x > 22 && x < 98 && y > 18 && y < 34) return [191, 219, 254, 255];
+      if (
+        ((x > 16 && x < 28) && (y > 52 && y < 72))
+        || ((x > 16 && x < 28) && (y > 84 && y < 104))
+        || ((x > 16 && x < 28) && (y > 116 && y < 136))
+        || ((x > 16 && x < 28) && (y > 148 && y < 168))
+      ) {
+        return [59, 130, 246, 255];
+      }
+      if (
+        ((x > 34 && x < 82) && (y > 52 && y < 72))
+        || ((x > 34 && x < 82) && (y > 84 && y < 104))
+        || ((x > 34 && x < 82) && (y > 116 && y < 136))
+        || ((x > 34 && x < 82) && (y > 148 && y < 168))
+      ) {
+        return [226, 232, 240, 255];
+      }
+      if (
+        ((x > 94 && x < 104) && (y > 52 && y < 72))
+        || ((x > 94 && x < 104) && (y > 84 && y < 104))
+        || ((x > 94 && x < 104) && (y > 116 && y < 136))
+        || ((x > 94 && x < 104) && (y > 148 && y < 168))
+      ) {
+        return [148, 163, 184, 255];
+      }
+      return [248, 250, 252, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: supportPath },
+    ]);
+
+    const supportAnalysis = analysis.find((entry) => entry.path === supportPath);
+    expect(supportAnalysis?.semanticFlavor).toBeUndefined();
+    expect(supportAnalysis?.semanticFlavorNeedsReview).toBe(true);
+    expect(supportAnalysis?.semanticFlavorAlternatives?.some((entry) => entry.flavor === 'support')).toBe(true);
+  });
+
   it('uses raster structure to infer reward families without OCR or descriptive filenames', async () => {
     const rewardPath = await makePngFile('screen-10.png', 120, 200, (x, y) => {
       if (y < 28) return [255, 247, 237, 255];
@@ -813,6 +853,48 @@ describe('design planning helpers', () => {
     expect(rewardAnalysis?.semanticFlavor).toBe('reward');
     expect(rewardAnalysis?.semanticFlavorConfidence).toBeTruthy();
     expect(rewardAnalysis?.semanticFlavorReason?.some((line) => line.includes('raster structure'))).toBe(true);
+  });
+
+  it('keeps warm browse grids reviewed instead of locking reward when raster structure stays ambiguous', async () => {
+    const catalogPath = await makePngFile('screen-13.png', 120, 200, (x, y) => {
+      if (x > 22 && x < 98 && y > 18 && y < 34) return [254, 215, 170, 255];
+      const inGrid =
+        (((x > 12 && x < 40) || (x > 80 && x < 108))
+          && ((y > 50 && y < 76) || (y > 86 && y < 112) || (y > 122 && y < 148) || (y > 158 && y < 184)));
+      if (inGrid) return [249, 115, 22, 255];
+      return [255, 247, 237, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: catalogPath },
+    ]);
+
+    const catalogAnalysis = analysis.find((entry) => entry.path === catalogPath);
+    expect(catalogAnalysis?.semanticFlavor).not.toBe('reward');
+    expect(catalogAnalysis?.semanticFlavorNeedsReview).toBe(true);
+    expect((catalogAnalysis?.semanticFlavorAlternatives?.length ?? 0) > 0).toBe(true);
+  });
+
+  it('keeps warm profile spotlights anchored to profile instead of reward when the raster read stays identity-led', async () => {
+    const profilePath = await makePngFile('screen-14.png', 120, 200, (x, y) => {
+      if (x > 28 && x < 92 && y > 24 && y < 90) return [251, 191, 36, 255];
+      if (
+        ((x > 18 && x < 102) && (y > 112 && y < 130))
+        || ((x > 18 && x < 102) && (y > 146 && y < 164))
+      ) {
+        return [254, 215, 170, 255];
+      }
+      return [255, 247, 237, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: profilePath },
+    ]);
+
+    const profileAnalysis = analysis.find((entry) => entry.path === profilePath);
+    expect(profileAnalysis?.semanticFlavor).toBe('profile');
+    expect(profileAnalysis?.semanticFlavorNeedsReview).toBe(true);
+    expect(profileAnalysis?.semanticFlavorAlternatives?.some((entry) => entry.flavor === 'reward')).toBe(true);
   });
 
   it('surfaces commerce as a reviewed contender for checkout-like raster screens without OCR or descriptive filenames', async () => {
@@ -844,6 +926,37 @@ describe('design planning helpers', () => {
     expect(commerceAnalysis?.semanticFlavor).not.toBe('support');
     expect(commerceAnalysis?.semanticFlavorNeedsReview).toBe(true);
     expect(commerceAnalysis?.semanticFlavorAlternatives?.some((entry) => entry.flavor === 'commerce')).toBe(true);
+  });
+
+  it('keeps generic toggle rails from auto-resolving as commerce without OCR or descriptive filenames', async () => {
+    const settingsPath = await makePngFile('screen-15.png', 120, 200, (x, y) => {
+      if (x > 20 && x < 100 && y > 18 && y < 34) return [226, 232, 240, 255];
+      if (
+        (((x > 16 && x < 86) && (y > 48 && y < 66))
+          || ((x > 16 && x < 86) && (y > 82 && y < 100))
+          || ((x > 16 && x < 86) && (y > 116 && y < 134))
+          || ((x > 16 && x < 86) && (y > 150 && y < 168)))
+      ) {
+        return [203, 213, 225, 255];
+      }
+      if (
+        (((x > 94 && x < 106) && (y > 48 && y < 66))
+          || ((x > 94 && x < 106) && (y > 82 && y < 100))
+          || ((x > 94 && x < 106) && (y > 116 && y < 134))
+          || ((x > 94 && x < 106) && (y > 150 && y < 168)))
+      ) {
+        return [59, 130, 246, 255];
+      }
+      return [248, 250, 252, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: settingsPath },
+    ]);
+
+    const settingsAnalysis = analysis.find((entry) => entry.path === settingsPath);
+    expect(settingsAnalysis?.semanticFlavor).toBeUndefined();
+    expect(settingsAnalysis?.semanticFlavorNeedsReview).toBe(true);
   });
 
   it('keeps settings toggle rails from auto-resolving as commerce without explicit checkout cues', async () => {

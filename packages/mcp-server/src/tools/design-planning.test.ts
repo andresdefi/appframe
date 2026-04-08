@@ -795,6 +795,26 @@ describe('design planning helpers', () => {
     expect(supportAnalysis?.semanticFlavorReason?.some((line) => line.includes('raster structure'))).toBe(true);
   });
 
+  it('uses raster structure to infer reward families without OCR or descriptive filenames', async () => {
+    const rewardPath = await makePngFile('screen-10.png', 120, 200, (x, y) => {
+      if (y < 28) return [255, 247, 237, 255];
+      if (x > 18 && x < 102 && y > 42 && y < 118) return [251, 191, 36, 255];
+      if (x > 20 && x < 100 && y > 132 && y < 166) return [253, 230, 138, 255];
+      if (x > 30 && x < 90 && y > 174 && y < 190) return [59, 130, 246, 255];
+      return [255, 251, 235, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: rewardPath },
+    ]);
+
+    const rewardAnalysis = analysis.find((entry) => entry.path === rewardPath);
+    expect(rewardAnalysis?.role).not.toBe('paywall');
+    expect(rewardAnalysis?.semanticFlavor).toBe('reward');
+    expect(rewardAnalysis?.semanticFlavorConfidence).toBeTruthy();
+    expect(rewardAnalysis?.semanticFlavorReason?.some((line) => line.includes('raster structure'))).toBe(true);
+  });
+
   it('surfaces commerce as a reviewed contender for checkout-like raster screens without OCR or descriptive filenames', async () => {
     const commercePath = await makePngFile('screen-7.png', 120, 200, (x, y) => {
       if (y < 10) return [255, 251, 235, 255];
@@ -1989,6 +2009,68 @@ describe('design planning helpers', () => {
 
       expect(supportFrame?.compositionFeatures).toContain('support-beacon');
       expect(rewardFrame?.compositionFeatures).toContain('reward-ribbon');
+    }
+  });
+
+  it('carries raster-only reward inference into planning reactions without descriptive filenames', async () => {
+    const rewardPath = await makePngFile('screen-11.png', 120, 200, (x, y) => {
+      if (y < 28) return [255, 247, 237, 255];
+      if (x > 18 && x < 102 && y > 42 && y < 118) return [251, 191, 36, 255];
+      if (x > 20 && x < 100 && y > 132 && y < 166) return [253, 230, 138, 255];
+      if (x > 30 && x < 90 && y > 174 && y < 190) return [59, 130, 246, 255];
+      return [255, 251, 235, 255];
+    });
+    const homePath = await makePngFile('member-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const supportPath = await makePngFile('help-center.png', 120, 200, (x, y) => {
+      if (y < 26) return [248, 250, 252, 255];
+      if (x > 18 && x < 102 && y > 40 && y < 124) return [191, 219, 254, 255];
+      if ((x > 24 && x < 96 && y > 136 && y < 154) || (x > 24 && x < 96 && y > 164 && y < 184)) {
+        return [226, 232, 240, 255];
+      }
+      return [241, 245, 249, 255];
+    });
+    const profilePath = await makePngFile('member-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'MemberLoop',
+      appDescription: 'A membership app for loyalty rewards, cashback perks, and fast in-app support.',
+      platforms: ['ios'],
+      features: ['Rewards wallet', 'Help center', 'Member perks'],
+      screenshots: [
+        { path: rewardPath },
+        { path: homePath, note: 'Member home' },
+        { path: supportPath, note: 'Help center with support tickets and resolution status' },
+        { path: profilePath, note: 'Member profile' },
+      ],
+      goals: ['Feel trusted', 'Show member value'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    expect(plan.selectedScreens.find((screen) => screen.path === rewardPath)?.semanticFlavor).toBe('reward');
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const rewardScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === rewardPath);
+      expect(rewardScreen?.backgroundStrategy).toBe('perk-glow');
+      expect(rewardScreen?.copyDirection).toContain('earned value, perks, or loyalty payoff');
+      expect(['duo-overlap', 'fanned-cards']).toContain(rewardScreen?.composition);
     }
   });
 

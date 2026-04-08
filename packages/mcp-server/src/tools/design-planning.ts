@@ -772,6 +772,7 @@ function inferSemanticFlavorDetails(args: {
   const commerceRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'commerce');
   const securityRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'security');
   const supportRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'support');
+  const rewardRasterScore = rasterSemanticFlavorScore(rasterSemanticSignals, 'reward');
   const securityStructureBonus = securityRasterScore >= 5
     ? rasterFlavorBonus(securityRasterScore)
       + (securityRasterScore >= 6 ? 2 : 1)
@@ -880,11 +881,23 @@ function inferSemanticFlavorDetails(args: {
   const rewardScore = signals.rewardSignalCount > 0
     ? (signals.rewardSignalCount * 2)
       + (args.role === 'detail' || args.role === 'discovery' ? 2 : args.role === 'home' ? 1 : 0)
+      + rasterFlavorBonus(rewardRasterScore)
+      + (rewardRasterScore >= 6 ? 3 : rewardRasterScore >= 5 ? 2 : rewardRasterScore >= 4 ? 1 : 0)
+      + (rewardRasterScore > profileRasterScore ? 1 : 0)
+      + (rewardRasterScore > commerceRasterScore ? 1 : 0)
       + (signals.commerceSignalCount >= 1 ? 1 : 0)
-      - (signals.paywallConflictCount > signals.rewardSignalCount ? 2 : 0)
+      - (signals.paywallConflictCount > signals.rewardSignalCount && rewardRasterScore < 5 ? 2 : 0)
       - Math.min(1, signals.settingsConflictCount)
       - Math.min(1, signals.profileSignalCount)
-    : 0;
+    : rewardRasterScore >= 5
+      ? ((args.role === 'detail' || args.role === 'discovery' ? 1 : args.role === 'home' ? 1 : 0)
+        + rasterFlavorBonus(rewardRasterScore)
+        + (rewardRasterScore >= 6 ? 3 : 2)
+        + (rewardRasterScore > profileRasterScore ? 1 : 0)
+        + (rewardRasterScore > commerceRasterScore ? 1 : 0)
+        - (signals.paywallConflictCount >= 2 ? 2 : signals.paywallConflictCount)
+        - Math.min(1, signals.settingsConflictCount))
+      : 0;
   const captureScore = (signals.captureSignalCount * 2)
     + (args.role === 'workflow' || args.role === 'detail' ? 2 : args.role === 'home' ? 1 : 0)
     + rasterFlavorBonus(captureRasterScore)
@@ -1035,7 +1048,7 @@ function inferSemanticFlavorDetails(args: {
     && args.role === 'settings'
     && (best.flavor === 'profile' || best.flavor === 'reward' || best.flavor === 'commerce')
     && signalCount <= 3
-    && rasterSemanticFlavorScore(rasterSemanticSignals, best.flavor) < 4
+    && rasterSemanticFlavorScore(rasterSemanticSignals, best.flavor) < (best.flavor === 'reward' ? 5 : 4)
   ) {
     return {
       reason: [
@@ -2439,6 +2452,7 @@ interface DecodedPng {
 }
 
 interface RasterSemanticSignals {
+  warmAccentShare: number;
   occupiedRegions: SafeTextZone['label'][];
   onboardingScore: number;
   paywallScore: number;
@@ -2697,6 +2711,7 @@ function inferRasterSemanticSignals(args: {
   topQuietRatio: number;
   focusStrength: number;
   averageLuminance: number;
+  warmAccentShare: number;
 }): RasterSemanticSignals {
   const rowAverages = new Array<number>(args.blockRows).fill(0);
   const rowSegments: Array<Array<{ start: number; end: number; width: number }>> = [];
@@ -3006,6 +3021,7 @@ function inferRasterSemanticSignals(args: {
     + (topInsetBarRows >= 1 ? 1 : 0)
     + (fullWidthRows <= 3 ? 1 : 0)
     + (centeredPanelRows >= 4 && lowerCtaRows >= 1 && fullWidthRows <= 2 ? 2 : 0)
+    - (args.warmAccentShare >= 0.08 && args.averageLuminance >= 155 ? 2 : 0)
     - (fullWidthRows >= 4 ? 3 : fullWidthRows >= 3 ? 1 : 0)
     - (agendaRows >= 2 ? 2 : 0)
     - (leftRailRows >= 3 || rightRailRows >= 3 ? 2 : 0)
@@ -3029,9 +3045,12 @@ function inferRasterSemanticSignals(args: {
     + (args.topQuietRatio >= 0.58 ? 1 : 0)
     + (args.averageLuminance >= 150 ? 1 : 0)
     + (cardGridRows <= 1 ? 1 : 0)
+    + (args.warmAccentShare >= 0.14 ? 4 : args.warmAccentShare >= 0.08 ? 3 : args.warmAccentShare >= 0.04 ? 1 : 0)
+    - (args.warmAccentShare <= 0.02 ? 3 : args.warmAccentShare <= 0.04 ? 1 : 0)
   );
 
   return {
+    warmAccentShare: Number(args.warmAccentShare.toFixed(3)),
     occupiedRegions,
     onboardingScore,
     paywallScore,
@@ -3077,6 +3096,7 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
     let focusWeightTotal = 0;
     let luminanceTotal = 0;
     let luminanceSamples = 0;
+    let warmAccentSamples = 0;
 
     const luminanceAt = (x: number, y: number): number => {
       const index = (y * decoded.width + x) * 4;
@@ -3100,6 +3120,12 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
         const qB = quantizeColor(b);
         const colorKey = `${qR}-${qG}-${qB}`;
         const saturation = colorSaturation(r, g, b);
+        const isWarmAccent = saturation >= 0.22
+          && r >= 170
+          && g >= 100
+          && b <= 150
+          && r > b + 35;
+        if (isWarmAccent) warmAccentSamples += 1;
         const existing = colorCounts.get(colorKey);
         colorCounts.set(colorKey, {
           count: (existing?.count ?? 0) + 1,
@@ -3211,6 +3237,7 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
       .filter((value, index, list) => list.indexOf(value) === index)
       .slice(0, 3);
     const averageLuminance = luminanceTotal / Math.max(luminanceSamples, 1);
+    const warmAccentShare = warmAccentSamples / Math.max(luminanceSamples, 1);
     const semanticSignals = inferRasterSemanticSignals({
       blockColumns,
       blockRows,
@@ -3220,6 +3247,7 @@ async function analyzeRasterSignals(pathValue: string): Promise<RasterSignals | 
       topQuietRatio,
       focusStrength,
       averageLuminance,
+      warmAccentShare,
     });
 
     const rowFocusWeightTotal = rowFocusScores.reduce((sum, value) => sum + value, 0);

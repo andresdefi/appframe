@@ -282,6 +282,12 @@ export interface AutopilotPlanVariant {
   style: string;
   recipe: string;
   strategy: string;
+  artDirection?: {
+    surfaceStyle?: string;
+    fontFamily?: string;
+    deviceLayout?: string;
+    textPlacement?: string;
+  };
   frameStrategy?: {
     defaultTreatment: string;
     framelessAllowedWhen: string[];
@@ -368,6 +374,10 @@ export interface AutopilotPanoramicReviewControls {
   pacing?: 'calmer' | 'bolder' | null;
   proofDensity?: 'lighter' | 'heavier' | null;
   decorativeIntensity?: 'quieter' | 'bolder' | null;
+  surfaceStyle?: 'clean' | 'editorial' | 'bold' | 'branded' | 'playful' | 'glow' | null;
+  fontFamily?: 'inter' | 'space-grotesk' | 'plus-jakarta-sans' | 'playfair-display' | 'dm-sans' | null;
+  deviceLayout?: 'staggered' | 'poster' | 'split' | null;
+  textPlacement?: 'top-left' | 'top-center' | 'mid-left' | null;
 }
 
 export type AutopilotReviewControls = Record<string, AutopilotPanoramicReviewControls | undefined>;
@@ -676,6 +686,39 @@ function normalizeAutopilotPanoramicReviewControlsEntry(
   }
   if (controls.decorativeIntensity === 'quieter' || controls.decorativeIntensity === 'bolder') {
     normalized.decorativeIntensity = controls.decorativeIntensity;
+  }
+  if (
+    controls.surfaceStyle === 'clean'
+    || controls.surfaceStyle === 'editorial'
+    || controls.surfaceStyle === 'bold'
+    || controls.surfaceStyle === 'branded'
+    || controls.surfaceStyle === 'playful'
+    || controls.surfaceStyle === 'glow'
+  ) {
+    normalized.surfaceStyle = controls.surfaceStyle;
+  }
+  if (
+    controls.fontFamily === 'inter'
+    || controls.fontFamily === 'space-grotesk'
+    || controls.fontFamily === 'plus-jakarta-sans'
+    || controls.fontFamily === 'playfair-display'
+    || controls.fontFamily === 'dm-sans'
+  ) {
+    normalized.fontFamily = controls.fontFamily;
+  }
+  if (
+    controls.deviceLayout === 'staggered'
+    || controls.deviceLayout === 'poster'
+    || controls.deviceLayout === 'split'
+  ) {
+    normalized.deviceLayout = controls.deviceLayout;
+  }
+  if (
+    controls.textPlacement === 'top-left'
+    || controls.textPlacement === 'top-center'
+    || controls.textPlacement === 'mid-left'
+  ) {
+    normalized.textPlacement = controls.textPlacement;
   }
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }

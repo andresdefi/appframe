@@ -514,6 +514,10 @@ describe('preview session refinement round-trips', () => {
       pacing: 'calmer',
       proofDensity: 'heavier',
       decorativeIntensity: 'quieter',
+      surfaceStyle: 'glow',
+      fontFamily: 'playfair-display',
+      deviceLayout: 'poster',
+      textPlacement: 'top-center',
     });
 
     const state = usePreviewStore.getState();
@@ -524,6 +528,10 @@ describe('preview session refinement round-trips', () => {
       pacing: 'calmer',
       proofDensity: 'heavier',
       decorativeIntensity: 'quieter',
+      surfaceStyle: 'glow',
+      fontFamily: 'playfair-display',
+      deviceLayout: 'poster',
+      textPlacement: 'top-center',
     });
 
     const payload = buildSessionSavePayload({
@@ -553,6 +561,10 @@ describe('preview session refinement round-trips', () => {
         pacing: 'calmer',
         proofDensity: 'heavier',
         decorativeIntensity: 'quieter',
+        surfaceStyle: 'glow',
+        fontFamily: 'playfair-display',
+        deviceLayout: 'poster',
+        textPlacement: 'top-center',
       },
     });
 
@@ -565,6 +577,10 @@ describe('preview session refinement round-trips', () => {
       pacing: 'calmer',
       proofDensity: 'heavier',
       decorativeIntensity: 'quieter',
+      surfaceStyle: 'glow',
+      fontFamily: 'playfair-display',
+      deviceLayout: 'poster',
+      textPlacement: 'top-center',
     });
   });
 

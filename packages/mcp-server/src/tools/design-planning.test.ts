@@ -517,6 +517,10 @@ describe('design planning helpers', () => {
           recipe: 'cinematic-panorama',
           continuityMotif: 'poster-anchor',
           supportSystem: 'curation-shelf',
+          surfaceStyle: 'glow',
+          fontFamily: 'playfair-display',
+          deviceLayout: 'poster',
+          textPlacement: 'top-center',
         },
       },
     });
@@ -526,12 +530,20 @@ describe('design planning helpers', () => {
     if (conceptC?.mode === 'panoramic') {
       expect(conceptC.recipe).toBe('cinematic-panorama');
       expect(conceptC.style).toBe('branded');
+      expect(conceptC.artDirection).toEqual({
+        surfaceStyle: 'glow',
+        fontFamily: 'playfair-display',
+        deviceLayout: 'poster',
+        textPlacement: 'top-center',
+      });
       expect(conceptC.canvasPlan.requiredElements.some((element) => element.type === 'badge')).toBe(true);
       expect(conceptC.frames?.every((frame) => frame.continuityMotif === 'poster-anchor')).toBe(true);
       expect(conceptC.frames?.every((frame) => frame.supportSystem === 'curation-shelf')).toBe(true);
       expect(conceptC.frames?.[0]?.layoutArchetype).toContain('cinematic');
       expect(conceptC.frames?.[0]?.transitionIntent).toContain('curation shelf');
       expect(conceptC.frames?.[0]?.continuityRule).toContain('poster-like anchor');
+      expect(conceptC.frames?.[0]?.compositionNote).toContain('Playfair Display');
+      expect(conceptC.frames?.[0]?.compositionNote).toContain('headline block');
     }
   });
 

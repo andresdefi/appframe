@@ -100,6 +100,35 @@ const PANORAMIC_DECORATIVE_INTENSITY_OPTIONS = [
   'bolder',
 ] as const;
 
+const PANORAMIC_SURFACE_STYLE_OPTIONS = [
+  'clean',
+  'editorial',
+  'bold',
+  'branded',
+  'playful',
+  'glow',
+] as const;
+
+const PANORAMIC_FONT_FAMILY_OPTIONS = [
+  'inter',
+  'space-grotesk',
+  'plus-jakarta-sans',
+  'playfair-display',
+  'dm-sans',
+] as const;
+
+const PANORAMIC_DEVICE_LAYOUT_OPTIONS = [
+  'staggered',
+  'poster',
+  'split',
+] as const;
+
+const PANORAMIC_TEXT_PLACEMENT_OPTIONS = [
+  'top-left',
+  'top-center',
+  'mid-left',
+] as const;
+
 function formatCopySlot(slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary'): string {
   switch (slot) {
     case 'hero':
@@ -236,6 +265,10 @@ function summarizePanoramicReviewControls(
     controls.pacing ? `pace ${formatSlugLabel(controls.pacing)}` : null,
     controls.proofDensity ? `proof ${formatSlugLabel(controls.proofDensity)}` : null,
     controls.decorativeIntensity ? `decor ${formatSlugLabel(controls.decorativeIntensity)}` : null,
+    controls.surfaceStyle ? `surface ${formatSlugLabel(controls.surfaceStyle)}` : null,
+    controls.fontFamily ? `font ${formatSlugLabel(controls.fontFamily)}` : null,
+    controls.deviceLayout ? `devices ${formatSlugLabel(controls.deviceLayout)}` : null,
+    controls.textPlacement ? `text ${formatSlugLabel(controls.textPlacement)}` : null,
   ].filter((value): value is string => value !== null);
   return parts.length > 0 ? parts.join(' · ') : null;
 }
@@ -1109,13 +1142,23 @@ export function VariantsTab() {
                     <div className="text-text">{activePlanVariant.name}</div>
                     <div>{activePlanVariant.recipe} · {activePlanVariant.style}</div>
                     <div className="mt-1">{activePlanVariant.strategy}</div>
+                    {activePlanVariant.artDirection ? (
+                      <div className="mt-1">
+                        {[
+                          activePlanVariant.artDirection.surfaceStyle ? `surface ${formatSlugLabel(activePlanVariant.artDirection.surfaceStyle)}` : null,
+                          activePlanVariant.artDirection.fontFamily ? `font ${formatSlugLabel(activePlanVariant.artDirection.fontFamily)}` : null,
+                          activePlanVariant.artDirection.deviceLayout ? `devices ${formatSlugLabel(activePlanVariant.artDirection.deviceLayout)}` : null,
+                          activePlanVariant.artDirection.textPlacement ? `text ${formatSlugLabel(activePlanVariant.artDirection.textPlacement)}` : null,
+                        ].filter((value): value is string => value !== null).join(' · ')}
+                      </div>
+                    ) : null}
                   </div>
 
                   {sessionBacked && activePlanVariant.mode === 'panoramic' && activeVariantId ? (
                     <div className="rounded-md border border-border bg-surface px-2.5 py-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
-                          Recipe Controls
+                          Art Direction Controls
                         </div>
                         {activePanoramicReviewControlSummary ? (
                           <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] text-text-dim">
@@ -1123,7 +1166,7 @@ export function VariantsTab() {
                           </span>
                         ) : null}
                       </div>
-                      <div className="mt-2 grid gap-2 md:grid-cols-3">
+                      <div className="mt-2 grid gap-2 md:grid-cols-4">
                         <label className="space-y-1">
                           <div className="text-[10px] text-text-dim">Recipe</div>
                           <select
@@ -1244,11 +1287,91 @@ export function VariantsTab() {
                             ))}
                           </select>
                         </label>
+                        <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Surface Style</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.surfaceStyle)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                surfaceStyle: value.length > 0 ? value as AutopilotPanoramicReviewControls['surfaceStyle'] : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto surface</option>
+                            {PANORAMIC_SURFACE_STYLE_OPTIONS.map((surfaceStyle) => (
+                              <option key={surfaceStyle} value={surfaceStyle}>
+                                {formatSlugLabel(surfaceStyle)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Font Family</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.fontFamily)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                fontFamily: value.length > 0 ? value as AutopilotPanoramicReviewControls['fontFamily'] : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto font</option>
+                            {PANORAMIC_FONT_FAMILY_OPTIONS.map((fontFamily) => (
+                              <option key={fontFamily} value={fontFamily}>
+                                {formatSlugLabel(fontFamily)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Device Layout</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.deviceLayout)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                deviceLayout: value.length > 0 ? value as AutopilotPanoramicReviewControls['deviceLayout'] : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto devices</option>
+                            {PANORAMIC_DEVICE_LAYOUT_OPTIONS.map((deviceLayout) => (
+                              <option key={deviceLayout} value={deviceLayout}>
+                                {formatSlugLabel(deviceLayout)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Text Placement</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.textPlacement)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                textPlacement: value.length > 0 ? value as AutopilotPanoramicReviewControls['textPlacement'] : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto text</option>
+                            {PANORAMIC_TEXT_PLACEMENT_OPTIONS.map((textPlacement) => (
+                              <option key={textPlacement} value={textPlacement}>
+                                {formatSlugLabel(textPlacement)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                       </div>
                       <div className="mt-2 text-[10px] text-text-dim">
                         {hasActivePanoramicReviewControls
-                          ? 'These saved overrides will be reapplied during reviewed rebuilds for this concept, including pacing, proof weight, and decorative restraint.'
-                          : 'Adjust these controls, save the session, then rebuild or rescore to materialize deterministic panoramic overrides.'}
+                          ? 'These saved overrides will be reapplied during reviewed rebuilds for this concept, including surface treatment, typography, device posture, text placement, pacing, proof weight, and decorative restraint.'
+                          : 'Adjust these controls, save the session, then rebuild or rescore to materialize deterministic panoramic art direction overrides.'}
                       </div>
                       {sessionBacked && hasActivePanoramicReviewControls ? (
                         <div className="mt-2 flex flex-wrap gap-2">

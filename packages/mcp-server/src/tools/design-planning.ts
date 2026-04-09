@@ -78,6 +78,21 @@ export type PanoramicReviewControlContinuityMotif = PanoramicContinuityMotif;
 export type PanoramicReviewControlPacing = 'calmer' | 'bolder';
 export type PanoramicReviewControlProofDensity = 'lighter' | 'heavier';
 export type PanoramicReviewControlDecorativeIntensity = 'quieter' | 'bolder';
+export type PanoramicReviewControlSurfaceStyle =
+  | 'clean'
+  | 'editorial'
+  | 'bold'
+  | 'branded'
+  | 'playful'
+  | 'glow';
+export type PanoramicReviewControlFontFamily =
+  | 'inter'
+  | 'space-grotesk'
+  | 'plus-jakarta-sans'
+  | 'playfair-display'
+  | 'dm-sans';
+export type PanoramicReviewControlDeviceLayout = 'staggered' | 'poster' | 'split';
+export type PanoramicReviewControlTextPlacement = 'top-left' | 'top-center' | 'mid-left';
 export interface PanoramicVariantReviewControls {
   recipe?: string | null;
   continuityMotif?: PanoramicReviewControlContinuityMotif | null;
@@ -85,6 +100,10 @@ export interface PanoramicVariantReviewControls {
   pacing?: PanoramicReviewControlPacing | null;
   proofDensity?: PanoramicReviewControlProofDensity | null;
   decorativeIntensity?: PanoramicReviewControlDecorativeIntensity | null;
+  surfaceStyle?: PanoramicReviewControlSurfaceStyle | null;
+  fontFamily?: PanoramicReviewControlFontFamily | null;
+  deviceLayout?: PanoramicReviewControlDeviceLayout | null;
+  textPlacement?: PanoramicReviewControlTextPlacement | null;
 }
 
 export interface SafeTextZone {
@@ -284,6 +303,13 @@ export interface PlannedPanoramicCanvasPlan {
   }>;
 }
 
+export interface PlannedPanoramicArtDirection {
+  surfaceStyle?: PanoramicReviewControlSurfaceStyle;
+  fontFamily?: PanoramicReviewControlFontFamily;
+  deviceLayout?: PanoramicReviewControlDeviceLayout;
+  textPlacement?: PanoramicReviewControlTextPlacement;
+}
+
 export interface PlannedIndividualVariant {
   id: string;
   name: string;
@@ -306,6 +332,7 @@ export interface PlannedPanoramicVariant {
   strategy: string;
   frameStrategy?: PlannedFrameStrategy;
   canvasPlan: PlannedPanoramicCanvasPlan;
+  artDirection?: PlannedPanoramicArtDirection;
   frames?: PlannedPanoramicFrame[];
 }
 
@@ -5132,6 +5159,10 @@ function buildPanoramicReviewControlNote(args: {
   pacing?: PanoramicReviewControlPacing | null;
   proofDensity?: PanoramicReviewControlProofDensity | null;
   decorativeIntensity?: PanoramicReviewControlDecorativeIntensity | null;
+  surfaceStyle?: PanoramicReviewControlSurfaceStyle | null;
+  fontFamily?: PanoramicReviewControlFontFamily | null;
+  deviceLayout?: PanoramicReviewControlDeviceLayout | null;
+  textPlacement?: PanoramicReviewControlTextPlacement | null;
 }): string | null {
   const parts: string[] = [];
 
@@ -5151,6 +5182,44 @@ function buildPanoramicReviewControlNote(args: {
     parts.push('Keep decorative intensity restrained so the strip stays cleaner.');
   } else if (args.decorativeIntensity === 'bolder') {
     parts.push('Let decorative intensity rise so the strip feels more atmospheric and intentional.');
+  }
+
+  if (args.surfaceStyle === 'editorial') {
+    parts.push('Bias the surface treatment toward warm editorial grounds instead of one generic backdrop.');
+  } else if (args.surfaceStyle === 'clean') {
+    parts.push('Keep the surface treatment cleaner and brighter so the strip feels less samey and more product-led.');
+  } else if (args.surfaceStyle === 'bold') {
+    parts.push('Push the surface treatment darker and higher-contrast so the concept feels more cinematic.');
+  } else if (args.surfaceStyle === 'branded') {
+    parts.push('Use a warmer branded surface treatment so the background carries more personality.');
+  } else if (args.surfaceStyle === 'playful') {
+    parts.push('Use a lighter playful surface treatment so the strip does not stay stuck in the same polished mood.');
+  } else if (args.surfaceStyle === 'glow') {
+    parts.push('Lean into a glow-led surface treatment so the strip feels more atmospheric than flat.');
+  }
+
+  if (args.fontFamily === 'playfair-display') {
+    parts.push('Use Playfair Display for a more editorial headline voice.');
+  } else if (args.fontFamily === 'space-grotesk') {
+    parts.push('Use Space Grotesk so the headlines feel sharper and less default.');
+  } else if (args.fontFamily === 'plus-jakarta-sans') {
+    parts.push('Use Plus Jakarta Sans for a cleaner contemporary headline voice.');
+  } else if (args.fontFamily === 'dm-sans') {
+    parts.push('Use DM Sans so the typography feels softer and less mechanical.');
+  }
+
+  if (args.deviceLayout === 'poster') {
+    parts.push('Favor poster-led device posture instead of repeating the same centered hardware silhouette.');
+  } else if (args.deviceLayout === 'split') {
+    parts.push('Bias the device layout toward split-rail framing so hardware and copy stop landing in the same arrangement.');
+  } else if (args.deviceLayout === 'staggered') {
+    parts.push('Stagger device posture across frames so the strip breaks out of one repeated layout.');
+  }
+
+  if (args.textPlacement === 'top-center') {
+    parts.push('Center the headline block higher in each frame so copy does not stay locked to the same left rail.');
+  } else if (args.textPlacement === 'mid-left') {
+    parts.push('Drop the headline block lower on the left so text rhythm changes across concepts.');
   }
 
   return parts.length > 0 ? parts.join(' ') : null;
@@ -6060,6 +6129,39 @@ function normalizePanoramicVariantReviewControls(
   if (controls.decorativeIntensity === 'quieter' || controls.decorativeIntensity === 'bolder') {
     normalized.decorativeIntensity = controls.decorativeIntensity;
   }
+  if (
+    controls.surfaceStyle === 'clean'
+    || controls.surfaceStyle === 'editorial'
+    || controls.surfaceStyle === 'bold'
+    || controls.surfaceStyle === 'branded'
+    || controls.surfaceStyle === 'playful'
+    || controls.surfaceStyle === 'glow'
+  ) {
+    normalized.surfaceStyle = controls.surfaceStyle;
+  }
+  if (
+    controls.fontFamily === 'inter'
+    || controls.fontFamily === 'space-grotesk'
+    || controls.fontFamily === 'plus-jakarta-sans'
+    || controls.fontFamily === 'playfair-display'
+    || controls.fontFamily === 'dm-sans'
+  ) {
+    normalized.fontFamily = controls.fontFamily;
+  }
+  if (
+    controls.deviceLayout === 'staggered'
+    || controls.deviceLayout === 'poster'
+    || controls.deviceLayout === 'split'
+  ) {
+    normalized.deviceLayout = controls.deviceLayout;
+  }
+  if (
+    controls.textPlacement === 'top-left'
+    || controls.textPlacement === 'top-center'
+    || controls.textPlacement === 'mid-left'
+  ) {
+    normalized.textPlacement = controls.textPlacement;
+  }
   return Object.keys(normalized).length > 0 ? normalized : null;
 }
 
@@ -6073,6 +6175,12 @@ function applyPanoramicVariantReviewControls(args: {
   if (!reviewControls || !args.variant.frames?.length) return args.variant;
 
   const recipe = reviewControls.recipe ?? args.variant.recipe;
+  const artDirection = {
+    ...(reviewControls.surfaceStyle ? { surfaceStyle: reviewControls.surfaceStyle } : {}),
+    ...(reviewControls.fontFamily ? { fontFamily: reviewControls.fontFamily } : {}),
+    ...(reviewControls.deviceLayout ? { deviceLayout: reviewControls.deviceLayout } : {}),
+    ...(reviewControls.textPlacement ? { textPlacement: reviewControls.textPlacement } : {}),
+  };
   const frames = args.variant.frames.map((frame, index, allFrames) => {
     const analysis = args.analysisByPath.get(frame.sourcePath);
     if (!analysis) return frame;
@@ -6187,6 +6295,10 @@ function applyPanoramicVariantReviewControls(args: {
           pacing: reviewControls.pacing,
           proofDensity: reviewControls.proofDensity,
           decorativeIntensity: reviewControls.decorativeIntensity,
+          surfaceStyle: reviewControls.surfaceStyle,
+          fontFamily: reviewControls.fontFamily,
+          deviceLayout: reviewControls.deviceLayout,
+          textPlacement: reviewControls.textPlacement,
         }),
       ].filter((value): value is string => Boolean(value)).join(' '),
     };
@@ -6205,6 +6317,7 @@ function applyPanoramicVariantReviewControls(args: {
             : defaultBoldElements(),
         }
       : args.variant.canvasPlan,
+    artDirection: Object.keys(artDirection).length > 0 ? artDirection : args.variant.artDirection,
     frames,
   };
 }

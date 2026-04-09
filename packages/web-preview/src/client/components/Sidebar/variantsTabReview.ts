@@ -15,6 +15,10 @@ export function countReviewedPanoramicControlVariants(controls: AutopilotReviewC
         || hasPanoramicReviewControlValue(entry.pacing)
         || hasPanoramicReviewControlValue(entry.proofDensity)
         || hasPanoramicReviewControlValue(entry.decorativeIntensity)
+        || hasPanoramicReviewControlValue(entry.surfaceStyle)
+        || hasPanoramicReviewControlValue(entry.fontFamily)
+        || hasPanoramicReviewControlValue(entry.deviceLayout)
+        || hasPanoramicReviewControlValue(entry.textPlacement)
       ),
     )).length;
 }

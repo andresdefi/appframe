@@ -17,7 +17,7 @@ describe('variantsTabReview helpers', () => {
         supportSystem: '',
       },
       'concept-e': {
-        pacing: 'calmer',
+        surfaceStyle: 'glow',
       },
       'concept-f': undefined,
     })).toBe(2);

@@ -189,6 +189,133 @@ describe('plan materializer', () => {
     expect(manifest.variants).toHaveLength(3);
   });
 
+  it('materializes panoramic art-direction overrides into theme, text, and device posture', async () => {
+    const assetsDir = await makeTempDir('appframe-materializer-art-direction-assets-');
+    const outputDir = await makeTempDir('appframe-materializer-art-direction-output-');
+
+    const heroPath = await makePngFile(assetsDir, 'hero-screen.png', 120, 200, (x, y) => {
+      if (y < 40) return [248, 250, 252, 255];
+      if (x > 28 && x < 88 && y > 58 && y < 180) return [59, 130, 246, 255];
+      return [15, 23, 42, 255];
+    });
+    const closePath = await makePngFile(assetsDir, 'close-screen.png', 120, 200, (x, y) => {
+      if (x > 22 && x < 100 && y > 52 && y < 178) return [244, 114, 182, 255];
+      return [241, 245, 249, 255];
+    });
+
+    const plan: VariantSetPlan = {
+      app: {
+        name: 'FocusFlow',
+        description: 'Task planning with calmer momentum.',
+        category: 'productivity',
+        platforms: ['ios'],
+      },
+      goals: ['Feel premium'],
+      analysisSummary: {
+        screenshotCount: 2,
+        selectedCount: 2,
+        roles: { home: 1, detail: 1 },
+        topHeroCandidate: heroPath,
+        topHeroExplanation: ['Clear opener screen'],
+      },
+      selectedScreens: [
+        {
+          path: heroPath,
+          role: 'home',
+          heroPriority: 94,
+          inferredOrder: 1,
+          focus: 'Task overview',
+          unsafeForTextOverlay: false,
+        },
+        {
+          path: closePath,
+          role: 'detail',
+          heroPriority: 78,
+          inferredOrder: 2,
+          focus: 'Proof close',
+          unsafeForTextOverlay: false,
+        },
+      ],
+      variants: [
+        {
+          id: 'concept-c',
+          name: 'Glow Editorial',
+          currentCapabilityFit: 'supported_now',
+          mode: 'panoramic',
+          style: 'editorial',
+          recipe: 'workflow-panorama',
+          strategy: 'Push art direction further than the default editorial strip.',
+          canvasPlan: {
+            frameCount: 2,
+            designGoal: 'Use broader art direction variety.',
+            requiredElements: [
+              { type: 'text', purpose: 'headline continuity' },
+              { type: 'device', purpose: 'product proof' },
+            ],
+          },
+          artDirection: {
+            surfaceStyle: 'glow',
+            fontFamily: 'playfair-display',
+            deviceLayout: 'poster',
+            textPlacement: 'top-center',
+          },
+          frames: [
+            {
+              frame: 1,
+              sourcePath: heroPath,
+              sourceRole: 'home',
+              cropSuitability: 'high',
+              storyBeat: 'hero',
+              rhythmRole: 'open',
+              layoutArchetype: 'text-rail-opener',
+              continuityMotif: 'text-rail',
+              supportSystem: 'metric-ladder',
+              cropPlan: {
+                usage: 'full-device',
+                anchor: 'focal-point',
+                avoidRegions: [],
+                rationale: 'Keep the opener readable.',
+              },
+            },
+            {
+              frame: 2,
+              sourcePath: closePath,
+              sourceRole: 'detail',
+              cropSuitability: 'high',
+              storyBeat: 'summary',
+              rhythmRole: 'resolve',
+              layoutArchetype: 'control-close',
+              continuityMotif: 'proof-lane',
+              supportSystem: 'proof-column',
+              cropPlan: {
+                usage: 'full-device',
+                anchor: 'focal-point',
+                avoidRegions: [],
+                rationale: 'Land on proof.',
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = await materializeVariantPlan({ plan, outputDir });
+    const panoramicConfigPath = result.variants.find((variant) => variant.id === 'concept-c')?.configPath;
+    expect(panoramicConfigPath).toBeTruthy();
+
+    const panoramic = parse((await readFile(panoramicConfigPath!, 'utf8')).replace(/^#.*\n/, ''));
+    expect(panoramic.theme.style).toBe('glow');
+    expect(panoramic.theme.font).toBe('playfair-display');
+    expect(panoramic.panoramic.background.color).toBe('#090B13');
+
+    const firstText = panoramic.panoramic.elements.find((element: { type: string }) => element.type === 'text');
+    expect(firstText?.textAlign).toBe('center');
+    expect(firstText?.x).toBeLessThan(4);
+
+    const firstDevice = panoramic.panoramic.elements.find((element: { type: string }) => element.type === 'device');
+    expect(Math.abs(firstDevice?.rotation ?? 0)).toBeLessThanOrEqual(1.5);
+  });
+
   it('materializes crop and frame guidance into the generated configs', async () => {
     const assetsDir = await makeTempDir('appframe-materializer-guidance-assets-');
     const outputDir = await makeTempDir('appframe-materializer-guidance-output-');

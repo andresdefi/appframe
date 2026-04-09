@@ -488,7 +488,8 @@ function panoramicTextPlacement(args: {
   frameSliceStart: number;
   sliceWidth: number;
   frameStrategy: PlannedFrameStrategy | undefined;
-}): { x: number; maxWidth: number; fontSize: number } {
+  textPlacement?: PlannedPanoramicVariant['artDirection'] extends { textPlacement?: infer T } ? T : string;
+}): { x: number; maxWidth: number; fontSize: number; textAlign: 'left' | 'center' } {
   const recipeFamily = panoramicRecipeFamily(args.recipe);
   const recipeArchetype = panoramicRecipeArchetype(args.recipe);
   let x = args.frameSliceStart + 4;
@@ -598,11 +599,20 @@ function panoramicTextPlacement(args: {
   } else if (recipeArchetype === 'gallery' || recipeArchetype === 'world') {
     fontSize += 0.06;
   }
+  let textAlign: 'left' | 'center' = 'left';
+  if (args.textPlacement === 'top-center') {
+    x = args.frameSliceStart + 2.5;
+    maxWidth = Math.max(12, Math.floor(args.sliceWidth) - 5);
+    textAlign = 'center';
+  } else if (args.textPlacement === 'mid-left') {
+    fontSize += 0.04;
+  }
 
   return {
     x,
     maxWidth: Math.max(10, maxWidth),
     fontSize: Math.max(3.05, fontSize),
+    textAlign,
   };
 }
 
@@ -744,6 +754,17 @@ function normalizeStyle(style: string): TemplateStyle {
     'fullscreen',
   ];
   return allowed.includes(style as TemplateStyle) ? (style as TemplateStyle) : 'minimal';
+}
+
+function resolvePanoramicSurfaceStyle(variant: Extract<PlannedVariant, { mode: 'panoramic' }>): TemplateStyle {
+  return normalizeStyle(variant.artDirection?.surfaceStyle ?? variant.style);
+}
+
+function resolvePanoramicFontFamily(
+  variant: Extract<PlannedVariant, { mode: 'panoramic' }>,
+  fallback?: string,
+): string {
+  return variant.artDirection?.fontFamily ?? fallback ?? 'inter';
 }
 
 function storyBeatTitle(storyBeat: string): string {
@@ -3082,7 +3103,11 @@ function buildPanoramicDecorativeGroup(args: {
   };
 }
 
-function panoramicTextY(frame: PlannedPanoramicFrame, recipe: PlannedPanoramicVariant['recipe']): number {
+function panoramicTextY(
+  frame: PlannedPanoramicFrame,
+  recipe: PlannedPanoramicVariant['recipe'],
+  textPlacement?: PlannedPanoramicVariant['artDirection'] extends { textPlacement?: infer T } ? T : string,
+): number {
   const boldRecipe = isBoldPanoramaRecipe(recipe);
   const recipeArchetype = panoramicRecipeArchetype(recipe);
   if (hasCompositionFeature(frame, 'toolbar-ribbon')) {
@@ -3106,14 +3131,19 @@ function panoramicTextY(frame: PlannedPanoramicFrame, recipe: PlannedPanoramicVa
   if (frame.continuityMotif === 'text-rail') return boldRecipe ? 11.5 : 10.5;
   if (frame.layoutArchetype?.includes('close')) return boldRecipe ? 14 : 11;
   if (frame.layoutArchetype?.includes('split') || frame.layoutArchetype?.includes('text-rail')) {
-    return boldRecipe ? 12 : 10;
+    return textPlacement === 'mid-left' ? (boldRecipe ? 19 : 16) : (boldRecipe ? 12 : 10);
   }
   if (recipeArchetype === 'gallery' || recipeArchetype === 'world') return boldRecipe ? 7 : 6.5;
+  if (textPlacement === 'mid-left') return boldRecipe ? 19 : 16;
   return 6;
 }
 
-function panoramicLabelY(frame: PlannedPanoramicFrame, recipe: PlannedPanoramicVariant['recipe']): number {
-  return panoramicTextY(frame, recipe) + (isBoldPanoramaRecipe(recipe) ? 13 : 11);
+function panoramicLabelY(
+  frame: PlannedPanoramicFrame,
+  recipe: PlannedPanoramicVariant['recipe'],
+  textPlacement?: PlannedPanoramicVariant['artDirection'] extends { textPlacement?: infer T } ? T : string,
+): number {
+  return panoramicTextY(frame, recipe, textPlacement) + (isBoldPanoramaRecipe(recipe) ? 13 : 11);
 }
 
 function panoramicProofChipY(
@@ -3187,6 +3217,7 @@ function panoramicDevicePlacement(
   frameCenter: number,
   recipe: PlannedPanoramicVariant['recipe'],
   frameStrategy: PlannedFrameStrategy | undefined,
+  deviceLayout?: PlannedPanoramicVariant['artDirection'] extends { deviceLayout?: infer T } ? T : string,
 ): { x: number; y: number; width: number; rotation: number } {
   const recipeArchetype = panoramicRecipeArchetype(recipe);
   const extractDriven = frameStrategy?.defaultTreatment === 'mixed' && frame.cropPlan?.usage !== 'full-device';
@@ -3264,6 +3295,19 @@ function panoramicDevicePlacement(
     rotation = rotation > 0 ? rotation - 0.5 : rotation + 0.5;
   } else if (frame.rhythmRole === 'open' && frame.continuityMotif === 'poster-anchor') {
     width += 0.4;
+  }
+
+  if (deviceLayout === 'poster') {
+    x = frameCenter - 7.6;
+    width += 0.5;
+    rotation = rotation >= 0 ? 1.5 : -1.5;
+  } else if (deviceLayout === 'split') {
+    x = frameCenter + 1.2;
+    width = Math.max(11.6, width - 0.7);
+    rotation = index % 2 === 0 ? 3.5 : -3.5;
+  } else if (deviceLayout === 'staggered') {
+    x += index % 2 === 0 ? -1.2 : 1.2;
+    rotation = index % 2 === 0 ? -4.5 : 4.5;
   }
 
   return {
@@ -3423,6 +3467,7 @@ function buildPanoramicElements(args: {
       frameCenter,
       args.variant.recipe,
       args.variant.frameStrategy,
+      args.variant.artDirection?.deviceLayout,
     );
     const deviceTreatment = panoramicDeviceTreatment(
       frame,
@@ -3435,9 +3480,10 @@ function buildPanoramicElements(args: {
       frameSliceStart,
       sliceWidth,
       frameStrategy: args.variant.frameStrategy,
+      textPlacement: args.variant.artDirection?.textPlacement,
     });
-    const textY = panoramicTextY(frame, args.variant.recipe);
-    const labelY = panoramicLabelY(frame, args.variant.recipe);
+    const textY = panoramicTextY(frame, args.variant.recipe, args.variant.artDirection?.textPlacement);
+    const labelY = panoramicLabelY(frame, args.variant.recipe, args.variant.artDirection?.textPlacement);
     const supportBody = copy?.subtitle ?? storyBeatBody(frame);
     const supportCardBackground = lightPaletteColor(frame.dominantPalette)
       ?? (boldRecipe ? '#FFFFFFF0' : '#FFFFFFF2');
@@ -3481,7 +3527,7 @@ function buildPanoramicElements(args: {
       color: args.textColor,
       fontWeight: 700,
       fontStyle: 'normal',
-      textAlign: 'left',
+      textAlign: textPlacement.textAlign,
       lineHeight: 1.1,
       maxWidth: textPlacement.maxWidth,
       letterSpacing: 0,
@@ -4776,7 +4822,7 @@ function buildPanoramicConfig(args: {
   assetImagePath?: string;
   selectedCopySet?: SelectedCopySet;
 }): AppframeConfig {
-  const style = normalizeStyle(args.variant.style);
+  const style = resolvePanoramicSurfaceStyle(args.variant);
   const colors = buildPalette(style, args.primaryColor, args.secondaryColor);
   const frameId = args.plan.app.platforms.includes('ios') ? 'iphone-17-pro' : 'generic-phone';
 
@@ -4791,7 +4837,7 @@ function buildPanoramicConfig(args: {
     theme: {
       style,
       colors,
-      font: args.font ?? 'inter',
+      font: resolvePanoramicFontFamily(args.variant, args.font),
       fontWeight: styleToFontWeight(style),
     },
     frames: {

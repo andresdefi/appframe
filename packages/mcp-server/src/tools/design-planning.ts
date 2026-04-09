@@ -1112,6 +1112,35 @@ function inferSemanticFlavorDetails(args: {
 
   if (
     !hasTextInsights
+    && best.flavor === 'commerce'
+    && signalCount === 0
+    && args.role !== 'settings'
+    && args.role !== 'paywall'
+    && rasterPriceRailRows >= 3
+    && rasterLowerCtaRows >= 1
+    && rasterInsetHelpRows <= 1
+    && rasterCardGridRows <= 1
+    && signals.settingsConflictCount === 0
+    && signals.paywallConflictCount <= 1
+    && commerceRasterScore >= supportRasterScore + 2
+    && commerceRasterScore >= securityRasterScore + 2
+    && commerceRasterScore >= rewardRasterScore + 2
+    && commerceRasterScore >= catalogRasterScore + 2
+  ) {
+    return {
+      flavor: 'commerce',
+      confidence: commerceRasterScore >= 10 ? 'high' : 'medium',
+      reason: [
+        ...reason,
+        'A summary-panel checkout card, repeated price rails, and a clear handoff CTA make the commerce structure dependable even without OCR text.',
+      ],
+      alternatives,
+      needsReview: commerceRasterScore < 10,
+    };
+  }
+
+  if (
+    !hasTextInsights
     && args.role === 'paywall'
     && (best.flavor === 'commerce' || best.flavor === 'reward')
     && signalCount <= Math.max(2, signals.paywallConflictCount)

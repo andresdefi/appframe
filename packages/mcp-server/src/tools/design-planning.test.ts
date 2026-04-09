@@ -1043,6 +1043,42 @@ describe('design planning helpers', () => {
     expect(commerceAnalysis?.semanticFlavorAlternatives?.some((entry) => entry.flavor === 'commerce')).toBe(true);
   });
 
+  it('uses stronger raster checkout structure to resolve commerce without OCR or descriptive filenames', async () => {
+    const commercePath = await makePngFile('screen-16.png', 120, 200, (x, y) => {
+      if (x > 16 && x < 104 && y > 8 && y < 24) return [203, 213, 225, 255];
+      if (x > 10 && x < 110 && y > 30 && y < 78) return [254, 215, 170, 255];
+      if (
+        ((x > 16 && x < 86) && (y > 86 && y < 102))
+        || ((x > 16 && x < 86) && (y > 108 && y < 124))
+        || ((x > 16 && x < 86) && (y > 130 && y < 146))
+        || ((x > 16 && x < 86) && (y > 152 && y < 168))
+      ) {
+        return [148, 163, 184, 255];
+      }
+      if (
+        ((x > 92 && x < 108) && (y > 86 && y < 102))
+        || ((x > 92 && x < 108) && (y > 108 && y < 124))
+        || ((x > 92 && x < 108) && (y > 130 && y < 146))
+        || ((x > 92 && x < 108) && (y > 152 && y < 168))
+      ) {
+        return [30, 64, 175, 255];
+      }
+      if (x > 24 && x < 96 && y > 170 && y < 192) return [37, 99, 235, 255];
+      return [255, 247, 237, 255];
+    });
+
+    const analysis = await analyzeScreenshotSet([
+      { path: commercePath },
+    ]);
+
+    const commerceAnalysis = analysis.find((entry) => entry.path === commercePath);
+    expect(commerceAnalysis?.role).not.toBe('settings');
+    expect(commerceAnalysis?.role).not.toBe('paywall');
+    expect(commerceAnalysis?.semanticFlavor).toBe('commerce');
+    expect(commerceAnalysis?.semanticFlavorConfidence).toBeTruthy();
+    expect(commerceAnalysis?.semanticFlavorReason?.some((line) => line.includes('summary-panel checkout card'))).toBe(true);
+  });
+
   it('keeps generic toggle rails from auto-resolving as commerce without OCR or descriptive filenames', async () => {
     const settingsPath = await makePngFile('screen-15.png', 120, 200, (x, y) => {
       if (x > 20 && x < 100 && y > 18 && y < 34) return [226, 232, 240, 255];
@@ -2299,6 +2335,80 @@ describe('design planning helpers', () => {
       expect(rewardScreen?.backgroundStrategy).toBe('perk-glow');
       expect(rewardScreen?.copyDirection).toContain('earned value, perks, or loyalty payoff');
       expect(['duo-overlap', 'fanned-cards']).toContain(rewardScreen?.composition);
+    }
+  });
+
+  it('carries raster-only checkout inference into planning reactions without descriptive filenames', async () => {
+    const commercePath = await makePngFile('screen-17.png', 120, 200, (x, y) => {
+      if (x > 16 && x < 104 && y > 8 && y < 24) return [203, 213, 225, 255];
+      if (x > 10 && x < 110 && y > 30 && y < 78) return [254, 215, 170, 255];
+      if (
+        ((x > 16 && x < 86) && (y > 86 && y < 102))
+        || ((x > 16 && x < 86) && (y > 108 && y < 124))
+        || ((x > 16 && x < 86) && (y > 130 && y < 146))
+        || ((x > 16 && x < 86) && (y > 152 && y < 168))
+      ) {
+        return [148, 163, 184, 255];
+      }
+      if (
+        ((x > 92 && x < 108) && (y > 86 && y < 102))
+        || ((x > 92 && x < 108) && (y > 108 && y < 124))
+        || ((x > 92 && x < 108) && (y > 130 && y < 146))
+        || ((x > 92 && x < 108) && (y > 152 && y < 168))
+      ) {
+        return [30, 64, 175, 255];
+      }
+      if (x > 24 && x < 96 && y > 170 && y < 192) return [37, 99, 235, 255];
+      return [255, 247, 237, 255];
+    });
+    const homePath = await makePngFile('member-home.png', 120, 200, (x, y) => {
+      if (y < 34) return [248, 250, 252, 255];
+      if ((x > 12 && x < 52 && y > 54 && y < 92)
+        || (x > 68 && x < 108 && y > 54 && y < 92)
+        || (x > 12 && x < 52 && y > 106 && y < 144)) {
+        return [59, 130, 246, 255];
+      }
+      return [226, 232, 240, 255];
+    });
+    const securityPath = await makePngFile('passkey-screen.png', 120, 200, (x, y) => {
+      if (x > 24 && x < 96 && y > 42 && y < 150) return [30, 41, 59, 255];
+      if (x > 34 && x < 86 && y > 168 && y < 188) return [59, 130, 246, 255];
+      return [15, 23, 42, 255];
+    });
+    const profilePath = await makePngFile('member-profile.png', 120, 200, (x, y) => {
+      if (y < 40) return [250, 250, 252, 255];
+      if (x > 22 && x < 98 && y > 50 && y < 106) return [244, 114, 182, 255];
+      if ((x > 16 && x < 104 && y > 122 && y < 142) || (x > 22 && x < 98 && y > 154 && y < 178)) {
+        return [226, 232, 240, 255];
+      }
+      return [255, 241, 242, 255];
+    });
+
+    const plan = await buildVariantSetPlan({
+      appName: 'MemberCart',
+      appDescription: 'A member app for secure checkout, verified sign-in, and delivery follow-through.',
+      platforms: ['ios'],
+      features: ['Order handoff', 'Secure sign-in', 'Delivery status'],
+      screenshots: [
+        { path: commercePath },
+        { path: homePath, note: 'Member home' },
+        { path: securityPath, note: 'Secure passkey login' },
+        { path: profilePath, note: 'Member profile' },
+      ],
+      goals: ['Feel trusted', 'Show completion confidence'],
+      variantCount: 4,
+      screenCount: 4,
+    });
+
+    expect(plan.selectedScreens.find((screen) => screen.path === commercePath)?.semanticFlavor).toBe('commerce');
+
+    const dynamicConcept = plan.variants[1];
+    expect(dynamicConcept?.mode).toBe('individual');
+    if (dynamicConcept?.mode === 'individual') {
+      const commerceScreen = dynamicConcept.screens.find((screen) => screen.sourcePath === commercePath);
+      expect(commerceScreen?.backgroundStrategy).toBe('checkout-lane');
+      expect(commerceScreen?.copyDirection).toContain('purchase confidence, cart momentum, or order follow-through');
+      expect(['hero-tilt', 'duo-overlap', 'fanned-cards']).toContain(commerceScreen?.composition);
     }
   });
 

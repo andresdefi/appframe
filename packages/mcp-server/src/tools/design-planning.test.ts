@@ -535,6 +535,121 @@ describe('design planning helpers', () => {
     }
   });
 
+  it('applies reviewed panoramic pacing, proof, and decorative controls deterministically during replanning', () => {
+    const analysis: ScreenshotAnalysis[] = [
+      {
+        path: '/shots/home.png',
+        basename: 'home.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'home',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 92,
+        heroExplanation: ['Clear hero candidate'],
+        inferredOrder: 1,
+        orderingConfidence: 'high',
+        orderingReason: ['Starts the story'],
+        focus: 'Overview',
+        dominantPalette: ['#F8FAFC', '#2563EB', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 24, label: 'top' }],
+        occupiedRegions: ['bottom'],
+        cropSuitability: 'high',
+        recommendedUsage: 'hero-device',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/workflow.png',
+        basename: 'workflow.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'workflow',
+        density: 'balanced',
+        textRisk: 'medium',
+        heroPriority: 80,
+        heroExplanation: ['Strong workflow follow-through'],
+        inferredOrder: 2,
+        orderingConfidence: 'medium',
+        orderingReason: ['Middle beat'],
+        focus: 'Planning flow',
+        dominantPalette: ['#F8FAFC', '#16A34A', '#0F172A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 24, label: 'top' }],
+        occupiedRegions: ['center'],
+        cropSuitability: 'high',
+        recommendedUsage: 'crop-card',
+        unsafeForTextOverlay: false,
+      },
+      {
+        path: '/shots/detail.png',
+        basename: 'detail.png',
+        format: 'png',
+        width: 1290,
+        height: 2796,
+        aspectRatio: 0.461,
+        role: 'detail',
+        semanticFlavor: 'document',
+        semanticFlavorConfidence: 'high',
+        density: 'dense',
+        textRisk: 'medium',
+        heroPriority: 70,
+        heroExplanation: ['Detailed proof screen'],
+        inferredOrder: 3,
+        orderingConfidence: 'medium',
+        orderingReason: ['Proof close'],
+        focus: 'Review state',
+        dominantPalette: ['#E2E8F0', '#0F172A', '#16A34A'],
+        safeTextZones: [{ x: 0, y: 0, width: 100, height: 18, label: 'top' }],
+        occupiedRegions: ['center', 'bottom'],
+        cropSuitability: 'high',
+        recommendedUsage: 'support-only',
+        unsafeForTextOverlay: true,
+      },
+    ];
+
+    const plan = buildVariantSetPlanFromAnalysis({
+      appName: 'FocusFlow',
+      appDescription: 'Stay on top of your routine',
+      platforms: ['ios'],
+      analysis,
+      goals: ['Feel premium'],
+      variantCount: 4,
+      screenCount: 3,
+      category: 'productivity',
+    });
+
+    const reviewedPlan = applyPanoramicReviewControlsToVariantSetPlan({
+      plan,
+      analysis,
+      reviewControls: {
+        'concept-c': {
+          recipe: 'cinematic-panorama',
+          continuityMotif: 'poster-anchor',
+          pacing: 'calmer',
+          proofDensity: 'heavier',
+          decorativeIntensity: 'quieter',
+        },
+      },
+    });
+
+    const conceptC = reviewedPlan.variants.find((variant) => variant.id === 'concept-c');
+    expect(conceptC?.mode).toBe('panoramic');
+    if (conceptC?.mode === 'panoramic') {
+      const lastFrame = conceptC.frames?.[conceptC.frames.length - 1];
+      expect(conceptC.frames?.[0]?.layoutArchetype).toBe('poster-opener');
+      expect(conceptC.frames?.[0]?.supportSystem).toBe('proof-column');
+      expect(lastFrame?.supportSystem).toBe('proof-column');
+      expect(conceptC.frames?.every((frame) => !frame.compositionFeatures?.includes('decorative-cluster'))).toBe(true);
+      expect(conceptC.frames?.every((frame) => frame.pacing?.includes('calmer spacing'))).toBe(true);
+      expect(conceptC.frames?.[0]?.compositionNote).toContain('Keep the pacing calmer');
+      expect(conceptC.frames?.[0]?.compositionNote).toContain('Increase proof density');
+      expect(conceptC.frames?.[0]?.compositionNote).toContain('Keep decorative intensity restrained');
+    }
+  });
+
   it('extends deterministic non-OCR semantic inference to workflow and discovery layouts', async () => {
     const workflowPath = await makePngFile('workflow-builder.png', 120, 200, (x, y) => {
       if (x > 18 && x < 74 && y > 10 && y < 22) return [148, 163, 184, 255];

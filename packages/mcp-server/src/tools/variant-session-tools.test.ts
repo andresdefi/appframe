@@ -852,6 +852,9 @@ describe('rebuildAutopilotSessionFromReview', () => {
             recipe: 'cinematic-panorama',
             continuityMotif: 'poster-anchor',
             supportSystem: 'curation-shelf',
+            pacing: 'calmer',
+            proofDensity: 'heavier',
+            decorativeIntensity: 'quieter',
           },
         },
         recommendedVariantId: 'concept-a',
@@ -869,6 +872,9 @@ describe('rebuildAutopilotSessionFromReview', () => {
       expect(rebuiltConceptC.style).toBe('branded');
       expect(rebuiltConceptC.frames?.every((frame) => frame.continuityMotif === 'poster-anchor')).toBe(true);
       expect(rebuiltConceptC.frames?.every((frame) => frame.supportSystem === 'curation-shelf')).toBe(true);
+      expect(rebuiltConceptC.frames?.[0]?.layoutArchetype).toBe('poster-opener');
+      expect(rebuiltConceptC.frames?.every((frame) => !frame.compositionFeatures?.includes('decorative-cluster'))).toBe(true);
+      expect(rebuiltConceptC.frames?.every((frame) => frame.pacing?.includes('calmer spacing'))).toBe(true);
     }
   });
 

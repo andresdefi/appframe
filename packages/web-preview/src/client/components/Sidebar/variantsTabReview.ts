@@ -12,6 +12,9 @@ export function countReviewedPanoramicControlVariants(controls: AutopilotReviewC
         hasPanoramicReviewControlValue(entry.recipe)
         || hasPanoramicReviewControlValue(entry.continuityMotif)
         || hasPanoramicReviewControlValue(entry.supportSystem)
+        || hasPanoramicReviewControlValue(entry.pacing)
+        || hasPanoramicReviewControlValue(entry.proofDensity)
+        || hasPanoramicReviewControlValue(entry.decorativeIntensity)
       ),
     )).length;
 }
@@ -31,13 +34,13 @@ export function describeReviewedRebuildInputs(args: {
   const hasPanoramicControls = args.reviewedPanoramicControlVariantCount > 0;
 
   if (hasSemanticOverrides && hasPanoramicControls) {
-    return 'reviewed screenshot-family state and saved panoramic recipe controls';
+    return 'reviewed screenshot-family state and saved panoramic art-direction controls';
   }
   if (hasSemanticOverrides) {
     return 'reviewed screenshot-family state';
   }
   if (hasPanoramicControls) {
-    return 'saved panoramic recipe controls';
+    return 'saved panoramic art-direction controls';
   }
   return 'reviewed session state';
 }

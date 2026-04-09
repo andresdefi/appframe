@@ -16,8 +16,11 @@ describe('variantsTabReview helpers', () => {
         continuityMotif: null,
         supportSystem: '',
       },
-      'concept-e': undefined,
-    })).toBe(1);
+      'concept-e': {
+        pacing: 'calmer',
+      },
+      'concept-f': undefined,
+    })).toBe(2);
   });
 
   it('reports whether reviewed rebuild inputs exist', () => {
@@ -39,7 +42,7 @@ describe('variantsTabReview helpers', () => {
     expect(describeReviewedRebuildInputs({
       reviewedSemanticFlavorCount: 2,
       reviewedPanoramicControlVariantCount: 1,
-    })).toBe('reviewed screenshot-family state and saved panoramic recipe controls');
+    })).toBe('reviewed screenshot-family state and saved panoramic art-direction controls');
     expect(describeReviewedRebuildInputs({
       reviewedSemanticFlavorCount: 2,
       reviewedPanoramicControlVariantCount: 0,
@@ -47,6 +50,6 @@ describe('variantsTabReview helpers', () => {
     expect(describeReviewedRebuildInputs({
       reviewedSemanticFlavorCount: 0,
       reviewedPanoramicControlVariantCount: 1,
-    })).toBe('saved panoramic recipe controls');
+    })).toBe('saved panoramic art-direction controls');
   });
 });

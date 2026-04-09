@@ -511,6 +511,9 @@ describe('preview session refinement round-trips', () => {
       recipe: 'cinematic-panorama',
       continuityMotif: 'poster-anchor',
       supportSystem: 'curation-shelf',
+      pacing: 'calmer',
+      proofDensity: 'heavier',
+      decorativeIntensity: 'quieter',
     });
 
     const state = usePreviewStore.getState();
@@ -518,6 +521,9 @@ describe('preview session refinement round-trips', () => {
       recipe: 'cinematic-panorama',
       continuityMotif: 'poster-anchor',
       supportSystem: 'curation-shelf',
+      pacing: 'calmer',
+      proofDensity: 'heavier',
+      decorativeIntensity: 'quieter',
     });
 
     const payload = buildSessionSavePayload({
@@ -544,6 +550,9 @@ describe('preview session refinement round-trips', () => {
         recipe: 'cinematic-panorama',
         continuityMotif: 'poster-anchor',
         supportSystem: 'curation-shelf',
+        pacing: 'calmer',
+        proofDensity: 'heavier',
+        decorativeIntensity: 'quieter',
       },
     });
 
@@ -553,6 +562,9 @@ describe('preview session refinement round-trips', () => {
       recipe: 'cinematic-panorama',
       continuityMotif: 'poster-anchor',
       supportSystem: 'curation-shelf',
+      pacing: 'calmer',
+      proofDensity: 'heavier',
+      decorativeIntensity: 'quieter',
     });
   });
 

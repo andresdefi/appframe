@@ -85,6 +85,21 @@ const PANORAMIC_SUPPORT_SYSTEM_OPTIONS = [
   'proof-column',
 ] as const;
 
+const PANORAMIC_PACING_OPTIONS = [
+  'calmer',
+  'bolder',
+] as const;
+
+const PANORAMIC_PROOF_DENSITY_OPTIONS = [
+  'lighter',
+  'heavier',
+] as const;
+
+const PANORAMIC_DECORATIVE_INTENSITY_OPTIONS = [
+  'quieter',
+  'bolder',
+] as const;
+
 function formatCopySlot(slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary'): string {
   switch (slot) {
     case 'hero':
@@ -218,6 +233,9 @@ function summarizePanoramicReviewControls(
     controls.recipe ? `recipe ${formatSlugLabel(controls.recipe)}` : null,
     controls.continuityMotif ? `continuity ${formatSlugLabel(controls.continuityMotif)}` : null,
     controls.supportSystem ? `support ${formatSlugLabel(controls.supportSystem)}` : null,
+    controls.pacing ? `pace ${formatSlugLabel(controls.pacing)}` : null,
+    controls.proofDensity ? `proof ${formatSlugLabel(controls.proofDensity)}` : null,
+    controls.decorativeIntensity ? `decor ${formatSlugLabel(controls.decorativeIntensity)}` : null,
   ].filter((value): value is string => value !== null);
   return parts.length > 0 ? parts.join(' · ') : null;
 }
@@ -1127,6 +1145,26 @@ export function VariantsTab() {
                           </select>
                         </label>
                         <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Pacing</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.pacing)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                pacing: value.length > 0 ? value as AutopilotPanoramicReviewControls['pacing'] : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto pacing</option>
+                            {PANORAMIC_PACING_OPTIONS.map((pacing) => (
+                              <option key={pacing} value={pacing}>
+                                {formatSlugLabel(pacing)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1">
                           <div className="text-[10px] text-text-dim">Continuity</div>
                           <select
                             className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
@@ -1166,10 +1204,50 @@ export function VariantsTab() {
                             ))}
                           </select>
                         </label>
+                        <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Proof Density</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.proofDensity)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                proofDensity: value.length > 0 ? value as AutopilotPanoramicReviewControls['proofDensity'] : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto proof</option>
+                            {PANORAMIC_PROOF_DENSITY_OPTIONS.map((density) => (
+                              <option key={density} value={density}>
+                                {formatSlugLabel(density)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1">
+                          <div className="text-[10px] text-text-dim">Decorative Intensity</div>
+                          <select
+                            className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                            value={panoramicReviewControlValue(activePanoramicReviewControls?.decorativeIntensity)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAutopilotPanoramicReviewControls(activeVariantId, {
+                                decorativeIntensity: value.length > 0 ? value as AutopilotPanoramicReviewControls['decorativeIntensity'] : null,
+                              });
+                            }}
+                          >
+                            <option value="">Auto decor</option>
+                            {PANORAMIC_DECORATIVE_INTENSITY_OPTIONS.map((intensity) => (
+                              <option key={intensity} value={intensity}>
+                                {formatSlugLabel(intensity)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                       </div>
                       <div className="mt-2 text-[10px] text-text-dim">
                         {hasActivePanoramicReviewControls
-                          ? 'These saved overrides will be reapplied during reviewed rebuilds for this concept.'
+                          ? 'These saved overrides will be reapplied during reviewed rebuilds for this concept, including pacing, proof weight, and decorative restraint.'
                           : 'Adjust these controls, save the session, then rebuild or rescore to materialize deterministic panoramic overrides.'}
                       </div>
                       {sessionBacked && hasActivePanoramicReviewControls ? (

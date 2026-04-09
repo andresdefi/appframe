@@ -9,6 +9,7 @@ import {
   panoramicContinuityMotifLabel,
   panoramicRecipeArchetype,
   panoramicRecipeFamily,
+  resolvePanoramicLayoutArchetypeForFamily,
   panoramicSupportSystemLabel,
   resolvePanoramicLayoutArchetype,
   resolvePanoramicRhythmRole,
@@ -74,10 +75,16 @@ export type PanoramicCompositionFeature =
   | 'reward-ribbon';
 export type PanoramicReviewControlSupportSystem = PanoramicSupportSystem;
 export type PanoramicReviewControlContinuityMotif = PanoramicContinuityMotif;
+export type PanoramicReviewControlPacing = 'calmer' | 'bolder';
+export type PanoramicReviewControlProofDensity = 'lighter' | 'heavier';
+export type PanoramicReviewControlDecorativeIntensity = 'quieter' | 'bolder';
 export interface PanoramicVariantReviewControls {
   recipe?: string | null;
   continuityMotif?: PanoramicReviewControlContinuityMotif | null;
   supportSystem?: PanoramicReviewControlSupportSystem | null;
+  pacing?: PanoramicReviewControlPacing | null;
+  proofDensity?: PanoramicReviewControlProofDensity | null;
+  decorativeIntensity?: PanoramicReviewControlDecorativeIntensity | null;
 }
 
 export interface SafeTextZone {
@@ -5015,6 +5022,111 @@ function buildPanoramicLayoutArchetype(args: {
   return resolvePanoramicLayoutArchetype(args);
 }
 
+function applyPanoramicPacingToLayoutArchetype(args: {
+  recipe: string;
+  storyBeat: string;
+  index: number;
+  total: number;
+  pacing?: PanoramicReviewControlPacing | null;
+}): string {
+  if (args.pacing === 'calmer') {
+    return resolvePanoramicLayoutArchetypeForFamily({
+      recipe: args.recipe,
+      family: 'editorial',
+      storyBeat: args.storyBeat,
+      index: args.index,
+      total: args.total,
+    });
+  }
+  if (args.pacing === 'bolder') {
+    return resolvePanoramicLayoutArchetypeForFamily({
+      recipe: args.recipe,
+      family: 'bold',
+      storyBeat: args.storyBeat,
+      index: args.index,
+      total: args.total,
+    });
+  }
+  return buildPanoramicLayoutArchetype(args);
+}
+
+function applyPanoramicProofDensityToSupportSystem(args: {
+  supportSystem: PanoramicSupportSystem;
+  proofDensity?: PanoramicReviewControlProofDensity | null;
+  analysis: ScreenshotAnalysis;
+  storyBeat: string;
+  rhythmRole: PanoramicRhythmRole;
+}): PanoramicSupportSystem {
+  if (!args.proofDensity) return args.supportSystem;
+
+  if (args.proofDensity === 'lighter') {
+    if (args.supportSystem === 'proof-column' || args.supportSystem === 'metric-ladder') {
+      if (args.analysis.role === 'workflow') return 'milestone-band';
+      if (args.analysis.role === 'communication') return 'signal-chain';
+      if (args.analysis.role === 'discovery') return 'curation-shelf';
+      return 'quote-stack';
+    }
+    return args.supportSystem;
+  }
+
+  if (args.supportSystem === 'proof-column' || args.supportSystem === 'metric-ladder') {
+    return args.supportSystem;
+  }
+  if (
+    args.storyBeat === 'trust'
+    || args.rhythmRole === 'resolve'
+    || args.analysis.role === 'detail'
+    || args.analysis.role === 'settings'
+  ) {
+    return 'proof-column';
+  }
+  return 'metric-ladder';
+}
+
+function applyPanoramicReviewControlsToCompositionFeatures(args: {
+  compositionFeatures: PanoramicCompositionFeature[];
+  proofDensity?: PanoramicReviewControlProofDensity | null;
+  decorativeIntensity?: PanoramicReviewControlDecorativeIntensity | null;
+}): PanoramicCompositionFeature[] {
+  const next = new Set(args.compositionFeatures);
+
+  if (args.proofDensity === 'lighter') next.delete('proof-stack');
+  if (args.proofDensity === 'heavier') next.add('proof-stack');
+
+  if (args.decorativeIntensity === 'quieter') next.delete('decorative-cluster');
+  if (args.decorativeIntensity === 'bolder') next.add('decorative-cluster');
+
+  return [...next];
+}
+
+function buildPanoramicReviewControlNote(args: {
+  pacing?: PanoramicReviewControlPacing | null;
+  proofDensity?: PanoramicReviewControlProofDensity | null;
+  decorativeIntensity?: PanoramicReviewControlDecorativeIntensity | null;
+}): string | null {
+  const parts: string[] = [];
+
+  if (args.pacing === 'calmer') {
+    parts.push('Keep the pacing calmer with more breathing room between beats.');
+  } else if (args.pacing === 'bolder') {
+    parts.push('Push the pacing harder so the seams feel more like deliberate reveals.');
+  }
+
+  if (args.proofDensity === 'lighter') {
+    parts.push('Use lighter proof density so support treatment does not crowd the frame.');
+  } else if (args.proofDensity === 'heavier') {
+    parts.push('Increase proof density so evidence lands sooner and closes harder.');
+  }
+
+  if (args.decorativeIntensity === 'quieter') {
+    parts.push('Keep decorative intensity restrained so the strip stays cleaner.');
+  } else if (args.decorativeIntensity === 'bolder') {
+    parts.push('Let decorative intensity rise so the strip feels more atmospheric and intentional.');
+  }
+
+  return parts.length > 0 ? parts.join(' ') : null;
+}
+
 function buildPanoramicContinuityRule(args: {
   recipe: string;
   rhythmRole: PanoramicRhythmRole;
@@ -5627,6 +5739,19 @@ function buildPanoramicCompositionNote(args: {
   return parts.join(' ');
 }
 
+function applyPanoramicPacingTone(
+  pacing: string,
+  reviewPacing?: PanoramicReviewControlPacing | null,
+): string {
+  if (reviewPacing === 'calmer') {
+    return `${pacing} with calmer spacing and more breathing room`;
+  }
+  if (reviewPacing === 'bolder') {
+    return `${pacing} with sharper escalation and less dead air`;
+  }
+  return pacing;
+}
+
 function buildPanoramicPacing(args: {
   recipe: string;
   analysis: ScreenshotAnalysis;
@@ -5637,107 +5762,143 @@ function buildPanoramicPacing(args: {
   index: number;
   total: number;
   layoutArchetype?: string;
+  reviewPacing?: PanoramicReviewControlPacing | null;
 }): string {
   const archetype = panoramicRecipeArchetype(args.recipe);
   const semanticFlavor = analysisSemanticFlavor(args.analysis);
+  let base: string;
 
   if (semanticFlavor === 'activity') {
     if (args.storyBeat === 'hero') {
-      return archetype === 'conversation' ? 'open with live social motion' : 'open with live momentum';
+      base = archetype === 'conversation' ? 'open with live social motion' : 'open with live momentum';
+      return applyPanoramicPacingTone(base, args.reviewPacing);
     }
     if (args.storyBeat === 'summary' || args.index === args.total - 1) {
-      return archetype === 'conversation' ? 'land on community payoff' : 'land on follow-through';
+      base = archetype === 'conversation' ? 'land on community payoff' : 'land on follow-through';
+      return applyPanoramicPacingTone(base, args.reviewPacing);
     }
-    return archetype === 'conversation' ? 'alternate social proof and response beats' : 'keep the feed cadence moving';
+    base = archetype === 'conversation' ? 'alternate social proof and response beats' : 'keep the feed cadence moving';
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
   if (semanticFlavor === 'document') {
     if (args.storyBeat === 'hero') {
-      return archetype === 'confidence' ? 'open with proof-led clarity' : 'open with focused proof';
+      base = archetype === 'confidence' ? 'open with proof-led clarity' : 'open with focused proof';
+      return applyPanoramicPacingTone(base, args.reviewPacing);
     }
     if (args.storyBeat === 'summary' || args.index === args.total - 1) {
-      return archetype === 'confidence' ? 'close on verified readiness' : 'close on review confidence';
+      base = archetype === 'confidence' ? 'close on verified readiness' : 'close on review confidence';
+      return applyPanoramicPacingTone(base, args.reviewPacing);
     }
-    return archetype === 'workflow' ? 'step through review state with calm progress' : 'develop a readable record story';
+    base = archetype === 'workflow' ? 'step through review state with calm progress' : 'develop a readable record story';
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
   if (semanticFlavor === 'support') {
-    return args.storyBeat === 'summary' || args.index === args.total - 1
+    base = args.storyBeat === 'summary' || args.index === args.total - 1
       ? 'close on resolved proof'
       : 'build guided reassurance';
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
   if (semanticFlavor === 'reward') {
-    return args.storyBeat === 'summary' || args.index === args.total - 1
+    base = args.storyBeat === 'summary' || args.index === args.total - 1
       ? 'close on payoff'
       : 'build toward member value';
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
   if (semanticFlavor === 'commerce') {
-    return args.storyBeat === 'summary' || args.index === args.total - 1
+    base = args.storyBeat === 'summary' || args.index === args.total - 1
       ? 'close on confident handoff'
       : 'build purchase momentum';
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
   if (semanticFlavor === 'security') {
-    return args.storyBeat === 'summary' || args.index === args.total - 1
+    base = args.storyBeat === 'summary' || args.index === args.total - 1
       ? 'close on verified trust'
       : 'build trusted access';
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
   if (args.analysis.role === 'workflow') {
-    if (args.storyBeat === 'hero') return archetype === 'workflow' ? 'open with decisive control' : 'open with clear task flow';
-    if (args.storyBeat === 'summary' || args.index === args.total - 1) {
-      return archetype === 'workflow' ? 'close on control and follow-through' : 'close on completed flow';
+    if (args.storyBeat === 'hero') {
+      base = archetype === 'workflow' ? 'open with decisive control' : 'open with clear task flow';
+      return applyPanoramicPacingTone(base, args.reviewPacing);
     }
-    return archetype === 'workflow' ? 'stagger progress and proof beats' : 'step the task forward';
+    if (args.storyBeat === 'summary' || args.index === args.total - 1) {
+      base = archetype === 'workflow' ? 'close on control and follow-through' : 'close on completed flow';
+      return applyPanoramicPacingTone(base, args.reviewPacing);
+    }
+    base = archetype === 'workflow' ? 'stagger progress and proof beats' : 'step the task forward';
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
   if (semanticFlavor === 'catalog') {
-    return args.storyBeat === 'summary' || args.index === args.total - 1
+    base = args.storyBeat === 'summary' || args.index === args.total - 1
       ? 'close on curated confidence'
       : 'keep the assortment feeling selective';
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
   if (semanticFlavor === 'media') {
-    return args.storyBeat === 'summary' || args.index === args.total - 1
+    base = args.storyBeat === 'summary' || args.index === args.total - 1
       ? 'close on listening payoff'
       : 'keep playback cues moving';
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
 
   if (args.rhythmRole === 'open' || args.index === 0) {
     switch (archetype) {
       case 'wellness':
-        return 'open with calm presence';
+        base = 'open with calm presence';
+        break;
       case 'workflow':
-        return 'open with decisive structure';
+        base = 'open with decisive structure';
+        break;
       case 'conversation':
-        return 'open with immediate social proof';
+        base = 'open with immediate social proof';
+        break;
       case 'gallery':
-        return 'open like a curated poster';
+        base = 'open like a curated poster';
+        break;
       case 'world':
-        return 'open with atmosphere and scale';
+        base = 'open with atmosphere and scale';
+        break;
       default:
-        return 'open strong';
+        base = 'open strong';
+        break;
     }
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
   if (args.rhythmRole === 'resolve' || args.index === args.total - 1) {
     switch (archetype) {
       case 'confidence':
-        return 'close on proof and confidence';
+        base = 'close on proof and confidence';
+        break;
       case 'wellness':
-        return 'close on steady payoff';
+        base = 'close on steady payoff';
+        break;
       case 'workflow':
-        return 'close on control and follow-through';
+        base = 'close on control and follow-through';
+        break;
       case 'conversation':
-        return 'close on collective payoff';
+        base = 'close on collective payoff';
+        break;
       case 'gallery':
-        return 'close on polished output';
+        base = 'close on polished output';
+        break;
       case 'world':
-        return 'close on cinematic reward';
+        base = 'close on cinematic reward';
+        break;
       default:
-        return args.conceptId === 'concept-c' ? 'close quietly' : 'close with payoff';
+        base = args.conceptId === 'concept-c' ? 'close quietly' : 'close with payoff';
+        break;
     }
+    return applyPanoramicPacingTone(base, args.reviewPacing);
   }
-  if (args.continuityMotif === 'proof-lane') return 'intensify the proof lane without repeating the opener';
-  if (args.continuityMotif === 'signal-wave') return 'keep the signal rhythm moving';
-  if (args.continuityMotif === 'progress-track') return 'step the progress track forward';
-  if (args.continuityMotif === 'curation-run') return 'extend the curated run without flattening it';
-  if (args.continuityMotif === 'poster-anchor') return 'hold atmosphere while the strip keeps moving';
-  if (args.layoutArchetype?.includes('relay')) return 'alternate dense proof and open breathing room';
-  return 'develop narrative';
+  if (args.continuityMotif === 'proof-lane') base = 'intensify the proof lane without repeating the opener';
+  else if (args.continuityMotif === 'signal-wave') base = 'keep the signal rhythm moving';
+  else if (args.continuityMotif === 'progress-track') base = 'step the progress track forward';
+  else if (args.continuityMotif === 'curation-run') base = 'extend the curated run without flattening it';
+  else if (args.continuityMotif === 'poster-anchor') base = 'hold atmosphere while the strip keeps moving';
+  else if (args.layoutArchetype?.includes('relay')) base = 'alternate dense proof and open breathing room';
+  else base = 'develop narrative';
+
+  return applyPanoramicPacingTone(base, args.reviewPacing);
 }
 
 function buildPanoramicFramePlan(args: {
@@ -5861,6 +6022,15 @@ function normalizePanoramicVariantReviewControls(
   if (typeof controls.supportSystem === 'string' && controls.supportSystem.length > 0) {
     normalized.supportSystem = controls.supportSystem;
   }
+  if (controls.pacing === 'calmer' || controls.pacing === 'bolder') {
+    normalized.pacing = controls.pacing;
+  }
+  if (controls.proofDensity === 'lighter' || controls.proofDensity === 'heavier') {
+    normalized.proofDensity = controls.proofDensity;
+  }
+  if (controls.decorativeIntensity === 'quieter' || controls.decorativeIntensity === 'bolder') {
+    normalized.decorativeIntensity = controls.decorativeIntensity;
+  }
   return Object.keys(normalized).length > 0 ? normalized : null;
 }
 
@@ -5884,13 +6054,14 @@ function applyPanoramicVariantReviewControls(args: {
       index,
       total,
     });
-    const layoutArchetype = buildPanoramicLayoutArchetype({
+    const layoutArchetype = applyPanoramicPacingToLayoutArchetype({
       recipe,
       storyBeat: frame.storyBeat,
       index,
       total,
+      pacing: reviewControls.pacing,
     });
-    const supportSystem = reviewControls.supportSystem ?? buildPanoramicSupportSystem({
+    const inferredSupportSystem = buildPanoramicSupportSystem({
       category: args.category,
       recipe,
       analysis,
@@ -5899,18 +6070,31 @@ function applyPanoramicVariantReviewControls(args: {
       total,
       rhythmRole,
     });
+    const supportSystem = reviewControls.supportSystem
+      ?? applyPanoramicProofDensityToSupportSystem({
+        supportSystem: inferredSupportSystem,
+        proofDensity: reviewControls.proofDensity,
+        analysis,
+        storyBeat: frame.storyBeat,
+        rhythmRole,
+      });
     const continuityMotif = reviewControls.continuityMotif ?? buildPanoramicContinuityMotif({
       recipe,
       analysis,
       supportSystem,
     });
-    const compositionFeatures = buildPanoramicCompositionFeatures({
+    const baseCompositionFeatures = buildPanoramicCompositionFeatures({
       category: args.category,
       recipe,
       supportSystem,
       analysis,
       storyBeat: frame.storyBeat,
       index,
+    });
+    const compositionFeatures = applyPanoramicReviewControlsToCompositionFeatures({
+      compositionFeatures: baseCompositionFeatures,
+      proofDensity: reviewControls.proofDensity,
+      decorativeIntensity: reviewControls.decorativeIntensity,
     });
     const transitionIntent = buildPanoramicTransitionIntent({
       supportSystem,
@@ -5951,23 +6135,31 @@ function applyPanoramicVariantReviewControls(args: {
         storyBeat: frame.storyBeat,
         rhythmRole,
         continuityMotif,
-        conceptId: args.variant.id as 'concept-c' | 'concept-d',
-        index,
-        total,
-        layoutArchetype,
-      }),
+      conceptId: args.variant.id as 'concept-c' | 'concept-d',
+      index,
+      total,
+      layoutArchetype,
+      reviewPacing: reviewControls.pacing,
+    }),
       compositionFeatures,
-      compositionNote: buildPanoramicCompositionNote({
-        recipe,
-        supportSystem,
-        continuityMotif,
-        transitionIntent,
-        features: compositionFeatures,
-        analysis,
-        storyBeat: frame.storyBeat,
-        layoutArchetype,
-        continuityRule,
-      }),
+      compositionNote: [
+        buildPanoramicCompositionNote({
+          recipe,
+          supportSystem,
+          continuityMotif,
+          transitionIntent,
+          features: compositionFeatures,
+          analysis,
+          storyBeat: frame.storyBeat,
+          layoutArchetype,
+          continuityRule,
+        }),
+        buildPanoramicReviewControlNote({
+          pacing: reviewControls.pacing,
+          proofDensity: reviewControls.proofDensity,
+          decorativeIntensity: reviewControls.decorativeIntensity,
+        }),
+      ].filter((value): value is string => Boolean(value)).join(' '),
     };
   });
 

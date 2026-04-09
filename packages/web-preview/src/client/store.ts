@@ -365,6 +365,9 @@ export interface AutopilotPanoramicReviewControls {
   recipe?: string | null;
   continuityMotif?: string | null;
   supportSystem?: string | null;
+  pacing?: 'calmer' | 'bolder' | null;
+  proofDensity?: 'lighter' | 'heavier' | null;
+  decorativeIntensity?: 'quieter' | 'bolder' | null;
 }
 
 export type AutopilotReviewControls = Record<string, AutopilotPanoramicReviewControls | undefined>;
@@ -664,6 +667,15 @@ function normalizeAutopilotPanoramicReviewControlsEntry(
   }
   if (typeof controls.supportSystem === 'string' && controls.supportSystem.trim().length > 0) {
     normalized.supportSystem = controls.supportSystem.trim();
+  }
+  if (controls.pacing === 'calmer' || controls.pacing === 'bolder') {
+    normalized.pacing = controls.pacing;
+  }
+  if (controls.proofDensity === 'lighter' || controls.proofDensity === 'heavier') {
+    normalized.proofDensity = controls.proofDensity;
+  }
+  if (controls.decorativeIntensity === 'quieter' || controls.decorativeIntensity === 'bolder') {
+    normalized.decorativeIntensity = controls.decorativeIntensity;
   }
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }

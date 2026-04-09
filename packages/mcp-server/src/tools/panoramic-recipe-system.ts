@@ -275,13 +275,27 @@ export function resolvePanoramicLayoutArchetype(args: {
   index: number;
   total: number;
 }): string {
+  return resolvePanoramicLayoutArchetypeForFamily({
+    ...args,
+    family: getPanoramicRecipeProfile(args.recipe).family,
+  });
+}
+
+export function resolvePanoramicLayoutArchetypeForFamily(args: {
+  recipe: string;
+  family: PanoramicRecipeFamily;
+  storyBeat: string;
+  index: number;
+  total: number;
+}): string {
   const profile = getPanoramicRecipeProfile(args.recipe);
   const rhythmRole = resolvePanoramicRhythmRole(args);
+  const layouts = ARCHETYPE_LAYOUTS[profile.archetype][args.family];
 
-  if (args.storyBeat === 'trust') return profile.layouts.intensify;
-  if (rhythmRole === 'open') return profile.layouts.open;
-  if (rhythmRole === 'resolve') return profile.layouts.resolve;
-  return profile.layouts.relay;
+  if (args.storyBeat === 'trust') return layouts.intensify;
+  if (rhythmRole === 'open') return layouts.open;
+  if (rhythmRole === 'resolve') return layouts.resolve;
+  return layouts.relay;
 }
 
 export function defaultPanoramicSupportSystem(args: {

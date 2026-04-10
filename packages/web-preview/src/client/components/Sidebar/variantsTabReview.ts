@@ -4,6 +4,19 @@ function hasPanoramicReviewControlValue(value: string | null | undefined): boole
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function hasPanoramicBeatReviewControls(value: {
+  layoutArchetype?: string | null;
+  supportSystem?: string | null;
+} | undefined): boolean {
+  return Boolean(
+    value
+    && (
+      hasPanoramicReviewControlValue(value.layoutArchetype)
+      || hasPanoramicReviewControlValue(value.supportSystem)
+    ),
+  );
+}
+
 export function countReviewedPanoramicControlVariants(controls: AutopilotReviewControls): number {
   return Object.values(controls).filter((entry) =>
     Boolean(
@@ -19,6 +32,9 @@ export function countReviewedPanoramicControlVariants(controls: AutopilotReviewC
         || hasPanoramicReviewControlValue(entry.fontFamily)
         || hasPanoramicReviewControlValue(entry.deviceLayout)
         || hasPanoramicReviewControlValue(entry.textPlacement)
+        || hasPanoramicBeatReviewControls(entry.beatOverrides?.open)
+        || hasPanoramicBeatReviewControls(entry.beatOverrides?.intensify)
+        || hasPanoramicBeatReviewControls(entry.beatOverrides?.resolve)
       ),
     )).length;
 }

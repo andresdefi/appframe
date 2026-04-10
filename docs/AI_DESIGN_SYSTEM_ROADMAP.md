@@ -89,6 +89,7 @@ Current status:
 - preview review now also supports persisted deterministic overrides for panoramic recipe, continuity motif, support system, pacing tone, proof density, and decorative intensity, and reviewed rebuilds reuse those saved controls so art-direction changes survive session reloads and local refresh loops
 - preview review now also exposes rebuild / branch / rescore actions whenever those saved panoramic art-direction overrides exist, so the first art-direction controls plug directly into the reviewed refresh loop instead of waiting on screenshot-family edits
 - preview review now also supports persisted deterministic overrides for panoramic surface style, font family, device layout, and text placement, and reviewed rebuilds plus materialization reuse those controls so concept families can break out of repeated background/font/device defaults without model-dependent generation
+- preview review now also supports persisted deterministic opener / intensify / resolve beat overrides for layout archetype and support rhythm, and reviewed rebuilds reuse those saved controls so one panoramic concept can diverge internally instead of staying locked to concept-level rhythm only
 
 ### 3. Screenshot Understanding
 
@@ -221,6 +222,7 @@ This roadmap now has three concrete pieces underway:
 - richer panoramic composition review: sessions now expose screenshot analysis, selected copy, concept-plan metadata, and composition summaries in the preview variants surface so layered-detail systems are inspectable without leaving the session
 - panoramic review controls: session-backed preview can now persist deterministic per-concept recipe / continuity / support-system / pacing / proof-density / decorative-intensity overrides and feed them back into reviewed rebuilds, giving the local-first review loop a stronger dedicated art-direction control surface beyond screenshot-family correction
 - panoramic art-direction controls now also steer surface treatment, font family, device posture, and text anchoring during reviewed rebuilds/materialization, widening the local-first review loop beyond only recipe/support rhythm changes
+- beat-level panoramic review controls now also let opener / intensify / resolve beats override layout archetype and support rhythm independently during reviewed rebuilds, giving the preview loop a faster way to break repeated family pacing without adding model-dependent generation
 - refinement review surface: preview sessions now support safe branch-and-refine actions, variant provenance/history, and panoramic continuity review without leaving the session flow
 - AI-backed refinement planning now exists in preview sessions behind optional OpenAI credentials, mapping freeform refinement prompts onto safe branch actions and persisting that history through session save/load
 - manual refinement path: users can now approve the recommended concept, persist manual edits back into the active variant session, export the selected variant as a standalone config, and materialize the approved concept into an export-ready artifact directory without depending on an AI agent for every change

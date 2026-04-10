@@ -19,8 +19,15 @@ describe('variantsTabReview helpers', () => {
       'concept-e': {
         surfaceStyle: 'glow',
       },
+      'concept-g': {
+        beatOverrides: {
+          open: {
+            layoutArchetype: 'cinematic-opener',
+          },
+        },
+      },
       'concept-f': undefined,
-    })).toBe(2);
+    })).toBe(3);
   });
 
   it('reports whether reviewed rebuild inputs exist', () => {

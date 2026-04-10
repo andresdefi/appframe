@@ -129,6 +129,64 @@ const PANORAMIC_TEXT_PLACEMENT_OPTIONS = [
   'mid-left',
 ] as const;
 
+const PANORAMIC_LAYOUT_ARCHETYPE_OPTIONS = [
+  'editorial-opener',
+  'campaign-opener',
+  'proof-opener',
+  'campaign-proof-opener',
+  'airy-opener',
+  'momentum-opener',
+  'text-rail-opener',
+  'task-poster-opener',
+  'split-opener',
+  'signal-opener',
+  'gallery-opener',
+  'showcase-opener',
+  'poster-opener',
+  'cinematic-opener',
+  'proof-bridge',
+  'trust-punch',
+  'detail-relay',
+  'proof-relay',
+  'step-proof-bridge',
+  'proof-rail-punch',
+  'response-proof-bridge',
+  'momentum-proof-punch',
+  'gallery-proof-bridge',
+  'showcase-proof-punch',
+  'world-proof-bridge',
+  'cinematic-proof-punch',
+  'gentle-relay',
+  'progress-relay',
+  'step-relay',
+  'staggered-task-relay',
+  'signal-relay',
+  'signal-surge-relay',
+  'gallery-relay',
+  'showcase-relay',
+  'world-relay',
+  'editorial-relay',
+  'quiet-close',
+  'campaign-proof-close',
+  'quiet-proof-close',
+  'soft-close',
+  'control-close',
+  'payoff-close',
+  'echo-close',
+  'crowd-close',
+  'gallery-close',
+  'portfolio-close',
+  'atmosphere-close',
+  'trailer-close',
+  'decisive-close',
+] as const;
+
+const PANORAMIC_BEAT_OPTIONS = [
+  'open',
+  'intensify',
+  'resolve',
+] as const;
+
 function formatCopySlot(slot: 'hero' | 'differentiator' | 'feature' | 'trust' | 'summary'): string {
   switch (slot) {
     case 'hero':
@@ -258,6 +316,10 @@ function summarizePanoramicReviewControls(
   controls: AutopilotPanoramicReviewControls | undefined,
 ): string | null {
   if (!controls) return null;
+  const beatOverrideCount = ['open', 'intensify', 'resolve'].reduce((count, role) => {
+    const beatOverride = controls.beatOverrides?.[role as typeof PANORAMIC_BEAT_OPTIONS[number]];
+    return beatOverride?.layoutArchetype || beatOverride?.supportSystem ? count + 1 : count;
+  }, 0);
   const parts = [
     controls.recipe ? `recipe ${formatSlugLabel(controls.recipe)}` : null,
     controls.continuityMotif ? `continuity ${formatSlugLabel(controls.continuityMotif)}` : null,
@@ -269,8 +331,20 @@ function summarizePanoramicReviewControls(
     controls.fontFamily ? `font ${formatSlugLabel(controls.fontFamily)}` : null,
     controls.deviceLayout ? `devices ${formatSlugLabel(controls.deviceLayout)}` : null,
     controls.textPlacement ? `text ${formatSlugLabel(controls.textPlacement)}` : null,
+    beatOverrideCount > 0 ? `${beatOverrideCount} beat override${beatOverrideCount === 1 ? '' : 's'}` : null,
   ].filter((value): value is string => value !== null);
   return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function panoramicBeatLabel(value: typeof PANORAMIC_BEAT_OPTIONS[number]): string {
+  switch (value) {
+    case 'open':
+      return 'Opener';
+    case 'intensify':
+      return 'Intensify';
+    case 'resolve':
+      return 'Resolve';
+  }
 }
 
 function describeProvenance(variant: VariantRecord): string | null {
@@ -603,6 +677,22 @@ export function VariantsTab() {
   const activePanoramicReviewControls = useMemo(
     () => (activeVariantId ? autopilotReviewControls[activeVariantId] : undefined),
     [autopilotReviewControls, activeVariantId],
+  );
+  const activePanoramicBeatRows = useMemo(
+    () => activePlanVariant?.mode === 'panoramic'
+      ? PANORAMIC_BEAT_OPTIONS
+        .map((role) => {
+          const frames = (activePlanVariant.frames ?? []).filter((frame) => frame.rhythmRole === role);
+          return {
+            role,
+            frames,
+            currentLayoutArchetype: frames[0]?.layoutArchetype,
+            currentSupportSystem: frames[0]?.supportSystem,
+          };
+        })
+        .filter((entry) => entry.frames.length > 0)
+      : [],
+    [activePlanVariant],
   );
   const activePanoramicReviewControlSummary = useMemo(
     () => summarizePanoramicReviewControls(activePanoramicReviewControls),
@@ -1368,9 +1458,89 @@ export function VariantsTab() {
                           </select>
                         </label>
                       </div>
+                      {activePanoramicBeatRows.length > 0 ? (
+                        <div className="mt-3 rounded-md border border-border bg-bg/70 px-2.5 py-2">
+                          <div className="text-[10px] uppercase tracking-[0.12em] text-text-dim">
+                            Beat Rhythm Controls
+                          </div>
+                          <div className="mt-1 text-[10px] text-text-dim">
+                            Override opener, intensify, and resolve beats independently so the strip can break out of one repeated layout rhythm.
+                          </div>
+                          <div className="mt-2 space-y-2">
+                            {activePanoramicBeatRows.map((row) => {
+                              const beatOverride = activePanoramicReviewControls?.beatOverrides?.[row.role];
+                              return (
+                                <div
+                                  key={`${activeVariantId}-${row.role}`}
+                                  className="grid gap-2 rounded-md border border-border bg-surface px-2 py-2 md:grid-cols-[88px,1fr,1fr]"
+                                >
+                                  <div>
+                                    <div className="text-[10px] font-medium text-text">{panoramicBeatLabel(row.role)}</div>
+                                    <div className="text-[10px] text-text-dim">
+                                      {row.frames.length} frame{row.frames.length === 1 ? '' : 's'}
+                                    </div>
+                                    <div className="mt-1 text-[10px] text-text-dim">
+                                      Auto: {row.currentLayoutArchetype ? formatSlugLabel(row.currentLayoutArchetype) : 'none'}
+                                      {row.currentSupportSystem ? ` · ${formatSlugLabel(row.currentSupportSystem)}` : ''}
+                                    </div>
+                                  </div>
+                                  <label className="space-y-1">
+                                    <div className="text-[10px] text-text-dim">Layout Archetype</div>
+                                    <select
+                                      className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                                      value={panoramicReviewControlValue(beatOverride?.layoutArchetype)}
+                                      onChange={(event) => {
+                                        const value = event.target.value;
+                                        setAutopilotPanoramicReviewControls(activeVariantId, {
+                                          beatOverrides: {
+                                            [row.role]: {
+                                              layoutArchetype: value.length > 0 ? value : null,
+                                            },
+                                          },
+                                        });
+                                      }}
+                                    >
+                                      <option value="">Auto layout</option>
+                                      {PANORAMIC_LAYOUT_ARCHETYPE_OPTIONS.map((layoutArchetype) => (
+                                        <option key={layoutArchetype} value={layoutArchetype}>
+                                          {formatSlugLabel(layoutArchetype)}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <label className="space-y-1">
+                                    <div className="text-[10px] text-text-dim">Support Rhythm</div>
+                                    <select
+                                      className="w-full rounded-md border border-border bg-bg px-2 py-1 text-[10px] text-text outline-none"
+                                      value={panoramicReviewControlValue(beatOverride?.supportSystem)}
+                                      onChange={(event) => {
+                                        const value = event.target.value;
+                                        setAutopilotPanoramicReviewControls(activeVariantId, {
+                                          beatOverrides: {
+                                            [row.role]: {
+                                              supportSystem: value.length > 0 ? value as (typeof PANORAMIC_SUPPORT_SYSTEM_OPTIONS)[number] : null,
+                                            },
+                                          },
+                                        });
+                                      }}
+                                    >
+                                      <option value="">Auto support</option>
+                                      {PANORAMIC_SUPPORT_SYSTEM_OPTIONS.map((system) => (
+                                        <option key={system} value={system}>
+                                          {formatSlugLabel(system)}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="mt-2 text-[10px] text-text-dim">
                         {hasActivePanoramicReviewControls
-                          ? 'These saved overrides will be reapplied during reviewed rebuilds for this concept, including surface treatment, typography, device posture, text placement, pacing, proof weight, and decorative restraint.'
+                          ? 'These saved overrides will be reapplied during reviewed rebuilds for this concept, including beat-level layout/support rhythm, surface treatment, typography, device posture, text placement, pacing, proof weight, and decorative restraint.'
                           : 'Adjust these controls, save the session, then rebuild or rescore to materialize deterministic panoramic art direction overrides.'}
                       </div>
                       {sessionBacked && hasActivePanoramicReviewControls ? (

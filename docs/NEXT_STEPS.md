@@ -75,6 +75,7 @@ AppFrame now has an initial autopilot pipeline implemented:
 - panoramic planning now emits explicit `rhythmRole` and `continuityMotif` metadata per frame, materialization uses those cues to push text/device/support placement more intentionally, and the preview UI surfaces them for manual continuity review
 - preview review now also persists deterministic panoramic recipe / continuity-motif / support-system / pacing / proof-density / decorative-intensity overrides per concept, and reviewed rebuilds reuse those saved controls so local art-direction adjustments survive session reloads, rebuilds, and comparison branches
 - preview review now also persists deterministic panoramic surface-style / font-family / device-layout / text-placement overrides per concept, and reviewed rebuilds plus materialization reuse those saved controls so panorama families can break out of the same default background, font, and device posture more directly
+- preview review now also persists deterministic opener / intensify / resolve beat overrides for panoramic layout archetype and support rhythm, and reviewed rebuilds reuse those saved controls so one concept can diverge internally instead of staying stuck at concept-level rhythm only
 - preview review now also surfaces rebuild / branch / rescore actions when saved panoramic art-direction controls exist, so concept-level art-direction overrides can drive the reviewed refresh loop without requiring screenshot-family overrides first
 - preview UI session analysis now also surfaces screenshot semantic-family labels/confidence and now supports manual family override/reset with session persistence so borderline local classification can be corrected during review instead of only observed
 - screenshot analysis now also persists semantic-family rationale, competing family candidates, and review-needed flags so weak local matches are easier to diagnose instead of silently accepted
@@ -350,6 +351,8 @@ Recommended order:
   Status: preview review now exposes rebuild, branch, and rescore affordances when panoramic art-direction controls are present, so art-direction iterations no longer depend on screenshot-family overrides to access the reviewed refresh loop.
 - [x] Broaden panoramic review controls beyond recipe/support pacing into actual surface/type/layout steering.
   Status: session-backed preview now also saves per-concept panoramic surface-style / font-family / device-layout / text-placement overrides, and reviewed rebuilds plus materialization reuse those controls so panorama concepts can escape the same default background, font, text anchor, and device posture more directly.
+- [x] Add beat-level panoramic review controls so opener / intensify / resolve can diverge inside one concept.
+  Status: session-backed preview now also saves per-beat panoramic layout-archetype / support-rhythm overrides, and reviewed rebuilds reuse those controls so the strip can branch its opener, intensify, and resolve beats without relying on a single concept-wide rhythm.
 
 ### 7. Preview Rendering
 
@@ -549,7 +552,7 @@ Use this to start a future thread:
 - The repo may have unrelated untracked files; do not revert unrelated user changes.
 - Existing manual variant workflows still matter; preserve backward compatibility where possible.
 - Session compatibility matters now that sessions can be created from both manual configs and autopilot manifests.
-- Preview sessions now persist manual screenshot semantic-family review metadata, preview review also exposes rationale/ambiguity diagnostics plus basic bulk family actions, and preview-side reviewed rebuild can now optionally rerender/rescore the refreshed session while carrying deterministic panoramic recipe / continuity / support-system / pacing / proof-density / decorative-intensity overrides; the remaining gap is broader preview-side art-direction tooling, deeper per-beat continuity editing, and richer family/refine controls on top of that foundation.
+- Preview sessions now persist manual screenshot semantic-family review metadata, preview review also exposes rationale/ambiguity diagnostics plus basic bulk family actions, and preview-side reviewed rebuild can now optionally rerender/rescore the refreshed session while carrying deterministic panoramic recipe / continuity / support-system / pacing / proof-density / decorative-intensity plus beat-level layout/support overrides; the remaining gap is broader preview-side art-direction tooling, deeper per-beat continuity editing, and richer family/refine controls on top of that foundation.
 - The current scoring system is now partly visual and can optionally use live model ranking, but it is still not a full art-direction loop.
 - The current screenshot understanding now includes real pixel heuristics plus optional OCR/vision text enrichment, but richer semantic scene understanding is still open.
 - The current renderer is broader than the original single-device flow, but it still limits how close AppFrame can get to before.click-style layouts.

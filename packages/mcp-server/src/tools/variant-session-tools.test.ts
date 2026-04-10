@@ -855,6 +855,14 @@ describe('rebuildAutopilotSessionFromReview', () => {
             pacing: 'calmer',
             proofDensity: 'heavier',
             decorativeIntensity: 'quieter',
+            beatOverrides: {
+              open: {
+                layoutArchetype: 'cinematic-opener',
+              },
+              resolve: {
+                supportSystem: 'quote-stack',
+              },
+            },
           },
         },
         recommendedVariantId: 'concept-a',
@@ -871,8 +879,9 @@ describe('rebuildAutopilotSessionFromReview', () => {
       expect(rebuiltConceptC.recipe).toBe('cinematic-panorama');
       expect(rebuiltConceptC.style).toBe('branded');
       expect(rebuiltConceptC.frames?.every((frame) => frame.continuityMotif === 'poster-anchor')).toBe(true);
-      expect(rebuiltConceptC.frames?.every((frame) => frame.supportSystem === 'curation-shelf')).toBe(true);
-      expect(rebuiltConceptC.frames?.[0]?.layoutArchetype).toBe('poster-opener');
+      expect(rebuiltConceptC.frames?.[0]?.supportSystem).toBe('curation-shelf');
+      expect(rebuiltConceptC.frames?.[0]?.layoutArchetype).toBe('cinematic-opener');
+      expect(rebuiltConceptC.frames?.[rebuiltConceptC.frames.length - 1]?.supportSystem).toBe('quote-stack');
       expect(rebuiltConceptC.frames?.every((frame) => !frame.compositionFeatures?.includes('decorative-cluster'))).toBe(true);
       expect(rebuiltConceptC.frames?.every((frame) => frame.pacing?.includes('calmer spacing'))).toBe(true);
     }

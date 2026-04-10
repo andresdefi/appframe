@@ -378,6 +378,10 @@ export interface AutopilotPanoramicReviewControls {
   fontFamily?: 'inter' | 'space-grotesk' | 'plus-jakarta-sans' | 'playfair-display' | 'dm-sans' | null;
   deviceLayout?: 'staggered' | 'poster' | 'split' | null;
   textPlacement?: 'top-left' | 'top-center' | 'mid-left' | null;
+  beatOverrides?: Partial<Record<'open' | 'intensify' | 'resolve', {
+    layoutArchetype?: string | null;
+    supportSystem?: 'quote-stack' | 'metric-ladder' | 'signal-chain' | 'milestone-band' | 'curation-shelf' | 'proof-column' | null;
+  } | undefined>>;
 }
 
 export type AutopilotReviewControls = Record<string, AutopilotPanoramicReviewControls | undefined>;
@@ -720,7 +724,61 @@ function normalizeAutopilotPanoramicReviewControlsEntry(
   ) {
     normalized.textPlacement = controls.textPlacement;
   }
+  if (isRecord(controls.beatOverrides)) {
+    const beatOverrides: NonNullable<AutopilotPanoramicReviewControls['beatOverrides']> = {};
+    for (const role of ['open', 'intensify', 'resolve'] as const) {
+      const beatOverride = controls.beatOverrides[role];
+      if (!isRecord(beatOverride)) continue;
+
+      const normalizedBeatOverride: NonNullable<NonNullable<AutopilotPanoramicReviewControls['beatOverrides']>[typeof role]> = {};
+      if (
+        typeof beatOverride.layoutArchetype === 'string'
+        && beatOverride.layoutArchetype.trim().length > 0
+      ) {
+        normalizedBeatOverride.layoutArchetype = beatOverride.layoutArchetype.trim();
+      }
+      if (
+        beatOverride.supportSystem === 'quote-stack'
+        || beatOverride.supportSystem === 'metric-ladder'
+        || beatOverride.supportSystem === 'signal-chain'
+        || beatOverride.supportSystem === 'milestone-band'
+        || beatOverride.supportSystem === 'curation-shelf'
+        || beatOverride.supportSystem === 'proof-column'
+      ) {
+        normalizedBeatOverride.supportSystem = beatOverride.supportSystem;
+      }
+      if (Object.keys(normalizedBeatOverride).length > 0) {
+        beatOverrides[role] = normalizedBeatOverride;
+      }
+    }
+    if (Object.keys(beatOverrides).length > 0) {
+      normalized.beatOverrides = beatOverrides;
+    }
+  }
   return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function mergeAutopilotPanoramicReviewControls(
+  current: AutopilotPanoramicReviewControls | undefined,
+  incoming: Partial<AutopilotPanoramicReviewControls>,
+): AutopilotPanoramicReviewControls | undefined {
+  const mergedBeatOverrides = { ...(current?.beatOverrides ?? {}) };
+  if (incoming.beatOverrides) {
+    for (const role of ['open', 'intensify', 'resolve'] as const) {
+      const beatOverride = incoming.beatOverrides[role];
+      if (!beatOverride) continue;
+      mergedBeatOverrides[role] = {
+        ...(current?.beatOverrides?.[role] ?? {}),
+        ...beatOverride,
+      };
+    }
+  }
+
+  return normalizeAutopilotPanoramicReviewControlsEntry({
+    ...(current ?? {}),
+    ...incoming,
+    ...(incoming.beatOverrides ? { beatOverrides: mergedBeatOverrides } : {}),
+  });
 }
 
 function normalizeAutopilotReviewControls(
@@ -1512,10 +1570,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   setAutopilotPanoramicReviewControls: (variantId, controls) =>
     set((state) => {
       const current = state.autopilotReviewControls[variantId];
-      const nextEntry = normalizeAutopilotPanoramicReviewControlsEntry({
-        ...(current ?? {}),
-        ...controls,
-      });
+      const nextEntry = mergeAutopilotPanoramicReviewControls(current, controls);
       if (!nextEntry && !current) return state;
 
       const autopilotReviewControls = { ...state.autopilotReviewControls };

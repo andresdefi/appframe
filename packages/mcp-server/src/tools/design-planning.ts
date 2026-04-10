@@ -93,6 +93,10 @@ export type PanoramicReviewControlFontFamily =
   | 'dm-sans';
 export type PanoramicReviewControlDeviceLayout = 'staggered' | 'poster' | 'split';
 export type PanoramicReviewControlTextPlacement = 'top-left' | 'top-center' | 'mid-left';
+export interface PanoramicBeatReviewControls {
+  layoutArchetype?: string | null;
+  supportSystem?: PanoramicReviewControlSupportSystem | null;
+}
 export interface PanoramicVariantReviewControls {
   recipe?: string | null;
   continuityMotif?: PanoramicReviewControlContinuityMotif | null;
@@ -104,6 +108,7 @@ export interface PanoramicVariantReviewControls {
   fontFamily?: PanoramicReviewControlFontFamily | null;
   deviceLayout?: PanoramicReviewControlDeviceLayout | null;
   textPlacement?: PanoramicReviewControlTextPlacement | null;
+  beatOverrides?: Partial<Record<PanoramicRhythmRole, PanoramicBeatReviewControls | undefined>>;
 }
 
 export interface SafeTextZone {
@@ -5225,6 +5230,35 @@ function buildPanoramicReviewControlNote(args: {
   return parts.length > 0 ? parts.join(' ') : null;
 }
 
+function panoramicRhythmRoleLabel(role: PanoramicRhythmRole): string {
+  switch (role) {
+    case 'open':
+      return 'opener';
+    case 'intensify':
+      return 'intensify';
+    case 'resolve':
+      return 'resolve';
+  }
+}
+
+function buildPanoramicBeatReviewControlNote(args: {
+  rhythmRole: PanoramicRhythmRole;
+  beatOverride?: PanoramicBeatReviewControls | null;
+}): string | null {
+  if (!args.beatOverride) return null;
+  const parts: string[] = [];
+  const beatLabel = panoramicRhythmRoleLabel(args.rhythmRole);
+
+  if (args.beatOverride.layoutArchetype) {
+    parts.push(`Use ${formatSlug(args.beatOverride.layoutArchetype)} as the ${beatLabel} layout instead of repeating the default beat shape.`);
+  }
+  if (args.beatOverride.supportSystem) {
+    parts.push(`Carry a ${panoramicSupportSystemLabel(args.beatOverride.supportSystem)} rhythm through the ${beatLabel} beat.`);
+  }
+
+  return parts.length > 0 ? parts.join(' ') : null;
+}
+
 function buildPanoramicContinuityRule(args: {
   recipe: string;
   rhythmRole: PanoramicRhythmRole;
@@ -6162,6 +6196,37 @@ function normalizePanoramicVariantReviewControls(
   ) {
     normalized.textPlacement = controls.textPlacement;
   }
+  if (controls.beatOverrides) {
+    const beatOverrides: NonNullable<PanoramicVariantReviewControls['beatOverrides']> = {};
+    for (const role of ['open', 'intensify', 'resolve'] as const) {
+      const beatOverride = controls.beatOverrides[role];
+      if (!beatOverride) continue;
+
+      const normalizedBeatOverride: PanoramicBeatReviewControls = {};
+      if (
+        typeof beatOverride.layoutArchetype === 'string'
+        && beatOverride.layoutArchetype.trim().length > 0
+      ) {
+        normalizedBeatOverride.layoutArchetype = beatOverride.layoutArchetype.trim();
+      }
+      if (
+        beatOverride.supportSystem === 'quote-stack'
+        || beatOverride.supportSystem === 'metric-ladder'
+        || beatOverride.supportSystem === 'signal-chain'
+        || beatOverride.supportSystem === 'milestone-band'
+        || beatOverride.supportSystem === 'curation-shelf'
+        || beatOverride.supportSystem === 'proof-column'
+      ) {
+        normalizedBeatOverride.supportSystem = beatOverride.supportSystem;
+      }
+      if (Object.keys(normalizedBeatOverride).length > 0) {
+        beatOverrides[role] = normalizedBeatOverride;
+      }
+    }
+    if (Object.keys(beatOverrides).length > 0) {
+      normalized.beatOverrides = beatOverrides;
+    }
+  }
   return Object.keys(normalized).length > 0 ? normalized : null;
 }
 
@@ -6191,6 +6256,7 @@ function applyPanoramicVariantReviewControls(args: {
       index,
       total,
     });
+    const beatOverride = reviewControls.beatOverrides?.[rhythmRole];
     const layoutArchetype = applyPanoramicPacingToLayoutArchetype({
       recipe,
       storyBeat: frame.storyBeat,
@@ -6207,7 +6273,8 @@ function applyPanoramicVariantReviewControls(args: {
       total,
       rhythmRole,
     });
-    const supportSystem = reviewControls.supportSystem
+    const supportSystem = beatOverride?.supportSystem
+      ?? reviewControls.supportSystem
       ?? applyPanoramicProofDensityToSupportSystem({
         supportSystem: inferredSupportSystem,
         proofDensity: reviewControls.proofDensity,
@@ -6215,6 +6282,7 @@ function applyPanoramicVariantReviewControls(args: {
         storyBeat: frame.storyBeat,
         rhythmRole,
       });
+    const resolvedLayoutArchetype = beatOverride?.layoutArchetype ?? layoutArchetype;
     const continuityMotif = reviewControls.continuityMotif ?? buildPanoramicContinuityMotif({
       recipe,
       analysis,
@@ -6244,7 +6312,7 @@ function applyPanoramicVariantReviewControls(args: {
     const continuityRule = buildPanoramicContinuityRule({
       recipe,
       rhythmRole,
-      layoutArchetype,
+      layoutArchetype: resolvedLayoutArchetype,
       continuityMotif,
       supportSystem,
       analysis,
@@ -6256,7 +6324,7 @@ function applyPanoramicVariantReviewControls(args: {
     return {
       ...frame,
       rhythmRole,
-      layoutArchetype,
+      layoutArchetype: resolvedLayoutArchetype,
       continuityRule,
       continuityMotif,
       supportSystem,
@@ -6275,7 +6343,7 @@ function applyPanoramicVariantReviewControls(args: {
       conceptId: args.variant.id as 'concept-c' | 'concept-d',
       index,
       total,
-      layoutArchetype,
+      layoutArchetype: resolvedLayoutArchetype,
       reviewPacing: reviewControls.pacing,
     }),
       compositionFeatures,
@@ -6288,7 +6356,7 @@ function applyPanoramicVariantReviewControls(args: {
           features: compositionFeatures,
           analysis,
           storyBeat: frame.storyBeat,
-          layoutArchetype,
+          layoutArchetype: resolvedLayoutArchetype,
           continuityRule,
         }),
         buildPanoramicReviewControlNote({
@@ -6299,6 +6367,10 @@ function applyPanoramicVariantReviewControls(args: {
           fontFamily: reviewControls.fontFamily,
           deviceLayout: reviewControls.deviceLayout,
           textPlacement: reviewControls.textPlacement,
+        }),
+        buildPanoramicBeatReviewControlNote({
+          rhythmRole,
+          beatOverride,
         }),
       ].filter((value): value is string => Boolean(value)).join(' '),
     };

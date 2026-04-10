@@ -519,6 +519,21 @@ describe('preview session refinement round-trips', () => {
       deviceLayout: 'poster',
       textPlacement: 'top-center',
     });
+    usePreviewStore.getState().setAutopilotPanoramicReviewControls('concept-c', {
+      beatOverrides: {
+        open: {
+          layoutArchetype: 'cinematic-opener',
+          supportSystem: 'curation-shelf',
+        },
+      },
+    });
+    usePreviewStore.getState().setAutopilotPanoramicReviewControls('concept-c', {
+      beatOverrides: {
+        resolve: {
+          supportSystem: 'quote-stack',
+        },
+      },
+    });
 
     const state = usePreviewStore.getState();
     expect(state.autopilotReviewControls['concept-c']).toEqual({
@@ -532,6 +547,15 @@ describe('preview session refinement round-trips', () => {
       fontFamily: 'playfair-display',
       deviceLayout: 'poster',
       textPlacement: 'top-center',
+      beatOverrides: {
+        open: {
+          layoutArchetype: 'cinematic-opener',
+          supportSystem: 'curation-shelf',
+        },
+        resolve: {
+          supportSystem: 'quote-stack',
+        },
+      },
     });
 
     const payload = buildSessionSavePayload({
@@ -565,6 +589,15 @@ describe('preview session refinement round-trips', () => {
         fontFamily: 'playfair-display',
         deviceLayout: 'poster',
         textPlacement: 'top-center',
+        beatOverrides: {
+          open: {
+            layoutArchetype: 'cinematic-opener',
+            supportSystem: 'curation-shelf',
+          },
+          resolve: {
+            supportSystem: 'quote-stack',
+          },
+        },
       },
     });
 
@@ -581,6 +614,15 @@ describe('preview session refinement round-trips', () => {
       fontFamily: 'playfair-display',
       deviceLayout: 'poster',
       textPlacement: 'top-center',
+      beatOverrides: {
+        open: {
+          layoutArchetype: 'cinematic-opener',
+          supportSystem: 'curation-shelf',
+        },
+        resolve: {
+          supportSystem: 'quote-stack',
+        },
+      },
     });
   });
 

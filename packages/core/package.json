@@ -21,7 +21,7 @@
   "keywords": ["app-store", "play-store", "screenshots", "device-frames", "promotional"],
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0"
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
   },
   "dependencies": {
     "nunjucks": "^3.2.4",

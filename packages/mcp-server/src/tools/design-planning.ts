@@ -5250,7 +5250,7 @@ function buildPanoramicBeatReviewControlNote(args: {
   const beatLabel = panoramicRhythmRoleLabel(args.rhythmRole);
 
   if (args.beatOverride.layoutArchetype) {
-    parts.push(`Use ${formatSlug(args.beatOverride.layoutArchetype)} as the ${beatLabel} layout instead of repeating the default beat shape.`);
+    parts.push(`Use ${args.beatOverride.layoutArchetype.replace(/-/g, ' ')} as the ${beatLabel} layout instead of repeating the default beat shape.`);
   }
   if (args.beatOverride.supportSystem) {
     parts.push(`Carry a ${panoramicSupportSystemLabel(args.beatOverride.supportSystem)} rhythm through the ${beatLabel} beat.`);

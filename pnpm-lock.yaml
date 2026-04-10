@@ -90,6 +90,9 @@ importers:
       '@appframe/store-upload':
         specifier: workspace:*
         version: link:../store-upload
+      '@appframe/web-preview':
+        specifier: workspace:*
+        version: link:../web-preview
       '@modelcontextprotocol/sdk':
         specifier: ^1.27.0
         version: 1.27.0(zod@4.3.6)

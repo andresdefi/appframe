@@ -104,6 +104,31 @@ export async function reloadProject(): Promise<AppframeConfig> {
   return fetchProject();
 }
 
+export async function putLiveConfig(body: Record<string, unknown>, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`${API}/api/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, __editorState: true }),
+    signal,
+  });
+  if (!res.ok) throw new Error(`Live config update failed: ${res.statusText}`);
+}
+
+export async function saveLiveConfig(): Promise<{ success: boolean; path: string }> {
+  const res = await fetch(`${API}/api/save`, { method: 'POST' });
+  if (!res.ok) {
+    let message = `Save failed: ${res.statusText}`;
+    try {
+      const data = await res.json() as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // Keep default.
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<{ success: boolean; path: string }>;
+}
+
 export async function reloadConfig(): Promise<AppframeConfig> {
   return reloadProject();
 }

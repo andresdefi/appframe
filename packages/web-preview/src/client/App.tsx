@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
-import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, fetchSession } from './utils/api';
+import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, fetchSession, putLiveConfig } from './utils/api';
 import { HeaderBar } from './components/HeaderBar';
 import { DesignTab } from './components/Sidebar/DesignTab';
 import { DeviceTab } from './components/Sidebar/DeviceTab';
@@ -14,7 +14,6 @@ import { PanoramicEffectsTab } from './components/Sidebar/PanoramicEffectsTab';
 import { PreviewArea } from './components/Preview/PreviewArea';
 import { PanoramicPreview } from './components/Preview/PanoramicPreview';
 import { getDefaultExportSizeKey, getPlatformPreviewSize } from './utils/platformSelection';
-import { Agentation } from 'agentation';
 
 export function App() {
   const config = usePreviewStore((s) => s.config);
@@ -33,13 +32,8 @@ export function App() {
   const redo = usePreviewStore((s) => s.redo);
   const [error, setError] = useState<string | null>(null);
   const initialNarrow = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
-  const initialAgentMode = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('agentation') === '1'
-      || window.localStorage.getItem('appframe:agentation') === '1'
-    : false;
   const [isNarrow, setIsNarrow] = useState(initialNarrow);
   const [sidebarOpen, setSidebarOpen] = useState(!initialNarrow);
-  const [agentMode, setAgentMode] = useState(initialAgentMode);
 
   // Ctrl+Z / Ctrl+Shift+Z (or Cmd on Mac) keyboard shortcuts
   useEffect(() => {
@@ -129,9 +123,41 @@ export function App() {
     return () => window.removeEventListener('resize', syncLayout);
   }, []);
 
+  const isFirstSyncRef = useRef(true);
+  const screens = usePreviewStore((s) => s.screens);
+  const sessionLocales = usePreviewStore((s) => s.sessionLocales);
+  const panoramicFrameCount = usePreviewStore((s) => s.panoramicFrameCount);
+  const panoramicBackground = usePreviewStore((s) => s.panoramicBackground);
+  const panoramicElements = usePreviewStore((s) => s.panoramicElements);
+
   useEffect(() => {
-    window.localStorage.setItem('appframe:agentation', agentMode ? '1' : '0');
-  }, [agentMode]);
+    if (!config) return;
+    if (isFirstSyncRef.current) {
+      isFirstSyncRef.current = false;
+      return;
+    }
+    const controller = new AbortController();
+    const handle = window.setTimeout(() => {
+      putLiveConfig(
+        {
+          mode: isPanoramic ? 'panoramic' : 'individual',
+          sessionLocales,
+          screens,
+          panoramicFrameCount,
+          panoramicBackground,
+          panoramicElements,
+        },
+        controller.signal,
+      ).catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.warn('Live config sync failed', err);
+      });
+    }, 300);
+    return () => {
+      window.clearTimeout(handle);
+      controller.abort();
+    };
+  }, [config, isPanoramic, screens, sessionLocales, panoramicFrameCount, panoramicBackground, panoramicElements]);
 
   if (error) {
     return (
@@ -181,8 +207,6 @@ export function App() {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((open) => !open)}
         showSidebarToggle={isNarrow}
-        agentMode={agentMode}
-        onToggleAgentMode={() => setAgentMode((enabled) => !enabled)}
       />
       <div className="flex-1 flex overflow-hidden min-h-0 flex-col md:flex-row">
         {/* Sidebar */}
@@ -198,9 +222,6 @@ export function App() {
         {/* Preview */}
         {isPanoramic ? <PanoramicPreview /> : <PreviewArea />}
       </div>
-
-      {/* Visual annotation tool for AI agents */}
-      {agentMode && <Agentation endpoint="http://localhost:4747" />}
     </div>
   );
 }

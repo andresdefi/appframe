@@ -313,8 +313,6 @@ The variant session JSON stores:
 - the approved concept
 - per-concept export history
 
-This workflow is separate from the Agentation overlay in the web UI. Agentation controls browser-side agent interaction; the MCP variant-session tools are the agent-facing screenshot workflow surface.
-
 ## Store Upload
 
 ### App Store Connect

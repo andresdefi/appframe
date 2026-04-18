@@ -3,7 +3,7 @@ import cors from 'cors';
 import { join, dirname, resolve } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { startHttpServer } from 'agentation-mcp';
+import { stringify as stringifyYaml } from 'yaml';
 import {
   loadConfig,
   validateConfigOrThrow,
@@ -61,8 +61,6 @@ import {
 import { autoTranslateLocale } from './translation.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const AGENTATION_PORT = 4747;
 
 export interface PreviewServerOptions {
   configPath?: string;
@@ -606,12 +604,48 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     });
   });
 
-  // API: Get current config
+  // API: Get current live config (reflects in-browser edits, not disk state).
   app.get('/api/config', (_req, res) => {
     res.json(config);
   });
   app.get('/api/project', (_req, res) => {
     res.json(config);
+  });
+
+  // API: Replace the in-memory live config. Browser debounces edits here so that
+  // agents querying GET /api/config see the user's latest state in real time.
+  // If the body carries `__editorState: true` it is treated as the editor-state
+  // shape used by /api/export-config; otherwise it is taken as a full AppframeConfig.
+  app.put('/api/config', (req, res) => {
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'Request body must be an object' });
+      return;
+    }
+    try {
+      config = body.__editorState === true
+        ? buildConfigFromEditorState(config, body)
+        : (body as AppframeConfig);
+      res.json({ success: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(400).json({ error: message });
+    }
+  });
+
+  // API: Persist the current live config back to the YAML file on disk.
+  app.post('/api/save', async (_req, res) => {
+    if (!resolvedConfigPath) {
+      res.status(400).json({ error: 'Preview was not started with a config file' });
+      return;
+    }
+    try {
+      await writeFile(resolvedConfigPath, stringifyYaml(config), 'utf-8');
+      res.json({ success: true, path: resolvedConfigPath });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
   });
 
   app.post('/api/translate-locale', async (req, res) => {
@@ -1945,11 +1979,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   app.listen(port, () => {
     console.log(`appframe preview running at http://localhost:${port}`);
+    console.log(`live config for agents: http://localhost:${port}/api/config`);
   });
-
-  // Start agentation annotation server for AI agent integration
-  startHttpServer(AGENTATION_PORT);
-  console.log(`agentation annotation server running at http://localhost:${AGENTATION_PORT}`);
 
   // Cleanup on exit
   process.on('SIGINT', async () => {

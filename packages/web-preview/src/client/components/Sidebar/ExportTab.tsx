@@ -66,6 +66,7 @@ export function ExportTab() {
   const initScreens = usePreviewStore((s) => s.initScreens);
   const triggerRender = usePreviewStore((s) => s.triggerRender);
   const screens = usePreviewStore((s) => s.screens);
+  const selectedScreen = usePreviewStore((s) => s.selectedScreen);
   const sessionBacked = usePreviewStore((s) => s.sessionBacked);
 
   // Panoramic state
@@ -170,19 +171,6 @@ export function ExportTab() {
       }
     }
     if (exported > 0) {
-      const manifestName = `${variantSlug}-manifest.json`;
-      const manifest = {
-        variantId: activeVariant?.id ?? null,
-        variantName: activeVariant?.name ?? 'Variant',
-        status: activeVariant?.status ?? 'draft',
-        mode: 'panoramic',
-        locale,
-        sizeKey: resolvedExportSize,
-        renderer: 'playwright',
-        fileNames,
-        exportedAt: new Date().toISOString(),
-      };
-      downloadBlob(new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' }), manifestName);
       recordVariantArtifact({
         kind: 'frames',
         locale,
@@ -190,12 +178,37 @@ export function ExportTab() {
         sizeKey: resolvedExportSize,
         renderer: 'playwright',
         fileNames,
-        manifestName,
+        manifestName: `${variantSlug}-manifest.json`,
       });
     }
     setExporting(false);
     setStatus(`Downloaded ${exported} of ${panoramicFrameCount} frames`);
     setToast(`Downloaded ${exported} frames`);
+  };
+
+  const handleExportCurrent = async () => {
+    const screen = screens[selectedScreen];
+    if (!screen) return;
+    setExporting(true);
+    setStatus(`Downloading screen ${selectedScreen + 1}...`);
+    try {
+      const blob = await fetchExport(buildExportBody(screen, {
+        previewW,
+        previewH,
+        locale,
+        localeConfig: activeLocaleConfig,
+        sizeKey: resolvedExportSize,
+        renderer: exportRenderer,
+      }));
+      const fileName = `${variantSlug}-screen-${selectedScreen + 1}.png`;
+      downloadBlob(blob, fileName);
+      setStatus(`Downloaded screen ${selectedScreen + 1}`);
+      setToast(`Downloaded ${fileName}`);
+    } catch (err) {
+      setStatus(`Error on screen ${selectedScreen + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleExportAll = async () => {
@@ -220,24 +233,12 @@ export function ExportTab() {
         downloadBlob(blob, fileName);
         fileNames.push(fileName);
         exported++;
+        await new Promise((resolve) => setTimeout(resolve, 350));
       } catch (err) {
         setStatus(`Error on screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
       }
     }
     if (exported > 0) {
-      const manifestName = `${variantSlug}-manifest.json`;
-      const manifest = {
-        variantId: activeVariant?.id ?? null,
-        variantName: activeVariant?.name ?? 'Variant',
-        status: activeVariant?.status ?? 'draft',
-        mode: 'individual',
-        locale,
-        sizeKey: resolvedExportSize,
-        renderer: exportRenderer,
-        fileNames,
-        exportedAt: new Date().toISOString(),
-      };
-      downloadBlob(new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' }), manifestName);
       recordVariantArtifact({
         kind: 'screens',
         locale,
@@ -245,7 +246,7 @@ export function ExportTab() {
         sizeKey: resolvedExportSize,
         renderer: exportRenderer,
         fileNames,
-        manifestName,
+        manifestName: `${variantSlug}-manifest.json`,
       });
     }
     setExporting(false);
@@ -386,6 +387,13 @@ export function ExportTab() {
           <>
             <button
               className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-md disabled:opacity-50 mt-1"
+              onClick={handleExportCurrent}
+              disabled={exporting || !screens[selectedScreen]}
+            >
+              {exporting ? 'Downloading...' : `Download screen ${selectedScreen + 1}`}
+            </button>
+            <button
+              className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-1"
               onClick={handleExportAll}
               disabled={exporting}
             >

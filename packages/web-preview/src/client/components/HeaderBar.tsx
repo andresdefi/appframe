@@ -4,8 +4,6 @@ interface HeaderBarProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   showSidebarToggle: boolean;
-  agentMode: boolean;
-  onToggleAgentMode: () => void;
 }
 
 const TABS = [
@@ -21,8 +19,6 @@ export function HeaderBar({
   sidebarOpen,
   onToggleSidebar,
   showSidebarToggle,
-  agentMode,
-  onToggleAgentMode,
 }: HeaderBarProps) {
   const config = usePreviewStore((s) => s.config);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
@@ -92,19 +88,6 @@ export function HeaderBar({
       </div>
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
-        <button
-          className={`hidden sm:inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-            agentMode
-              ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300'
-              : 'border-border bg-bg text-text-dim hover:border-emerald-400/30 hover:text-text'
-          }`}
-          onClick={onToggleAgentMode}
-          aria-pressed={agentMode}
-          title="Toggle the Agentation annotation overlay"
-        >
-          {agentMode ? 'Agentation On' : 'Agentation Off'}
-        </button>
-
         <button
           className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             isPanoramic

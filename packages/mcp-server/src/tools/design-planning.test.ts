@@ -2750,3 +2750,67 @@ describe('design planning helpers', () => {
     );
   });
 });
+
+describe('variant plan mode diversity', () => {
+  function makeAnalysis(path: string, order: number): ScreenshotAnalysis {
+    return {
+      path,
+      basename: path.split('/').pop() ?? path,
+      format: 'png',
+      width: 1290,
+      height: 2796,
+      aspectRatio: 0.461,
+      role: 'home',
+      density: 'balanced',
+      textRisk: 'medium',
+      heroPriority: 90 - order,
+      heroExplanation: ['test fixture'],
+      inferredOrder: order,
+      orderingConfidence: 'medium',
+      orderingReason: ['fixture'],
+      focus: 'test',
+      dominantPalette: ['#FFFFFF', '#000000', '#808080'],
+      safeTextZones: [{ x: 0, y: 0, width: 100, height: 20, label: 'top' }],
+      occupiedRegions: ['center'],
+      cropSuitability: 'high',
+      recommendedUsage: 'hero-device',
+      unsafeForTextOverlay: false,
+    };
+  }
+
+  const analysis = [
+    makeAnalysis('/fixture/a.png', 1),
+    makeAnalysis('/fixture/b.png', 2),
+    makeAnalysis('/fixture/c.png', 3),
+  ];
+
+  it('with variantCount=4 yields >=1 individual and >=1 panoramic', () => {
+    const plan = buildVariantSetPlanFromAnalysis({
+      appName: 'FixtureApp',
+      appDescription: 'Testing mode diversity',
+      platforms: ['ios'],
+      analysis,
+      variantCount: 4,
+      screenCount: 3,
+    });
+    const modes = plan.variants.map((variant) => variant.mode);
+    expect(plan.variants).toHaveLength(4);
+    expect(modes.filter((mode) => mode === 'individual').length).toBeGreaterThanOrEqual(1);
+    expect(modes.filter((mode) => mode === 'panoramic').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('with variantCount=3 yields >=1 individual and >=1 panoramic', () => {
+    const plan = buildVariantSetPlanFromAnalysis({
+      appName: 'FixtureApp',
+      appDescription: 'Testing mode diversity',
+      platforms: ['ios'],
+      analysis,
+      variantCount: 3,
+      screenCount: 3,
+    });
+    const modes = plan.variants.map((variant) => variant.mode);
+    expect(plan.variants).toHaveLength(3);
+    expect(modes.filter((mode) => mode === 'individual').length).toBeGreaterThanOrEqual(1);
+    expect(modes.filter((mode) => mode === 'panoramic').length).toBeGreaterThanOrEqual(1);
+  });
+});

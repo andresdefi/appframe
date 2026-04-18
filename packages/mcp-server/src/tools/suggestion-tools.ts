@@ -24,7 +24,7 @@ import {
   type SelectedCopySet,
 } from './copy-planning.js';
 import { createSessionFromManifest, readSession, type VariantSessionFile } from './variant-session-lib.js';
-import { renderVariantPreviews, scoreVariantPreviews } from './variant-session-tools.js';
+import { openPreviewSession, renderVariantPreviews, scoreVariantPreviews } from './variant-session-tools.js';
 
 type DesignVariantPlan = {
   id: string;
@@ -397,6 +397,8 @@ export interface AutopilotRunStatus {
     recommendedVariantId: string | null;
     recommendationReason: string | null;
     previewCommand: string;
+    previewUrl?: string;
+    previewPort?: number;
     previewArtifacts: Array<{
       variantId: string;
       filePaths: string[];
@@ -439,6 +441,8 @@ export interface RunAutopilotArgs {
   variantCount?: number;
   resumeFrom?: AutopilotStage;
   forceStages?: AutopilotStage[];
+  openPreview?: boolean;
+  previewPort?: number;
 }
 
 type AutopilotStageDecision = {
@@ -1474,6 +1478,21 @@ export async function runAutopilotPipeline(args: RunAutopilotArgs): Promise<Auto
       previewCommand,
       previewArtifacts,
     };
+
+    if (args.openPreview !== false) {
+      try {
+        const preview = await openPreviewSession({
+          sessionPath: paths.sessionPath,
+          port: args.previewPort,
+        });
+        runStatus.result.previewUrl = preview.url;
+        runStatus.result.previewPort = preview.port;
+      } catch (previewError) {
+        const message = previewError instanceof Error ? previewError.message : 'Unknown error';
+        runStatus.result.previewCommand = `${previewCommand}  # auto-open failed: ${message}`;
+      }
+    }
+
     await writeAutopilotRunStatus(runStatus);
     return runStatus;
   } catch (error) {
@@ -1834,7 +1853,7 @@ export function registerSuggestionTools(server: McpServer): void {
 
   server.tool(
     'appframe_run_autopilot',
-    'Run the full AppFrame autopilot pipeline: analyze screenshots, generate/select copy, plan 4 concepts, materialize configs, create a variant session, render previews, score variants, and return a preview-ready session path.',
+    'Primary entry point for designing App Store screenshots. Analyzes the raw screenshots, plans 4 concepts (2 individual + 2 panoramic guaranteed), renders previews, and by default opens the local web preview at http://localhost:4400. Returns the preview URL for the user to review and pick a variant. Use this instead of appframe_generate when the user wants to design screenshots interactively.',
     {
       appName: z.string().describe('Name of the app'),
       appDescription: z.string().describe('Short product description'),
@@ -1870,6 +1889,17 @@ export function registerSuggestionTools(server: McpServer): void {
         .array(z.enum(AUTOPILOT_STAGES))
         .optional()
         .describe('Optional stages to force-regenerate, along with any downstream stages'),
+      openPreview: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe('Open the web preview automatically after the pipeline completes (default true). Set to false for headless runs.'),
+      previewPort: z
+        .number()
+        .min(1)
+        .max(65535)
+        .optional()
+        .describe('Optional port for the auto-opened preview server (default 4400).'),
     },
     async ({
       appName,
@@ -1891,6 +1921,8 @@ export function registerSuggestionTools(server: McpServer): void {
       variantCount,
       resumeFrom,
       forceStages,
+      openPreview,
+      previewPort,
     }) => {
       try {
         const runStatus = await runAutopilotPipeline({
@@ -1915,6 +1947,8 @@ export function registerSuggestionTools(server: McpServer): void {
           variantCount,
           resumeFrom,
           forceStages,
+          openPreview,
+          previewPort,
         });
 
         return {

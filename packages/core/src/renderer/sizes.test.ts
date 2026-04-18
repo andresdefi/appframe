@@ -35,8 +35,14 @@ describe('STORE_SIZES', () => {
 });
 
 describe('getTargetSizes', () => {
-  it('returns default iOS sizes (6.9 and 6.5)', () => {
+  it('returns a single default iOS size (6.5)', () => {
     const sizes = getTargetSizes(['ios']);
+    expect(sizes).toHaveLength(1);
+    expect(sizes[0]!.name).toBe('iPhone 6.5"');
+  });
+
+  it('returns both sizes when iosSizes is explicit', () => {
+    const sizes = getTargetSizes(['ios'], [6.9, 6.5]);
     expect(sizes).toHaveLength(2);
     expect(sizes[0]!.name).toBe('iPhone 6.9"');
     expect(sizes[1]!.name).toBe('iPhone 6.5"');
@@ -61,7 +67,8 @@ describe('getTargetSizes', () => {
 
   it('returns both platform sizes', () => {
     const sizes = getTargetSizes(['ios', 'android']);
-    expect(sizes.length).toBeGreaterThanOrEqual(3);
+    expect(sizes.some((size) => size.platform === 'ios')).toBe(true);
+    expect(sizes.some((size) => size.platform === 'android')).toBe(true);
   });
 
   it('returns empty for unrecognized sizes', () => {

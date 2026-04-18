@@ -1665,7 +1665,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.post('/api/export', async (req, res) => {
     try {
       const p = clampPreviewParams(parseBody(getRequestPayload(req.body)));
-      const sizeKey = p.sizeKey ?? 'ios-6.9';
+      const sizeKey = p.sizeKey ?? 'ios-6.5';
 
       const { STORE_SIZES } = await import('@appframe/core');
       const sizeSpec = STORE_SIZES[sizeKey];
@@ -1814,7 +1814,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
       const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
       const frameIndex = body.frameIndex as number | undefined;
-      const sizeKey = (body.sizeKey as string) ?? 'ios-6.9';
+      const sizeKey = (body.sizeKey as string) ?? 'ios-6.5';
 
       const { STORE_SIZES } = await import('@appframe/core');
       const sizeSpec = STORE_SIZES[sizeKey];

@@ -81,13 +81,7 @@ appframe preview
 
 ## AI Agent Integration
 
-appframe works with AI coding agents (Claude Code, Cursor, Windsurf, and 40+ others) via a skill:
-
-```bash
-npx skills add your-username/appframe
-```
-
-Or via MCP server:
+appframe works with AI coding agents (Claude Code, Cursor, Windsurf, and 40+ others) via MCP:
 
 ```json
 {
@@ -99,13 +93,19 @@ Or via MCP server:
 }
 ```
 
-When used with AI agents, appframe generates **2-3 design variants** for you to choose from — a clean/safe version, a dynamic/varied version, and an elegant/editorial version. The agent handles copy, theme, and layout decisions, then you pick your favorite.
+### The Canonical Flow
 
-Toggle **AI Mode** in the web preview to connect your agent via MCP for live, collaborative editing:
+When you ask an agent "create app store screenshots with appframe", it should call a single tool:
 
-<p align="center">
-  <img src="docs/screenshots/web-preview-ai-mode.png" alt="AI Mode enabled — MCP connection status and agent overlay in the web preview" width="100%" />
-</p>
+**`appframe_run_autopilot`** — analyzes your raw screenshots, plans **4 concepts** (2 individual + 2 panoramic, guaranteed), renders previews, opens the web preview at `http://localhost:4400`, and returns the URL.
+
+You then:
+1. Open the URL.
+2. Review the 4 variants side-by-side.
+3. Pick one, fine-tune it in the UI, or accept as-is.
+4. Download the PNGs from the Export tab.
+
+The agent stops after opening the preview — you stay in control of the final pick. Use `appframe_generate` only for headless/batch exports when you already have an approved config.
 
 ## Writing Great Copy
 

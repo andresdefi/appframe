@@ -153,7 +153,7 @@ export function getTargetSizes(
   const sizes: ScreenshotSize[] = [];
 
   if (platforms.includes('ios')) {
-    const iosTargets = iosSizes ?? [6.9, 6.5];
+    const iosTargets = iosSizes ?? [6.5];
     for (const size of iosTargets) {
       const key = `ios-${size}`;
       const sizeSpec = STORE_SIZES[key];

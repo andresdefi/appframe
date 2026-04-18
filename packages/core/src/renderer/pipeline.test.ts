@@ -54,7 +54,7 @@ describe('generateScreenshots', () => {
     mockLoadConfig.mockResolvedValue(createMinimalConfig());
 
     const result = await generateScreenshots({ configPath: '/tmp/appframe.yml' });
-    expect(result.screenshots.length).toBe(2); // default iOS: 6.9 + 6.5
+    expect(result.screenshots.length).toBe(1); // default iOS: 6.5 only
     expect(result.totalTime).toBeGreaterThanOrEqual(0);
   });
 
@@ -80,8 +80,8 @@ describe('generateScreenshots', () => {
     mockLoadConfig.mockResolvedValue(config);
 
     const result = await generateScreenshots({ configPath: '/tmp/appframe.yml', screenIndex: 0 });
-    // Only screen 0 generated across 2 iOS sizes
-    expect(result.screenshots.length).toBe(2);
+    // Only screen 0 generated across the default iOS size
+    expect(result.screenshots.length).toBe(1);
   });
 
   it('calls onProgress', async () => {
@@ -111,8 +111,8 @@ describe('generateScreenshots', () => {
     mockLoadConfig.mockResolvedValue(config);
 
     const result = await generateScreenshots({ configPath: '/tmp/appframe.yml' });
-    // 2 sizes * 2 locales (default + es) * 1 screen = 4
-    expect(result.screenshots.length).toBe(4);
+    // 1 size * 2 locales (default + es) * 1 screen = 2
+    expect(result.screenshots.length).toBe(2);
   });
 
   it('generates for xcstrings localization mode', async () => {
@@ -122,8 +122,8 @@ describe('generateScreenshots', () => {
     mockLoadConfig.mockResolvedValue(config);
 
     const result = await generateScreenshots({ configPath: '/tmp/appframe.yml' });
-    // 2 sizes * 2 languages * 1 screen = 4
-    expect(result.screenshots.length).toBe(4);
+    // 1 size * 2 languages * 1 screen = 2
+    expect(result.screenshots.length).toBe(2);
   });
 
   it('respects locale filter', async () => {
@@ -136,15 +136,15 @@ describe('generateScreenshots', () => {
     mockLoadConfig.mockResolvedValue(config);
 
     const result = await generateScreenshots({ configPath: '/tmp/appframe.yml', locale: 'es' });
-    // 2 sizes * 1 locale * 1 screen = 2
-    expect(result.screenshots.length).toBe(2);
+    // 1 size * 1 locale * 1 screen = 1
+    expect(result.screenshots.length).toBe(1);
   });
 
   it('renders with templateOverride', async () => {
     mockLoadConfig.mockResolvedValue(createMinimalConfig());
 
     const result = await generateScreenshots({ configPath: '/tmp/appframe.yml', templateOverride: 'bold' });
-    expect(result.screenshots.length).toBe(2);
+    expect(result.screenshots.length).toBe(1);
   });
 
   it('handles screens with spotlight, annotations, and zoom callouts', async () => {
@@ -159,7 +159,7 @@ describe('generateScreenshots', () => {
     mockLoadConfig.mockResolvedValue(config);
 
     const result = await generateScreenshots({ configPath: '/tmp/appframe.yml' });
-    expect(result.screenshots.length).toBe(2);
+    expect(result.screenshots.length).toBe(1);
   });
 
   it('passes multi-device composition and screen effects into the template context', async () => {

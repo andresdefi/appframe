@@ -5,7 +5,7 @@ import { generateScreenshots } from '@appframe/core';
 export function registerGenerateTools(server: McpServer): void {
   server.tool(
     'appframe_generate',
-    'Generate all store screenshots from an appframe config. Returns list of generated files with sizes. Platforms: ios (iPhone/iPad), android, mac (macOS apps: 2560x1600, 2880x1800, etc.), watch (Apple Watch: ultra, s7, s4, etc.). The config file determines which platforms and sizes to generate. Use the platform filter to generate for a specific platform only.',
+    'Headless batch export: renders store screenshots from an existing appframe.yml straight to disk. Use only when the user has an approved config and wants PNGs generated without review. For interactive screenshot design (analyze screenshots, compare variants, pick one) use appframe_run_autopilot instead, which opens the web preview at http://localhost:4400. Platforms: ios (iPhone/iPad), android, mac, watch.',
     {
       configPath: z.string().describe('Absolute path to the appframe.yml config file'),
       platform: z.enum(['ios', 'android', 'mac', 'watch', 'all']).optional().describe('Filter by platform: ios (iPhone/iPad), android, mac (macOS), watch (Apple Watch), or all'),

@@ -16,6 +16,10 @@
     "./preview-hooks": {
       "types": "./dist/preview-hooks.d.ts",
       "import": "./dist/preview-hooks.js"
+    },
+    "./autopilot": {
+      "types": "./dist/autopilot.d.ts",
+      "import": "./dist/autopilot.js"
     }
   },
   "scripts": {

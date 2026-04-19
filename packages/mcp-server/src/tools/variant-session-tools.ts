@@ -409,7 +409,6 @@ export async function renderVariantPreviews(args: {
             configPath: tempConfigPath,
             outputDir: variantOutputDir,
             platform: args.platform,
-            screenIndex: 0,
           });
 
       previewArtifacts.push({

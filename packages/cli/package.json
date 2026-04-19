@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@appframe/core": "workspace:*",
+    "@appframe/mcp-server": "workspace:*",
     "@appframe/store-upload": "workspace:*",
     "@appframe/web-preview": "workspace:^",
     "chalk": "^5.6.2",

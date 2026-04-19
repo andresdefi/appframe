@@ -218,6 +218,44 @@ describe('screenConfigSchema', () => {
       false,
     );
   });
+
+  it('accepts eyebrow and accentColor', () => {
+    const result = screenConfigSchema.safeParse({
+      screenshot: 'test.png',
+      headline: 'Hi',
+      eyebrow: 'Split View',
+      accentColor: '#FF6B00',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.eyebrow).toBe('Split View');
+      expect(result.data.accentColor).toBe('#FF6B00');
+    }
+  });
+
+  it('accepts per-screen background overrides', () => {
+    const result = screenConfigSchema.safeParse({
+      screenshot: 'test.png',
+      headline: 'Hi',
+      backgroundType: 'solid',
+      backgroundColor: '#0F172A',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.backgroundType).toBe('solid');
+      expect(result.data.backgroundColor).toBe('#0F172A');
+    }
+  });
+
+  it('rejects invalid accentColor', () => {
+    expect(
+      screenConfigSchema.safeParse({
+        screenshot: 'test.png',
+        headline: 'Hi',
+        accentColor: 'not-a-color',
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('panoramicElementSchema', () => {

@@ -1,10 +1,13 @@
 import { z } from 'zod';
+import { FONT_IDS } from '../fonts/loader.js';
 
 // --- Shared enums/primitives ---
 
 const hexColor = z
   .string()
   .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Must be a valid hex color');
+
+export const fontIdSchema = z.enum(FONT_IDS as [string, ...string[]]);
 
 export const platformSchema = z.enum(['ios', 'android', 'mac', 'watch']);
 export const templateStyleSchema = z.enum([
@@ -208,7 +211,7 @@ export const panoramicBackgroundLayerSchema = z.discriminatedUnion('kind', [
 export const themeConfigSchema = z.object({
   style: templateStyleSchema,
   colors: colorConfigSchema,
-  font: z.string().default('inter'),
+  font: fontIdSchema.default('inter'),
   fontWeight: z.number().int().min(100).max(900).default(600),
   headlineSize: z.number().int().min(12).max(200).optional(),
   subtitleSize: z.number().int().min(8).max(120).optional(),
@@ -291,6 +294,7 @@ export type Annotation = z.infer<typeof annotationSchema>;
 
 export const screenConfigSchema = z.object({
   screenshot: z.string().min(1, 'Screenshot path is required'),
+  eyebrow: z.string().optional().describe('Short label shown above the headline (e.g. a section tag)'),
   headline: z.string().min(1, 'Headline is required'),
   subtitle: z.string().optional(),
   layout: layoutVariantSchema.default('center'),
@@ -302,6 +306,14 @@ export const screenConfigSchema = z.object({
   autoSizeSubtitle: z.boolean().default(false),
   spotlight: spotlightConfigSchema.optional(),
   annotations: z.array(annotationSchema).default([]),
+  // Per-screen color accent (eyebrow tint, headline highlights, etc.)
+  accentColor: hexColor.optional(),
+  // Per-screen background overrides (take precedence over theme-level background)
+  backgroundType: backgroundTypeSchema.optional(),
+  backgroundColor: hexColor.optional(),
+  backgroundGradient: backgroundGradientSchema.optional(),
+  backgroundImage: z.string().optional(),
+  backgroundOverlay: backgroundOverlaySchema.optional(),
   // Device enhancements
   deviceShadow: deviceShadowSchema.optional(),
   borderSimulation: borderSimulationSchema.optional(),
@@ -427,7 +439,7 @@ const panoramicTextElementSchema = z.object({
   y: z.number().min(-50).max(150),
   fontSize: z.number().min(0.5).max(20).describe('Font size as % of canvas height'),
   color: hexColor.default('#FFFFFF'),
-  font: z.string().optional().describe('Per-element font override (defaults to theme font)'),
+  font: fontIdSchema.optional().describe('Per-element font override (defaults to theme font)'),
   fontWeight: z.number().int().min(100).max(900).default(700),
   fontStyle: z.enum(['normal', 'italic']).default('normal'),
   textAlign: z.enum(['left', 'center', 'right']).default('left'),

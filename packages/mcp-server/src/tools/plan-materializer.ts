@@ -161,7 +161,7 @@ function lightPaletteColor(palette: string[] | undefined): string | undefined {
 function buildOutputConfig(platforms: Platform[]): AppframeConfig['output'] {
   return {
     platforms,
-    ...(platforms.includes('ios') ? { ios: { sizes: [6.7, 6.5], format: 'png' as const } } : {}),
+    ...(platforms.includes('ios') ? { ios: { sizes: [6.5], format: 'png' as const } } : {}),
     ...(platforms.includes('android')
       ? { android: { sizes: ['phone'], format: 'png' as const, featureGraphic: true } }
       : {}),

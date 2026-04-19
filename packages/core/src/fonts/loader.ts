@@ -8,59 +8,208 @@ function getFontsDir(): string {
   return join(__dirname, '..', '..', '..', '..', 'fonts');
 }
 
+export type FontCategory = 'sans-serif' | 'serif' | 'display' | 'condensed' | 'mono' | 'script' | 'rounded';
+
 export interface FontInfo {
   id: string;
   name: string;
   weights: number[];
-  category: 'sans-serif' | 'serif' | 'display';
+  /** Weights that ship a true italic .woff2 file. Empty = no real italic (browser will skip italic styling). */
+  italicWeights: number[];
+  category: FontCategory;
+  /** Short description of the typeface's visual character, for the UI picker. */
+  description: string;
 }
 
 export const FONT_CATALOG: FontInfo[] = [
-  // Sans-serif
-  { id: 'inter', name: 'Inter', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'roboto', name: 'Roboto', weights: [400, 500, 700, 900], category: 'sans-serif' },
-  { id: 'open-sans', name: 'Open Sans', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'lato', name: 'Lato', weights: [400, 700, 900], category: 'sans-serif' },
-  { id: 'poppins', name: 'Poppins', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'montserrat', name: 'Montserrat', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'nunito', name: 'Nunito', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'dm-sans', name: 'DM Sans', weights: [400, 500, 600, 700], category: 'sans-serif' },
-  { id: 'plus-jakarta-sans', name: 'Plus Jakarta Sans', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'raleway', name: 'Raleway', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'space-grotesk', name: 'Space Grotesk', weights: [400, 500, 700], category: 'sans-serif' },
-  { id: 'work-sans', name: 'Work Sans', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'manrope', name: 'Manrope', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'outfit', name: 'Outfit', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'sora', name: 'Sora', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'figtree', name: 'Figtree', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'rubik', name: 'Rubik', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'urbanist', name: 'Urbanist', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'lexend', name: 'Lexend', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'albert-sans', name: 'Albert Sans', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  { id: 'red-hat-display', name: 'Red Hat Display', weights: [400, 500, 600, 700, 800], category: 'sans-serif' },
-  // Serif
-  { id: 'playfair-display', name: 'Playfair Display', weights: [400, 500, 600, 700, 800], category: 'serif' },
-  { id: 'merriweather', name: 'Merriweather', weights: [400, 700, 900], category: 'serif' },
-  { id: 'lora', name: 'Lora', weights: [400, 500, 600, 700], category: 'serif' },
-  { id: 'source-serif-4', name: 'Source Serif 4', weights: [400, 500, 600, 700, 800], category: 'serif' },
-  { id: 'libre-baskerville', name: 'Libre Baskerville', weights: [400, 700], category: 'serif' },
-  { id: 'crimson-text', name: 'Crimson Text', weights: [400, 600, 700], category: 'serif' },
-  { id: 'eb-garamond', name: 'EB Garamond', weights: [400, 500, 600, 700, 800], category: 'serif' },
-  // Display
-  { id: 'bebas-neue', name: 'Bebas Neue', weights: [400], category: 'display' },
-  { id: 'oswald', name: 'Oswald', weights: [400, 500, 600, 700], category: 'display' },
-  { id: 'archivo-black', name: 'Archivo Black', weights: [400], category: 'display' },
-  { id: 'anton', name: 'Anton', weights: [400], category: 'display' },
+  // Sans-serif workhorses
+  {
+    id: 'inter', name: 'Inter',
+    weights: [400, 500, 600, 700, 800], italicWeights: [400, 500, 600, 700, 800],
+    category: 'sans-serif',
+    description: 'Neutral geometric sans. Apple-aligned workhorse.',
+  },
+  {
+    id: 'dm-sans', name: 'DM Sans',
+    weights: [400, 500, 600, 700], italicWeights: [400, 500, 600, 700],
+    category: 'sans-serif',
+    description: 'Warmer humanist geometric. Softer curves than Inter.',
+  },
+  {
+    id: 'space-grotesk', name: 'Space Grotesk',
+    weights: [400, 500, 700], italicWeights: [],
+    category: 'sans-serif',
+    description: 'Squared terminals, semi-monospaced rhythm. Technical feel.',
+  },
+  {
+    id: 'instrument-sans', name: 'Instrument Sans',
+    weights: [400, 500, 600, 700], italicWeights: [400, 700],
+    category: 'sans-serif',
+    description: 'Modern grotesque with humanist quirks.',
+  },
+  {
+    id: 'hubot-sans', name: 'Hubot Sans',
+    weights: [300, 400, 500, 600, 700, 800, 900], italicWeights: [],
+    category: 'sans-serif',
+    description: 'GitHub variable sans. Rounded but structured.',
+  },
+
+  // Condensed / display heavies
+  {
+    id: 'bebas-neue', name: 'Bebas Neue',
+    weights: [400], italicWeights: [],
+    category: 'condensed',
+    description: 'Iconic thin-stem condensed caps. Billboard classic.',
+  },
+  {
+    id: 'anton', name: 'Anton',
+    weights: [400], italicWeights: [],
+    category: 'condensed',
+    description: 'Ultra-heavy condensed. Hits like a truck.',
+  },
+  {
+    id: 'archivo-black', name: 'Archivo Black',
+    weights: [400], italicWeights: [],
+    category: 'display',
+    description: 'Geometric display, heavy but not condensed.',
+  },
+  {
+    id: 'barlow-condensed', name: 'Barlow Condensed',
+    weights: [300, 400, 500, 600, 700, 800, 900], italicWeights: [],
+    category: 'condensed',
+    description: 'Condensed sans with full weight range.',
+  },
+  {
+    id: 'bungee', name: 'Bungee',
+    weights: [400], italicWeights: [],
+    category: 'display',
+    description: 'Block-stacked wide display. Retro billboard.',
+  },
+  {
+    id: 'ultra', name: 'Ultra',
+    weights: [400], italicWeights: [],
+    category: 'display',
+    description: 'Didone extremes. Ultra-heavy with hairline contrast.',
+  },
+
+  // Serifs
+  {
+    id: 'playfair-display', name: 'Playfair Display',
+    weights: [400, 500, 600, 700, 800], italicWeights: [400, 500, 600, 700, 800],
+    category: 'serif',
+    description: 'High-contrast display serif. Editorial standard.',
+  },
+  {
+    id: 'fraunces', name: 'Fraunces',
+    weights: [400, 500, 600, 700, 800], italicWeights: [400, 600, 700],
+    category: 'serif',
+    description: 'Modern expressive variable serif.',
+  },
+  {
+    id: 'cormorant-garamond', name: 'Cormorant Garamond',
+    weights: [300, 400, 500, 600, 700], italicWeights: [400, 600, 700],
+    category: 'serif',
+    description: 'Luxe thin serif. Fashion / fine-dining register.',
+  },
+  {
+    id: 'zilla-slab', name: 'Zilla Slab',
+    weights: [400, 500, 600, 700], italicWeights: [],
+    category: 'serif',
+    description: 'Chunky slab serif. Editorial grounding.',
+  },
+
+  // Rounded
+  {
+    id: 'fredoka', name: 'Fredoka',
+    weights: [400, 500, 600, 700], italicWeights: [],
+    category: 'rounded',
+    description: 'Fully rounded soft sans. Playful friendly tone.',
+  },
+
+  // Mono
+  {
+    id: 'jetbrains-mono', name: 'JetBrains Mono',
+    weights: [400, 500, 600, 700, 800], italicWeights: [],
+    category: 'mono',
+    description: 'Technical monospace with ligatures.',
+  },
+
+  // Script
+  {
+    id: 'caveat', name: 'Caveat',
+    weights: [400, 500, 600, 700], italicWeights: [],
+    category: 'script',
+    description: 'Casual handwriting. Signature accent.',
+  },
+  {
+    id: 'dancing-script', name: 'Dancing Script',
+    weights: [400, 500, 600, 700], italicWeights: [],
+    category: 'script',
+    description: 'Semi-formal cursive. Luxury / wedding register.',
+  },
+  {
+    id: 'great-vibes', name: 'Great Vibes',
+    weights: [400], italicWeights: [],
+    category: 'script',
+    description: 'Full luxury script. Flowing cursive.',
+  },
+  {
+    id: 'kalam', name: 'Kalam',
+    weights: [300, 400, 700], italicWeights: [],
+    category: 'script',
+    description: 'Bolder connected brush. Hand-lettered feel.',
+  },
+  {
+    id: 'permanent-marker', name: 'Permanent Marker',
+    weights: [400], italicWeights: [],
+    category: 'script',
+    description: 'Thick marker strokes. Hand-drawn and bold.',
+  },
+
+  // Display specials
+  {
+    id: 'luckiest-guy', name: 'Luckiest Guy',
+    weights: [400], italicWeights: [],
+    category: 'display',
+    description: 'Chunky cartoon caps. American diner style.',
+  },
+  {
+    id: 'caprasimo', name: 'Caprasimo',
+    weights: [400], italicWeights: [],
+    category: 'display',
+    description: 'Quirky soft serif. Warm and expressive.',
+  },
+  {
+    id: 'rubik-doodle-shadow', name: 'Rubik Doodle Shadow',
+    weights: [400], italicWeights: [],
+    category: 'display',
+    description: 'Double-outline doodle display.',
+  },
+  {
+    id: 'press-start-2p', name: 'Press Start 2P',
+    weights: [400], italicWeights: [],
+    category: 'display',
+    description: 'True bitmap pixel font. 8-bit nostalgia.',
+  },
+  {
+    id: 'staatliches', name: 'Staatliches',
+    weights: [400], italicWeights: [],
+    category: 'display',
+    description: 'Stencil condensed caps. Badge / sticker register.',
+  },
 ];
 
 const FONT_NAME_MAP: Record<string, string> = Object.fromEntries(
   FONT_CATALOG.map((f) => [f.id, f.name]),
 );
 
+export const FONT_IDS = FONT_CATALOG.map((f) => f.id);
+
 interface FontFace {
   family: string;
   weight: number;
-  src: string; // data URI
+  style: 'normal' | 'italic';
+  src: string;
   format: string;
 }
 
@@ -83,6 +232,10 @@ function parseWeight(filename: string): number {
     if (lower.includes(key)) return value;
   }
   return 400;
+}
+
+function parseStyle(filename: string): 'normal' | 'italic' {
+  return /italic/i.test(filename) ? 'italic' : 'normal';
 }
 
 function mimeType(ext: string): string {
@@ -113,7 +266,8 @@ export function getFontName(fontId: string): string {
 
 /**
  * Load a font family from the fonts directory and return @font-face CSS declarations
- * with embedded base64 data URIs. Results are cached.
+ * with embedded base64 data URIs. Emits one face per (weight, style) pair so real
+ * italic files are honored instead of browser-synthesized oblique.
  */
 export async function loadFontFaces(fontFamily: string, fontsDir?: string): Promise<string> {
   const cacheKey = `${fontFamily}:${fontsDir ?? 'default'}`;
@@ -127,11 +281,12 @@ export async function loadFontFaces(fontFamily: string, fontsDir?: string): Prom
   try {
     files = await readdir(fontDir);
   } catch {
-    // Font dir not found — return empty (will fall back to system fonts)
     return '';
   }
 
   const fontFiles = files.filter((f) => {
+    // Skip variable-font master file — we only emit named weight shims.
+    if (/-Variable\.(woff2|woff|ttf|otf)$/i.test(f)) return false;
     const ext = extname(f).toLowerCase();
     return ['.woff2', '.woff', '.otf', '.ttf'].includes(ext);
   });
@@ -147,19 +302,19 @@ export async function loadFontFaces(fontFamily: string, fontsDir?: string): Prom
     faces.push({
       family: cssFamily,
       weight: parseWeight(file),
+      style: parseStyle(file),
       src: dataUri,
       format: formatName(ext),
     });
   }
 
-  // Sort by weight
-  faces.sort((a, b) => a.weight - b.weight);
+  faces.sort((a, b) => a.weight - b.weight || a.style.localeCompare(b.style));
 
   const css = faces
     .map((f) => `@font-face {
   font-family: '${f.family}';
   font-weight: ${f.weight};
-  font-style: normal;
+  font-style: ${f.style};
   font-display: block;
   src: url('${f.src}') format('${f.format}');
 }`)
@@ -170,7 +325,7 @@ export async function loadFontFaces(fontFamily: string, fontsDir?: string): Prom
 }
 
 /**
- * Load font-face CSS for both Inter and Space Grotesk (kept for backward compat).
+ * Load font-face CSS for the workhorse defaults (Inter + Space Grotesk).
  */
 export async function loadAllFontFaces(fontsDir?: string): Promise<string> {
   const [inter, spaceGrotesk] = await Promise.all([

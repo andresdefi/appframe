@@ -34,6 +34,7 @@ export function TextTab() {
 
   const fontGroups = useMemo(() => buildFontGroups(fonts), [fonts]);
 
+  const eyebrowId = useId();
   const headlineId = useId();
   const subtitleId = useId();
 
@@ -42,7 +43,20 @@ export function TextTab() {
   return (
     <>
       {/* Text inputs */}
-      <Section title="Text" tooltip="Edit the headline and subtitle text that appears above or below the device frame." defaultCollapsed={false}>
+      <Section title="Text" tooltip="Edit the eyebrow, headline, and subtitle text that appears above or below the device frame." defaultCollapsed={false}>
+        <div className="mb-2.5">
+          <label htmlFor={eyebrowId} className="block text-xs text-text-dim mb-1">
+            Eyebrow <span className="text-text-dim opacity-60">(small label above the headline)</span>
+          </label>
+          <input
+            id={eyebrowId}
+            type="text"
+            value={screen.eyebrow}
+            onChange={(e) => update({ eyebrow: e.target.value })}
+            placeholder='e.g. "Split View"'
+            className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent"
+          />
+        </div>
         <div className="mb-2.5">
           <label htmlFor={headlineId} className="block text-xs text-text-dim mb-1">Headline</label>
           <textarea
@@ -73,6 +87,11 @@ export function TextTab() {
           label="Subtitle Color"
           value={screen.colors.subtitle}
           onChange={(v) => update({ colors: { ...screen.colors, subtitle: v } })}
+        />
+        <ColorPicker
+          label="Accent Color (eyebrow, links)"
+          value={screen.accentColor || screen.colors.primary}
+          onChange={(v) => update({ accentColor: v })}
         />
       </Section>
 

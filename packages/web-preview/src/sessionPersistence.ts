@@ -195,16 +195,36 @@ export function buildConfigFromEditorState(
       annotations: [],
     };
 
+    const backgroundType = expectOptionalString(screen.backgroundType) as typeof original.backgroundType;
+    const backgroundColor = expectOptionalString(screen.backgroundColor);
+    const backgroundGradient = isRecord(screen.backgroundGradient)
+      ? screen.backgroundGradient as typeof original.backgroundGradient
+      : undefined;
+    const backgroundImage = expectOptionalString(screen.backgroundImageDataUrl);
+    const backgroundOverlay = isRecord(screen.backgroundOverlay)
+      ? screen.backgroundOverlay as typeof original.backgroundOverlay
+      : undefined;
+
     return {
       ...original,
       screenshot: normalizeScreenshotPath(original.screenshot, screen.screenshotName, index),
+      eyebrow: expectOptionalString(screen.eyebrow) ?? original.eyebrow,
       headline: expectOptionalString(screen.headline) ?? original.headline,
       subtitle: expectOptionalString(screen.subtitle),
+      accentColor: expectOptionalString(screen.accentColor) ?? original.accentColor,
       layout:
         (expectOptionalString(screen.layout) as typeof original.layout)
         ?? original.layout,
       device: expectOptionalString(screen.frameId) ?? original.device,
       background: buildBackgroundString(screen, original.background),
+      // Typed per-screen background overrides — honored by the renderer's
+      // screen→theme merge. Only set when the screen explicitly chose a type
+      // other than preset, otherwise leave undefined so the theme fills in.
+      ...(backgroundType && backgroundType !== 'preset' ? { backgroundType } : {}),
+      ...(backgroundType === 'solid' && backgroundColor ? { backgroundColor } : {}),
+      ...(backgroundType === 'gradient' && backgroundGradient ? { backgroundGradient } : {}),
+      ...(backgroundType === 'image' && backgroundImage ? { backgroundImage } : {}),
+      ...(backgroundOverlay ? { backgroundOverlay } : {}),
       composition:
         (expectOptionalString(screen.composition) as typeof original.composition)
         ?? original.composition,

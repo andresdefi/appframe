@@ -201,4 +201,74 @@ describe('generateScreenshots', () => {
     // Android default: 'phone' size only
     expect(result.screenshots.length).toBe(1);
   });
+
+  it('uses screen-level background when set, overriding theme-level', async () => {
+    const config = createMinimalConfig({
+      theme: {
+        style: 'minimal',
+        colors: { primary: '#2563EB', secondary: '#7C3AED', background: '#FFFFFF', text: '#0F172A' },
+        font: 'inter',
+        fontWeight: 600,
+        backgroundColor: '#FFFFFF',
+      },
+      screens: [{
+        screenshot: 's.png',
+        headline: 'H',
+        layout: 'center',
+        composition: 'single',
+        autoSizeHeadline: false,
+        autoSizeSubtitle: false,
+        annotations: [],
+        backgroundType: 'solid',
+        backgroundColor: '#0F172A',
+      }],
+    });
+    mockLoadConfig.mockResolvedValue(config);
+
+    await generateScreenshots({ configPath: '/tmp/appframe.yml' });
+
+    const ctx = templateEngineMocks.render.mock.calls[0]?.[0];
+    expect(ctx?.backgroundColor).toBe('#0F172A');
+    expect(ctx?.colors.background).toBe('#0F172A');
+  });
+
+  it('falls back to theme-level background when screen has none', async () => {
+    const config = createMinimalConfig({
+      theme: {
+        style: 'minimal',
+        colors: { primary: '#2563EB', secondary: '#7C3AED', background: '#F8FAFC', text: '#0F172A' },
+        font: 'inter',
+        fontWeight: 600,
+      },
+    });
+    mockLoadConfig.mockResolvedValue(config);
+
+    await generateScreenshots({ configPath: '/tmp/appframe.yml' });
+
+    const ctx = templateEngineMocks.render.mock.calls[0]?.[0];
+    expect(ctx?.colors.background).toBe('#F8FAFC');
+  });
+
+  it('passes eyebrow and accentColor through to template context', async () => {
+    const config = createMinimalConfig({
+      screens: [{
+        screenshot: 's.png',
+        headline: 'H',
+        eyebrow: 'Split View',
+        accentColor: '#F97316',
+        layout: 'center',
+        composition: 'single',
+        autoSizeHeadline: false,
+        autoSizeSubtitle: false,
+        annotations: [],
+      }],
+    });
+    mockLoadConfig.mockResolvedValue(config);
+
+    await generateScreenshots({ configPath: '/tmp/appframe.yml' });
+
+    const ctx = templateEngineMocks.render.mock.calls[0]?.[0];
+    expect(ctx?.eyebrow).toBe('Split View');
+    expect(ctx?.accentColor).toBe('#F97316');
+  });
 });

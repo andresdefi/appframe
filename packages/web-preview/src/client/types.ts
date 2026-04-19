@@ -66,8 +66,10 @@ export interface ScreenColors {
 
 export interface ScreenState {
   screenIndex: number;
+  eyebrow: string;
   headline: string;
   subtitle: string;
+  accentColor: string;
   style: TemplateStyle;
   layout: LayoutVariant;
   font: string;

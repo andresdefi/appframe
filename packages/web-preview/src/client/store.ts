@@ -37,8 +37,10 @@ export function createScreenState(
 
   return {
     screenIndex: index,
+    eyebrow: screen?.eyebrow ?? '',
     headline: screen ? screen.headline : 'New Frame',
     subtitle: screen ? (screen.subtitle ?? '') : '',
+    accentColor: screen?.accentColor ?? '',
     style: 'minimal' as TemplateStyle,
     layout: 'center',
     font: config.theme.font,

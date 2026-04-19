@@ -18,12 +18,6 @@ export interface SessionSaveVariantInput {
 export interface SessionSaveRequestBody {
   activeVariantId?: unknown;
   recommendedVariantId?: unknown;
-  recommendationReason?: unknown;
-  screenshotAnalysis?: unknown;
-  selectedCopySet?: unknown;
-  conceptPlan?: unknown;
-  reviewControls?: unknown;
-  refinementHistory?: unknown;
   variants?: SessionSaveVariantInput[];
 }
 
@@ -31,7 +25,6 @@ export interface PersistedSessionRecord {
   activeVariantId: string;
   updatedAt?: string;
   variants: Array<Record<string, unknown> & { id?: string }>;
-  autopilot?: Record<string, unknown>;
 }
 
 function expectOptionalString(value: unknown): string | undefined {
@@ -388,41 +381,6 @@ export function mergeSessionSaveRequest(args: {
       fallbackConfig: args.fallbackConfig,
     }),
   };
-
-  if (nextSession.autopilot) {
-    nextSession.autopilot = {
-      ...nextSession.autopilot,
-      recommendedVariantId:
-        args.body.recommendedVariantId === null
-          ? null
-          : expectOptionalString(args.body.recommendedVariantId) || nextSession.autopilot.recommendedVariantId,
-      recommendationReason:
-        args.body.recommendationReason === null
-          ? null
-          : expectOptionalString(args.body.recommendationReason) || nextSession.autopilot.recommendationReason,
-      screenshotAnalysis: Array.isArray(args.body.screenshotAnalysis)
-        ? args.body.screenshotAnalysis
-        : nextSession.autopilot.screenshotAnalysis,
-      selectedCopySet: isRecord(args.body.selectedCopySet)
-        ? args.body.selectedCopySet
-        : args.body.selectedCopySet === null
-          ? null
-          : nextSession.autopilot.selectedCopySet,
-      conceptPlan: isRecord(args.body.conceptPlan)
-        ? args.body.conceptPlan
-        : args.body.conceptPlan === null
-          ? null
-          : nextSession.autopilot.conceptPlan,
-      reviewControls: isRecord(args.body.reviewControls)
-        ? args.body.reviewControls
-        : args.body.reviewControls === null
-          ? null
-          : nextSession.autopilot.reviewControls,
-      refinementHistory: Array.isArray(args.body.refinementHistory)
-        ? args.body.refinementHistory
-        : nextSession.autopilot.refinementHistory,
-    };
-  }
 
   return nextSession;
 }

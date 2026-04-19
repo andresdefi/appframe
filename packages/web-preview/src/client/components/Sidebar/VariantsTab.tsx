@@ -224,7 +224,6 @@ export function VariantsTab() {
   const variants = usePreviewStore((s) => s.variants);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
   const recommendedVariantId = usePreviewStore((s) => s.recommendedVariantId);
-  const recommendationReason = usePreviewStore((s) => s.recommendationReason);
   const selectVariant = usePreviewStore((s) => s.selectVariant);
   const renameVariant = usePreviewStore((s) => s.renameVariant);
   const duplicateActiveVariant = usePreviewStore((s) => s.duplicateActiveVariant);
@@ -241,7 +240,7 @@ export function VariantsTab() {
     if (variants.length <= 1) return;
     const ok = await confirm({
       title: `Delete ${variant.name}?`,
-      message: 'This will remove the variant from the session. You can always run autopilot again.',
+      message: 'This will remove the variant from the session.',
       confirmLabel: 'Delete',
       destructive: true,
     });
@@ -265,8 +264,7 @@ export function VariantsTab() {
 
         {variants.length === 0 ? (
           <div className="text-[11px] text-text-dim text-center py-4">
-            No variants yet. Run <code className="px-1 bg-surface-2 rounded">appframe autopilot</code> or
-            create one below.
+            No variants yet. Create one below.
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">

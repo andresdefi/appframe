@@ -68,57 +68,6 @@ export interface PreviewServerOptions {
   port?: number;
 }
 
-export interface PreviewSessionReviewRebuildResult {
-  sessionPath: string;
-  manifestPath: string;
-  updatedVariantIds: string[];
-  clearedPreviewVariantIds: string[];
-  recommendationReason: string;
-  plan: {
-    variants: unknown[];
-  };
-}
-
-export interface PreviewSessionReviewRefreshResult extends PreviewSessionReviewRebuildResult {
-  previewArtifacts: Array<{
-    variantId: string;
-    filePaths: string[];
-    thumbnailPath: string | null;
-  }>;
-  recommendedVariantId: string | null;
-  scores: Array<{ variantId: string; total: number }>;
-  aiVisualScoring: {
-    status: string;
-    reason?: string;
-    model?: string;
-  };
-}
-
-export type PreviewSessionReviewRebuildHandler = (args: {
-  sessionPath: string;
-  branchVariants?: boolean;
-}) => Promise<PreviewSessionReviewRebuildResult>;
-
-export type PreviewSessionReviewRefreshHandler = (args: {
-  sessionPath: string;
-  branchVariants?: boolean;
-}) => Promise<PreviewSessionReviewRefreshResult>;
-
-let sessionReviewRebuildHandler: PreviewSessionReviewRebuildHandler | null = null;
-let sessionReviewRefreshHandler: PreviewSessionReviewRefreshHandler | null = null;
-
-export function registerSessionReviewRebuildHandler(
-  handler: PreviewSessionReviewRebuildHandler | null,
-): void {
-  sessionReviewRebuildHandler = handler;
-}
-
-export function registerSessionReviewRefreshHandler(
-  handler: PreviewSessionReviewRefreshHandler | null,
-): void {
-  sessionReviewRefreshHandler = handler;
-}
-
 function createDefaultConfig(): AppframeConfig {
   return {
     mode: 'individual',
@@ -297,69 +246,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       await writeFile(resolvedSessionPath, JSON.stringify(nextSession, null, 2), 'utf-8');
       sessionData = nextSession;
       res.json({ success: true, updatedAt });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(500).json({ error: message });
-    }
-  });
-
-  app.post('/api/session/rebuild-autopilot-from-review', async (req, res) => {
-    if (!resolvedSessionPath) {
-      res.status(400).json({ error: 'Preview was not started with a session file' });
-      return;
-    }
-    const requestBody = isRecord(req.body) ? req.body : {};
-    const refreshPreviews = requestBody.refreshPreviews === true;
-    const branchVariants = requestBody.branchVariants === true;
-
-    if (refreshPreviews && !sessionReviewRefreshHandler) {
-      res.status(503).json({
-        error: 'Reviewed refresh is unavailable for this preview server launch.',
-      });
-      return;
-    }
-    if (!refreshPreviews && !sessionReviewRebuildHandler) {
-      res.status(503).json({
-        error: 'Reviewed rebuild is unavailable for this preview server launch.',
-      });
-      return;
-    }
-
-    try {
-      const result = refreshPreviews
-        ? await sessionReviewRefreshHandler!({ sessionPath: resolvedSessionPath, branchVariants })
-        : await sessionReviewRebuildHandler!({ sessionPath: resolvedSessionPath, branchVariants });
-      const raw = await readFile(resolvedSessionPath, 'utf-8');
-      sessionData = JSON.parse(raw);
-
-      const responseBody = {
-        success: true,
-        updatedAt:
-          isRecord(sessionData) && typeof sessionData.updatedAt === 'string'
-            ? sessionData.updatedAt
-            : new Date().toISOString(),
-        session: sessionData,
-        sessionPath: result.sessionPath,
-        manifestPath: result.manifestPath,
-        updatedVariantIds: result.updatedVariantIds,
-        clearedPreviewVariantIds: result.clearedPreviewVariantIds,
-        recommendationReason: result.recommendationReason,
-        planVariantCount: result.plan.variants.length,
-      };
-
-      if (refreshPreviews) {
-        const refreshResult = result as PreviewSessionReviewRefreshResult;
-        res.json({
-          ...responseBody,
-          previewArtifacts: refreshResult.previewArtifacts,
-          recommendedVariantId: refreshResult.recommendedVariantId,
-          scores: refreshResult.scores,
-          aiVisualScoring: refreshResult.aiVisualScoring,
-        });
-        return;
-      }
-
-      res.json(responseBody);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });

@@ -11,11 +11,7 @@ import type {
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
-import {
-  rebuildAutopilotSessionFromReview as rebuildAutopilotSessionFromReviewApi,
-  saveSession as saveSessionApi,
-  type ReviewedAutopilotRebuildResult,
-} from './utils/api';
+import { saveSession as saveSessionApi } from './utils/api';
 
 function getConfiguredLocaleText(
   locales: Record<string, LocaleConfig>,
@@ -217,176 +213,12 @@ export interface VariantHistoryEntry {
 }
 
 export interface VariantProvenance {
-  origin: 'manual' | 'autopilot' | 'duplicate' | 'refinement';
+  origin: 'manual' | 'duplicate' | 'refinement';
   parentVariantId?: string;
   parentVariantName?: string;
   branchDepth: number;
   note?: string;
 }
-
-export interface AutopilotRefinementHistoryEntry {
-  createdAt: string;
-  prompt: string;
-  detail?: string;
-  variantId?: string;
-  branchVariantId?: string;
-  mode?: 'manual' | 'ai';
-  actionId?: RefinementActionId;
-  actions?: RefinementActionId[];
-  referenceVariantId?: string;
-  referenceVariantName?: string;
-}
-
-export interface ScreenshotSemanticFlavorAlternative {
-  flavor: string;
-  score: number;
-}
-
-export interface AutopilotScreenshotAnalysis {
-  path: string;
-  role: string;
-  semanticFlavor?: string;
-  semanticFlavorConfidence?: string;
-  semanticFlavorReason?: string[];
-  semanticFlavorAlternatives?: ScreenshotSemanticFlavorAlternative[];
-  semanticFlavorNeedsReview?: boolean;
-  inferredSemanticFlavor?: string;
-  inferredSemanticFlavorConfidence?: string;
-  semanticFlavorOverride?: string | null;
-  heroPriority: number;
-  inferredOrder: number | null;
-  focus: string;
-  unsafeForTextOverlay: boolean;
-  heroExplanation?: string[];
-  orderingReason?: string[];
-  embeddedTextSample?: string[];
-  textOccupiedRegions?: string[];
-}
-
-export interface AutopilotCopyCandidate {
-  headline: string;
-  subtitle?: string;
-  sourceFeature?: string;
-}
-
-export interface AutopilotSelectedCopySet {
-  hero: AutopilotCopyCandidate;
-  differentiator: AutopilotCopyCandidate;
-  features: AutopilotCopyCandidate[];
-  trust?: AutopilotCopyCandidate;
-  summary: AutopilotCopyCandidate;
-}
-
-export interface AutopilotPlanVariant {
-  id: string;
-  name: string;
-  mode: 'individual' | 'panoramic';
-  style: string;
-  recipe: string;
-  strategy: string;
-  artDirection?: {
-    surfaceStyle?: string;
-    fontFamily?: string;
-    deviceLayout?: string;
-    textPlacement?: string;
-  };
-  frameStrategy?: {
-    defaultTreatment: string;
-    framelessAllowedWhen: string[];
-    rationale: string;
-  };
-  screens?: Array<{
-    index: number;
-    sourcePath: string;
-    sourceRole: string;
-    slideRole: string;
-    layout: string;
-    composition: string;
-    backgroundStrategy: string;
-    copyDirection: string;
-    cropPlan?: {
-      usage: string;
-      anchor: string;
-      avoidRegions: string[];
-      rationale: string;
-    };
-    implementationNote?: string;
-  }>;
-  canvasPlan?: {
-    frameCount: number;
-    designGoal: string;
-    requiredElements: Array<{
-      type: string;
-      purpose: string;
-    }>;
-  };
-  frames?: Array<{
-    frame: number;
-    sourcePath: string;
-    sourceRole: string;
-    cropSuitability: string;
-    storyBeat: string;
-    rhythmRole?: string;
-    layoutArchetype?: string;
-    continuityRule?: string;
-    continuityMotif?: string;
-    supportSystem?: string;
-    transitionIntent?: string;
-    cropPlan?: {
-      usage: string;
-      anchor: string;
-      avoidRegions: string[];
-      rationale: string;
-    };
-    compositionFeatures?: string[];
-    compositionNote?: string;
-  }>;
-}
-
-export interface AutopilotConceptPlan {
-  analysisSummary?: {
-    screenshotCount: number;
-    selectedCount: number;
-    topHeroCandidate: string | null;
-    topHeroExplanation?: string[];
-  };
-  selectedScreens?: Array<{
-    path: string;
-    role: string;
-    semanticFlavor?: string;
-    semanticFlavorConfidence?: string;
-    semanticFlavorReason?: string[];
-    semanticFlavorAlternatives?: ScreenshotSemanticFlavorAlternative[];
-    semanticFlavorNeedsReview?: boolean;
-    inferredSemanticFlavor?: string;
-    inferredSemanticFlavorConfidence?: string;
-    semanticFlavorOverride?: string | null;
-    inferredOrder: number | null;
-    unsafeForTextOverlay: boolean;
-    embeddedTextSample?: string[];
-    textOccupiedRegions?: string[];
-  }>;
-  variants: AutopilotPlanVariant[];
-}
-
-export interface AutopilotPanoramicReviewControls {
-  recipe?: string | null;
-  continuityMotif?: string | null;
-  supportSystem?: string | null;
-  pacing?: 'calmer' | 'bolder' | null;
-  proofDensity?: 'lighter' | 'heavier' | null;
-  decorativeIntensity?: 'quieter' | 'bolder' | null;
-  surfaceStyle?: 'clean' | 'editorial' | 'bold' | 'branded' | 'playful' | 'glow' | null;
-  fontFamily?: 'inter' | 'space-grotesk' | 'plus-jakarta-sans' | 'playfair-display' | 'dm-sans' | null;
-  deviceLayout?: 'staggered' | 'poster' | 'split' | null;
-  textPlacement?: 'top-left' | 'top-center' | 'mid-left' | null;
-  beatOverrides?: Partial<Record<'open' | 'intensify' | 'resolve', {
-    layoutArchetype?: string | null;
-    supportSystem?: 'quote-stack' | 'metric-ladder' | 'signal-chain' | 'milestone-band' | 'curation-shelf' | 'proof-column' | null;
-  } | undefined>>;
-}
-
-export type AutopilotReviewControls = Record<string, AutopilotPanoramicReviewControls | undefined>;
 
 export interface VariantSnapshot {
   platform: string;
@@ -429,12 +261,6 @@ export interface PreviewStore {
   variants: VariantRecord[];
   activeVariantId: string | null;
   recommendedVariantId: string | null;
-  recommendationReason: string | null;
-  autopilotAnalysis: AutopilotScreenshotAnalysis[];
-  autopilotSelectedCopySet: AutopilotSelectedCopySet | null;
-  autopilotConceptPlan: AutopilotConceptPlan | null;
-  autopilotReviewControls: AutopilotReviewControls;
-  autopilotRefinementHistory: AutopilotRefinementHistoryEntry[];
   sessionSaveBaseline: string | null;
   sessionBacked: boolean;
   platform: string;
@@ -474,13 +300,6 @@ export interface PreviewStore {
   setActiveTab: (tab: string) => void;
   setLocale: (locale: string) => void;
   upsertLocaleConfig: (locale: string, localeConfig: LocaleConfig) => void;
-  setAutopilotSemanticFlavorOverride: (path: string, semanticFlavor: string | null) => void;
-  setAutopilotSemanticFlavorOverrides: (paths: string[], semanticFlavor: string | null) => void;
-  resetAutopilotSemanticFlavorOverrides: () => void;
-  setAutopilotPanoramicReviewControls: (
-    variantId: string,
-    controls: Partial<AutopilotPanoramicReviewControls>,
-  ) => void;
   createVariant: (name?: string) => void;
   duplicateActiveVariant: () => void;
   applyRefinementToActive: (actionId: RefinementActionId) => void;
@@ -527,15 +346,7 @@ export interface PreviewStore {
       history?: VariantHistoryEntry[];
       provenance?: VariantProvenance;
     }>;
-    autopilot?: {
-      recommendedVariantId?: string | null;
-      recommendationReason?: string | null;
-      screenshotAnalysis?: AutopilotScreenshotAnalysis[];
-      selectedCopySet?: AutopilotSelectedCopySet;
-      conceptPlan?: AutopilotConceptPlan;
-      reviewControls?: AutopilotReviewControls;
-      refinementHistory?: AutopilotRefinementHistoryEntry[];
-    };
+    recommendedVariantId?: string | null;
   }) => void;
   addScreen: () => void;
   removeScreen: (index: number) => void;
@@ -556,10 +367,6 @@ export interface PreviewStore {
   undo: () => void;
   redo: () => void;
   saveSession: () => Promise<void>;
-  rebuildAutopilotSessionFromReview: (options?: {
-    refreshPreviews?: boolean;
-    branchVariants?: boolean;
-  }) => Promise<ReviewedAutopilotRebuildResult>;
   isSavingSession: boolean;
 }
 
@@ -580,221 +387,6 @@ let _skipSnapshot = false;
 
 function deepCopy<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
-}
-
-const SEMANTIC_FLAVOR_NONE = 'none';
-
-type SemanticFlavorReviewState = {
-  semanticFlavor?: string;
-  semanticFlavorConfidence?: string;
-  inferredSemanticFlavor?: string;
-  inferredSemanticFlavorConfidence?: string;
-  semanticFlavorOverride?: string | null;
-};
-
-function normalizeSemanticFlavorReview<T extends SemanticFlavorReviewState>(entry: T): T {
-  const inferredSemanticFlavor = entry.inferredSemanticFlavor ?? entry.semanticFlavor;
-  const inferredSemanticFlavorConfidence =
-    entry.inferredSemanticFlavorConfidence ?? entry.semanticFlavorConfidence;
-  const semanticFlavorOverride =
-    typeof entry.semanticFlavorOverride === 'string'
-      ? entry.semanticFlavorOverride
-      : null;
-
-  if (semanticFlavorOverride === SEMANTIC_FLAVOR_NONE) {
-    return {
-      ...entry,
-      semanticFlavor: undefined,
-      semanticFlavorConfidence: undefined,
-      inferredSemanticFlavor,
-      inferredSemanticFlavorConfidence,
-      semanticFlavorOverride,
-    };
-  }
-
-  if (
-    semanticFlavorOverride
-    && (!inferredSemanticFlavor || semanticFlavorOverride !== inferredSemanticFlavor)
-  ) {
-    return {
-      ...entry,
-      semanticFlavor: semanticFlavorOverride,
-      semanticFlavorConfidence: undefined,
-      inferredSemanticFlavor,
-      inferredSemanticFlavorConfidence,
-      semanticFlavorOverride,
-    };
-  }
-
-  return {
-    ...entry,
-    semanticFlavor: inferredSemanticFlavor,
-    semanticFlavorConfidence: inferredSemanticFlavorConfidence,
-    inferredSemanticFlavor,
-    inferredSemanticFlavorConfidence,
-    semanticFlavorOverride: null,
-  };
-}
-
-function applySemanticFlavorOverride<T extends SemanticFlavorReviewState>(
-  entry: T,
-  semanticFlavor: string | null,
-): T {
-  const normalized = normalizeSemanticFlavorReview(entry);
-  if (semanticFlavor === null) {
-    return normalizeSemanticFlavorReview({
-      ...normalized,
-      semanticFlavorOverride: null,
-    });
-  }
-
-  return normalizeSemanticFlavorReview({
-    ...normalized,
-    semanticFlavorOverride: semanticFlavor || SEMANTIC_FLAVOR_NONE,
-  });
-}
-
-function normalizeAutopilotAnalysis(
-  analysis: AutopilotScreenshotAnalysis[],
-): AutopilotScreenshotAnalysis[] {
-  return analysis.map((entry) => normalizeSemanticFlavorReview(entry));
-}
-
-function normalizeAutopilotConceptPlan(
-  conceptPlan: AutopilotConceptPlan | null,
-): AutopilotConceptPlan | null {
-  if (!conceptPlan?.selectedScreens?.length) return conceptPlan;
-  return {
-    ...conceptPlan,
-    selectedScreens: conceptPlan.selectedScreens.map((entry) => normalizeSemanticFlavorReview(entry)),
-  };
-}
-
-function normalizeAutopilotPanoramicReviewControlsEntry(
-  controls: AutopilotPanoramicReviewControls | null | undefined,
-): AutopilotPanoramicReviewControls | undefined {
-  if (!controls) return undefined;
-  const normalized: AutopilotPanoramicReviewControls = {};
-  if (typeof controls.recipe === 'string' && controls.recipe.trim().length > 0) {
-    normalized.recipe = controls.recipe.trim();
-  }
-  if (typeof controls.continuityMotif === 'string' && controls.continuityMotif.trim().length > 0) {
-    normalized.continuityMotif = controls.continuityMotif.trim();
-  }
-  if (typeof controls.supportSystem === 'string' && controls.supportSystem.trim().length > 0) {
-    normalized.supportSystem = controls.supportSystem.trim();
-  }
-  if (controls.pacing === 'calmer' || controls.pacing === 'bolder') {
-    normalized.pacing = controls.pacing;
-  }
-  if (controls.proofDensity === 'lighter' || controls.proofDensity === 'heavier') {
-    normalized.proofDensity = controls.proofDensity;
-  }
-  if (controls.decorativeIntensity === 'quieter' || controls.decorativeIntensity === 'bolder') {
-    normalized.decorativeIntensity = controls.decorativeIntensity;
-  }
-  if (
-    controls.surfaceStyle === 'clean'
-    || controls.surfaceStyle === 'editorial'
-    || controls.surfaceStyle === 'bold'
-    || controls.surfaceStyle === 'branded'
-    || controls.surfaceStyle === 'playful'
-    || controls.surfaceStyle === 'glow'
-  ) {
-    normalized.surfaceStyle = controls.surfaceStyle;
-  }
-  if (
-    controls.fontFamily === 'inter'
-    || controls.fontFamily === 'space-grotesk'
-    || controls.fontFamily === 'plus-jakarta-sans'
-    || controls.fontFamily === 'playfair-display'
-    || controls.fontFamily === 'dm-sans'
-  ) {
-    normalized.fontFamily = controls.fontFamily;
-  }
-  if (
-    controls.deviceLayout === 'staggered'
-    || controls.deviceLayout === 'poster'
-    || controls.deviceLayout === 'split'
-  ) {
-    normalized.deviceLayout = controls.deviceLayout;
-  }
-  if (
-    controls.textPlacement === 'top-left'
-    || controls.textPlacement === 'top-center'
-    || controls.textPlacement === 'mid-left'
-  ) {
-    normalized.textPlacement = controls.textPlacement;
-  }
-  if (isRecord(controls.beatOverrides)) {
-    const beatOverrides: NonNullable<AutopilotPanoramicReviewControls['beatOverrides']> = {};
-    for (const role of ['open', 'intensify', 'resolve'] as const) {
-      const beatOverride = controls.beatOverrides[role];
-      if (!isRecord(beatOverride)) continue;
-
-      const normalizedBeatOverride: NonNullable<NonNullable<AutopilotPanoramicReviewControls['beatOverrides']>[typeof role]> = {};
-      if (
-        typeof beatOverride.layoutArchetype === 'string'
-        && beatOverride.layoutArchetype.trim().length > 0
-      ) {
-        normalizedBeatOverride.layoutArchetype = beatOverride.layoutArchetype.trim();
-      }
-      if (
-        beatOverride.supportSystem === 'quote-stack'
-        || beatOverride.supportSystem === 'metric-ladder'
-        || beatOverride.supportSystem === 'signal-chain'
-        || beatOverride.supportSystem === 'milestone-band'
-        || beatOverride.supportSystem === 'curation-shelf'
-        || beatOverride.supportSystem === 'proof-column'
-      ) {
-        normalizedBeatOverride.supportSystem = beatOverride.supportSystem;
-      }
-      if (Object.keys(normalizedBeatOverride).length > 0) {
-        beatOverrides[role] = normalizedBeatOverride;
-      }
-    }
-    if (Object.keys(beatOverrides).length > 0) {
-      normalized.beatOverrides = beatOverrides;
-    }
-  }
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
-}
-
-function mergeAutopilotPanoramicReviewControls(
-  current: AutopilotPanoramicReviewControls | undefined,
-  incoming: Partial<AutopilotPanoramicReviewControls>,
-): AutopilotPanoramicReviewControls | undefined {
-  const mergedBeatOverrides = { ...(current?.beatOverrides ?? {}) };
-  if (incoming.beatOverrides) {
-    for (const role of ['open', 'intensify', 'resolve'] as const) {
-      const beatOverride = incoming.beatOverrides[role];
-      if (!beatOverride) continue;
-      mergedBeatOverrides[role] = {
-        ...(current?.beatOverrides?.[role] ?? {}),
-        ...beatOverride,
-      };
-    }
-  }
-
-  return normalizeAutopilotPanoramicReviewControlsEntry({
-    ...(current ?? {}),
-    ...incoming,
-    ...(incoming.beatOverrides ? { beatOverrides: mergedBeatOverrides } : {}),
-  });
-}
-
-function normalizeAutopilotReviewControls(
-  controls: unknown,
-): AutopilotReviewControls {
-  if (!isRecord(controls)) return {};
-  const normalized: AutopilotReviewControls = {};
-  for (const [variantId, value] of Object.entries(controls)) {
-    const entry = normalizeAutopilotPanoramicReviewControlsEntry(
-      isRecord(value) ? value as AutopilotPanoramicReviewControls : undefined,
-    );
-    if (entry) normalized[variantId] = entry;
-  }
-  return normalized;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1390,7 +982,6 @@ function coerceVariantProvenance(candidate: unknown): VariantProvenance | undefi
   if (!isRecord(candidate)) return undefined;
   const origin =
     candidate.origin === 'manual'
-    || candidate.origin === 'autopilot'
     || candidate.origin === 'duplicate'
     || candidate.origin === 'refinement'
       ? candidate.origin
@@ -1423,23 +1014,11 @@ function serializeSaveVariant(variant: VariantRecord) {
 export function buildSessionSavePayload(args: {
   activeVariantId: string;
   recommendedVariantId: string | null;
-  recommendationReason: string | null;
-  autopilotAnalysis: AutopilotScreenshotAnalysis[];
-  autopilotSelectedCopySet: AutopilotSelectedCopySet | null;
-  autopilotConceptPlan: AutopilotConceptPlan | null;
-  autopilotReviewControls: AutopilotReviewControls;
-  autopilotRefinementHistory: AutopilotRefinementHistoryEntry[];
   variants: VariantRecord[];
 }) {
   return {
     activeVariantId: args.activeVariantId,
     recommendedVariantId: args.recommendedVariantId,
-    recommendationReason: args.recommendationReason,
-    screenshotAnalysis: deepCopy(args.autopilotAnalysis),
-    selectedCopySet: args.autopilotSelectedCopySet ? deepCopy(args.autopilotSelectedCopySet) : null,
-    conceptPlan: args.autopilotConceptPlan ? deepCopy(args.autopilotConceptPlan) : null,
-    reviewControls: deepCopy(args.autopilotReviewControls),
-    refinementHistory: deepCopy(args.autopilotRefinementHistory),
     variants: args.variants.map((variant) => serializeSaveVariant(variant)),
   };
 }
@@ -1481,12 +1060,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   variants: [],
   activeVariantId: null,
   recommendedVariantId: null,
-  recommendationReason: null,
-  autopilotAnalysis: [],
-  autopilotSelectedCopySet: null,
-  autopilotConceptPlan: null,
-  autopilotReviewControls: {},
-  autopilotRefinementHistory: [],
   sessionSaveBaseline: null,
   sessionBacked: false,
   platform: 'iphone',
@@ -1527,59 +1100,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         [locale]: localeConfig,
       },
     })),
-  setAutopilotSemanticFlavorOverride: (path, semanticFlavor) =>
-    get().setAutopilotSemanticFlavorOverrides([path], semanticFlavor),
-  setAutopilotSemanticFlavorOverrides: (paths, semanticFlavor) =>
-    set((state) => {
-      if (paths.length === 0) return state;
-      const pathSet = new Set(paths);
-      let changed = false;
-      const autopilotAnalysis = state.autopilotAnalysis.map((entry) => {
-        if (!pathSet.has(entry.path)) return entry;
-        changed = true;
-        return applySemanticFlavorOverride(entry, semanticFlavor);
-      });
-
-      const autopilotConceptPlan = state.autopilotConceptPlan?.selectedScreens?.some((entry) => pathSet.has(entry.path))
-        ? {
-            ...state.autopilotConceptPlan,
-            selectedScreens: state.autopilotConceptPlan.selectedScreens.map((entry) =>
-              pathSet.has(entry.path) ? applySemanticFlavorOverride(entry, semanticFlavor) : entry),
-          }
-        : state.autopilotConceptPlan;
-
-      return changed ? { autopilotAnalysis, autopilotConceptPlan } : state;
-    }),
-  resetAutopilotSemanticFlavorOverrides: () =>
-    set((state) => {
-      const overridePaths = state.autopilotAnalysis
-        .filter((entry) => entry.semanticFlavorOverride)
-        .map((entry) => entry.path);
-      if (overridePaths.length === 0) return state;
-      const pathSet = new Set(overridePaths);
-      return {
-        autopilotAnalysis: state.autopilotAnalysis.map((entry) =>
-          pathSet.has(entry.path) ? applySemanticFlavorOverride(entry, null) : entry),
-        autopilotConceptPlan: state.autopilotConceptPlan?.selectedScreens?.some((entry) => pathSet.has(entry.path))
-          ? {
-              ...state.autopilotConceptPlan,
-              selectedScreens: state.autopilotConceptPlan.selectedScreens.map((entry) =>
-                pathSet.has(entry.path) ? applySemanticFlavorOverride(entry, null) : entry),
-            }
-          : state.autopilotConceptPlan,
-      };
-    }),
-  setAutopilotPanoramicReviewControls: (variantId, controls) =>
-    set((state) => {
-      const current = state.autopilotReviewControls[variantId];
-      const nextEntry = mergeAutopilotPanoramicReviewControls(current, controls);
-      if (!nextEntry && !current) return state;
-
-      const autopilotReviewControls = { ...state.autopilotReviewControls };
-      if (nextEntry) autopilotReviewControls[variantId] = nextEntry;
-      else delete autopilotReviewControls[variantId];
-      return { autopilotReviewControls };
-    }),
   createVariant: (name) =>
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
@@ -1646,21 +1166,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
           sourceVariantId: activeVariant.id,
         }),
       });
-      const refinementHistoryEntry: AutopilotRefinementHistoryEntry = {
-        createdAt: branch.createdAt,
-        prompt: refinementLabel,
-        detail: 'Applied a safe local refinement branch.',
-        variantId: activeVariant.id,
-        branchVariantId: branch.id,
-        mode: 'manual',
-        actionId,
-        actions: [actionId],
-      };
 
       return {
         variants: [...variants, branch],
         activeVariantId: branch.id,
-        autopilotRefinementHistory: [refinementHistoryEntry, ...state.autopilotRefinementHistory],
         ...applyVariantSnapshot(branch.snapshot),
       };
     }),
@@ -1693,23 +1202,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         }),
       });
 
-      const refinementHistoryEntry: AutopilotRefinementHistoryEntry = {
-        createdAt: branch.createdAt,
-        prompt: args.prompt,
-        detail: args.detail ?? args.label,
-        variantId: activeVariant.id,
-        branchVariantId: branch.id,
-        mode: 'ai',
-        actionId: args.actions.length === 1 ? args.actions[0] : undefined,
-        actions: deepCopy(args.actions),
-        referenceVariantId: args.referenceVariantId,
-        referenceVariantName: args.referenceVariantName,
-      };
-
       return {
         variants: [...variants, branch],
         activeVariantId: branch.id,
-        autopilotRefinementHistory: [refinementHistoryEntry, ...state.autopilotRefinementHistory],
         ...applyVariantSnapshot(branch.snapshot),
       };
     }),
@@ -1962,12 +1457,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       variants: [baseVariant],
       activeVariantId: baseVariant.id,
       recommendedVariantId: null,
-      recommendationReason: null,
-      autopilotAnalysis: [],
-      autopilotSelectedCopySet: null,
-      autopilotConceptPlan: null,
-      autopilotReviewControls: {},
-      autopilotRefinementHistory: [],
       sessionSaveBaseline: null,
       sessionBacked: false,
       isPanoramic,
@@ -2048,32 +1537,17 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       ? session.activeVariantId
       : variants[0]!.id;
     const active = variants.find((v) => v.id === activeId)!;
-    const autopilotAnalysis = normalizeAutopilotAnalysis(session.autopilot?.screenshotAnalysis ?? []);
-    const autopilotConceptPlan = normalizeAutopilotConceptPlan(session.autopilot?.conceptPlan ?? null);
-    const autopilotReviewControls = normalizeAutopilotReviewControls(session.autopilot?.reviewControls);
 
     const sessionSaveBaseline = JSON.stringify(buildSessionSavePayload({
       activeVariantId: activeId,
-      recommendedVariantId: session.autopilot?.recommendedVariantId ?? null,
-      recommendationReason: session.autopilot?.recommendationReason ?? null,
-      autopilotAnalysis,
-      autopilotSelectedCopySet: session.autopilot?.selectedCopySet ?? null,
-      autopilotConceptPlan,
-      autopilotReviewControls,
-      autopilotRefinementHistory: session.autopilot?.refinementHistory ?? [],
+      recommendedVariantId: session.recommendedVariantId ?? null,
       variants,
     }));
 
     set({
       variants,
       activeVariantId: activeId,
-      recommendedVariantId: session.autopilot?.recommendedVariantId ?? null,
-      recommendationReason: session.autopilot?.recommendationReason ?? null,
-      autopilotAnalysis,
-      autopilotSelectedCopySet: session.autopilot?.selectedCopySet ?? null,
-      autopilotConceptPlan,
-      autopilotReviewControls,
-      autopilotRefinementHistory: session.autopilot?.refinementHistory ?? [],
+      recommendedVariantId: session.recommendedVariantId ?? null,
       sessionSaveBaseline,
       sessionBacked: true,
       ...applyVariantSnapshot(active.snapshot),
@@ -2406,12 +1880,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       const payload = buildSessionSavePayload({
         activeVariantId: state.activeVariantId,
         recommendedVariantId: state.recommendedVariantId,
-        recommendationReason: state.recommendationReason,
-        autopilotAnalysis: state.autopilotAnalysis,
-        autopilotSelectedCopySet: state.autopilotSelectedCopySet,
-        autopilotConceptPlan: state.autopilotConceptPlan,
-        autopilotReviewControls: state.autopilotReviewControls,
-        autopilotRefinementHistory: state.autopilotRefinementHistory,
         variants,
       });
       await saveSessionApi(payload);
@@ -2423,20 +1891,5 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     } finally {
       set({ isSavingSession: false });
     }
-  },
-
-  rebuildAutopilotSessionFromReview: async (options) => {
-    const state = get();
-    if (!state.sessionBacked || !state.activeVariantId) {
-      throw new Error('Reviewed rebuild requires a file-backed session.');
-    }
-
-    await get().saveSession();
-    const result = await rebuildAutopilotSessionFromReviewApi(options);
-    if (!result.session || !Array.isArray((result.session as { variants?: unknown[] }).variants)) {
-      throw new Error('Reviewed rebuild returned an invalid session payload.');
-    }
-    get().hydrateSession(result.session as Parameters<PreviewStore['hydrateSession']>[0]);
-    return result;
   },
 }));

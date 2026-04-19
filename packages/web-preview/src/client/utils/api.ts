@@ -57,30 +57,6 @@ export interface AiRefinementPlanResult {
   referenceVariantName?: string;
 }
 
-export interface ReviewedAutopilotRebuildResult {
-  success: boolean;
-  updatedAt: string;
-  session: unknown;
-  sessionPath: string;
-  manifestPath: string;
-  updatedVariantIds: string[];
-  clearedPreviewVariantIds: string[];
-  recommendationReason: string;
-  planVariantCount: number;
-  previewArtifacts?: Array<{
-    variantId: string;
-    filePaths: string[];
-    thumbnailPath: string | null;
-  }>;
-  recommendedVariantId?: string | null;
-  scores?: Array<{ variantId: string; total: number }>;
-  aiVisualScoring?: {
-    status: string;
-    reason?: string;
-    model?: string;
-  };
-}
-
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
   if (!res.ok) throw new Error(`Request failed: ${res.statusText}`);
@@ -159,31 +135,6 @@ export async function saveSession(body: {
     }
     throw new Error(message);
   }
-}
-
-export async function rebuildAutopilotSessionFromReview(options?: {
-  refreshPreviews?: boolean;
-  branchVariants?: boolean;
-}): Promise<ReviewedAutopilotRebuildResult> {
-  const res = await fetch(`${API}/api/session/rebuild-autopilot-from-review`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      refreshPreviews: options?.refreshPreviews === true,
-      branchVariants: options?.branchVariants === true,
-    }),
-  });
-  if (!res.ok) {
-    let message = `Reviewed rebuild failed: ${res.statusText}`;
-    try {
-      const data = await res.json() as { error?: string };
-      if (data.error) message = data.error;
-    } catch {
-      // Keep default status text.
-    }
-    throw new Error(message);
-  }
-  return res.json() as Promise<ReviewedAutopilotRebuildResult>;
 }
 
 export async function refineWithAi(body: {

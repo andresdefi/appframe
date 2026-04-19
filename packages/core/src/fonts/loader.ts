@@ -47,13 +47,6 @@ export const FONT_CATALOG: FontInfo[] = [
     category: 'sans-serif',
     description: 'Modern grotesque with humanist quirks.',
   },
-  {
-    id: 'hubot-sans', name: 'Hubot Sans',
-    weights: [300, 400, 500, 600, 700, 800, 900], italicWeights: [],
-    category: 'sans-serif',
-    description: 'GitHub variable sans. Rounded but structured.',
-  },
-
   // Condensed / display heavies
   {
     id: 'bebas-neue', name: 'Bebas Neue',

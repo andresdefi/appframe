@@ -963,8 +963,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     preferLocaleText?: boolean;
     style?: TemplateStyle;
     layout?: LayoutVariant;
+    eyebrow?: string;
     headline?: string;
     subtitle?: string;
+    accentColor?: string;
     colors?: Record<string, string>;
     font?: string;
     fontWeight?: number;
@@ -1128,8 +1130,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       preferLocaleText: expectBoolean(body.preferLocaleText),
       style: expectString(body.style) as TemplateStyle | undefined,
       layout: expectString(body.layout) as LayoutVariant | undefined,
+      eyebrow: expectString(body.eyebrow),
       headline: expectString(body.headline),
       subtitle: expectString(body.subtitle),
+      accentColor: expectString(body.accentColor),
       colors: expectObject(body.colors) as Record<string, string> | undefined,
       font: expectString(body.font),
       fontWeight: expectNumber(body.fontWeight),
@@ -1287,8 +1291,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
 
     const context: TemplateContext = {
+      eyebrow: p.eyebrow ?? screen?.eyebrow,
       headline: resolvedHeadline,
       subtitle: resolvedSubtitle,
+      accentColor: p.accentColor ?? screen?.accentColor,
       screenshotDataUrl,
       style: p.style ?? config.theme.style,
       colors: p.colors ? { ...config.theme.colors, ...p.colors } : config.theme.colors,

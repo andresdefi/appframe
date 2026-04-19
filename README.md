@@ -93,19 +93,14 @@ appframe works with AI coding agents (Claude Code, Cursor, Windsurf, and 40+ oth
 }
 ```
 
-### The Canonical Flow
+### Agent Workflow
 
-When you ask an agent "create app store screenshots with appframe", it should call a single tool:
+appframe is the rendering tool — an agent drives the creative decisions (copy, layout, style) and invokes appframe to render. The MCP server exposes:
 
-**`appframe_run_autopilot`** — analyzes your raw screenshots, plans **4 concepts** (2 individual + 2 panoramic, guaranteed), renders previews, opens the web preview at `http://localhost:4400`, and returns the URL.
+- `appframe_generate` — headless batch export from an existing `appframe.yml` to PNGs on disk.
+- `appframe_validate`, `appframe_init`, and frame/config/upload tools for the rest of the pipeline.
 
-You then:
-1. Open the URL.
-2. Review the 4 variants side-by-side.
-3. Pick one, fine-tune it in the UI, or accept as-is.
-4. Download the PNGs from the Export tab.
-
-The agent stops after opening the preview — you stay in control of the final pick. Use `appframe_generate` only for headless/batch exports when you already have an approved config.
+For interactive design, run `appframe preview` and edit in the web UI at `http://localhost:4400`. Download approved PNGs from the Export tab.
 
 ## Writing Great Copy
 

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const startPreviewServer = vi.fn().mockResolvedValue(undefined);
-const registerPreviewSessionReviewHandlers = vi.fn();
 
 let nextProbeError: NodeJS.ErrnoException | null = null;
 
@@ -16,10 +15,6 @@ vi.mock('chalk', () => ({
 
 vi.mock('@appframe/web-preview', () => ({
   startPreviewServer,
-}));
-
-vi.mock('@appframe/mcp-server/preview-hooks', () => ({
-  registerPreviewSessionReviewHandlers,
 }));
 
 vi.mock('node:net', () => ({
@@ -95,7 +90,6 @@ describe('preview command', () => {
   it('starts the preview server when the probe succeeds', async () => {
     await previewCommand.parseAsync(['node', 'test', '--port', '4400']);
 
-    expect(registerPreviewSessionReviewHandlers).toHaveBeenCalledTimes(1);
     expect(startPreviewServer).toHaveBeenCalledWith({
       configPath: undefined,
       sessionPath: undefined,

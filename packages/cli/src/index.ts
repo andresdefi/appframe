@@ -3,7 +3,6 @@
 import { Command } from 'commander';
 import { VERSION } from '@appframe/core';
 import { initCommand } from './commands/init.js';
-import { autopilotCommand } from './commands/autopilot.js';
 import { generateCommand } from './commands/generate.js';
 import { validateCommand } from './commands/validate.js';
 import { framesCommand } from './commands/frames.js';
@@ -21,7 +20,6 @@ program
   .version(VERSION, '-v, --version');
 
 program.addCommand(initCommand);
-program.addCommand(autopilotCommand);
 program.addCommand(generateCommand);
 program.addCommand(validateCommand);
 program.addCommand(framesCommand);

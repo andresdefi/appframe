@@ -12,14 +12,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./preview-hooks": {
-      "types": "./dist/preview-hooks.d.ts",
-      "import": "./dist/preview-hooks.js"
-    },
-    "./autopilot": {
-      "types": "./dist/autopilot.d.ts",
-      "import": "./dist/autopilot.js"
     }
   },
   "scripts": {
@@ -31,7 +23,6 @@
   "dependencies": {
     "@appframe/core": "workspace:*",
     "@appframe/store-upload": "workspace:*",
-    "@appframe/web-preview": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.27.0",
     "yaml": "^2.8.2",
     "zod": "^4.3.6"

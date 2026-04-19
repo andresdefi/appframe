@@ -1,8 +1,6 @@
 import { Command } from 'commander';
-import { resolve, dirname } from 'node:path';
+import { resolve } from 'node:path';
 import { createServer } from 'node:net';
-import { access } from 'node:fs/promises';
-import { fileURLToPath, pathToFileURL } from 'node:url';
 import chalk from 'chalk';
 
 interface PreviewOptions {
@@ -27,25 +25,6 @@ async function probePort(port: number): Promise<PortProbeResult> {
     });
     server.listen(port);
   });
-}
-
-async function loadPreviewSessionReviewHandlers(): Promise<{
-  registerPreviewSessionReviewHandlers: () => void;
-}> {
-  try {
-    return await import('@appframe/mcp-server/preview-hooks');
-  } catch {
-    const commandDir = dirname(fileURLToPath(import.meta.url));
-    const localModulePath = resolve(commandDir, '../../../mcp-server/dist/preview-hooks.js');
-    await access(localModulePath).catch(() => {
-      throw new Error(
-        'Reviewed rebuild hooks are unavailable. Build @appframe/mcp-server or install the workspace package.',
-      );
-    });
-    return import(pathToFileURL(localModulePath).href) as Promise<{
-      registerPreviewSessionReviewHandlers: () => void;
-    }>;
-  }
 }
 
 export const previewCommand = new Command('preview')
@@ -84,11 +63,7 @@ export const previewCommand = new Command('preview')
     }
 
     try {
-      const [{ registerPreviewSessionReviewHandlers }, { startPreviewServer }] = await Promise.all([
-        loadPreviewSessionReviewHandlers(),
-        import('@appframe/web-preview'),
-      ]);
-      registerPreviewSessionReviewHandlers();
+      const { startPreviewServer } = await import('@appframe/web-preview');
       await startPreviewServer({ configPath, sessionPath, port });
 
       console.log();

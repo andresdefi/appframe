@@ -244,12 +244,29 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
 
       // Build template context
       const style = (options.templateOverride as TemplateStyle | undefined) ?? config.theme.style;
+
+      // Merge per-screen background overrides onto theme-level values.
+      // Per-screen wins when set; theme fills in gaps.
+      const resolvedBackgroundType = screen.backgroundType ?? config.theme.backgroundType;
+      const resolvedBackgroundColor = screen.backgroundColor ?? config.theme.backgroundColor;
+      const resolvedBackgroundGradient = screen.backgroundGradient ?? config.theme.backgroundGradient;
+      const resolvedBackgroundImage = screen.backgroundImage ?? config.theme.backgroundImage;
+      const resolvedBackgroundOverlay = screen.backgroundOverlay ?? config.theme.backgroundOverlay;
+
+      // When the screen (or theme) picks a solid override, apply it to the
+      // computed `colors.background` so templates that read that field pick it up.
+      const resolvedColors = screen.backgroundColor
+        ? { ...config.theme.colors, background: screen.backgroundColor }
+        : config.theme.colors;
+
       const context: TemplateContext = {
+        eyebrow: screen.eyebrow,
+        accentColor: screen.accentColor,
         headline,
         subtitle,
         screenshotDataUrl,
         style,
-        colors: config.theme.colors,
+        colors: resolvedColors,
         font: config.theme.font,
         fontWeight: config.theme.fontWeight,
         layout: screen.layout,
@@ -276,6 +293,11 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         subtitleTextTransform: config.theme.subtitleTextTransform,
         ...(config.theme.deviceScale != null ? { deviceScale: config.theme.deviceScale } : {}),
         ...(config.theme.deviceTop != null ? { deviceTop: config.theme.deviceTop } : {}),
+        ...(resolvedBackgroundType ? { backgroundType: resolvedBackgroundType } : {}),
+        ...(resolvedBackgroundColor ? { backgroundColor: resolvedBackgroundColor } : {}),
+        ...(resolvedBackgroundGradient ? { backgroundGradient: resolvedBackgroundGradient } : {}),
+        ...(resolvedBackgroundImage ? { backgroundImageDataUrl: resolvedBackgroundImage } : {}),
+        ...(resolvedBackgroundOverlay ? { backgroundOverlay: resolvedBackgroundOverlay } : {}),
       };
 
       // Render template to HTML

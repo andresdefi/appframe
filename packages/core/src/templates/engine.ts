@@ -25,9 +25,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export interface TemplateContext {
   // Screen content
+  eyebrow?: string;
   headline: string;
   subtitle?: string;
   screenshotDataUrl: string;
+
+  // Per-screen accent color (eyebrow tint, future inline spans). Falls back to
+  // theme colors when unset.
+  accentColor?: string;
 
   // Theme
   style: TemplateStyle;

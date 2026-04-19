@@ -210,6 +210,15 @@
       text-align: center;
     }
 
+    .eyebrow {
+      font-size: {{ (canvasWidth * 0.024) | round }}px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: {{ accentColor or colors.primary or colors.text }};
+      margin-bottom: {{ (canvasWidth * 0.012) | round }}px;
+    }
+
     .headline {
       font-size: {{ (headlineSize * canvasWidth / 1290) | round if headlineSize else (canvasWidth * presetHeadlineFontSizeScale) | round }}px;
       font-weight: {{ fontWeight | default(presetFontWeight) }};
@@ -298,6 +307,7 @@
     {% endif %}
 
     <div class="text-area">
+      {% if eyebrow %}<div class="eyebrow">{{ eyebrow }}</div>{% endif %}
       <div class="headline">{{ headline }}</div>
       {% if presetBgEffect == 'divider' %}<div class="divider"></div>{% endif %}
       {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}

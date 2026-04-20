@@ -39,6 +39,21 @@ Open-source tool for generating professional App Store & Play Store promotional 
 
 ## TODO
 
+### Individual-mode UI inspection not yet done
+The 2026-04-20 pass reviewed the Platform / Screenshot / Device Frame / Device Layout / Device Shadow / Composition / Background / Text tabs end-to-end and landed a batch of fixes. Still un-inspected in that depth:
+- **Extras tab** — spotlight, annotations, loupe, callouts, overlays. Likely has dead or confusing controls (especially now that autopilot is gone). Do the same "drag each slider, check each toggle, report what feels wrong" pass.
+- **Download (Export) tab** — current state: Download current screen + Download all N. Needs pass to check per-size/per-locale options, progress UX, and whether file naming makes sense.
+- **Panoramic mode** — entire mode untouched this session. Sidebar tabs differ (`PanoramicTab`, `PanoramicEffectsTab`). Inspect with the same lens.
+
+### before.click gap list → editing primitives (task #16)
+Captured earlier: layer system, rich-text headlines, split / banded backgrounds, device bleed-off-canvas, multi-device collage, text-pattern backgrounds, z-order control. Pick the top 3–5 and scope a plan.
+
+### Agent skill (task #17)
+Rewrite `skills/appframe-screenshots/SKILL.md` from scratch using before.click vocabulary. The old one was deleted alongside autopilot — the new one should describe the agent-drives-design-appframe-renders flow and the editing primitives the agent should reach for.
+
+### Remove remaining `style` field (Phase B.2)
+`STYLE_PRESETS` was flattened to a single BASELINE; the enum `style: TemplateStyle` still carries 47 call sites through schema / engine / client. Removing it cleans up dead surface area. Not urgent since everything resolves to BASELINE, but it's lingering debt.
+
 ### 3D Frame Style (disabled, needs fix)
 The `frameStyle: '3d'` option is implemented but disabled from the UI (removed from the Frame Style dropdown in `packages/web-preview/public/index.html`). The goal is to make devices look like real 3D objects with visible side edges, metallic bezels, and depth — similar to App Store promotional screenshots from apps like Coinbase or Kraken.
 

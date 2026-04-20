@@ -97,8 +97,6 @@ function createDefaultConfig(): AppframeConfig {
         subtitle: 'Add a subtitle for extra context',
         layout: 'center',
         composition: 'single',
-        autoSizeHeadline: true,
-        autoSizeSubtitle: false,
         annotations: [],
       },
       {
@@ -107,8 +105,6 @@ function createDefaultConfig(): AppframeConfig {
         subtitle: 'Describe what makes it special',
         layout: 'angled-right',
         composition: 'single',
-        autoSizeHeadline: true,
-        autoSizeSubtitle: false,
         annotations: [],
       },
       {
@@ -117,8 +113,6 @@ function createDefaultConfig(): AppframeConfig {
         subtitle: '',
         layout: 'center',
         composition: 'single',
-        autoSizeHeadline: true,
-        autoSizeSubtitle: false,
         annotations: [],
       },
       {
@@ -127,8 +121,6 @@ function createDefaultConfig(): AppframeConfig {
         subtitle: 'Users will love this',
         layout: 'angled-left',
         composition: 'single',
-        autoSizeHeadline: true,
-        autoSizeSubtitle: false,
         annotations: [],
       },
       {
@@ -137,8 +129,6 @@ function createDefaultConfig(): AppframeConfig {
         subtitle: 'Available on the App Store',
         layout: 'center',
         composition: 'single',
-        autoSizeHeadline: true,
-        autoSizeSubtitle: false,
         annotations: [],
       },
     ],
@@ -870,6 +860,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     deviceOffsetX?: number;
     deviceAngle?: number;
     deviceTilt?: number;
+    eyebrowTop?: number;
+    eyebrowLeft?: number;
+    eyebrowWidth?: number;
+    eyebrowSize?: number;
     headlineTop?: number;
     headlineLeft?: number;
     headlineWidth?: number;
@@ -880,11 +874,18 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     platform?: string;
     sizeKey?: string;
     composition?: CompositionPreset;
-    extraScreenshots?: Array<{ screenshotDataUrl?: string; frameId?: string }>;
+    extraScreenshots?: Array<{
+      screenshotDataUrl?: string;
+      frameId?: string;
+      offsetX?: number;
+      offsetY?: number;
+      scale?: number;
+      rotation?: number;
+      angle?: number;
+      tilt?: number;
+    }>;
     headlineGradient?: { colors: string[]; direction: number };
     subtitleGradient?: { colors: string[]; direction: number };
-    autoSizeHeadline?: boolean;
-    autoSizeSubtitle?: boolean;
     spotlight?: {
       x: number;
       y: number;
@@ -929,6 +930,13 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     deviceShadow?: { opacity: number; blur: number; color: string; offsetY: number };
     borderSimulation?: { enabled: boolean; thickness: number; color: string; radius: number };
     cornerRadius?: number;
+    // Per-element font/weight overrides
+    eyebrowFont?: string;
+    eyebrowFontWeight?: number;
+    headlineFont?: string;
+    headlineFontWeight?: number;
+    subtitleFont?: string;
+    subtitleFontWeight?: number;
     // Effects
     loupe?: Loupe;
     callouts?: Array<{
@@ -1037,6 +1045,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       deviceOffsetX: expectNumber(body.deviceOffsetX),
       deviceAngle: expectNumber(body.deviceAngle),
       deviceTilt: expectNumber(body.deviceTilt),
+      eyebrowTop: expectNumber(body.eyebrowTop),
+      eyebrowLeft: expectNumber(body.eyebrowLeft),
+      eyebrowWidth: expectNumber(body.eyebrowWidth),
+      eyebrowSize: expectNumber(body.eyebrowSize),
       headlineTop: expectNumber(body.headlineTop),
       headlineLeft: expectNumber(body.headlineLeft),
       headlineWidth: expectNumber(body.headlineWidth),
@@ -1048,7 +1060,16 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       sizeKey: expectString(body.sizeKey),
       composition: expectString(body.composition) as CompositionPreset | undefined,
       extraScreenshots: expectArray(body.extraScreenshots) as
-        | Array<{ screenshotDataUrl?: string; frameId?: string }>
+        | Array<{
+            screenshotDataUrl?: string;
+            frameId?: string;
+            offsetX?: number;
+            offsetY?: number;
+            scale?: number;
+            rotation?: number;
+            angle?: number;
+            tilt?: number;
+          }>
         | undefined,
       headlineGradient: expectObject(body.headlineGradient) as
         | { colors: string[]; direction: number }
@@ -1056,8 +1077,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       subtitleGradient: expectObject(body.subtitleGradient) as
         | { colors: string[]; direction: number }
         | undefined,
-      autoSizeHeadline: expectBoolean(body.autoSizeHeadline),
-      autoSizeSubtitle: expectBoolean(body.autoSizeSubtitle),
       spotlight: expectObject(body.spotlight) as PreviewParams['spotlight'] | undefined,
       annotations: expectArray(body.annotations) as PreviewParams['annotations'] | undefined,
       headlineLineHeight: expectNumber(body.headlineLineHeight),
@@ -1081,6 +1100,13 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       deviceShadow: expectObject(body.deviceShadow) as PreviewParams['deviceShadow'],
       borderSimulation: expectObject(body.borderSimulation) as PreviewParams['borderSimulation'],
       cornerRadius: expectNumber(body.cornerRadius),
+      // Per-element font/weight overrides
+      eyebrowFont: expectString(body.eyebrowFont),
+      eyebrowFontWeight: expectNumber(body.eyebrowFontWeight),
+      headlineFont: expectString(body.headlineFont),
+      headlineFontWeight: expectNumber(body.headlineFontWeight),
+      subtitleFont: expectString(body.subtitleFont),
+      subtitleFontWeight: expectNumber(body.subtitleFontWeight),
       // Effects
       loupe: expectObject(body.loupe) as PreviewParams['loupe'],
       callouts: expectArray(body.callouts) as PreviewParams['callouts'],
@@ -1178,6 +1204,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
     const context: TemplateContext = {
       eyebrow: p.eyebrow ?? screen?.eyebrow,
+      eyebrowSize: p.eyebrowSize ?? screen?.eyebrowSize,
       headline: resolvedHeadline,
       subtitle: resolvedSubtitle,
       accentColor: p.accentColor ?? screen?.accentColor,
@@ -1203,10 +1230,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       deviceOffsetX: p.deviceOffsetX,
       deviceAngle: p.deviceAngle,
       deviceTilt: p.deviceTilt,
-      headlineGradient: p.headlineGradient ?? config.theme.headlineGradient,
-      subtitleGradient: p.subtitleGradient ?? config.theme.subtitleGradient,
-      autoSizeHeadline: p.autoSizeHeadline,
-      autoSizeSubtitle: p.autoSizeSubtitle,
+      headlineGradient: p.headlineGradient,
+      subtitleGradient: p.subtitleGradient,
       spotlight: p.spotlight,
       annotations: p.annotations,
       headlineLineHeight: p.headlineLineHeight ?? config.theme.headlineLineHeight,
@@ -1231,6 +1256,16 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       deviceShadow: p.deviceShadow,
       borderSimulation: p.borderSimulation,
       cornerRadius: p.cornerRadius,
+      // Per-element font/weight overrides (screen → theme → global fallback)
+      eyebrowFont: p.eyebrowFont ?? screen?.eyebrowFont ?? config.theme.eyebrowFont,
+      eyebrowFontWeight:
+        p.eyebrowFontWeight ?? screen?.eyebrowFontWeight ?? config.theme.eyebrowFontWeight,
+      headlineFont: p.headlineFont ?? screen?.headlineFont ?? config.theme.headlineFont,
+      headlineFontWeight:
+        p.headlineFontWeight ?? screen?.headlineFontWeight ?? config.theme.headlineFontWeight,
+      subtitleFont: p.subtitleFont ?? screen?.subtitleFont ?? config.theme.subtitleFont,
+      subtitleFontWeight:
+        p.subtitleFontWeight ?? screen?.subtitleFontWeight ?? config.theme.subtitleFontWeight,
       // Effects
       loupe: p.loupe,
       callouts: p.callouts,
@@ -1254,9 +1289,21 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         let slotFrame = frame ?? null;
         let slotFrameSvg = frameSvg;
         let slotFramePngUrl = framePngUrl;
+        let slotOffsetX = slot.offsetX;
+        let slotOffsetY = slot.offsetY;
+        let slotScale = slot.scale;
+        let slotRotation = slot.rotation;
+        let slotAngle = slot.angle;
+        let slotTilt = slot.tilt;
 
         if (i === 0) {
           slotScreenshotDataUrl = screenshotDataUrl;
+          slotOffsetX = p.deviceOffsetX ?? slot.offsetX;
+          slotOffsetY = p.deviceTop ?? slot.offsetY;
+          slotScale = p.deviceScale ?? slot.scale;
+          slotRotation = p.deviceRotation ?? slot.rotation;
+          slotAngle = p.deviceAngle ?? slot.angle;
+          slotTilt = p.deviceTilt ?? slot.tilt;
         } else {
           const extra = p.extraScreenshots?.[i - 1];
           if (extra?.screenshotDataUrl) {
@@ -1264,6 +1311,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           } else {
             slotScreenshotDataUrl = screenshotDataUrl;
           }
+          slotOffsetX = extra?.offsetX ?? slot.offsetX;
+          slotOffsetY = extra?.offsetY ?? slot.offsetY;
+          slotScale = extra?.scale ?? slot.scale;
+          slotRotation = extra?.rotation ?? slot.rotation;
+          slotAngle = extra?.angle ?? slot.angle;
+          slotTilt = extra?.tilt ?? slot.tilt;
           if (extra?.frameId) {
             const extraFrame = await getFrame(extra.frameId);
             if (extraFrame) {
@@ -1316,12 +1369,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           frame: slotFrame,
           frameSvg: slotFrameSvg,
           framePngUrl: slotFramePngUrl,
-          offsetX: slot.offsetX,
-          offsetY: slot.offsetY,
-          scale: slot.scale,
-          rotation: slot.rotation,
-          angle: slot.angle,
-          tilt: slot.tilt,
+          offsetX: slotOffsetX,
+          offsetY: slotOffsetY,
+          scale: slotScale,
+          rotation: slotRotation,
+          angle: slotAngle,
+          tilt: slotTilt,
           zIndex: slot.zIndex,
         });
       }
@@ -1340,15 +1393,19 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const { context } = await resolveContext(p);
 
       let html = await templateEngine.render(context);
-      html = injectTextPositionCSS(
-        html,
-        p.headlineTop,
-        p.headlineLeft,
-        p.headlineWidth,
-        p.subtitleTop,
-        p.subtitleLeft,
-        p.subtitleWidth,
-      );
+      html = injectTextPositionCSS(html, {
+        eyebrowTop: p.eyebrowTop,
+        eyebrowLeft: p.eyebrowLeft,
+        eyebrowWidth: p.eyebrowWidth,
+        headlineTop: p.headlineTop,
+        headlineLeft: p.headlineLeft,
+        headlineWidth: p.headlineWidth,
+        headlineRotation: p.headlineRotation,
+        subtitleTop: p.subtitleTop,
+        subtitleLeft: p.subtitleLeft,
+        subtitleWidth: p.subtitleWidth,
+        subtitleRotation: p.subtitleRotation,
+      });
       if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
       if (p.annotations && p.annotations.length > 0)
         html = injectAnnotationsHTML(html, p.annotations, p.width);
@@ -1481,15 +1538,19 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const { context } = await resolveContext(p);
 
       let html = await templateEngine.render(context);
-      html = injectTextPositionCSS(
-        html,
-        p.headlineTop,
-        p.headlineLeft,
-        p.headlineWidth,
-        p.subtitleTop,
-        p.subtitleLeft,
-        p.subtitleWidth,
-      );
+      html = injectTextPositionCSS(html, {
+        eyebrowTop: p.eyebrowTop,
+        eyebrowLeft: p.eyebrowLeft,
+        eyebrowWidth: p.eyebrowWidth,
+        headlineTop: p.headlineTop,
+        headlineLeft: p.headlineLeft,
+        headlineWidth: p.headlineWidth,
+        headlineRotation: p.headlineRotation,
+        subtitleTop: p.subtitleTop,
+        subtitleLeft: p.subtitleLeft,
+        subtitleWidth: p.subtitleWidth,
+        subtitleRotation: p.subtitleRotation,
+      });
       if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
       if (p.annotations && p.annotations.length > 0)
         html = injectAnnotationsHTML(html, p.annotations, p.width);
@@ -1653,15 +1714,17 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         const { context } = await resolveContext(p);
 
         let html = await templateEngine.render(context);
-        html = injectTextPositionCSS(
-          html,
-          p.headlineTop,
-          p.headlineLeft,
-          p.headlineWidth,
-          p.subtitleTop,
-          p.subtitleLeft,
-          p.subtitleWidth,
-        );
+        html = injectTextPositionCSS(html, {
+          eyebrowTop: p.eyebrowTop,
+          eyebrowLeft: p.eyebrowLeft,
+          eyebrowWidth: p.eyebrowWidth,
+          headlineTop: p.headlineTop,
+          headlineLeft: p.headlineLeft,
+          headlineWidth: p.headlineWidth,
+          subtitleTop: p.subtitleTop,
+          subtitleLeft: p.subtitleLeft,
+          subtitleWidth: p.subtitleWidth,
+        });
         if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
         if (p.annotations && p.annotations.length > 0)
           html = injectAnnotationsHTML(html, p.annotations, p.width);
@@ -2024,24 +2087,39 @@ function localizePanoramicElement(
 
 function injectTextPositionCSS(
   html: string,
-  headlineTop?: number,
-  headlineLeft?: number,
-  headlineWidth?: number,
-  subtitleTop?: number,
-  subtitleLeft?: number,
-  subtitleWidth?: number,
+  positions: {
+    eyebrowTop?: number;
+    eyebrowLeft?: number;
+    eyebrowWidth?: number;
+    headlineTop?: number;
+    headlineLeft?: number;
+    headlineWidth?: number;
+    headlineRotation?: number;
+    subtitleTop?: number;
+    subtitleLeft?: number;
+    subtitleWidth?: number;
+    subtitleRotation?: number;
+  },
 ): string {
   const rules: string[] = [];
-  if (headlineTop !== undefined && headlineLeft !== undefined) {
-    const w = headlineWidth !== undefined ? `width: ${headlineWidth}%;` : '';
+  const transformWithRotation = (rotation?: number) =>
+    rotation ? `translateX(-50%) rotate(${rotation}deg)` : 'translateX(-50%)';
+  if (positions.eyebrowTop !== undefined && positions.eyebrowLeft !== undefined) {
+    const w = positions.eyebrowWidth !== undefined ? `width: ${positions.eyebrowWidth}%;` : '';
     rules.push(
-      `.headline { position: fixed; top: ${headlineTop}%; left: ${headlineLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`,
+      `.eyebrow { position: fixed; top: ${positions.eyebrowTop}%; left: ${positions.eyebrowLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`,
     );
   }
-  if (subtitleTop !== undefined && subtitleLeft !== undefined) {
-    const w = subtitleWidth !== undefined ? `width: ${subtitleWidth}%;` : '';
+  if (positions.headlineTop !== undefined && positions.headlineLeft !== undefined) {
+    const w = positions.headlineWidth !== undefined ? `width: ${positions.headlineWidth}%;` : '';
     rules.push(
-      `.subtitle { position: fixed; top: ${subtitleTop}%; left: ${subtitleLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`,
+      `.headline { position: fixed; top: ${positions.headlineTop}%; left: ${positions.headlineLeft}%; transform: ${transformWithRotation(positions.headlineRotation)}; z-index: 10; margin: 0; ${w} }`,
+    );
+  }
+  if (positions.subtitleTop !== undefined && positions.subtitleLeft !== undefined) {
+    const w = positions.subtitleWidth !== undefined ? `width: ${positions.subtitleWidth}%;` : '';
+    rules.push(
+      `.subtitle { position: fixed; top: ${positions.subtitleTop}%; left: ${positions.subtitleLeft}%; transform: ${transformWithRotation(positions.subtitleRotation)}; z-index: 10; margin: 0; ${w} }`,
     );
   }
   if (rules.length === 0) return html;

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getDefaultExportSizeKey, getPlatformPreviewSize } from './platformSelection';
+import {
+  getDefaultExportSizeKey,
+  getPlatformPreviewSize,
+  isPlatformCompatibleWithScreenshot,
+} from './platformSelection';
 
 describe('platform selection helpers', () => {
   it('returns the preview size for the requested platform and falls back to iphone', () => {
@@ -33,5 +37,56 @@ describe('platform selection helpers', () => {
     };
 
     expect(getDefaultExportSizeKey(sizes, 'iphone')).toBe('ios-6.9');
+  });
+
+  describe('isPlatformCompatibleWithScreenshot', () => {
+    const iphone17Pro = { width: 1290, height: 2796 };
+    const androidPhone = { width: 1080, height: 2400 };
+    const ipadPortrait = { width: 2064, height: 2752 };
+    const macLandscape = { width: 2880, height: 1800 };
+    const watchFace = { width: 410, height: 502 };
+
+    it('returns true for every platform when no screenshot is uploaded', () => {
+      for (const p of ['iphone', 'ipad', 'mac', 'watch', 'android']) {
+        expect(isPlatformCompatibleWithScreenshot(p, null)).toBe(true);
+      }
+    });
+
+    it('matches phones only to iphone/android for an iPhone screenshot', () => {
+      expect(isPlatformCompatibleWithScreenshot('iphone', iphone17Pro)).toBe(true);
+      expect(isPlatformCompatibleWithScreenshot('android', iphone17Pro)).toBe(true);
+      expect(isPlatformCompatibleWithScreenshot('ipad', iphone17Pro)).toBe(false);
+      expect(isPlatformCompatibleWithScreenshot('mac', iphone17Pro)).toBe(false);
+      expect(isPlatformCompatibleWithScreenshot('watch', iphone17Pro)).toBe(false);
+    });
+
+    it('matches Android phone the same way as iPhone', () => {
+      expect(isPlatformCompatibleWithScreenshot('android', androidPhone)).toBe(true);
+      expect(isPlatformCompatibleWithScreenshot('iphone', androidPhone)).toBe(true);
+      expect(isPlatformCompatibleWithScreenshot('mac', androidPhone)).toBe(false);
+    });
+
+    it('matches ipad to an iPad screenshot and rejects phones/mac', () => {
+      expect(isPlatformCompatibleWithScreenshot('ipad', ipadPortrait)).toBe(true);
+      expect(isPlatformCompatibleWithScreenshot('iphone', ipadPortrait)).toBe(false);
+      expect(isPlatformCompatibleWithScreenshot('android', ipadPortrait)).toBe(false);
+      expect(isPlatformCompatibleWithScreenshot('mac', ipadPortrait)).toBe(false);
+    });
+
+    it('matches mac to a landscape Mac screenshot', () => {
+      expect(isPlatformCompatibleWithScreenshot('mac', macLandscape)).toBe(true);
+      expect(isPlatformCompatibleWithScreenshot('iphone', macLandscape)).toBe(false);
+      expect(isPlatformCompatibleWithScreenshot('ipad', macLandscape)).toBe(false);
+    });
+
+    it('matches watch to a near-square watch screenshot', () => {
+      expect(isPlatformCompatibleWithScreenshot('watch', watchFace)).toBe(true);
+      expect(isPlatformCompatibleWithScreenshot('iphone', watchFace)).toBe(false);
+      expect(isPlatformCompatibleWithScreenshot('mac', watchFace)).toBe(false);
+    });
+
+    it('returns true for unknown platforms so the UI does not over-filter', () => {
+      expect(isPlatformCompatibleWithScreenshot('tv', iphone17Pro)).toBe(true);
+    });
   });
 });

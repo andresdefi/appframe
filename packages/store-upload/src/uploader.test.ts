@@ -9,7 +9,7 @@ vi.mock('@appframe/core', () => ({
     app: { name: 'App', description: 'D', platforms: ['ios'], features: [] },
     theme: { style: 'minimal', colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' }, font: 'inter', fontWeight: 600 },
     frames: { style: 'flat' },
-    screens: [{ screenshot: 'test.png', headline: 'Hi', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] }],
+    screens: [{ screenshot: 'test.png', headline: 'Hi', layout: 'center', composition: 'single', annotations: [] }],
     output: { platforms: ['ios'], directory: './output' },
   }),
 }));

@@ -26,6 +26,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export interface TemplateContext {
   // Screen content
   eyebrow?: string;
+  eyebrowSize?: number;
   headline: string;
   subtitle?: string;
   screenshotDataUrl: string;
@@ -77,10 +78,6 @@ export interface TemplateContext {
   composition?: CompositionPreset;
   devices?: DeviceContext[];
 
-  // Auto-sizing text
-  autoSizeHeadline?: boolean;
-  autoSizeSubtitle?: boolean;
-
   // Spotlight/dimming overlay
   spotlight?: {
     x: number;
@@ -131,9 +128,20 @@ export interface TemplateContext {
   callouts?: Callout[];
   overlays?: Overlay[];
 
+  // Per-element font/weight overrides — each falls back to the global font / fontWeight
+  eyebrowFont?: string;
+  eyebrowFontWeight?: number;
+  headlineFont?: string;
+  headlineFontWeight?: number;
+  subtitleFont?: string;
+  subtitleFontWeight?: number;
+
   // Injected by engine
   fontFaceCss?: string;
   fontFamily?: string;
+  eyebrowFontFamily?: string;
+  headlineFontFamily?: string;
+  subtitleFontFamily?: string;
 }
 
 export interface DeviceContext {
@@ -381,24 +389,46 @@ export class TemplateEngine {
     return compiled;
   }
 
+  private async getFontFaceCss(fontKey: string): Promise<string> {
+    const cached = this.fontFaceCache.get(fontKey);
+    if (cached !== undefined) return cached;
+    const css = await loadFontFaces(fontKey, this.fontsDir);
+    this.fontFaceCache.set(fontKey, css);
+    return css;
+  }
+
   async render(context: TemplateContext): Promise<string> {
     const fontKey = context.font || 'inter';
 
-    // Load and cache font-face CSS per font family
-    if (!this.fontFaceCache.has(fontKey)) {
-      this.fontFaceCache.set(fontKey, await loadFontFaces(fontKey, this.fontsDir));
-    }
+    const fontKeys = Array.from(
+      new Set(
+        [
+          fontKey,
+          context.eyebrowFont,
+          context.headlineFont,
+          context.subtitleFont,
+        ].filter((k): k is string => typeof k === 'string' && k.length > 0),
+      ),
+    );
+
+    const faceCssList = await Promise.all(fontKeys.map((k) => this.getFontFaceCss(k)));
+    const combinedFontFaceCss = faceCssList.join('\n\n');
 
     const preset = STYLE_PRESETS[context.style];
     const presetContext = resolvePresetContext(preset, context);
+
+    const globalFontFamily = getFontName(fontKey);
 
     const templatePath = this.resolveTemplatePath();
     const compiled = await this.getCompiledTemplate(templatePath);
     return compiled.render({
       ...context,
       ...presetContext,
-      fontFaceCss: this.fontFaceCache.get(fontKey),
-      fontFamily: getFontName(fontKey),
+      fontFaceCss: combinedFontFaceCss,
+      fontFamily: globalFontFamily,
+      eyebrowFontFamily: context.eyebrowFont ? getFontName(context.eyebrowFont) : globalFontFamily,
+      headlineFontFamily: context.headlineFont ? getFontName(context.headlineFont) : globalFontFamily,
+      subtitleFontFamily: context.subtitleFont ? getFontName(context.subtitleFont) : globalFontFamily,
     });
   }
 

@@ -64,6 +64,18 @@ export interface ScreenColors {
   subtitle: string;
 }
 
+export interface ExtraDeviceState {
+  dataUrl: string | null;
+  name: string | null;
+  frameId: string | null;
+  offsetX: number | null;
+  offsetY: number | null;
+  scale: number | null;
+  rotation: number | null;
+  angle: number | null;
+  tilt: number | null;
+}
+
 export interface ScreenState {
   screenIndex: number;
   eyebrow: string;
@@ -74,6 +86,12 @@ export interface ScreenState {
   layout: LayoutVariant;
   font: string;
   fontWeight: number;
+  eyebrowFont: string | null;
+  eyebrowFontWeight: number | null;
+  headlineFont: string | null;
+  headlineFontWeight: number | null;
+  subtitleFont: string | null;
+  subtitleFontWeight: number | null;
   headlineSize: number;
   subtitleSize: number;
   headlineRotation: number;
@@ -91,8 +109,6 @@ export interface ScreenState {
   deviceTilt: number;
   headlineGradient: TextGradient | null;
   subtitleGradient: TextGradient | null;
-  autoSizeHeadline: boolean;
-  autoSizeSubtitle: boolean;
   headlineLineHeight: number;
   headlineLetterSpacing: number;
   headlineTextTransform: string;
@@ -103,9 +119,11 @@ export interface ScreenState {
   spotlight: SpotlightConfig | null;
   annotations: Annotation[];
   textPositions: {
+    eyebrow: TextPosition | null;
     headline: TextPosition | null;
     subtitle: TextPosition | null;
   };
+  eyebrowSize: number;
   screenshotDataUrl: string | null;
   screenshotName: string | null;
   screenshotDims: { width: number; height: number } | null;
@@ -120,7 +138,7 @@ export interface ScreenState {
   loupe: Loupe | null;
   callouts: Callout[];
   overlays: Overlay[];
-  extraScreenshots: string[];
+  extraDevices: ExtraDeviceState[];
 }
 
 export interface PlatformPreviewSize {

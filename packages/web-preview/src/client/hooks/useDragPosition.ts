@@ -59,7 +59,7 @@ export function useDragPosition(
   canvasW: number,
   canvasH: number,
   onDeviceDrop: (partial: { deviceTop: number; deviceOffsetX: number }) => void,
-  onTextDrop: (cls: 'headline' | 'subtitle', pos: TextPosition) => void,
+  onTextDrop: (cls: 'eyebrow' | 'headline' | 'subtitle', pos: TextPosition) => void,
 ) {
   const dragRef = useRef<DragState | null>(null);
 
@@ -73,6 +73,7 @@ export function useDragPosition(
         // then walk ancestors of each to classify the hit.
         // Collect unique text/device hits and prefer the closest text element.
         const allEls = doc.elementsFromPoint(ix, iy) as HTMLElement[];
+        let eyebrowEl: HTMLElement | null = null;
         let headlineEl: HTMLElement | null = null;
         let subtitleEl: HTMLElement | null = null;
         let deviceEl: HTMLElement | null = null;
@@ -80,6 +81,7 @@ export function useDragPosition(
         for (const startEl of allEls) {
           let el: HTMLElement | null = startEl;
           while (el && el !== doc.documentElement) {
+            if (!eyebrowEl && el.classList?.contains('eyebrow')) eyebrowEl = el;
             if (!headlineEl && el.classList?.contains('headline')) headlineEl = el;
             if (!subtitleEl && el.classList?.contains('subtitle')) subtitleEl = el;
             if (!deviceEl && el.classList?.contains('device-wrapper')) deviceEl = el;
@@ -87,19 +89,25 @@ export function useDragPosition(
           }
         }
 
-        // If both text elements are hit, pick the one whose vertical center is closest
-        if (headlineEl && subtitleEl) {
-          const hVr = getViewportRect(headlineEl);
-          const sVr = getViewportRect(subtitleEl);
-          const hCy = hVr.top + hVr.height / 2;
-          const sCy = sVr.top + sVr.height / 2;
-          if (Math.abs(iy - hCy) <= Math.abs(iy - sCy)) {
-            return { cls: 'headline', el: headlineEl, kind: 'text' };
-          }
-          return { cls: 'subtitle', el: subtitleEl, kind: 'text' };
+        // When multiple text elements overlap, pick the one whose vertical center is closest to the click.
+        const textHits: Array<{ cls: 'eyebrow' | 'headline' | 'subtitle'; el: HTMLElement; dy: number }> = [];
+        if (eyebrowEl) {
+          const vr = getViewportRect(eyebrowEl);
+          textHits.push({ cls: 'eyebrow', el: eyebrowEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
         }
-        if (headlineEl) return { cls: 'headline', el: headlineEl, kind: 'text' };
-        if (subtitleEl) return { cls: 'subtitle', el: subtitleEl, kind: 'text' };
+        if (headlineEl) {
+          const vr = getViewportRect(headlineEl);
+          textHits.push({ cls: 'headline', el: headlineEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
+        }
+        if (subtitleEl) {
+          const vr = getViewportRect(subtitleEl);
+          textHits.push({ cls: 'subtitle', el: subtitleEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
+        }
+        if (textHits.length > 0) {
+          textHits.sort((a, b) => a.dy - b.dy);
+          const best = textHits[0]!;
+          return { cls: best.cls, el: best.el, kind: 'text' };
+        }
         if (deviceEl) return { cls: 'device-wrapper', el: deviceEl, kind: 'device' };
       } catch {
         // Cross-origin or unavailable
@@ -179,9 +187,9 @@ export function useDragPosition(
         document.addEventListener('mouseup', onUp);
       } else if (hit.kind === 'text') {
         const el = hit.el;
-        const cls = hit.cls as 'headline' | 'subtitle';
+        const cls = hit.cls as 'eyebrow' | 'headline' | 'subtitle';
         const vr = getViewportRect(el);
-        const alreadyPositioned = !!(cls === 'headline' ? screen.textPositions.headline : screen.textPositions.subtitle);
+        const alreadyPositioned = !!screen.textPositions[cls];
         // When already positioned, the element has transform: translateX(-50%),
         // so offsetLeft IS the visual center. In normal flow, the visual center
         // is left + width/2.
@@ -189,7 +197,11 @@ export function useDragPosition(
         const origWidth = vr.width;
 
         if (!alreadyPositioned) {
-          const rotation = cls === 'headline' ? screen.headlineRotation : screen.subtitleRotation;
+          const rotation = cls === 'headline'
+            ? screen.headlineRotation
+            : cls === 'subtitle'
+              ? screen.subtitleRotation
+              : 0;
           const parts = ['translateX(-50%)'];
           if (rotation) parts.push(`rotate(${rotation}deg)`);
           el.style.position = 'fixed';
@@ -235,7 +247,7 @@ export function useDragPosition(
           dragRef.current = null;
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
-          onTextDrop(drag.cls as 'headline' | 'subtitle', { x: leftPct, y: topPct, width: widthPct });
+          onTextDrop(drag.cls as 'eyebrow' | 'headline' | 'subtitle', { x: leftPct, y: topPct, width: widthPct });
         };
 
         document.addEventListener('mousemove', onMove);

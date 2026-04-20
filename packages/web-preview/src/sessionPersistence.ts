@@ -138,6 +138,21 @@ export function buildConfigFromEditorState(
       subtitleTextTransform:
         (expectOptionalString(firstScreen.subtitleTextTransform) as AppframeConfig['theme']['subtitleTextTransform'])
         ?? undefined,
+      eyebrowFont:
+        (expectOptionalString(firstScreen.eyebrowFont) as AppframeConfig['theme']['eyebrowFont'])
+        ?? undefined,
+      eyebrowFontWeight:
+        typeof firstScreen.eyebrowFontWeight === 'number' ? firstScreen.eyebrowFontWeight : undefined,
+      headlineFont:
+        (expectOptionalString(firstScreen.headlineFont) as AppframeConfig['theme']['headlineFont'])
+        ?? undefined,
+      headlineFontWeight:
+        typeof firstScreen.headlineFontWeight === 'number' ? firstScreen.headlineFontWeight : undefined,
+      subtitleFont:
+        (expectOptionalString(firstScreen.subtitleFont) as AppframeConfig['theme']['subtitleFont'])
+        ?? undefined,
+      subtitleFontWeight:
+        typeof firstScreen.subtitleFontWeight === 'number' ? firstScreen.subtitleFontWeight : undefined,
     };
 
     const colors = isRecord(firstScreen.colors) ? firstScreen.colors : null;
@@ -183,8 +198,6 @@ export function buildConfigFromEditorState(
       headline: `Screen ${index + 1}`,
       layout: 'center' as const,
       composition: 'single' as const,
-      autoSizeHeadline: true,
-      autoSizeSubtitle: false,
       annotations: [],
     };
 
@@ -202,6 +215,9 @@ export function buildConfigFromEditorState(
       ...original,
       screenshot: normalizeScreenshotPath(original.screenshot, screen.screenshotName, index),
       eyebrow: expectOptionalString(screen.eyebrow) ?? original.eyebrow,
+      eyebrowSize: typeof screen.eyebrowSize === 'number' && screen.eyebrowSize > 0
+        ? screen.eyebrowSize
+        : original.eyebrowSize,
       headline: expectOptionalString(screen.headline) ?? original.headline,
       subtitle: expectOptionalString(screen.subtitle),
       accentColor: expectOptionalString(screen.accentColor) ?? original.accentColor,
@@ -221,14 +237,6 @@ export function buildConfigFromEditorState(
       composition:
         (expectOptionalString(screen.composition) as typeof original.composition)
         ?? original.composition,
-      autoSizeHeadline:
-        typeof screen.autoSizeHeadline === 'boolean'
-          ? screen.autoSizeHeadline
-          : original.autoSizeHeadline,
-      autoSizeSubtitle:
-        typeof screen.autoSizeSubtitle === 'boolean'
-          ? screen.autoSizeSubtitle
-          : original.autoSizeSubtitle,
       spotlight: isRecord(screen.spotlight)
         ? screen.spotlight as typeof original.spotlight
         : original.spotlight,
@@ -254,6 +262,24 @@ export function buildConfigFromEditorState(
       overlays: Array.isArray(screen.overlays)
         ? screen.overlays as typeof original.overlays
         : original.overlays,
+      ...(expectOptionalString(screen.eyebrowFont)
+        ? { eyebrowFont: expectOptionalString(screen.eyebrowFont) as typeof original.eyebrowFont }
+        : {}),
+      ...(typeof screen.eyebrowFontWeight === 'number'
+        ? { eyebrowFontWeight: screen.eyebrowFontWeight }
+        : {}),
+      ...(expectOptionalString(screen.headlineFont)
+        ? { headlineFont: expectOptionalString(screen.headlineFont) as typeof original.headlineFont }
+        : {}),
+      ...(typeof screen.headlineFontWeight === 'number'
+        ? { headlineFontWeight: screen.headlineFontWeight }
+        : {}),
+      ...(expectOptionalString(screen.subtitleFont)
+        ? { subtitleFont: expectOptionalString(screen.subtitleFont) as typeof original.subtitleFont }
+        : {}),
+      ...(typeof screen.subtitleFontWeight === 'number'
+        ? { subtitleFontWeight: screen.subtitleFontWeight }
+        : {}),
     };
   });
 

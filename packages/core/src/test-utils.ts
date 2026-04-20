@@ -32,8 +32,6 @@ export function createMinimalConfig(overrides?: Partial<AppframeConfig>): Appfra
         headline: 'Welcome',
         layout: 'center',
         composition: 'single',
-        autoSizeHeadline: false,
-        autoSizeSubtitle: false,
         annotations: [],
       },
     ],

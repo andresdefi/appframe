@@ -145,6 +145,18 @@ export function useInstantPatch() {
 
       const scaleFactor = previewW / 1290;
 
+      const applyRotation = (el: HTMLElement, deg: number) => {
+        // translateX(-50%) is only needed when the element has been repositioned
+        // via injectTextPositionCSS (position: fixed + left: X%). In normal
+        // flow the block is full-width inside .text-area and translateX would
+        // shift the whole block off-center.
+        const isFixed = doc.defaultView?.getComputedStyle(el).position === 'fixed';
+        const parts: string[] = [];
+        if (isFixed) parts.push('translateX(-50%)');
+        if (deg) parts.push(`rotate(${deg}deg)`);
+        el.style.transform = parts.length > 0 ? parts.join(' ') : '';
+      };
+
       if (partial.headlineSize !== undefined || partial.headlineRotation !== undefined) {
         const headline = doc.querySelector('.headline') as HTMLElement | null;
         if (headline) {
@@ -152,9 +164,7 @@ export function useInstantPatch() {
             headline.style.fontSize = `${Math.round(partial.headlineSize * scaleFactor)}px`;
           }
           if (partial.headlineRotation !== undefined) {
-            const parts = ['translateX(-50%)'];
-            if (partial.headlineRotation) parts.push(`rotate(${partial.headlineRotation}deg)`);
-            headline.style.transform = parts.join(' ');
+            applyRotation(headline, partial.headlineRotation);
           }
         }
       }
@@ -166,9 +176,7 @@ export function useInstantPatch() {
             subtitle.style.fontSize = `${Math.round(partial.subtitleSize * scaleFactor)}px`;
           }
           if (partial.subtitleRotation !== undefined) {
-            const parts = ['translateX(-50%)'];
-            if (partial.subtitleRotation) parts.push(`rotate(${partial.subtitleRotation}deg)`);
-            subtitle.style.transform = parts.join(' ');
+            applyRotation(subtitle, partial.subtitleRotation);
           }
         }
       }
@@ -176,5 +184,26 @@ export function useInstantPatch() {
     [getDoc, previewW],
   );
 
-  return { patchDevice, patchBackground, patchText };
+  /**
+   * Patch border simulation: thickness and radius on the .border-sim wrapper.
+   */
+  const patchBorder = useCallback(
+    (partial: { thickness?: number; radius?: number; color?: string }) => {
+      const doc = getDoc();
+      if (!doc) return;
+      const el = doc.querySelector('.border-sim') as HTMLElement | null;
+      if (!el) return;
+      if (partial.thickness !== undefined || partial.color !== undefined) {
+        const currentColor = partial.color ?? el.style.borderColor ?? '#1a1a1a';
+        const thickness = partial.thickness ?? parseFloat(el.style.borderWidth) ?? 0;
+        el.style.border = `${thickness}px solid ${currentColor}`;
+      }
+      if (partial.radius !== undefined) {
+        el.style.borderRadius = `${partial.radius}px`;
+      }
+    },
+    [getDoc],
+  );
+
+  return { patchDevice, patchBackground, patchText, patchBorder };
 }

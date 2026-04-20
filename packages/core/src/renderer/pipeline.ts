@@ -261,6 +261,7 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
 
       const context: TemplateContext = {
         eyebrow: screen.eyebrow,
+        eyebrowSize: screen.eyebrowSize,
         accentColor: screen.accentColor,
         headline,
         subtitle,
@@ -279,8 +280,6 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         canvasHeight: size.height,
         headlineGradient: config.theme.headlineGradient,
         subtitleGradient: config.theme.subtitleGradient,
-        autoSizeHeadline: screen.autoSizeHeadline,
-        autoSizeSubtitle: screen.autoSizeSubtitle,
         ...(screen.loupe ? { loupe: screen.loupe } : {}),
         ...(screen.callouts ? { callouts: screen.callouts } : {}),
         ...(screen.overlays ? { overlays: screen.overlays } : {}),
@@ -298,6 +297,12 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         ...(resolvedBackgroundGradient ? { backgroundGradient: resolvedBackgroundGradient } : {}),
         ...(resolvedBackgroundImage ? { backgroundImageDataUrl: resolvedBackgroundImage } : {}),
         ...(resolvedBackgroundOverlay ? { backgroundOverlay: resolvedBackgroundOverlay } : {}),
+        eyebrowFont: screen.eyebrowFont ?? config.theme.eyebrowFont,
+        eyebrowFontWeight: screen.eyebrowFontWeight ?? config.theme.eyebrowFontWeight,
+        headlineFont: screen.headlineFont ?? config.theme.headlineFont,
+        headlineFontWeight: screen.headlineFontWeight ?? config.theme.headlineFontWeight,
+        subtitleFont: screen.subtitleFont ?? config.theme.subtitleFont,
+        subtitleFontWeight: screen.subtitleFontWeight ?? config.theme.subtitleFontWeight,
       };
 
       // Render template to HTML

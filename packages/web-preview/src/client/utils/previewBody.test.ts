@@ -117,7 +117,7 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
         shapeBlur: 8,
       },
     ],
-    extraScreenshots: [],
+    extraDevices: [],
     ...overrides,
   };
 }

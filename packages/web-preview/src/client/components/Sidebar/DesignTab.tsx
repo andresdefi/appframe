@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { usePreviewStore } from '../../store';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
@@ -8,23 +8,12 @@ import { RangeSlider } from '../Controls/RangeSlider';
 import { Checkbox } from '../Controls/Checkbox';
 import { Select } from '../Controls/Select';
 import { SOLID_PRESETS, GRADIENT_PRESETS } from '../../utils/presets';
-import type { BackgroundType, TemplateStyle } from '../../types';
-
-const TEMPLATE_OPTIONS = [
-  { value: 'minimal', label: 'Minimal' },
-  { value: 'bold', label: 'Bold' },
-  { value: 'glow', label: 'Glow' },
-  { value: 'playful', label: 'Playful' },
-  { value: 'clean', label: 'Clean' },
-  { value: 'branded', label: 'Branded' },
-  { value: 'editorial', label: 'Editorial' },
-];
+import type { BackgroundType } from '../../types';
 
 const BG_TYPES: { value: BackgroundType; label: string }[] = [
   { value: 'solid', label: 'Solid' },
   { value: 'gradient', label: 'Gradient' },
   { value: 'image', label: 'Image' },
-  { value: 'preset', label: 'Preset' },
 ];
 
 const RADIAL_POSITIONS = [
@@ -60,15 +49,12 @@ export function DesignTab() {
     [screen, patchBackground],
   );
 
-  // Local UI state: 'preset' tab can be shown without immediately applying a preset.
-  // backgroundType only becomes 'preset' when the user picks from the dropdown.
-  const [showPreset, setShowPreset] = useState(false);
-
   if (!screen) return null;
 
-  const bgType = screen.backgroundType;
-  // The visible UI mode: show preset panel if user clicked Preset radio OR if bg is already preset
-  const uiMode = showPreset || bgType === 'preset' ? 'preset' : bgType;
+  // Legacy screens may still carry backgroundType: 'preset' — treat as solid
+  // for UI purposes so the radios match one option.
+  const bgType = screen.backgroundType === 'preset' ? 'solid' : screen.backgroundType;
+  const uiMode = bgType;
 
   const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,37 +91,13 @@ export function DesignTab() {
                 name="bg-type"
                 value={bt.value}
                 checked={uiMode === bt.value}
-                onChange={() => {
-                  if (bt.value === 'preset') {
-                    // Just show the dropdown — don't change backgroundType yet
-                    setShowPreset(true);
-                  } else {
-                    setShowPreset(false);
-                    update({ backgroundType: bt.value });
-                  }
-                }}
+                onChange={() => update({ backgroundType: bt.value })}
                 className="accent-accent"
               />
               {bt.label}
             </label>
           ))}
         </div>
-
-        {/* Preset controls */}
-        {uiMode === 'preset' && (
-          <Select
-            label="Style Preset"
-            value={bgType === 'preset' ? screen.style : ''}
-            onChange={(v) => {
-              // Only now apply preset mode + selected style
-              update({ backgroundType: 'preset', style: v as TemplateStyle });
-            }}
-            options={[
-              { value: '', label: 'Select a preset...', disabled: true },
-              ...TEMPLATE_OPTIONS,
-            ]}
-          />
-        )}
 
         {/* Solid color controls */}
         {uiMode === 'solid' && (
@@ -334,24 +296,6 @@ export function DesignTab() {
         )}
       </Section>
 
-      {/* Preset colors — only visible when a preset is actively applied */}
-      <Section title="Preset Colors" hidden={bgType !== 'preset'} tooltip="Override the default colors for the selected template preset.">
-        <ColorPicker
-          label="Primary"
-          value={screen.colors.primary}
-          onChange={(v) => update({ colors: { ...screen.colors, primary: v } })}
-        />
-        <ColorPicker
-          label="Secondary"
-          value={screen.colors.secondary}
-          onChange={(v) => update({ colors: { ...screen.colors, secondary: v } })}
-        />
-        <ColorPicker
-          label="Background"
-          value={screen.colors.background}
-          onChange={(v) => update({ colors: { ...screen.colors, background: v } })}
-        />
-      </Section>
     </>
   );
 }

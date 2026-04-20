@@ -414,8 +414,6 @@ export async function renderSingleScreenWithKoubou(
         subtitle: options.subtitle,
         layout: options.layout,
         composition: 'single',
-        autoSizeHeadline: false,
-        autoSizeSubtitle: false,
         annotations: options.annotations ?? [],
         spotlight: options.spotlight,
       }],

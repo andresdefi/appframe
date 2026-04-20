@@ -154,8 +154,6 @@ describe('translateConfig', () => {
           subtitle: 'Sub text',
           layout: 'center',
           composition: 'single',
-          autoSizeHeadline: false,
-          autoSizeSubtitle: false,
           annotations: [],
           
         },
@@ -234,8 +232,6 @@ describe('translateConfig', () => {
           layout: 'center',
           composition: 'duo-overlap',
           extraDevices: [{ screenshot: 'extra.png' }],
-          autoSizeHeadline: false,
-          autoSizeSubtitle: false,
           annotations: [],
           
         },
@@ -258,7 +254,7 @@ describe('translateConfig — spotlight, annotations, zoom callouts', () => {
     const config = createMinimalConfig({
       screens: [{
         screenshot: 's.png', headline: 'Hi', layout: 'center', composition: 'single',
-        autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [],
+        annotations: [],
         spotlight: { x: 50, y: 50, w: 30, h: 30, shape: 'circle', dimOpacity: 0.6, blur: 5 },
       }],
     });
@@ -273,7 +269,6 @@ describe('translateConfig — spotlight, annotations, zoom callouts', () => {
     const config = createMinimalConfig({
       screens: [{
         screenshot: 's.png', headline: 'Hi', layout: 'center', composition: 'single',
-        autoSizeHeadline: false, autoSizeSubtitle: false, 
         annotations: [
           { id: 'a1', shape: 'circle', x: 10, y: 20, w: 30, h: 30, strokeColor: '#FF0000', strokeWidth: 4 },
           { id: 'a2', shape: 'rectangle', x: 50, y: 50, w: 20, h: 20, strokeColor: '#00FF00', strokeWidth: 2, fillColor: '#0000FF' },
@@ -292,7 +287,7 @@ describe('translateConfig — spotlight, annotations, zoom callouts', () => {
     const config = createMinimalConfig({
       screens: [{
         screenshot: 's.png', headline: 'Hi', layout: 'center', composition: 'single',
-        autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [],
+        annotations: [],
         background: '#FF0000',
       }],
     });

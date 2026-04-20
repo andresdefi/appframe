@@ -73,8 +73,8 @@ describe('generateScreenshots', () => {
   it('respects screen filter', async () => {
     const config = createMinimalConfig({
       screens: [
-        { screenshot: 's1.png', headline: 'S1', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] },
-        { screenshot: 's2.png', headline: 'S2', layout: 'center', composition: 'single', autoSizeHeadline: false, autoSizeSubtitle: false, annotations: [] },
+        { screenshot: 's1.png', headline: 'S1', layout: 'center', composition: 'single', annotations: [] },
+        { screenshot: 's2.png', headline: 'S2', layout: 'center', composition: 'single', annotations: [] },
       ],
     });
     mockLoadConfig.mockResolvedValue(config);
@@ -151,7 +151,6 @@ describe('generateScreenshots', () => {
     const config = createMinimalConfig({
       screens: [{
         screenshot: 'test.png', headline: 'Hi', layout: 'center', composition: 'single',
-        autoSizeHeadline: false, autoSizeSubtitle: false,
         spotlight: { x: 50, y: 50, w: 30, h: 30, shape: 'rectangle' as const, dimOpacity: 0.6, blur: 0 },
         annotations: [{ id: 'a1', shape: 'circle' as const, x: 10, y: 10, w: 20, h: 20, strokeColor: '#F00', strokeWidth: 3 }],
       }],
@@ -170,8 +169,6 @@ describe('generateScreenshots', () => {
         layout: 'center',
         composition: 'hero-tilt',
         extraDevices: [{ screenshot: 'detail.png' }],
-        autoSizeHeadline: false,
-        autoSizeSubtitle: false,
         annotations: [],
         loupe: { sourceX: 0.2, sourceY: -0.1, width: 0.3, height: 0.2, zoom: 2.4, cornerRadius: 16, borderWidth: 0, borderColor: '#fff', shadow: false, shadowColor: '#000000', shadowRadius: 0, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 },
         callouts: [{ id: 'c1', sourceX: 20, sourceY: 30, sourceW: 24, sourceH: 18, displayX: 74, displayY: 68, displayScale: 1.2, rotation: 0, borderRadius: 12, shadow: true, borderWidth: 0 }],
@@ -216,8 +213,6 @@ describe('generateScreenshots', () => {
         headline: 'H',
         layout: 'center',
         composition: 'single',
-        autoSizeHeadline: false,
-        autoSizeSubtitle: false,
         annotations: [],
         backgroundType: 'solid',
         backgroundColor: '#0F172A',
@@ -258,8 +253,6 @@ describe('generateScreenshots', () => {
         accentColor: '#F97316',
         layout: 'center',
         composition: 'single',
-        autoSizeHeadline: false,
-        autoSizeSubtitle: false,
         annotations: [],
       }],
     });

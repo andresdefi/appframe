@@ -24,6 +24,12 @@ export function buildScreenRenderBody(
     colors: screen.colors,
     font: screen.font,
     fontWeight: screen.fontWeight,
+    eyebrowFont: screen.eyebrowFont ?? undefined,
+    eyebrowFontWeight: screen.eyebrowFontWeight ?? undefined,
+    headlineFont: screen.headlineFont ?? undefined,
+    headlineFontWeight: screen.headlineFontWeight ?? undefined,
+    subtitleFont: screen.subtitleFont ?? undefined,
+    subtitleFontWeight: screen.subtitleFontWeight ?? undefined,
     headlineSize: screen.headlineSize || undefined,
     subtitleSize: screen.subtitleSize || undefined,
     headlineRotation: screen.headlineRotation || undefined,
@@ -37,6 +43,10 @@ export function buildScreenRenderBody(
     deviceOffsetX: screen.deviceOffsetX,
     deviceAngle: screen.deviceAngle,
     deviceTilt: screen.deviceTilt,
+    eyebrowTop: screen.textPositions.eyebrow?.y,
+    eyebrowLeft: screen.textPositions.eyebrow?.x,
+    eyebrowWidth: screen.textPositions.eyebrow?.width,
+    eyebrowSize: screen.eyebrowSize || undefined,
     headlineTop: screen.textPositions.headline?.y,
     headlineLeft: screen.textPositions.headline?.x,
     headlineWidth: screen.textPositions.headline?.width,
@@ -44,10 +54,8 @@ export function buildScreenRenderBody(
     subtitleLeft: screen.textPositions.subtitle?.x,
     subtitleWidth: screen.textPositions.subtitle?.width,
     composition: screen.composition || 'single',
-    headlineGradient: screen.headlineGradient || undefined,
-    subtitleGradient: screen.subtitleGradient || undefined,
-    autoSizeHeadline: screen.autoSizeHeadline || undefined,
-    autoSizeSubtitle: screen.autoSizeSubtitle || undefined,
+    headlineGradient: screen.headlineGradient,
+    subtitleGradient: screen.subtitleGradient,
     spotlight: screen.spotlight || undefined,
     annotations: screen.annotations.length > 0 ? screen.annotations : undefined,
     backgroundType: screen.backgroundType !== 'preset' ? screen.backgroundType : undefined,
@@ -77,6 +85,19 @@ export function buildScreenRenderBody(
     subtitleTextTransform: screen.subtitleTextTransform || undefined,
     width: previewW,
     height: previewH,
+    extraScreenshots:
+      screen.extraDevices.length > 0
+        ? screen.extraDevices.map((d) => ({
+            screenshotDataUrl: d.dataUrl ?? undefined,
+            frameId: d.frameId ?? undefined,
+            offsetX: d.offsetX ?? undefined,
+            offsetY: d.offsetY ?? undefined,
+            scale: d.scale ?? undefined,
+            rotation: d.rotation ?? undefined,
+            angle: d.angle ?? undefined,
+            tilt: d.tilt ?? undefined,
+          }))
+        : undefined,
   };
 }
 

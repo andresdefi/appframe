@@ -211,17 +211,20 @@
     }
 
     .eyebrow {
-      font-size: {{ (canvasWidth * 0.024) | round }}px;
-      font-weight: 600;
+      font-family: '{{ eyebrowFontFamily or fontFamily }}', {{ presetFontFallback | safe }};
+      font-size: {{ (eyebrowSize * canvasWidth / 1290) | round if eyebrowSize else (canvasWidth * 0.024) | round }}px;
+      font-weight: {{ eyebrowFontWeight or 600 }};
       letter-spacing: 0.08em;
       text-transform: uppercase;
+      line-height: 1.2;
       color: {{ accentColor or colors.primary or colors.text }};
       margin-bottom: {{ (canvasWidth * 0.012) | round }}px;
     }
 
     .headline {
+      font-family: '{{ headlineFontFamily or fontFamily }}', {{ presetFontFallback | safe }};
       font-size: {{ (headlineSize * canvasWidth / 1290) | round if headlineSize else (canvasWidth * presetHeadlineFontSizeScale) | round }}px;
-      font-weight: {{ fontWeight | default(presetFontWeight) }};
+      font-weight: {{ headlineFontWeight or fontWeight | default(presetFontWeight) }};
       color: {{ colors.text }};
       line-height: {{ presetHeadlineLineHeight }};
       letter-spacing: {{ presetHeadlineLetterSpacing }};
@@ -231,10 +234,11 @@
     }
 
     .subtitle {
+      font-family: '{{ subtitleFontFamily or fontFamily }}', {{ presetFontFallback | safe }};
       font-size: {{ (subtitleSize * canvasWidth / 1290) | round if subtitleSize else (canvasWidth * presetSubtitleFontSizeScale) | round }}px;
       color: {{ colors.subtitle or colors.text }};
       opacity: {{ 1 if colors.subtitle else presetSubtitleOpacity }};
-      font-weight: 400;
+      font-weight: {{ subtitleFontWeight or 400 }};
       line-height: {{ presetSubtitleLineHeight }};
       margin-top: {{ (canvasWidth * 0.012) | round }}px;
       {% if presetSubtitleLetterSpacing != '0' %}letter-spacing: {{ presetSubtitleLetterSpacing }};{% endif %}
@@ -257,11 +261,11 @@
       --device-perspective: {% if layout == 'angled-left' or layout == 'angled-right' %}{{ (dw * presetPerspectiveAngled / (canvasWidth * 0.92)) | round }}{% else %}{{ (dw * presetPerspectiveStandard / (canvasWidth * 0.92)) | round }}{% endif %}px;
 
       {% if layout == 'angled-left' %}
-        transform: scale(calc(1 - sin(var(--device-tilt)) * 0.2)) translateX(-50%) perspective(var(--device-perspective)) rotateX(var(--device-tilt)) rotateY(var(--device-angle)) rotateZ(var(--device-rotation));
+        transform: translateX(-50%) scale(calc(1 - sin(var(--device-tilt)) * 0.2)) perspective(var(--device-perspective)) rotateX(var(--device-tilt)) rotateY(var(--device-angle)) rotateZ(var(--device-rotation));
       {% elif layout == 'angled-right' %}
-        transform: scale(calc(1 - sin(var(--device-tilt)) * 0.2)) translateX(-50%) perspective(var(--device-perspective)) rotateX(var(--device-tilt)) rotateY(calc(-1 * var(--device-angle))) rotateZ(var(--device-rotation));
+        transform: translateX(-50%) scale(calc(1 - sin(var(--device-tilt)) * 0.2)) perspective(var(--device-perspective)) rotateX(var(--device-tilt)) rotateY(calc(-1 * var(--device-angle))) rotateZ(var(--device-rotation));
       {% else %}
-        transform: scale(calc(1 - sin(var(--device-tilt)) * 0.2)) translateX(-50%) perspective(var(--device-perspective)) rotateX(var(--device-tilt)) rotateZ(var(--device-rotation));
+        transform: translateX(-50%) scale(calc(1 - sin(var(--device-tilt)) * 0.2)) perspective(var(--device-perspective)) rotateX(var(--device-tilt)) rotateZ(var(--device-rotation));
       {% endif %}
 
       {# Shadow #}
@@ -345,7 +349,7 @@
         {% endif %}
       {% else %}
         {% if borderSimulation and borderSimulation.enabled %}
-        <div style="border: {{ borderSimulation.thickness }}px solid {{ borderSimulation.color }}; border-radius: {{ borderSimulation.radius }}px; overflow: hidden;">
+        <div class="border-sim" style="border: {{ borderSimulation.thickness }}px solid {{ borderSimulation.color }}; border-radius: {{ borderSimulation.radius }}px; overflow: hidden;">
           <img src="{{ screenshotDataUrl }}" style="width: 100%; display: block;{% if cornerRadius %} border-radius: {{ (cornerRadius * dw / 100) | round }}px;{% endif %}">
         </div>
         {% else %}
@@ -371,7 +375,6 @@
     {% include "_base/overlays.html" %}
     {% endif %}
   </div>
-  {% include "_base/auto-size-text.html" %}
 </body>
   {% endif %}
 </html>

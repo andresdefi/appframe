@@ -192,8 +192,10 @@ function ScreenCard({
   );
 
   const handleTextDrop = useCallback(
-    (cls: 'headline' | 'subtitle', pos: TextPosition) => {
-      const textPositions = { ...(screen?.textPositions ?? { headline: null, subtitle: null }) };
+    (cls: 'eyebrow' | 'headline' | 'subtitle', pos: TextPosition) => {
+      const textPositions = {
+        ...(screen?.textPositions ?? { eyebrow: null, headline: null, subtitle: null }),
+      };
       textPositions[cls] = pos;
       updateScreen(index, { textPositions });
     },
@@ -212,6 +214,90 @@ function ScreenCard({
   );
 
   const [cursorStyle, setCursorStyle] = useState('default');
+  const [guides, setGuides] = useState<{ horizontal: boolean; vertical: boolean }>({
+    horizontal: false,
+    vertical: false,
+  });
+  const guideObserverRef = useRef<MutationObserver | null>(null);
+
+  const recomputeGuides = useCallback(() => {
+    const iframe = iframeRef.current;
+    const doc = iframe?.contentDocument;
+    if (!doc) {
+      setGuides({ horizontal: false, vertical: false });
+      return;
+    }
+    const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+    if (!canvas) {
+      setGuides({ horizontal: false, vertical: false });
+      return;
+    }
+    const cRect = canvas.getBoundingClientRect();
+    const cCenterX = cRect.left + cRect.width / 2;
+    const cCenterY = cRect.top + cRect.height / 2;
+    const tolerancePx = 4;
+    const view = doc.defaultView;
+
+    // Device always has a meaningful bounding box (always absolutely positioned).
+    // Text elements only produce a meaningful center check once they've been
+    // dragged to a custom position (position: fixed via injectTextPositionCSS);
+    // in normal flow their block-level div spans the full .text-area and would
+    // permanently read as X-centered.
+    const targets: Array<{ el: HTMLElement; requiresFixed: boolean }> = [];
+    const device = doc.querySelector('.device-wrapper') as HTMLElement | null;
+    if (device) targets.push({ el: device, requiresFixed: false });
+    for (const selector of ['.eyebrow', '.headline', '.subtitle']) {
+      const el = doc.querySelector(selector) as HTMLElement | null;
+      if (el) targets.push({ el, requiresFixed: true });
+    }
+
+    let vertical = false;
+    let horizontal = false;
+    for (const { el, requiresFixed } of targets) {
+      if (requiresFixed && view?.getComputedStyle(el).position !== 'fixed') continue;
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      if (Math.abs(centerX - cCenterX) <= tolerancePx) vertical = true;
+      if (Math.abs(centerY - cCenterY) <= tolerancePx) horizontal = true;
+      if (vertical && horizontal) break;
+    }
+    setGuides({ vertical, horizontal });
+  }, []);
+
+  // Attach a MutationObserver to every draggable element in the iframe (device
+  // wrapper + eyebrow + headline + subtitle). Both slider instant patches and
+  // mouse drags mutate inline style attributes, so watching each element's
+  // style catches every reposition in real time. The iframe is rewritten on
+  // full re-renders, so this is called again from the fetchPreviewHtml .then()
+  // below to re-target the new element set.
+  const attachGuideObserver = useCallback(() => {
+    guideObserverRef.current?.disconnect();
+    guideObserverRef.current = null;
+    const iframe = iframeRef.current;
+    const doc = iframe?.contentDocument;
+    if (!doc) return;
+    const observer = new MutationObserver(recomputeGuides);
+    const selectors = ['.device-wrapper', '.eyebrow', '.headline', '.subtitle'];
+    let attached = 0;
+    for (const selector of selectors) {
+      const el = doc.querySelector(selector) as HTMLElement | null;
+      if (!el) continue;
+      observer.observe(el, { attributes: true, attributeFilter: ['style'] });
+      attached++;
+    }
+    if (attached === 0) {
+      setGuides({ horizontal: false, vertical: false });
+      return;
+    }
+    recomputeGuides();
+    guideObserverRef.current = observer;
+  }, [recomputeGuides]);
+
+  useEffect(() => () => {
+    guideObserverRef.current?.disconnect();
+    guideObserverRef.current = null;
+  }, []);
 
   const handleOverlayMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -255,6 +341,9 @@ function ScreenCard({
             iframe.srcdoc = html;
           }
           setInitialLoad(false);
+          // The wrapper element is brand new after rewrite — re-target the
+          // observer so slider + mouse drags keep firing guide updates.
+          requestAnimationFrame(attachGuideObserver);
         })
         .catch((err) => {
           if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -268,7 +357,7 @@ function ScreenCard({
     };
     // renderVersion forces re-render when triggerRender() is called
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, renderVersion, platform, previewW, previewH, locale, localeConfig, deviceFamilies]);
+  }, [screen, renderVersion, platform, previewW, previewH, locale, localeConfig, deviceFamilies, attachGuideObserver]);
 
   return (
     <>
@@ -344,6 +433,21 @@ function ScreenCard({
           }}
           title={`Frame ${index + 1}`}
         />
+        {/* Center guides — appear when the device sits on a canvas axis */}
+        {guides.vertical && (
+          <div
+            className="absolute top-0 bottom-0 pointer-events-none z-10"
+            style={{ left: '50%', width: 1, background: '#ef4444', transform: 'translateX(-50%)' }}
+            aria-hidden="true"
+          />
+        )}
+        {guides.horizontal && (
+          <div
+            className="absolute left-0 right-0 pointer-events-none z-10"
+            style={{ top: '50%', height: 1, background: '#ef4444', transform: 'translateY(-50%)' }}
+            aria-hidden="true"
+          />
+        )}
         {/* Drag overlay — sits above iframe to capture pointer events */}
         <div
           className="absolute inset-0 z-10"

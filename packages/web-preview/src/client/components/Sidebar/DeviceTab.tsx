@@ -11,8 +11,14 @@ import { Checkbox } from '../Controls/Checkbox';
 import { CropModal } from '../Controls/CropModal';
 import { KOUBOU_COLOR_HEX } from '../../utils/presets';
 import { getDefaultFrameForPlatform } from '../../utils/deviceFrames';
-import { getDefaultExportSizeKey, getPlatformPreviewSize } from '../../utils/platformSelection';
-import type { FrameStyle, LayoutVariant, TemplateStyle, CompositionPreset } from '../../types';
+import { getDefaultExportSizeKey, getPlatformPreviewSize, isPlatformCompatibleWithScreenshot } from '../../utils/platformSelection';
+import type {
+  FrameStyle,
+  LayoutVariant,
+  TemplateStyle,
+  CompositionPreset,
+  ExtraDeviceState,
+} from '../../types';
 import { PLATFORM_DEVICE_DEFAULTS } from '../../types';
 import { COMPOSITION_PRESETS } from '../../utils/compositionPresets';
 
@@ -86,11 +92,9 @@ function buildFrameOptions(
   deviceFamilies: DeviceFamily[],
   frames: FrameData[],
   screenshotDims: { width: number; height: number } | null,
-  showAllFrames: boolean,
   platform: string,
 ) {
   const screenshotAR = screenshotDims ? screenshotDims.width / screenshotDims.height : null;
-  const shouldFilterAR = !showAllFrames && screenshotAR !== null;
   const allowedCategories = PLATFORM_CATEGORIES[platform] ?? ['iphone'];
   const allowedSvgTags = PLATFORM_SVG_TAGS[platform] ?? [];
 
@@ -98,8 +102,8 @@ function buildFrameOptions(
   const grouped: Record<string, { value: string; label: string }[]> = {};
   for (const f of deviceFamilies) {
     const cat = f.category || 'other';
-    if (!showAllFrames && !allowedCategories.includes(cat)) continue;
-    if (shouldFilterAR && !isFrameMatchingAspectRatio(f.screenResolution, screenshotAR)) continue;
+    if (!allowedCategories.includes(cat)) continue;
+    if (screenshotAR !== null && !isFrameMatchingAspectRatio(f.screenResolution, screenshotAR)) continue;
     const list = grouped[cat] ?? [];
     list.push({ value: f.id, label: f.name });
     grouped[cat] = list;
@@ -113,13 +117,10 @@ function buildFrameOptions(
   // SVG frame groups
   const svgFrames: { value: string; label: string }[] = [];
   for (const fr of frames) {
-    if (!showAllFrames && allowedSvgTags.length > 0) {
-      const frameTags = fr.tags ?? [];
-      if (!frameTags.some((t) => allowedSvgTags.includes(t))) continue;
-    } else if (!showAllFrames && allowedSvgTags.length === 0) {
-      continue; // No SVG frames for this platform (mac, watch)
-    }
-    if (shouldFilterAR && fr.screenResolution && !isFrameMatchingAspectRatio(fr.screenResolution, screenshotAR)) continue;
+    if (allowedSvgTags.length === 0) continue;
+    const frameTags = fr.tags ?? [];
+    if (!frameTags.some((t) => allowedSvgTags.includes(t))) continue;
+    if (screenshotAR !== null && fr.screenResolution && !isFrameMatchingAspectRatio(fr.screenResolution, screenshotAR)) continue;
     svgFrames.push({ value: fr.id, label: fr.name });
   }
   if (svgFrames.length > 0) {
@@ -143,8 +144,7 @@ export function DeviceTab() {
   const frames = usePreviewStore((s) => s.frames);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCrop, setShowCrop] = useState(false);
-  const [showAllFrames, setShowAllFrames] = useState(false);
-  const { patchDevice } = useInstantPatch();
+  const { patchDevice, patchBorder } = useInstantPatch();
   const instantDevice = useCallback(
     (key: string, v: number) => patchDevice({ [key]: v }),
     [patchDevice],
@@ -172,8 +172,8 @@ export function DeviceTab() {
   const showAngle = screen.layout === 'angled-left' || screen.layout === 'angled-right';
 
   const frameGroups = useMemo(
-    () => buildFrameOptions(deviceFamilies, frames, screen.screenshotDims, showAllFrames, platform),
-    [deviceFamilies, frames, screen.screenshotDims, showAllFrames, platform],
+    () => buildFrameOptions(deviceFamilies, frames, screen.screenshotDims, platform),
+    [deviceFamilies, frames, screen.screenshotDims, platform],
   );
 
   const handleScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,7 +230,13 @@ export function DeviceTab() {
           label="Platform"
           value={platform}
           onChange={handlePlatformChange}
-          options={PLATFORM_OPTIONS}
+          options={PLATFORM_OPTIONS.map((opt) => {
+            if (opt.value === platform) return opt;
+            const compatible = isPlatformCompatibleWithScreenshot(opt.value, screen.screenshotDims);
+            return compatible
+              ? opt
+              : { ...opt, disabled: true, title: 'Incompatible with the uploaded screenshot aspect ratio' };
+          })}
         />
       </Section>
 
@@ -303,14 +309,6 @@ export function DeviceTab() {
           groups={frameGroups}
         />
 
-        {screen.screenshotDims && (
-          <Checkbox
-            label="Show all frames"
-            checked={showAllFrames}
-            onChange={setShowAllFrames}
-          />
-        )}
-
         {/* Koubou color swatches */}
         {hasColors && (
           <div className="mb-2.5">
@@ -365,7 +363,7 @@ export function DeviceTab() {
                 <RangeSlider
                   label="Thickness"
                   value={screen.borderSimulation.thickness}
-                  min={1}
+                  min={0}
                   max={20}
                   formatValue={(v) => `${v}px`}
                   onChange={(v) =>
@@ -373,6 +371,7 @@ export function DeviceTab() {
                       borderSimulation: { ...screen.borderSimulation!, thickness: v },
                     })
                   }
+                  onInstant={(v) => patchBorder({ thickness: v })}
                 />
                 <ColorPicker
                   label="Color"
@@ -394,6 +393,7 @@ export function DeviceTab() {
                       borderSimulation: { ...screen.borderSimulation!, radius: v },
                     })
                   }
+                  onInstant={(v) => patchBorder({ radius: v })}
                 />
               </>
             )}
@@ -430,8 +430,8 @@ export function DeviceTab() {
             <RangeSlider
               label="Device Position"
               value={screen.deviceTop}
-              min={-80}
-              max={80}
+              min={-90}
+              max={90}
               formatValue={(v) => `${v}%`}
               onChange={(v) => update({ deviceTop: v })}
               onInstant={(v) => instantDevice('deviceTop', v)}
@@ -439,8 +439,8 @@ export function DeviceTab() {
             <RangeSlider
               label="Horizontal Position"
               value={screen.deviceOffsetX}
-              min={-80}
-              max={80}
+              min={-90}
+              max={90}
               formatValue={(v) => `${v}%`}
               onChange={(v) => update({ deviceOffsetX: v })}
               onInstant={(v) => instantDevice('deviceOffsetX', v)}
@@ -505,7 +505,11 @@ export function DeviceTab() {
       </Section>
 
       {/* Device Shadow */}
-      <Section title="Device Shadow" tooltip="Add a custom drop shadow behind the device frame." defaultCollapsed>
+      <Section
+        title="Device Shadow"
+        tooltip="Drop shadow behind the device. Opacity fades the whole shadow; Blur softens its edge; Vertical Offset pushes it downward to simulate a higher light angle. Blur at 0 with a large offset produces a crisp silhouette — that's the CSS primitive doing its job, not a bug."
+        defaultCollapsed
+      >
         <Checkbox
           label="Custom Shadow"
           checked={!!screen.deviceShadow}
@@ -552,7 +556,7 @@ export function DeviceTab() {
             }
           />
           <RangeSlider
-            label="Y Offset"
+            label="Vertical Offset"
             value={screen.deviceShadow?.offsetY ?? 10}
             min={0}
             max={30}
@@ -574,25 +578,212 @@ export function DeviceTab() {
           onChange={(v) => {
             const comp = v as CompositionPreset;
             const preset = COMPOSITION_PRESETS[comp];
-            if (preset && preset.deviceCount === 1) {
-              const slot = preset.slots[0]!;
-              update({
-                composition: comp,
-                deviceOffsetX: slot.offsetX,
-                deviceTop: slot.offsetY,
-                deviceScale: slot.scale,
-                deviceRotation: slot.rotation,
-                deviceAngle: slot.angle,
-                deviceTilt: slot.tilt,
-              });
-            } else {
+            if (!preset) {
               update({ composition: comp });
+              return;
             }
+            const slot = preset.slots[0]!;
+            const extraDevices: ExtraDeviceState[] =
+              comp === 'single'
+                ? []
+                : Array.from({ length: preset.deviceCount - 1 }, () => ({
+                    dataUrl: null,
+                    name: null,
+                    frameId: null,
+                    offsetX: null,
+                    offsetY: null,
+                    scale: null,
+                    rotation: null,
+                    angle: null,
+                    tilt: null,
+                  }));
+            update({
+              composition: comp,
+              deviceOffsetX: slot.offsetX,
+              deviceTop: slot.offsetY,
+              deviceScale: slot.scale,
+              deviceRotation: slot.rotation,
+              deviceAngle: slot.angle,
+              deviceTilt: slot.tilt,
+              extraDevices,
+            });
           }}
           options={COMPOSITION_OPTIONS}
           groups={COMPOSITION_GROUPS}
         />
+
+        {screen.composition !== 'single' && screen.extraDevices.length > 0 && (
+          <ExtraDeviceSlots
+            composition={screen.composition}
+            extraDevices={screen.extraDevices}
+            onChangeExtraDevice={(index, partial) => {
+              const next = screen.extraDevices.map((d, i) => (i === index ? { ...d, ...partial } : d));
+              update({ extraDevices: next });
+            }}
+          />
+        )}
       </Section>
     </>
+  );
+}
+
+interface ExtraDeviceSlotsProps {
+  composition: CompositionPreset;
+  extraDevices: ExtraDeviceState[];
+  onChangeExtraDevice: (index: number, partial: Partial<ExtraDeviceState>) => void;
+}
+
+function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice }: ExtraDeviceSlotsProps) {
+  const preset = COMPOSITION_PRESETS[composition];
+  if (!preset) return null;
+
+  return (
+    <>
+      {extraDevices.map((extra, i) => {
+        const slotIndex = i + 1;
+        const slotPreset = preset.slots[slotIndex];
+        if (!slotPreset) return null;
+        return (
+          <ExtraDeviceSlotEditor
+            key={i}
+            index={i}
+            slotIndex={slotIndex}
+            extra={extra}
+            slotPreset={slotPreset}
+            onChange={(partial) => onChangeExtraDevice(i, partial)}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+interface ExtraDeviceSlotEditorProps {
+  index: number;
+  slotIndex: number;
+  extra: ExtraDeviceState;
+  slotPreset: { offsetX: number; offsetY: number; scale: number; rotation: number; angle: number; tilt: number };
+  onChange: (partial: Partial<ExtraDeviceState>) => void;
+}
+
+function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: ExtraDeviceSlotEditorProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      onChange({ dataUrl, name: file.name });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  return (
+    <Section title={`Slot ${slotIndex + 1}`} defaultCollapsed={slotIndex > 1}>
+      {extra.dataUrl && (
+        <div className="flex items-center gap-2 mb-2">
+          <img
+            src={extra.dataUrl}
+            alt=""
+            className="w-10 h-10 rounded object-cover border border-border"
+          />
+          <span className="text-xs text-text-dim truncate flex-1">
+            {extra.name || 'Custom upload'}
+          </span>
+        </div>
+      )}
+      <button
+        className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        Upload Screenshot
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        aria-label={`Upload screenshot for slot ${slotIndex + 1}`}
+        onChange={handleUpload}
+      />
+      {extra.dataUrl && (
+        <button
+          className="w-full py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1.5"
+          onClick={() => onChange({ dataUrl: null, name: null })}
+        >
+          Revert
+        </button>
+      )}
+
+      <div className="mt-3">
+        <RangeSlider
+          label="Horizontal Position"
+          value={extra.offsetX ?? slotPreset.offsetX}
+          min={-90}
+          max={90}
+          formatValue={(v) => `${v}%`}
+          onChange={(v) => onChange({ offsetX: v })}
+        />
+        <RangeSlider
+          label="Vertical Position"
+          value={extra.offsetY ?? slotPreset.offsetY}
+          min={-90}
+          max={90}
+          formatValue={(v) => `${v}%`}
+          onChange={(v) => onChange({ offsetY: v })}
+        />
+        <RangeSlider
+          label="Scale"
+          value={extra.scale ?? slotPreset.scale}
+          min={50}
+          max={150}
+          formatValue={(v) => `${v}%`}
+          onChange={(v) => onChange({ scale: v })}
+        />
+        <RangeSlider
+          label="Rotation"
+          value={extra.rotation ?? slotPreset.rotation}
+          min={-180}
+          max={180}
+          formatValue={(v) => `${v}\u00B0`}
+          onChange={(v) => onChange({ rotation: v })}
+        />
+        <RangeSlider
+          label="Perspective Angle"
+          value={extra.angle ?? slotPreset.angle}
+          min={-45}
+          max={45}
+          formatValue={(v) => `${v}\u00B0`}
+          onChange={(v) => onChange({ angle: v })}
+        />
+        <RangeSlider
+          label="3D Tilt"
+          value={extra.tilt ?? slotPreset.tilt}
+          min={-45}
+          max={45}
+          formatValue={(v) => `${v}\u00B0`}
+          onChange={(v) => onChange({ tilt: v })}
+        />
+      </div>
+
+      <button
+        className="w-full py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
+        onClick={() =>
+          onChange({
+            offsetX: null,
+            offsetY: null,
+            scale: null,
+            rotation: null,
+            angle: null,
+            tilt: null,
+          })
+        }
+      >
+        Reset slot to preset
+      </button>
+    </Section>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { ScreenState, TextPosition } from '../types';
 
 type DragKind = 'device' | 'text';
@@ -62,6 +62,7 @@ export function useDragPosition(
   onTextDrop: (cls: 'eyebrow' | 'headline' | 'subtitle', pos: TextPosition) => void,
 ) {
   const dragRef = useRef<DragState | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const hitTest = useCallback(
     (ix: number, iy: number): { cls: string; el: HTMLElement; kind: DragKind } | null => {
@@ -153,6 +154,7 @@ export function useDragPosition(
           scale,
         };
         hit.el.style.outline = '2px solid rgba(99,102,241,0.5)';
+        setIsDragging(true);
 
         const onMove = (ev: MouseEvent) => {
           const drag = dragRef.current;
@@ -180,6 +182,7 @@ export function useDragPosition(
           dragRef.current = null;
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
+          setIsDragging(false);
           onDeviceDrop({ deviceTop: newTop, deviceOffsetX: newOffsetX });
         };
 
@@ -227,6 +230,7 @@ export function useDragPosition(
           scale,
         };
         el.style.outline = '2px dashed rgba(99,102,241,0.5)';
+        setIsDragging(true);
 
         const onMove = (ev: MouseEvent) => {
           const drag = dragRef.current;
@@ -247,6 +251,7 @@ export function useDragPosition(
           dragRef.current = null;
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
+          setIsDragging(false);
           onTextDrop(drag.cls as 'eyebrow' | 'headline' | 'subtitle', { x: leftPct, y: topPct, width: widthPct });
         };
 
@@ -267,5 +272,5 @@ export function useDragPosition(
     [toIframe, hitTest],
   );
 
-  return { onOverlayMouseDown, getCursorForPosition };
+  return { onOverlayMouseDown, getCursorForPosition, isDragging };
 }

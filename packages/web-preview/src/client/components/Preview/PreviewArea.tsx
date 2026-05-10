@@ -202,7 +202,7 @@ function ScreenCard({
     [index, screen?.textPositions, updateScreen],
   );
 
-  const { onOverlayMouseDown, getCursorForPosition } = useDragPosition(
+  const { onOverlayMouseDown, getCursorForPosition, isDragging } = useDragPosition(
     iframeRef,
     containerRef,
     screen,
@@ -235,7 +235,15 @@ function ScreenCard({
     const cRect = canvas.getBoundingClientRect();
     const cCenterX = cRect.left + cRect.width / 2;
     const cCenterY = cRect.top + cRect.height / 2;
-    const tolerancePx = 4;
+    // Drag offsets are stored as integer percentages of canvas width/height,
+    // so each step moves the element by cRect.{w,h}/100 screen px. The guide
+    // should fire only on the integer step closest to true center — half a
+    // step in either direction. Wider tolerance (e.g. 4px) lit up multiple
+    // adjacent steps; tighter tolerance missed Y entirely because the device
+    // is top-anchored (no translateY(-50%)) so Y-center lives at a non-zero
+    // deviceTop that depends on device height.
+    const tolerancePxX = cRect.width / 200;
+    const tolerancePxY = cRect.height / 200;
     const view = doc.defaultView;
 
     // Device always has a meaningful bounding box (always absolutely positioned).
@@ -258,8 +266,8 @@ function ScreenCard({
       const rect = el.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
-      if (Math.abs(centerX - cCenterX) <= tolerancePx) vertical = true;
-      if (Math.abs(centerY - cCenterY) <= tolerancePx) horizontal = true;
+      if (Math.abs(centerX - cCenterX) <= tolerancePxX) vertical = true;
+      if (Math.abs(centerY - cCenterY) <= tolerancePxY) horizontal = true;
       if (vertical && horizontal) break;
     }
     setGuides({ vertical, horizontal });
@@ -433,15 +441,16 @@ function ScreenCard({
           }}
           title={`Frame ${index + 1}`}
         />
-        {/* Center guides — appear when the device sits on a canvas axis */}
-        {guides.vertical && (
+        {/* Center guides — only while actively dragging, and only when the
+            dragged element's center exactly hits a canvas axis. */}
+        {isDragging && guides.vertical && (
           <div
             className="absolute top-0 bottom-0 pointer-events-none z-10"
             style={{ left: '50%', width: 1, background: '#ef4444', transform: 'translateX(-50%)' }}
             aria-hidden="true"
           />
         )}
-        {guides.horizontal && (
+        {isDragging && guides.horizontal && (
           <div
             className="absolute left-0 right-0 pointer-events-none z-10"
             style={{ top: '50%', height: 1, background: '#ef4444', transform: 'translateY(-50%)' }}

@@ -202,7 +202,7 @@ function ScreenCard({
     [index, screen?.textPositions, updateScreen],
   );
 
-  const { onOverlayMouseDown, getCursorForPosition, isDragging } = useDragPosition(
+  const { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget } = useDragPosition(
     iframeRef,
     containerRef,
     screen,
@@ -219,8 +219,22 @@ function ScreenCard({
     vertical: false,
   });
   const guideObserverRef = useRef<MutationObserver | null>(null);
+  // Ref-mirror of dragTarget so recomputeGuides can stay deps-free; the
+  // MutationObserver and iframe-rewrite effect that depend on it would
+  // otherwise cascade-rerun on every drag start/end.
+  const dragTargetRef = useRef(dragTarget);
+  useEffect(() => {
+    dragTargetRef.current = dragTarget;
+  }, [dragTarget]);
 
   const recomputeGuides = useCallback(() => {
+    const target = dragTargetRef.current;
+    // No active drag → nothing to align, clear guides. Render-side already
+    // gates on isDragging, but clearing here keeps internal state honest.
+    if (!target) {
+      setGuides({ horizontal: false, vertical: false });
+      return;
+    }
     const iframe = iframeRef.current;
     const doc = iframe?.contentDocument;
     if (!doc) {
@@ -238,40 +252,43 @@ function ScreenCard({
     // Drag offsets are stored as integer percentages of canvas width/height,
     // so each step moves the element by cRect.{w,h}/100 screen px. The guide
     // should fire only on the integer step closest to true center — half a
-    // step in either direction. Wider tolerance (e.g. 4px) lit up multiple
-    // adjacent steps; tighter tolerance missed Y entirely because the device
-    // is top-anchored (no translateY(-50%)) so Y-center lives at a non-zero
-    // deviceTop that depends on device height.
+    // step in either direction.
     const tolerancePxX = cRect.width / 200;
     const tolerancePxY = cRect.height / 200;
     const view = doc.defaultView;
 
-    // Device always has a meaningful bounding box (always absolutely positioned).
-    // Text elements only produce a meaningful center check once they've been
-    // dragged to a custom position (position: fixed via injectTextPositionCSS);
-    // in normal flow their block-level div spans the full .text-area and would
-    // permanently read as X-centered.
-    const targets: Array<{ el: HTMLElement; requiresFixed: boolean }> = [];
-    const device = doc.querySelector('.device-wrapper') as HTMLElement | null;
-    if (device) targets.push({ el: device, requiresFixed: false });
-    for (const selector of ['.eyebrow', '.headline', '.subtitle']) {
-      const el = doc.querySelector(selector) as HTMLElement | null;
-      if (el) targets.push({ el, requiresFixed: true });
+    // Pick the single element being dragged. Anything else has no bearing
+    // on alignment feedback right now — checking all draggables would light
+    // up the device's vertical guide (deviceOffsetX=0 by default) whenever
+    // text is being dragged.
+    const selector = target.kind === 'device' ? '.device-wrapper' : `.${target.cls}`;
+    const el = doc.querySelector(selector) as HTMLElement | null;
+    if (!el) {
+      setGuides({ horizontal: false, vertical: false });
+      return;
     }
-
-    let vertical = false;
-    let horizontal = false;
-    for (const { el, requiresFixed } of targets) {
-      if (requiresFixed && view?.getComputedStyle(el).position !== 'fixed') continue;
-      const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      if (Math.abs(centerX - cCenterX) <= tolerancePxX) vertical = true;
-      if (Math.abs(centerY - cCenterY) <= tolerancePxY) horizontal = true;
-      if (vertical && horizontal) break;
+    // Text elements only produce a meaningful center check once
+    // position:fixed is applied (set by useDragPosition on drag start). In
+    // normal flow the block spans the entire text-area and would always
+    // read as X-centered.
+    if (target.kind === 'text' && view?.getComputedStyle(el).position !== 'fixed') {
+      setGuides({ horizontal: false, vertical: false });
+      return;
     }
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const vertical = Math.abs(centerX - cCenterX) <= tolerancePxX;
+    const horizontal = Math.abs(centerY - cCenterY) <= tolerancePxY;
     setGuides({ vertical, horizontal });
   }, []);
+
+  // MutationObserver fires only on style mutations, so drag-start (which
+  // changes dragTarget but may not yet have moved the element) wouldn't
+  // re-run the guide check. Recompute explicitly on every drag transition.
+  useEffect(() => {
+    recomputeGuides();
+  }, [dragTarget, recomputeGuides]);
 
   // Attach a MutationObserver to every draggable element in the iframe (device
   // wrapper + eyebrow + headline + subtitle). Both slider instant patches and

@@ -98,21 +98,19 @@ export function TextTab() {
     <>
       {/* Text inputs */}
       <Section title="Text" tooltip="Edit the eyebrow, headline, and subtitle text that appears above or below the device frame." defaultCollapsed={false}>
-        {hasEyebrow && (
-          <div className="mb-2.5">
-            <label htmlFor={eyebrowId} className="block text-xs text-text-dim mb-1">
-              Eyebrow <span className="text-text-dim opacity-60">(small label above the headline)</span>
-            </label>
-            <input
-              id={eyebrowId}
-              type="text"
-              value={screen.eyebrow}
-              onChange={(e) => update({ eyebrow: e.target.value })}
-              placeholder='e.g. "Split View"'
-              className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent"
-            />
-          </div>
-        )}
+        <div className="mb-2.5">
+          <label htmlFor={eyebrowId} className="block text-xs text-text-dim mb-1">
+            Eyebrow <span className="text-text-dim opacity-60">(small label above the headline)</span>
+          </label>
+          <input
+            id={eyebrowId}
+            type="text"
+            value={screen.eyebrow}
+            onChange={(e) => update({ eyebrow: e.target.value })}
+            placeholder='e.g. "Split View"'
+            className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent"
+          />
+        </div>
         <div className="mb-2.5">
           <label htmlFor={headlineId} className="block text-xs text-text-dim mb-1">Headline</label>
           <textarea
@@ -123,19 +121,17 @@ export function TextTab() {
             className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent resize-y min-h-[60px]"
           />
         </div>
-        {hasSubtitle && (
-          <div className="mb-2.5">
-            <label htmlFor={subtitleId} className="block text-xs text-text-dim mb-1">Subtitle</label>
-            <input
-              id={subtitleId}
-              type="text"
-              value={screen.subtitle}
-              onChange={(e) => update({ subtitle: e.target.value })}
-              placeholder="Optional subtitle"
-              className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent"
-            />
-          </div>
-        )}
+        <div className="mb-2.5">
+          <label htmlFor={subtitleId} className="block text-xs text-text-dim mb-1">Subtitle</label>
+          <input
+            id={subtitleId}
+            type="text"
+            value={screen.subtitle}
+            onChange={(e) => update({ subtitle: e.target.value })}
+            placeholder="Optional subtitle"
+            className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent"
+          />
+        </div>
         <ColorPicker
           label="Headline Color"
           value={screen.colors.text}
@@ -157,29 +153,6 @@ export function TextTab() {
 
       {/* Typography */}
       <Section title="Typography" tooltip="Control font family, weight, size, rotation, spacing, and text transformations.">
-        <Checkbox
-          label="Include eyebrow"
-          checked={hasEyebrow}
-          onChange={(checked) => {
-            if (checked) {
-              // Reveal the input; leave text empty so the user can type.
-              return;
-            }
-            update({ eyebrow: '' });
-          }}
-        />
-        <Checkbox
-          label="Include subtitle"
-          checked={hasSubtitle}
-          onChange={(checked) => {
-            if (checked) {
-              // Reveal the input; leave text empty so the user can type.
-              return;
-            }
-            update({ subtitle: '', subtitleGradient: null });
-          }}
-        />
-
         <div className="mb-3 px-1">
           <div className="text-[11px] font-medium text-text-dim uppercase tracking-wider mb-2">
             Defaults (used when an element has no override)

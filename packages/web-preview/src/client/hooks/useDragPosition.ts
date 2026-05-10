@@ -62,7 +62,12 @@ export function useDragPosition(
   onTextDrop: (cls: 'eyebrow' | 'headline' | 'subtitle', pos: TextPosition) => void,
 ) {
   const dragRef = useRef<DragState | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  // Exposes what's actively being dragged so consumers (e.g. center guides)
+  // can scope their feedback to that element rather than all draggables.
+  const [dragTarget, setDragTarget] = useState<
+    { kind: 'device' } | { kind: 'text'; cls: 'eyebrow' | 'headline' | 'subtitle' } | null
+  >(null);
+  const isDragging = dragTarget !== null;
 
   const hitTest = useCallback(
     (ix: number, iy: number): { cls: string; el: HTMLElement; kind: DragKind } | null => {
@@ -154,7 +159,7 @@ export function useDragPosition(
           scale,
         };
         hit.el.style.outline = '2px solid rgba(99,102,241,0.5)';
-        setIsDragging(true);
+        setDragTarget({ kind: 'device' });
 
         const onMove = (ev: MouseEvent) => {
           const drag = dragRef.current;
@@ -182,7 +187,7 @@ export function useDragPosition(
           dragRef.current = null;
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
-          setIsDragging(false);
+          setDragTarget(null);
           onDeviceDrop({ deviceTop: newTop, deviceOffsetX: newOffsetX });
         };
 
@@ -230,7 +235,7 @@ export function useDragPosition(
           scale,
         };
         el.style.outline = '2px dashed rgba(99,102,241,0.5)';
-        setIsDragging(true);
+        setDragTarget({ kind: 'text', cls });
 
         const onMove = (ev: MouseEvent) => {
           const drag = dragRef.current;
@@ -251,7 +256,7 @@ export function useDragPosition(
           dragRef.current = null;
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
-          setIsDragging(false);
+          setDragTarget(null);
           onTextDrop(drag.cls as 'eyebrow' | 'headline' | 'subtitle', { x: leftPct, y: topPct, width: widthPct });
         };
 
@@ -272,5 +277,5 @@ export function useDragPosition(
     [toIframe, hitTest],
   );
 
-  return { onOverlayMouseDown, getCursorForPosition, isDragging };
+  return { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget };
 }

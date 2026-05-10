@@ -17,7 +17,7 @@ export function buildScreenRenderBody(
     localeConfig: preferLocaleText ? localeConfig : undefined,
     style: screen.style,
     layout: screen.layout,
-    eyebrow: screen.eyebrow || undefined,
+    eyebrow: screen.eyebrow,
     headline: screen.headline,
     subtitle: screen.subtitle,
     accentColor: screen.accentColor || undefined,

@@ -163,7 +163,7 @@ export const overlaySchema = z.object({
   size: z.number().min(2).max(30).default(10),
   rotation: z.number().min(-180).max(180).default(0),
   opacity: z.number().min(0).max(1).default(1),
-  shapeType: z.enum(['circle', 'rectangle', 'line']).optional(),
+  shapeType: z.enum(['circle', 'rectangle', 'line', 'arrow']).optional(),
   shapeColor: hexColor.optional(),
   shapeOpacity: z.number().min(0).max(1).optional(),
   shapeBlur: z.number().min(0).max(30).optional(),

@@ -1,9 +1,11 @@
-{# Badge/icon overlays — images, shapes, or built-in icons positioned on canvas #}
+{# Floating elements — shapes, star ratings, or custom images positioned on canvas.
+   Each item is hit-testable so it can be dragged. #}
 {% for overlay in overlays %}
+{% set overlayIdx = loop.index0 %}
 {% set ovX = (canvasWidth * overlay.x / 100) | round %}
 {% set ovY = (canvasHeight * overlay.y / 100) | round %}
 {% set ovSize = (canvasWidth * overlay.size / 100) | round %}
-<div style="
+<div class="overlay-item" data-idx="{{ overlayIdx }}" style="
   position: absolute;
   z-index: 10;
   left: {{ ovX }}px;
@@ -12,6 +14,8 @@
   height: {{ ovSize }}px;
   transform: rotate({{ overlay.rotation }}deg);
   opacity: {{ overlay.opacity }};
+  pointer-events: auto;
+  cursor: move;
 ">
   {% if overlay.type == 'shape' %}
     {% if overlay.shapeType == 'circle' %}
@@ -38,6 +42,18 @@
       opacity: {{ overlay.shapeOpacity | default(0.5) }};
       border-radius: 2px;
     "></div>
+    {% elif overlay.shapeType == 'arrow' %}
+    {# Arrow: a stroked line with a triangular head. Drawn in a square
+       viewBox; rotation comes from the wrapper. #}
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+      <g stroke="{{ overlay.shapeColor | default('#6366f1') }}"
+         fill="{{ overlay.shapeColor | default('#6366f1') }}"
+         opacity="{{ overlay.shapeOpacity | default(1) }}"
+         {% if overlay.shapeBlur %}filter="blur({{ overlay.shapeBlur }})"{% endif %}>
+        <line x1="6" y1="50" x2="80" y2="50" stroke-width="8" stroke-linecap="round"/>
+        <polygon points="70,30 95,50 70,70"/>
+      </g>
+    </svg>
     {% endif %}
   {% elif overlay.type == 'star-rating' %}
     <svg viewBox="0 0 120 24" fill="{{ overlay.shapeColor | default('#f59e0b') }}" style="width: 100%; height: auto;">

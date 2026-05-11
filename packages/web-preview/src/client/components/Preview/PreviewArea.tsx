@@ -214,6 +214,17 @@ function ScreenCard({
     [index, screen, updateScreen],
   );
 
+  const handleOverlayDrop = useCallback(
+    (idx: number, partial: { x: number; y: number }) => {
+      if (!screen) return;
+      const overlays = (screen.overlays ?? []).map((o, i) =>
+        i === idx ? { ...o, ...partial } : o,
+      );
+      updateScreen(index, { overlays });
+    },
+    [index, screen, updateScreen],
+  );
+
   const { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget } = useDragPosition(
     iframeRef,
     containerRef,
@@ -224,6 +235,7 @@ function ScreenCard({
     handleDeviceDrop,
     handleTextDrop,
     handleAnnotationDrop,
+    handleOverlayDrop,
   );
 
   const { patchLoupe } = useInstantPatch();
@@ -291,8 +303,10 @@ function ScreenCard({
       selector = '.device-wrapper';
     } else if (target.kind === 'text') {
       selector = `.${target.cls}`;
-    } else {
+    } else if (target.kind === 'annotation') {
       selector = `.annotation-shape[data-idx="${target.idx}"]`;
+    } else {
+      selector = `.overlay-item[data-idx="${target.idx}"]`;
     }
     const el = doc.querySelector(selector) as HTMLElement | null;
     if (!el) {
@@ -350,10 +364,10 @@ function ScreenCard({
       observer.observe(el, { attributes: true, attributeFilter: ['style'] });
       attached++;
     }
-    // Annotations are dynamic — observe every shape that exists in the
-    // current render. The guide check filters by dragTarget so only the
-    // active one matters.
-    for (const el of Array.from(doc.querySelectorAll('.annotation-shape'))) {
+    // Annotations and overlays (elements) are dynamic — observe every shape
+    // that exists in the current render. The guide check filters by
+    // dragTarget so only the active one matters.
+    for (const el of Array.from(doc.querySelectorAll('.annotation-shape, .overlay-item'))) {
       observer.observe(el, { attributes: true, attributeFilter: ['style'] });
       attached++;
     }

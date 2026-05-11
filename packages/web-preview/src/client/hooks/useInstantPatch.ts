@@ -496,5 +496,85 @@ export function useInstantPatch() {
     [getDoc],
   );
 
-  return { patchDevice, patchBackground, patchText, patchBorder, patchSpotlight, patchAnnotation, patchLoupe, patchCallout };
+  /**
+   * Patch a floating element (overlay) by index: position, size, rotation,
+   * opacity. Type-specific styling (shape color/blur, etc.) is also live
+   * for the existing inner element.
+   */
+  const patchOverlay = useCallback(
+    (
+      index: number,
+      overlay: {
+        type: string;
+        x: number;
+        y: number;
+        size: number;
+        rotation: number;
+        opacity: number;
+        shapeType?: string;
+        shapeColor?: string;
+        shapeOpacity?: number;
+        shapeBlur?: number;
+      },
+    ) => {
+      const doc = getDoc();
+      if (!doc) return;
+      const item = doc.querySelector(`.overlay-item[data-idx="${index}"]`) as HTMLElement | null;
+      if (!item) return;
+      const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+      if (!canvas) return;
+      const cRect = canvas.getBoundingClientRect();
+      const canvasWidth = cRect.width;
+      const canvasHeight = cRect.height;
+
+      const sizePx = Math.round((canvasWidth * overlay.size) / 100);
+      item.style.left = `${Math.round((canvasWidth * overlay.x) / 100)}px`;
+      item.style.top = `${Math.round((canvasHeight * overlay.y) / 100)}px`;
+      item.style.width = `${sizePx}px`;
+      item.style.height = `${sizePx}px`;
+      item.style.transform = `rotate(${overlay.rotation}deg)`;
+      item.style.opacity = String(overlay.opacity);
+
+      // Shape-specific inner element styling.
+      if (overlay.type === 'shape') {
+        const inner = item.firstElementChild as HTMLElement | null;
+        if (inner) {
+          if (overlay.shapeColor !== undefined) {
+            // Inner is either a <div> with `background` (circle/rect/line)
+            // or an <svg> (arrow). Mutate accordingly.
+            if (inner.tagName.toLowerCase() === 'div') {
+              inner.style.background = overlay.shapeColor;
+            } else if (inner.tagName.toLowerCase() === 'svg') {
+              const g = inner.querySelector('g');
+              if (g) {
+                g.setAttribute('stroke', overlay.shapeColor);
+                g.setAttribute('fill', overlay.shapeColor);
+              }
+            }
+          }
+          if (overlay.shapeOpacity !== undefined) {
+            if (inner.tagName.toLowerCase() === 'div') {
+              inner.style.opacity = String(overlay.shapeOpacity);
+            } else {
+              const g = inner.querySelector('g');
+              if (g) g.setAttribute('opacity', String(overlay.shapeOpacity));
+            }
+          }
+          if (overlay.shapeBlur !== undefined) {
+            if (inner.tagName.toLowerCase() === 'div') {
+              inner.style.filter = overlay.shapeBlur > 0 ? `blur(${overlay.shapeBlur}px)` : '';
+            }
+          }
+        }
+      } else if (overlay.type === 'star-rating' && overlay.shapeColor !== undefined) {
+        const svg = item.firstElementChild as SVGElement | null;
+        if (svg && svg.tagName.toLowerCase() === 'svg') {
+          svg.setAttribute('fill', overlay.shapeColor);
+        }
+      }
+    },
+    [getDoc],
+  );
+
+  return { patchDevice, patchBackground, patchText, patchBorder, patchSpotlight, patchAnnotation, patchLoupe, patchCallout, patchOverlay };
 }

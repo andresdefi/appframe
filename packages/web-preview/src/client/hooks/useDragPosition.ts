@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ScreenState, TextPosition } from '../types';
 
-type DragKind = 'device' | 'text' | 'annotation';
+type DragKind = 'device' | 'text' | 'annotation' | 'overlay';
 
 interface DragState {
   kind: DragKind;
@@ -18,6 +18,9 @@ interface DragState {
   annotationIdx?: number;
   startAnnX?: number;
   startAnnY?: number;
+  overlayIdx?: number;
+  startOverlayX?: number;
+  startOverlayY?: number;
 }
 
 function getElPos(el: HTMLElement) {
@@ -64,6 +67,7 @@ export function useDragPosition(
   onDeviceDrop: (partial: { deviceTop: number; deviceOffsetX: number }) => void,
   onTextDrop: (cls: 'eyebrow' | 'headline' | 'subtitle', pos: TextPosition) => void,
   onAnnotationDrop: (idx: number, partial: { x: number; y: number }) => void,
+  onOverlayDrop: (idx: number, partial: { x: number; y: number }) => void,
 ) {
   const dragRef = useRef<DragState | null>(null);
   // Exposes what's actively being dragged so consumers (e.g. center guides)
@@ -72,6 +76,7 @@ export function useDragPosition(
     | { kind: 'device' }
     | { kind: 'text'; cls: 'eyebrow' | 'headline' | 'subtitle' }
     | { kind: 'annotation'; idx: number }
+    | { kind: 'overlay'; idx: number }
     | null
   >(null);
   const isDragging = dragTarget !== null;
@@ -83,6 +88,7 @@ export function useDragPosition(
     ):
       | { cls: string; el: HTMLElement; kind: 'device' | 'text' }
       | { cls: string; el: HTMLElement; kind: 'annotation'; annotationIdx: number }
+      | { cls: string; el: HTMLElement; kind: 'overlay'; overlayIdx: number }
       | null => {
       try {
         const doc = iframeRef.current?.contentDocument;
@@ -97,6 +103,7 @@ export function useDragPosition(
         let subtitleEl: HTMLElement | null = null;
         let deviceEl: HTMLElement | null = null;
         let annotationEl: HTMLElement | null = null;
+        let overlayEl: HTMLElement | null = null;
 
         for (const startEl of allEls) {
           let el: HTMLElement | null = startEl;
@@ -106,6 +113,7 @@ export function useDragPosition(
             if (!subtitleEl && el.classList?.contains('subtitle')) subtitleEl = el;
             if (!deviceEl && el.classList?.contains('device-wrapper')) deviceEl = el;
             if (!annotationEl && el.classList?.contains('annotation-shape')) annotationEl = el;
+            if (!overlayEl && el.classList?.contains('overlay-item')) overlayEl = el;
             el = el.parentElement as HTMLElement | null;
           }
         }
@@ -128,6 +136,13 @@ export function useDragPosition(
           textHits.sort((a, b) => a.dy - b.dy);
           const best = textHits[0]!;
           return { cls: best.cls, el: best.el, kind: 'text' };
+        }
+        if (overlayEl) {
+          const idxAttr = overlayEl.getAttribute('data-idx');
+          const overlayIdx = idxAttr ? parseInt(idxAttr, 10) : -1;
+          if (overlayIdx >= 0) {
+            return { cls: 'overlay-item', el: overlayEl, kind: 'overlay', overlayIdx };
+          }
         }
         if (annotationEl) {
           const idxAttr = annotationEl.getAttribute('data-idx');
@@ -338,9 +353,63 @@ export function useDragPosition(
 
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
+      } else if (hit.kind === 'overlay') {
+        const idx = hit.overlayIdx;
+        const ov = screen.overlays[idx];
+        if (!ov) return;
+        const el = hit.el;
+        dragRef.current = {
+          kind: 'overlay',
+          el,
+          startX: e.clientX,
+          startY: e.clientY,
+          startDeviceTop: 0,
+          startDeviceOffsetX: 0,
+          offsetX: 0,
+          offsetY: 0,
+          origWidth: 0,
+          scale,
+          overlayIdx: idx,
+          startOverlayX: ov.x,
+          startOverlayY: ov.y,
+        };
+        el.style.outline = '2px dashed rgba(99,102,241,0.5)';
+        setDragTarget({ kind: 'overlay', idx });
+
+        const onMove = (ev: MouseEvent) => {
+          const drag = dragRef.current;
+          if (!drag || drag.kind !== 'overlay') return;
+          const dx = (ev.clientX - drag.startX) / drag.scale;
+          const dy = (ev.clientY - drag.startY) / drag.scale;
+          const newX = Math.max(0, Math.min(100, (drag.startOverlayX ?? 0) + (dx / canvasW) * 100));
+          const newY = Math.max(0, Math.min(100, (drag.startOverlayY ?? 0) + (dy / canvasH) * 100));
+          drag.el.style.left = newX + '%';
+          drag.el.style.top = newY + '%';
+        };
+
+        const onUp = (ev: MouseEvent) => {
+          const drag = dragRef.current;
+          if (!drag || drag.kind !== 'overlay') return;
+          drag.el.style.outline = 'none';
+          const dx = (ev.clientX - drag.startX) / drag.scale;
+          const dy = (ev.clientY - drag.startY) / drag.scale;
+          const newX = Math.max(0, Math.min(100, (drag.startOverlayX ?? 0) + (dx / canvasW) * 100));
+          const newY = Math.max(0, Math.min(100, (drag.startOverlayY ?? 0) + (dy / canvasH) * 100));
+          const roundedX = Math.round(newX * 10) / 10;
+          const roundedY = Math.round(newY * 10) / 10;
+          const ovIdx = drag.overlayIdx ?? -1;
+          dragRef.current = null;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          setDragTarget(null);
+          if (ovIdx >= 0) onOverlayDrop(ovIdx, { x: roundedX, y: roundedY });
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
       }
     },
-    [screen, scale, toIframe, hitTest, onDeviceDrop, onTextDrop, onAnnotationDrop, canvasW, canvasH],
+    [screen, scale, toIframe, hitTest, onDeviceDrop, onTextDrop, onAnnotationDrop, onOverlayDrop, canvasW, canvasH],
   );
 
   const getCursorForPosition = useCallback(
@@ -348,7 +417,7 @@ export function useDragPosition(
       const pos = toIframe(clientX, clientY);
       const hit = hitTest(pos.x, pos.y);
       if (!hit) return 'default';
-      if (hit.kind === 'device' || hit.kind === 'annotation') return 'move';
+      if (hit.kind === 'device' || hit.kind === 'annotation' || hit.kind === 'overlay') return 'move';
       return 'grab';
     },
     [toIframe, hitTest],

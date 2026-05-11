@@ -7,6 +7,7 @@ import { DesignTab } from './components/Sidebar/DesignTab';
 import { DeviceTab } from './components/Sidebar/DeviceTab';
 import { TextTab } from './components/Sidebar/TextTab';
 import { EffectsTab } from './components/Sidebar/EffectsTab';
+import { ElementsTab } from './components/Sidebar/ElementsTab';
 import { ExportTab } from './components/Sidebar/ExportTab';
 import { VariantsTab } from './components/Sidebar/VariantsTab';
 import { PanoramicBackgroundContent, PanoramicDeviceContent, PanoramicTextContent } from './components/Sidebar/PanoramicTab';
@@ -188,6 +189,7 @@ export function App() {
       {activeTab === 'device' && <PanoramicDeviceContent />}
       {activeTab === 'text' && <PanoramicTextContent />}
       {activeTab === 'extras' && <PanoramicEffectsTab />}
+      {activeTab === 'elements' && <ElementsTab />}
       {activeTab === 'export' && <ExportTab />}
     </>
   ) : (
@@ -197,6 +199,7 @@ export function App() {
       {activeTab === 'device' && <DeviceTab />}
       {activeTab === 'text' && <TextTab />}
       {activeTab === 'extras' && <EffectsTab />}
+      {activeTab === 'elements' && <ElementsTab />}
       {activeTab === 'export' && <ExportTab />}
     </>
   );

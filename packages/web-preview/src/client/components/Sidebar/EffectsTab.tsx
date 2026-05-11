@@ -7,7 +7,7 @@ import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
 import { CollapsiblePanel } from '../Controls/CollapsiblePanel';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
-import type { Annotation, Callout, Overlay } from '../../types';
+import type { Annotation, Callout } from '../../types';
 
 function nextId(prefix: string) {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -101,35 +101,6 @@ export function EffectsTab() {
           displayScale: 1, rotation: 0, borderRadius: 16,
           shadow: true, borderWidth: 0, borderColor: '#ffffff',
           background: '#ffffff', padding: 0, cardScale: 1,
-        },
-      ],
-    });
-  };
-
-  // --- Overlays helpers ---
-  const updateOverlay = (idx: number, partial: Partial<Overlay>) => {
-    const overlays = screen.overlays.map((o, i) =>
-      i === idx ? { ...o, ...partial } : o,
-    );
-    update({ overlays });
-  };
-
-  const removeOverlay = async (idx: number) => {
-    const ok = await confirm({ title: 'Remove Overlay', message: `Remove Overlay ${idx + 1}? This cannot be undone.` });
-    if (!ok) return;
-    update({ overlays: screen.overlays.filter((_, i) => i !== idx) });
-  };
-
-  const addOverlay = () => {
-    update({
-      overlays: [
-        ...screen.overlays,
-        {
-          id: nextId('overlay'),
-          type: 'shape' as const,
-          x: 10, y: 10, size: 10,
-          rotation: 0, opacity: 1,
-          shapeType: 'circle', shapeColor: '#6366f1', shapeOpacity: 0.5, shapeBlur: 10,
         },
       ],
     });
@@ -304,63 +275,6 @@ export function EffectsTab() {
             />
             {co.background && (
               <ColorPicker label="Background Color" value={co.background} onChange={(v) => updateCallout(idx, { background: v })} />
-            )}
-          </CollapsiblePanel>
-        ))}
-      </Section>
-
-      {/* Overlays */}
-      <Section title="Overlays" tooltip="Add decorative shapes, stars, icons, or badges floating over the screenshot.">
-        {screen.overlays.length === 0 && (
-          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
-            Add floating shapes, star ratings, icons, or badges over your screenshot for extra visual appeal.
-          </p>
-        )}
-        <button
-          className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
-          onClick={addOverlay}
-        >
-          + Add Overlay
-        </button>
-        {screen.overlays.map((ov, idx) => (
-          <CollapsiblePanel
-            key={ov.id}
-            title={`Overlay ${idx + 1}`}
-            onRemove={() => removeOverlay(idx)}
-          >
-            <Select
-              label="Type"
-              value={ov.type}
-              onChange={(v) => updateOverlay(idx, { type: v as Overlay['type'] })}
-              options={[
-                { value: 'shape', label: 'Shape' },
-                { value: 'star-rating', label: 'Star Rating' },
-                { value: 'icon', label: 'Icon' },
-                { value: 'badge', label: 'Badge' },
-                { value: 'custom', label: 'Custom' },
-              ]}
-            />
-            <RangeSlider label="X" value={ov.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { x: v })} />
-            <RangeSlider label="Y" value={ov.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { y: v })} />
-            <RangeSlider label="Size" value={ov.size} min={1} max={50} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { size: v })} />
-            <RangeSlider label="Rotation" value={ov.rotation} min={-180} max={180} formatValue={(v) => `${v}\u00B0`} onChange={(v) => updateOverlay(idx, { rotation: v })} />
-            <RangeSlider label="Opacity" value={Math.round(ov.opacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { opacity: v / 100 })} />
-            {ov.type === 'shape' && (
-              <>
-                <Select
-                  label="Shape"
-                  value={ov.shapeType ?? 'circle'}
-                  onChange={(v) => updateOverlay(idx, { shapeType: v as 'circle' | 'rectangle' | 'line' })}
-                  options={[
-                    { value: 'circle', label: 'Circle' },
-                    { value: 'rectangle', label: 'Rectangle' },
-                    { value: 'line', label: 'Line' },
-                  ]}
-                />
-                <ColorPicker label="Color" value={ov.shapeColor ?? '#6366f1'} onChange={(v) => updateOverlay(idx, { shapeColor: v })} />
-                <RangeSlider label="Shape Opacity" value={Math.round((ov.shapeOpacity ?? 0.5) * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { shapeOpacity: v / 100 })} />
-                <RangeSlider label="Blur" value={ov.shapeBlur ?? 0} min={0} max={50} formatValue={(v) => `${v}px`} onChange={(v) => updateOverlay(idx, { shapeBlur: v })} />
-              </>
             )}
           </CollapsiblePanel>
         ))}

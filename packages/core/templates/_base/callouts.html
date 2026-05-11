@@ -1,33 +1,77 @@
-{# Floating callouts — extracted regions from the screenshot displayed on canvas #}
+{# Floating callouts — a styled card that highlights a region of the
+   screenshot. The card always displays whatever's underneath; its source
+   crop is derived from the card's position and size, so moving the card
+   naturally pans the shown content.
+   - displayX / displayY: card CENTRE, in screenshot-%.
+   - sourceW / sourceH: card width / height, in screenshot-%.
+   - displayScale: content zoom; > 1 magnifies, < 1 demagnifies. Does NOT
+     change the card's visual size.
+   The card is positioned by its centre via translate(-50%, -50%) so width/
+   height tweaks don't require updating the left/top anchor — that avoids
+   the visible shake from non-atomic style writes.
+   Multi-device layouts aren't handled yet; source mapping degrades to the
+   first device's frame. #}
+{% set ssLeft = canvasWidth / 2 + (devOffsetX or 0) - dw / 2 + (frame.screenArea.x * dw / frame.frameSize.width) %}
+{% set ssTop = canvasHeight * devTop / 100 + (frame.screenArea.y * dw / frame.frameSize.width) %}
+{% set ssWidth = frame.screenArea.width * dw / frame.frameSize.width %}
+{% set ssHeight = frame.screenArea.height * dw / frame.frameSize.width %}
+
 {% for callout in callouts %}
-{% set srcX = callout.sourceX / 100 %}
-{% set srcY = callout.sourceY / 100 %}
-{% set srcW = callout.sourceW / 100 %}
-{% set srcH = callout.sourceH / 100 %}
-{% set dispX = (canvasWidth * callout.displayX / 100) | round %}
-{% set dispY = (canvasHeight * callout.displayY / 100) | round %}
-{% set dispW = (canvasWidth * srcW * callout.displayScale) | round %}
-{% set dispH = (canvasHeight * srcH * callout.displayScale) | round %}
-<div style="
+{% set calloutIdx = loop.index0 %}
+{% set cw = callout.sourceW / 100 %}
+{% set ch = callout.sourceH / 100 %}
+{% set cx = callout.displayX / 100 %}
+{% set cy = callout.displayY / 100 %}
+{% set zoom = callout.displayScale or 1 %}
+{% set cardScale = callout.cardScale or 1 %}
+{# Source region size shrinks as zoom grows so the same card shows a
+   tighter crop without resizing the card itself. #}
+{% set srcW = cw / zoom %}
+{% set srcH = ch / zoom %}
+{% set srcX = cx - srcW / 2 %}
+{% set srcY = cy - srcH / 2 %}
+{# Card visual dimensions on canvas. cardScale multiplies the visible
+   size so the card can extend past the device frame. #}
+{% set contentW = (ssWidth * cw * cardScale) | round %}
+{% set contentH = (ssHeight * ch * cardScale) | round %}
+{% set centerCanvasX = (ssLeft + ssWidth * cx) | round %}
+{% set centerCanvasY = (ssTop + ssHeight * cy) | round %}
+{% set padPx = ((ssWidth * (callout.padding or 0)) / 100) | round %}
+{% set cardW = contentW + (padPx * 2) %}
+{% set cardH = contentH + (padPx * 2) %}
+<div class="callout-card" data-idx="{{ calloutIdx }}" style="
   position: absolute;
   z-index: 10;
-  left: {{ dispX }}px;
-  top: {{ dispY }}px;
-  width: {{ dispW }}px;
-  height: {{ dispH }}px;
+  left: {{ centerCanvasX }}px;
+  top: {{ centerCanvasY }}px;
+  width: {{ cardW }}px;
+  height: {{ cardH }}px;
+  padding: {{ padPx }}px;
+  box-sizing: border-box;
   border-radius: {{ callout.borderRadius }}px;
-  overflow: hidden;
-  transform: rotate({{ callout.rotation }}deg);
+  transform: translate(-50%, -50%) rotate({{ callout.rotation }}deg);
+  {% if callout.background %}background: {{ callout.background }};{% endif %}
   {% if callout.shadow %}box-shadow: 0 8px 30px rgba(0,0,0,0.25);{% endif %}
   {% if callout.borderWidth > 0 %}border: {{ callout.borderWidth }}px solid {{ callout.borderColor | default('#ffffff') }};{% endif %}
 ">
-  <img src="{{ screenshotDataUrl }}" style="
-    position: absolute;
-    width: {{ (canvasWidth / srcW) | round }}px;
-    height: {{ (canvasHeight / srcH) | round }}px;
-    left: -{{ (srcX * canvasWidth / srcW) | round }}px;
-    top: -{{ (srcY * canvasHeight / srcH) | round }}px;
-    object-fit: cover;
+  <div class="callout-clip" style="
+    position: relative;
+    width: {{ contentW }}px;
+    height: {{ contentH }}px;
+    border-radius: {{ callout.borderRadius }}px;
+    overflow: hidden;
   ">
+    {# Image at fullW × fullH where fullW = contentW / srcW. With srcW =
+       cw / zoom, fullW = ssWidth * zoom, so zoom controls the apparent
+       magnification of the content without touching the card size. #}
+    <img class="callout-img" src="{{ screenshotDataUrl }}" style="
+      position: absolute;
+      width: {{ (contentW / srcW) | round }}px;
+      height: {{ (contentH / srcH) | round }}px;
+      left: {{ (0 - srcX * contentW / srcW) | round }}px;
+      top: {{ (0 - srcY * contentH / srcH) | round }}px;
+      object-fit: cover;
+    ">
+  </div>
 </div>
 {% endfor %}

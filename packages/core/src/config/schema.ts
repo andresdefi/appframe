@@ -138,6 +138,17 @@ export const calloutSchema = z.object({
   shadow: z.boolean().default(true),
   borderWidth: z.number().min(0).max(5).default(0),
   borderColor: hexColor.optional(),
+  // Card styling: optional background fill behind the cropped content,
+  // plus inner padding so the card visually extends past the crop. With
+  // background + padding the callout looks like a lifted "card" of the
+  // highlighted row, à la App Store feature emphasis layouts.
+  background: hexColor.optional(),
+  padding: z.number().min(0).max(20).optional(),
+  // Multiplies the card's visual size on canvas without changing what
+  // portion of the screenshot is shown. Lets the card extend past the
+  // device frame ("stand out") while Zoom still controls the content
+  // magnification inside it.
+  cardScale: z.number().min(0.5).max(3).optional(),
 });
 export type Callout = z.infer<typeof calloutSchema>;
 

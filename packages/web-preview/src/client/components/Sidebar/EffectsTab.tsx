@@ -16,7 +16,7 @@ function nextId(prefix: string) {
 export function EffectsTab() {
   const { screen, update } = useCurrentScreen();
   const { confirm, dialog } = useConfirmDialog();
-  const { patchSpotlight, patchAnnotation, patchLoupe } = useInstantPatch();
+  const { patchSpotlight, patchAnnotation, patchLoupe, patchCallout } = useInstantPatch();
 
   if (!screen) return null;
 
@@ -32,6 +32,12 @@ export function EffectsTab() {
   const instantLoupe = (partial: Partial<NonNullable<typeof screen.loupe>>) => {
     if (!screen.loupe) return;
     patchLoupe({ ...screen.loupe, ...partial });
+  };
+
+  const instantCallout = (idx: number, partial: Partial<Callout>) => {
+    const co = screen.callouts[idx];
+    if (!co) return;
+    patchCallout(idx, { ...co, ...partial });
   };
 
   // --- Annotations helpers ---
@@ -81,15 +87,20 @@ export function EffectsTab() {
   };
 
   const addCallout = () => {
+    // Card defaults to centered (displayX/Y = 50, the card's centre) at a
+    // wide-but-short shape — good starting point for "highlight a feature
+    // row" layouts. White card + padding gives the App Store emphasis look.
     update({
       callouts: [
         ...screen.callouts,
         {
           id: nextId('callout'),
-          sourceX: 30, sourceY: 40, sourceW: 40, sourceH: 20,
-          displayX: 60, displayY: 10,
-          displayScale: 1, rotation: 0, borderRadius: 8,
+          sourceX: 0, sourceY: 0, // unused — content tracks displayX/Y
+          sourceW: 80, sourceH: 10,
+          displayX: 50, displayY: 50,
+          displayScale: 1, rotation: 0, borderRadius: 16,
           shadow: true, borderWidth: 0, borderColor: '#ffffff',
+          background: '#ffffff', padding: 0, cardScale: 1,
         },
       ],
     });
@@ -277,15 +288,23 @@ export function EffectsTab() {
             title={`Callout ${idx + 1}`}
             onRemove={() => removeCallout(idx)}
           >
-            <RangeSlider label="Source X" value={co.sourceX} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceX: v })} />
-            <RangeSlider label="Source Y" value={co.sourceY} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceY: v })} />
-            <RangeSlider label="Source W" value={co.sourceW} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceW: v })} />
-            <RangeSlider label="Source H" value={co.sourceH} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceH: v })} />
-            <RangeSlider label="Display X" value={co.displayX} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayX: v })} />
-            <RangeSlider label="Display Y" value={co.displayY} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayY: v })} />
-            <RangeSlider label="Scale" value={Math.round(co.displayScale * 100)} min={50} max={300} step={10} formatValue={(v) => `${(v / 100).toFixed(1)}x`} onChange={(v) => updateCallout(idx, { displayScale: v / 100 })} />
-            <RangeSlider label="Rotation" value={co.rotation} min={-45} max={45} formatValue={(v) => `${v}\u00B0`} onChange={(v) => updateCallout(idx, { rotation: v })} />
-            <RangeSlider label="Radius" value={co.borderRadius} min={0} max={30} formatValue={(v) => `${v}px`} onChange={(v) => updateCallout(idx, { borderRadius: v })} />
+            <RangeSlider label="Callout Width" value={co.sourceW} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceW: v })} onInstant={(v) => instantCallout(idx, { sourceW: v })} />
+            <RangeSlider label="Vertical Size" value={co.sourceH} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceH: v })} onInstant={(v) => instantCallout(idx, { sourceH: v })} />
+            <RangeSlider label="Horizontal Placement" value={co.displayX} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayX: v })} onInstant={(v) => instantCallout(idx, { displayX: v })} />
+            <RangeSlider label="Vertical Placement" value={co.displayY} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayY: v })} onInstant={(v) => instantCallout(idx, { displayY: v })} />
+            <RangeSlider label="Zoom" value={Math.round(co.displayScale * 100)} min={50} max={300} step={1} formatValue={(v) => `${(v / 100).toFixed(2)}x`} onChange={(v) => updateCallout(idx, { displayScale: v / 100 })} onInstant={(v) => instantCallout(idx, { displayScale: v / 100 })} />
+            <RangeSlider label="Card Popout" value={Math.round((co.cardScale ?? 1) * 100)} min={50} max={300} step={1} formatValue={(v) => `${(v / 100).toFixed(2)}x`} onChange={(v) => updateCallout(idx, { cardScale: v / 100 })} onInstant={(v) => instantCallout(idx, { cardScale: v / 100 })} />
+            <RangeSlider label="Rotation" value={co.rotation} min={-45} max={45} formatValue={(v) => `${v}\u00B0`} onChange={(v) => updateCallout(idx, { rotation: v })} onInstant={(v) => instantCallout(idx, { rotation: v })} />
+            <RangeSlider label="Corner Radius" value={co.borderRadius} min={0} max={30} formatValue={(v) => `${v}px`} onChange={(v) => updateCallout(idx, { borderRadius: v })} onInstant={(v) => instantCallout(idx, { borderRadius: v })} />
+            <RangeSlider label="Card Padding" value={co.padding ?? 0} min={0} max={10} step={0.5} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { padding: v })} onInstant={(v) => instantCallout(idx, { padding: v })} />
+            <Checkbox
+              label="Card Background"
+              checked={!!co.background}
+              onChange={(checked) => updateCallout(idx, { background: checked ? '#ffffff' : undefined })}
+            />
+            {co.background && (
+              <ColorPicker label="Background Color" value={co.background} onChange={(v) => updateCallout(idx, { background: v })} />
+            )}
           </CollapsiblePanel>
         ))}
       </Section>

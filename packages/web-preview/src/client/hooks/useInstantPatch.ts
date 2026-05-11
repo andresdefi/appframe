@@ -402,5 +402,99 @@ export function useInstantPatch() {
     [getDoc],
   );
 
-  return { patchDevice, patchBackground, patchText, patchBorder, patchSpotlight, patchAnnotation, patchLoupe };
+  /**
+   * Patch a callout card by index: source/display position, scale,
+   * rotation, radius, padding. Mirrors the math in
+   * `_base/callouts.html`. Background colour, shadow toggle, and border
+   * style still go through full re-renders since they aren't slider
+   * targets in the current UI.
+   */
+  const patchCallout = useCallback(
+    (
+      index: number,
+      callout: {
+        sourceX: number;
+        sourceY: number;
+        sourceW: number;
+        sourceH: number;
+        displayX: number;
+        displayY: number;
+        displayScale: number;
+        rotation: number;
+        borderRadius: number;
+        padding?: number;
+        cardScale?: number;
+      },
+    ) => {
+      const doc = getDoc();
+      if (!doc) return;
+      const card = doc.querySelector(`.callout-card[data-idx="${index}"]`) as HTMLElement | null;
+      if (!card) return;
+      const clip = card.querySelector('.callout-clip') as HTMLElement | null;
+      const img = card.querySelector('.callout-img') as HTMLElement | null;
+      if (!clip || !img) return;
+
+      const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+      if (!canvas) return;
+      const cRect = canvas.getBoundingClientRect();
+
+      // Resolve the screenshot's canvas-space rect so source/display coords
+      // (both in screenshot-%) translate to the right pixels.
+      const screenshotClip =
+        (doc.querySelector('.screenshot-clip') as HTMLElement | null) ??
+        (doc.querySelector('.device-wrapper') as HTMLElement | null);
+      if (!screenshotClip) return;
+      const sRect = screenshotClip.getBoundingClientRect();
+      const ssLeft = sRect.left - cRect.left;
+      const ssTop = sRect.top - cRect.top;
+      const ssWidth = sRect.width;
+      const ssHeight = sRect.height;
+
+      const cw = callout.sourceW / 100;
+      const ch = callout.sourceH / 100;
+      const cx = callout.displayX / 100;
+      const cy = callout.displayY / 100;
+      const zoom = callout.displayScale || 1;
+      const cardScale = callout.cardScale ?? 1;
+      // Source region shrinks as zoom grows; card visual size is set by
+      // cw/ch and cardScale, so zoom no longer scales the card.
+      const srcW = cw / zoom;
+      const srcH = ch / zoom;
+      const srcX = cx - srcW / 2;
+      const srcY = cy - srcH / 2;
+
+      const contentW = Math.round(ssWidth * cw * cardScale);
+      const contentH = Math.round(ssHeight * ch * cardScale);
+      const padPx = Math.round((ssWidth * (callout.padding ?? 0)) / 100);
+      const cardW = contentW + padPx * 2;
+      const cardH = contentH + padPx * 2;
+      const centerCanvasX = Math.round(ssLeft + ssWidth * cx);
+      const centerCanvasY = Math.round(ssTop + ssHeight * cy);
+
+      // Position the card by its centre via translate(-50%, -50%). This
+      // keeps the visual centre fixed when width/height change, so
+      // resizing doesn't visibly shift the card.
+      card.style.left = `${centerCanvasX}px`;
+      card.style.top = `${centerCanvasY}px`;
+      card.style.width = `${cardW}px`;
+      card.style.height = `${cardH}px`;
+      card.style.padding = `${padPx}px`;
+      card.style.borderRadius = `${callout.borderRadius}px`;
+      card.style.transform = `translate(-50%, -50%) rotate(${callout.rotation}deg)`;
+
+      clip.style.width = `${contentW}px`;
+      clip.style.height = `${contentH}px`;
+      clip.style.borderRadius = `${callout.borderRadius}px`;
+
+      const fullImgW = srcW > 0 ? Math.round(contentW / srcW) : 0;
+      const fullImgH = srcH > 0 ? Math.round(contentH / srcH) : 0;
+      img.style.width = `${fullImgW}px`;
+      img.style.height = `${fullImgH}px`;
+      img.style.left = `${-Math.round(srcX * fullImgW)}px`;
+      img.style.top = `${-Math.round(srcY * fullImgH)}px`;
+    },
+    [getDoc],
+  );
+
+  return { patchDevice, patchBackground, patchText, patchBorder, patchSpotlight, patchAnnotation, patchLoupe, patchCallout };
 }

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ScreenState, TextPosition } from '../types';
 
-type DragKind = 'device' | 'text';
+type DragKind = 'device' | 'text' | 'annotation';
 
 interface DragState {
   kind: DragKind;
@@ -15,6 +15,9 @@ interface DragState {
   offsetY: number;
   origWidth: number;
   scale: number;
+  annotationIdx?: number;
+  startAnnX?: number;
+  startAnnY?: number;
 }
 
 function getElPos(el: HTMLElement) {
@@ -60,17 +63,27 @@ export function useDragPosition(
   canvasH: number,
   onDeviceDrop: (partial: { deviceTop: number; deviceOffsetX: number }) => void,
   onTextDrop: (cls: 'eyebrow' | 'headline' | 'subtitle', pos: TextPosition) => void,
+  onAnnotationDrop: (idx: number, partial: { x: number; y: number }) => void,
 ) {
   const dragRef = useRef<DragState | null>(null);
   // Exposes what's actively being dragged so consumers (e.g. center guides)
   // can scope their feedback to that element rather than all draggables.
   const [dragTarget, setDragTarget] = useState<
-    { kind: 'device' } | { kind: 'text'; cls: 'eyebrow' | 'headline' | 'subtitle' } | null
+    | { kind: 'device' }
+    | { kind: 'text'; cls: 'eyebrow' | 'headline' | 'subtitle' }
+    | { kind: 'annotation'; idx: number }
+    | null
   >(null);
   const isDragging = dragTarget !== null;
 
   const hitTest = useCallback(
-    (ix: number, iy: number): { cls: string; el: HTMLElement; kind: DragKind } | null => {
+    (
+      ix: number,
+      iy: number,
+    ):
+      | { cls: string; el: HTMLElement; kind: 'device' | 'text' }
+      | { cls: string; el: HTMLElement; kind: 'annotation'; annotationIdx: number }
+      | null => {
       try {
         const doc = iframeRef.current?.contentDocument;
         if (!doc) return null;
@@ -83,6 +96,7 @@ export function useDragPosition(
         let headlineEl: HTMLElement | null = null;
         let subtitleEl: HTMLElement | null = null;
         let deviceEl: HTMLElement | null = null;
+        let annotationEl: HTMLElement | null = null;
 
         for (const startEl of allEls) {
           let el: HTMLElement | null = startEl;
@@ -91,6 +105,7 @@ export function useDragPosition(
             if (!headlineEl && el.classList?.contains('headline')) headlineEl = el;
             if (!subtitleEl && el.classList?.contains('subtitle')) subtitleEl = el;
             if (!deviceEl && el.classList?.contains('device-wrapper')) deviceEl = el;
+            if (!annotationEl && el.classList?.contains('annotation-shape')) annotationEl = el;
             el = el.parentElement as HTMLElement | null;
           }
         }
@@ -113,6 +128,13 @@ export function useDragPosition(
           textHits.sort((a, b) => a.dy - b.dy);
           const best = textHits[0]!;
           return { cls: best.cls, el: best.el, kind: 'text' };
+        }
+        if (annotationEl) {
+          const idxAttr = annotationEl.getAttribute('data-idx');
+          const annotationIdx = idxAttr ? parseInt(idxAttr, 10) : -1;
+          if (annotationIdx >= 0) {
+            return { cls: 'annotation-shape', el: annotationEl, kind: 'annotation', annotationIdx };
+          }
         }
         if (deviceEl) return { cls: 'device-wrapper', el: deviceEl, kind: 'device' };
       } catch {
@@ -262,9 +284,63 @@ export function useDragPosition(
 
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
+      } else if (hit.kind === 'annotation') {
+        const idx = hit.annotationIdx;
+        const ann = screen.annotations[idx];
+        if (!ann) return;
+        const el = hit.el;
+        dragRef.current = {
+          kind: 'annotation',
+          el,
+          startX: e.clientX,
+          startY: e.clientY,
+          startDeviceTop: 0,
+          startDeviceOffsetX: 0,
+          offsetX: 0,
+          offsetY: 0,
+          origWidth: 0,
+          scale,
+          annotationIdx: idx,
+          startAnnX: ann.x,
+          startAnnY: ann.y,
+        };
+        el.style.outline = '2px dashed rgba(99,102,241,0.5)';
+        setDragTarget({ kind: 'annotation', idx });
+
+        const onMove = (ev: MouseEvent) => {
+          const drag = dragRef.current;
+          if (!drag || drag.kind !== 'annotation') return;
+          const dx = (ev.clientX - drag.startX) / drag.scale;
+          const dy = (ev.clientY - drag.startY) / drag.scale;
+          const newX = Math.max(0, Math.min(100, (drag.startAnnX ?? 0) + (dx / canvasW) * 100));
+          const newY = Math.max(0, Math.min(100, (drag.startAnnY ?? 0) + (dy / canvasH) * 100));
+          drag.el.style.left = newX + '%';
+          drag.el.style.top = newY + '%';
+        };
+
+        const onUp = (ev: MouseEvent) => {
+          const drag = dragRef.current;
+          if (!drag || drag.kind !== 'annotation') return;
+          drag.el.style.outline = 'none';
+          const dx = (ev.clientX - drag.startX) / drag.scale;
+          const dy = (ev.clientY - drag.startY) / drag.scale;
+          const newX = Math.max(0, Math.min(100, (drag.startAnnX ?? 0) + (dx / canvasW) * 100));
+          const newY = Math.max(0, Math.min(100, (drag.startAnnY ?? 0) + (dy / canvasH) * 100));
+          const roundedX = Math.round(newX * 10) / 10;
+          const roundedY = Math.round(newY * 10) / 10;
+          const annIdx = drag.annotationIdx ?? -1;
+          dragRef.current = null;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          setDragTarget(null);
+          if (annIdx >= 0) onAnnotationDrop(annIdx, { x: roundedX, y: roundedY });
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
       }
     },
-    [screen, scale, toIframe, hitTest, onDeviceDrop, onTextDrop],
+    [screen, scale, toIframe, hitTest, onDeviceDrop, onTextDrop, onAnnotationDrop, canvasW, canvasH],
   );
 
   const getCursorForPosition = useCallback(
@@ -272,7 +348,8 @@ export function useDragPosition(
       const pos = toIframe(clientX, clientY);
       const hit = hitTest(pos.x, pos.y);
       if (!hit) return 'default';
-      return hit.kind === 'device' ? 'move' : 'grab';
+      if (hit.kind === 'device' || hit.kind === 'annotation') return 'move';
+      return 'grab';
     },
     [toIframe, hitTest],
   );

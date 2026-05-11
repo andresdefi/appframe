@@ -120,10 +120,10 @@ export function injectAnnotationsHTML(html: string, annotations: AnnotationParam
 
   const style = `<style>
 .annotation-overlay { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
-.annotation-shape { position: absolute; box-sizing: border-box; }
+.annotation-shape { position: absolute; box-sizing: border-box; pointer-events: auto; cursor: move; }
 </style>`;
 
-  const shapes = annotations.map((a) => {
+  const shapes = annotations.map((a, idx) => {
     const sw = Math.round(a.strokeWidth * scale);
     let borderRadius = '0';
     if (a.shape === 'circle') borderRadius = '50%';
@@ -131,7 +131,7 @@ export function injectAnnotationsHTML(html: string, annotations: AnnotationParam
 
     const fill = a.fillColor ? `background: ${a.fillColor};` : '';
 
-    return `<div class="annotation-shape" style="
+    return `<div class="annotation-shape" data-idx="${idx}" style="
       left: ${a.x}%; top: ${a.y}%;
       width: ${a.w}%; height: ${a.h}%;
       border: ${sw}px solid ${a.strokeColor};

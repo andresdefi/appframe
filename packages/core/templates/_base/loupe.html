@@ -1,36 +1,55 @@
-{# Loupe magnification — zoom of a screenshot region #}
+{# Loupe magnification — a moving magnifier that shows the area of the
+   screenshot underneath the loupe's display position, scaled by zoom. #}
 {% set loupeW = (canvasWidth * loupe.width) | round %}
 {% set loupeH = (canvasHeight * loupe.height) | round %}
 {% set loupeZoom = loupe.scale or loupe.zoom %}
 {% set loupePosX = (canvasWidth * (loupe.displayX or 50) / 100 + (loupe.xOffset or 0)) | round %}
 {% set loupePosY = (canvasHeight * (loupe.displayY or 50) / 100 + (loupe.yOffset or 0)) | round %}
-{% set zoomedWidth = (loupeW * loupeZoom) | round %}
-{% set zoomedHeight = (loupeH * loupeZoom) | round %}
-{% set sourceOffsetX = (((loupe.sourceX + 1) / 2) * zoomedWidth - loupeW / 2) | round %}
-{% set sourceOffsetY = (((loupe.sourceY + 1) / 2) * zoomedHeight - loupeH / 2) | round %}
+
+{# Screenshot's canvas-space rect for a single-device layout.
+   Multi-device compositions aren't handled here yet; the loupe still
+   renders but its source mapping degrades to the first device's frame. #}
+{% set ssLeft = canvasWidth / 2 + (devOffsetX or 0) - dw / 2 + (frame.screenArea.x * dw / frame.frameSize.width) %}
+{% set ssTop = canvasHeight * devTop / 100 + (frame.screenArea.y * dw / frame.frameSize.width) %}
+{% set ssWidth = frame.screenArea.width * dw / frame.frameSize.width %}
+{% set ssHeight = frame.screenArea.height * dw / frame.frameSize.width %}
+
+{% set magW = (ssWidth * loupeZoom) | round %}
+{% set magH = (ssHeight * loupeZoom) | round %}
+
+{# Screenshot fraction (0..1) at the loupe's center on the canvas. #}
+{% set sx = (loupePosX - ssLeft) / ssWidth %}
+{% set sy = (loupePosY - ssTop) / ssHeight %}
+
+{# Magnified image offset so (sx, sy) lands at the loupe's center. #}
+{% set imgLeft = (sx * magW - loupeW / 2) | round %}
+{% set imgTop = (sy * magH - loupeH / 2) | round %}
+
 {% set borderRadius = loupe.cornerRadius or 0 %}
 {% set shadowCss = '' %}
 {% if loupe.shadow %}
   {% set shadowCss = 'box-shadow: ' + (loupe.shadowOffsetX or 0) + 'px ' + (loupe.shadowOffsetY or 0) + 'px ' + (loupe.shadowRadius or 30) + 'px ' + (loupe.shadowColor or '#000000') + ';' %}
 {% endif %}
-<div style="
+<div class="loupe-wrapper" style="
   position: absolute;
   z-index: 10;
   width: {{ loupeW }}px;
   height: {{ loupeH }}px;
-  left: {{ loupePosX - loupeW / 2 }}px;
-  top: {{ loupePosY - loupeH / 2 }}px;
+  left: {{ (loupePosX - loupeW / 2) | round }}px;
+  top: {{ (loupePosY - loupeH / 2) | round }}px;
   border-radius: {{ borderRadius }}%;
   overflow: hidden;
+  background: #000;
   {% if loupe.borderWidth > 0 %}border: {{ loupe.borderWidth }}px solid {{ loupe.borderColor }};{% endif %}
   {{ shadowCss }}
 ">
-  <img src="{{ screenshotDataUrl }}" style="
+  <img class="loupe-img" src="{{ screenshotDataUrl }}" style="
     position: absolute;
-    width: {{ zoomedWidth }}px;
-    height: {{ zoomedHeight }}px;
-    left: -{{ sourceOffsetX }}px;
-    top: -{{ sourceOffsetY }}px;
+    width: {{ magW }}px;
+    height: {{ magH }}px;
+    left: {{ (0 - imgLeft) | round }}px;
+    top: {{ (0 - imgTop) | round }}px;
+    max-width: none;
     object-fit: cover;
   ">
 </div>

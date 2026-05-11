@@ -24,7 +24,15 @@ export function RangeSlider({
   disabled,
 }: RangeSliderProps) {
   const id = useId();
-  const displayValue = formatValue ? formatValue(value) : String(value);
+  // Local mirror of the controlled value so the thumb and readout move
+  // smoothly during drag when onChange is deferred to release. When the
+  // parent's value prop changes (e.g., on release, or an external update),
+  // sync it back into local state.
+  const [localValue, setLocalValue] = useState(value);
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+  const displayValue = formatValue ? formatValue(localValue) : String(localValue);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,16 +73,17 @@ export function RangeSlider({
           min={min}
           max={max}
           step={step}
-          value={value}
+          value={localValue}
           disabled={disabled}
           aria-label={label}
           aria-valuemin={min}
           aria-valuemax={max}
-          aria-valuenow={value}
+          aria-valuenow={localValue}
           aria-valuetext={displayValue}
           className="w-full accent-accent"
           onInput={(e) => {
             const v = Number((e.target as HTMLInputElement).value);
+            setLocalValue(v);
             if (onInstant) {
               // Defer the canonical onChange to release so the slider
               // doesn't fight mid-drag server rewrites.

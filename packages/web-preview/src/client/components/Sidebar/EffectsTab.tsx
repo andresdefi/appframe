@@ -16,13 +16,22 @@ function nextId(prefix: string) {
 export function EffectsTab() {
   const { screen, update } = useCurrentScreen();
   const { confirm, dialog } = useConfirmDialog();
-  const { patchSpotlight } = useInstantPatch();
+  const { patchSpotlight, patchAnnotation, patchLoupe } = useInstantPatch();
 
   if (!screen) return null;
 
   const instantSpotlight = (partial: Partial<NonNullable<typeof screen.spotlight>>) => {
     if (!screen.spotlight) return;
     patchSpotlight({ ...screen.spotlight, ...partial });
+  };
+
+  const instantAnnotation = (idx: number, partial: Partial<Annotation>) => {
+    patchAnnotation(idx, partial);
+  };
+
+  const instantLoupe = (partial: Partial<NonNullable<typeof screen.loupe>>) => {
+    if (!screen.loupe) return;
+    patchLoupe({ ...screen.loupe, ...partial });
   };
 
   // --- Annotations helpers ---
@@ -186,11 +195,11 @@ export function EffectsTab() {
               ]}
             />
             <ColorPicker label="Color" value={ann.strokeColor} onChange={(v) => updateAnnotation(idx, { strokeColor: v })} />
-            <RangeSlider label="X" value={ann.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { x: v })} />
-            <RangeSlider label="Y" value={ann.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { y: v })} />
-            <RangeSlider label="Width" value={ann.w} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { w: v })} />
-            <RangeSlider label="Height" value={ann.h} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { h: v })} />
-            <RangeSlider label="Stroke" value={ann.strokeWidth} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => updateAnnotation(idx, { strokeWidth: v })} />
+            <RangeSlider label="X" value={ann.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { x: v })} onInstant={(v) => instantAnnotation(idx, { x: v })} />
+            <RangeSlider label="Y" value={ann.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { y: v })} onInstant={(v) => instantAnnotation(idx, { y: v })} />
+            <RangeSlider label="Width" value={ann.w} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { w: v })} onInstant={(v) => instantAnnotation(idx, { w: v })} />
+            <RangeSlider label="Height" value={ann.h} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { h: v })} onInstant={(v) => instantAnnotation(idx, { h: v })} />
+            <RangeSlider label="Stroke" value={ann.strokeWidth} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => updateAnnotation(idx, { strokeWidth: v })} onInstant={(v) => instantAnnotation(idx, { strokeWidth: v })} />
           </CollapsiblePanel>
         ))}
       </Section>
@@ -203,22 +212,23 @@ export function EffectsTab() {
           onChange={(checked) =>
             update({
               loupe: checked
-                ? { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, zoom: 2.5, scale: 1.1, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 }
+                ? { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, displayX: 50, displayY: 50, zoom: 2.5, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 }
                 : null,
             })
           }
         />
         {(() => {
-          const defaults = { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, zoom: 2.5, scale: 1.1, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 };
+          const defaults = { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, displayX: 50, displayY: 50, zoom: 2.5, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 };
           const l = screen.loupe ?? defaults;
           const upd = (partial: Record<string, unknown>) => update({ loupe: { ...l, ...partial } });
           return (
             <div className={!screen.loupe ? 'opacity-40 pointer-events-none' : ''}>
-              <RangeSlider label="Width" value={l.width} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ width: v })} />
-              <RangeSlider label="Height" value={l.height} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ height: v })} />
-              <RangeSlider label="Source X" value={l.sourceX} min={-1} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ sourceX: v })} />
-              <RangeSlider label="Source Y" value={l.sourceY} min={-1} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ sourceY: v })} />
-              <RangeSlider label="Corner Radius" value={l.cornerRadius ?? 0} min={0} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ cornerRadius: v })} />
+              <RangeSlider label="Width" value={l.width} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ width: v })} onInstant={(v) => instantLoupe({ width: v })} />
+              <RangeSlider label="Height" value={l.height} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ height: v })} onInstant={(v) => instantLoupe({ height: v })} />
+              <RangeSlider label="Position X" value={l.displayX ?? 50} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => upd({ displayX: v })} onInstant={(v) => instantLoupe({ displayX: v })} />
+              <RangeSlider label="Position Y" value={l.displayY ?? 50} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => upd({ displayY: v })} onInstant={(v) => instantLoupe({ displayY: v })} />
+              <RangeSlider label="Zoom" value={l.zoom ?? 2.5} min={1} max={5} step={0.1} formatValue={(v) => `${v.toFixed(1)}x`} onChange={(v) => upd({ zoom: v })} onInstant={(v) => instantLoupe({ zoom: v })} />
+              <RangeSlider label="Corner Radius" value={Math.min(l.cornerRadius ?? 0, 50)} min={0} max={50} formatValue={(v) => `${v}%`} onChange={(v) => upd({ cornerRadius: v })} onInstant={(v) => instantLoupe({ cornerRadius: v })} />
               <Checkbox
                 label="Border"
                 checked={(l.borderWidth ?? 0) > 0}
@@ -226,7 +236,7 @@ export function EffectsTab() {
               />
               {(l.borderWidth ?? 0) > 0 && (
                 <>
-                  <RangeSlider label="Border Width" value={l.borderWidth} min={1} max={10} formatValue={(v) => `${v}px`} onChange={(v) => upd({ borderWidth: v })} />
+                  <RangeSlider label="Border Width" value={l.borderWidth} min={1} max={10} formatValue={(v) => `${v}px`} onChange={(v) => upd({ borderWidth: v })} onInstant={(v) => instantLoupe({ borderWidth: v })} />
                   <ColorPicker label="Border Color" value={l.borderColor} onChange={(v) => upd({ borderColor: v })} />
                 </>
               )}
@@ -238,15 +248,11 @@ export function EffectsTab() {
               {l.shadow && (
                 <>
                   <ColorPicker label="Shadow Color" value={l.shadowColor ?? '#000000'} onChange={(v) => upd({ shadowColor: v })} />
-                  <RangeSlider label="Shadow Radius" value={l.shadowRadius ?? 30} min={0} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowRadius: v })} />
-                  <RangeSlider label="Shadow X Offset" value={l.shadowOffsetX ?? 0} min={-50} max={50} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowOffsetX: v })} />
-                  <RangeSlider label="Shadow Y Offset" value={l.shadowOffsetY ?? 0} min={-50} max={50} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowOffsetY: v })} />
+                  <RangeSlider label="Shadow Radius" value={l.shadowRadius ?? 30} min={0} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowRadius: v })} onInstant={(v) => instantLoupe({ shadowRadius: v })} />
+                  <RangeSlider label="Shadow X Offset" value={l.shadowOffsetX ?? 0} min={-50} max={50} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowOffsetX: v })} onInstant={(v) => instantLoupe({ shadowOffsetX: v })} />
+                  <RangeSlider label="Shadow Y Offset" value={l.shadowOffsetY ?? 0} min={-50} max={50} formatValue={(v) => `${v}`} onChange={(v) => upd({ shadowOffsetY: v })} onInstant={(v) => instantLoupe({ shadowOffsetY: v })} />
                 </>
               )}
-              <RangeSlider label="Zoom" value={l.zoom ?? 2.5} min={1} max={5} step={0.1} formatValue={(v) => `${v.toFixed(1)}x`} onChange={(v) => upd({ zoom: v })} />
-              <RangeSlider label="Scale" value={l.scale ?? 1.1} min={1} max={3} step={0.01} formatValue={(v) => `${v.toFixed(2)}x`} onChange={(v) => upd({ scale: v })} />
-              <RangeSlider label="X Offset" value={l.xOffset ?? 0} min={-100} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ xOffset: v })} />
-              <RangeSlider label="Y Offset" value={l.yOffset ?? 0} min={-100} max={100} formatValue={(v) => `${v}`} onChange={(v) => upd({ yOffset: v })} />
             </div>
           );
         })()}

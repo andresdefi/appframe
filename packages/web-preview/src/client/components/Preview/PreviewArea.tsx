@@ -3,6 +3,7 @@ import { usePreviewStore } from '../../store';
 import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
 import { useDragPosition } from '../../hooks/useDragPosition';
+import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { registerIframe } from '../../utils/iframeRegistry';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
 import type { TextPosition } from '../../types';
@@ -202,6 +203,17 @@ function ScreenCard({
     [index, screen?.textPositions, updateScreen],
   );
 
+  const handleAnnotationDrop = useCallback(
+    (idx: number, partial: { x: number; y: number }) => {
+      if (!screen) return;
+      const annotations = screen.annotations.map((a, i) =>
+        i === idx ? { ...a, ...partial } : a,
+      );
+      updateScreen(index, { annotations });
+    },
+    [index, screen, updateScreen],
+  );
+
   const { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget } = useDragPosition(
     iframeRef,
     containerRef,
@@ -211,7 +223,20 @@ function ScreenCard({
     previewH,
     handleDeviceDrop,
     handleTextDrop,
+    handleAnnotationDrop,
   );
+
+  const { patchLoupe } = useInstantPatch();
+  // Ref-mirrors the latest loupe state so the MutationObserver can refresh
+  // the loupe (when the device moves underneath it) without re-attaching
+  // the observer on every loupe edit.
+  const loupeRef = useRef(screen?.loupe);
+  useEffect(() => {
+    loupeRef.current = screen?.loupe;
+  }, [screen?.loupe]);
+  const refreshLoupe = useCallback(() => {
+    if (loupeRef.current) patchLoupe(loupeRef.current);
+  }, [patchLoupe]);
 
   const [cursorStyle, setCursorStyle] = useState('default');
   const [guides, setGuides] = useState<{ horizontal: boolean; vertical: boolean }>({
@@ -261,7 +286,14 @@ function ScreenCard({
     // on alignment feedback right now — checking all draggables would light
     // up the device's vertical guide (deviceOffsetX=0 by default) whenever
     // text is being dragged.
-    const selector = target.kind === 'device' ? '.device-wrapper' : `.${target.cls}`;
+    let selector: string;
+    if (target.kind === 'device') {
+      selector = '.device-wrapper';
+    } else if (target.kind === 'text') {
+      selector = `.${target.cls}`;
+    } else {
+      selector = `.annotation-shape[data-idx="${target.idx}"]`;
+    }
     const el = doc.querySelector(selector) as HTMLElement | null;
     if (!el) {
       setGuides({ horizontal: false, vertical: false });
@@ -302,12 +334,26 @@ function ScreenCard({
     const iframe = iframeRef.current;
     const doc = iframe?.contentDocument;
     if (!doc) return;
-    const observer = new MutationObserver(recomputeGuides);
+    // Same callback handles two responsibilities: keep center guides in
+    // sync with the dragged element, and re-sample the loupe whenever the
+    // device-wrapper position/size changes so the magnifier tracks live.
+    const onMutation = () => {
+      recomputeGuides();
+      refreshLoupe();
+    };
+    const observer = new MutationObserver(onMutation);
     const selectors = ['.device-wrapper', '.eyebrow', '.headline', '.subtitle'];
     let attached = 0;
     for (const selector of selectors) {
       const el = doc.querySelector(selector) as HTMLElement | null;
       if (!el) continue;
+      observer.observe(el, { attributes: true, attributeFilter: ['style'] });
+      attached++;
+    }
+    // Annotations are dynamic — observe every shape that exists in the
+    // current render. The guide check filters by dragTarget so only the
+    // active one matters.
+    for (const el of Array.from(doc.querySelectorAll('.annotation-shape'))) {
       observer.observe(el, { attributes: true, attributeFilter: ['style'] });
       attached++;
     }
@@ -317,7 +363,7 @@ function ScreenCard({
     }
     recomputeGuides();
     guideObserverRef.current = observer;
-  }, [recomputeGuides]);
+  }, [recomputeGuides, refreshLoupe]);
 
   useEffect(() => () => {
     guideObserverRef.current?.disconnect();

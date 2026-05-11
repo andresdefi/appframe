@@ -1,4 +1,5 @@
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
+import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
 import { RangeSlider } from '../Controls/RangeSlider';
@@ -15,8 +16,14 @@ function nextId(prefix: string) {
 export function EffectsTab() {
   const { screen, update } = useCurrentScreen();
   const { confirm, dialog } = useConfirmDialog();
+  const { patchSpotlight } = useInstantPatch();
 
   if (!screen) return null;
+
+  const instantSpotlight = (partial: Partial<NonNullable<typeof screen.spotlight>>) => {
+    if (!screen.spotlight) return;
+    patchSpotlight({ ...screen.spotlight, ...partial });
+  };
 
   // --- Annotations helpers ---
   const updateAnnotation = (idx: number, partial: Partial<Annotation>) => {
@@ -140,12 +147,11 @@ export function EffectsTab() {
                 { value: 'circle', label: 'Circle' },
               ]}
             />
-            <RangeSlider label="Position X" value={screen.spotlight.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, x: v } })} />
-            <RangeSlider label="Position Y" value={screen.spotlight.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, y: v } })} />
-            <RangeSlider label="Width" value={screen.spotlight.w} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, w: v } })} />
-            <RangeSlider label="Height" value={screen.spotlight.h} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, h: v } })} />
-            <RangeSlider label="Dim Opacity" value={Math.round(screen.spotlight.dimOpacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, dimOpacity: v / 100 } })} />
-            <RangeSlider label="Background Blur" value={screen.spotlight.blur} min={0} max={30} formatValue={(v) => `${v}px`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, blur: v } })} />
+            <RangeSlider label="Position X" value={screen.spotlight.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, x: v } })} onInstant={(v) => instantSpotlight({ x: v })} />
+            <RangeSlider label="Position Y" value={screen.spotlight.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, y: v } })} onInstant={(v) => instantSpotlight({ y: v })} />
+            <RangeSlider label="Width" value={screen.spotlight.w} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, w: v } })} onInstant={(v) => instantSpotlight({ w: v })} />
+            <RangeSlider label="Height" value={screen.spotlight.h} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, h: v } })} onInstant={(v) => instantSpotlight({ h: v })} />
+            <RangeSlider label="Dim Opacity" value={Math.round(screen.spotlight.dimOpacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, dimOpacity: v / 100 } })} onInstant={(v) => instantSpotlight({ dimOpacity: v / 100 })} />
           </>
         )}
       </Section>

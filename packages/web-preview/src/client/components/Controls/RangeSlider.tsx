@@ -28,6 +28,10 @@ export function RangeSlider({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  // Latest value seen mid-drag — committed to onChange on release when
+  // onInstant is wired up, so the canonical state update (and the
+  // expensive iframe HTML rewrite it triggers) only fires once per gesture.
+  const pendingValueRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (editing) {
@@ -42,6 +46,13 @@ export function RangeSlider({
     const clamped = Math.min(max, Math.max(min, parsed));
     const stepped = Math.round(clamped / step) * step;
     onChange(stepped);
+  }
+
+  function commitPending() {
+    if (pendingValueRef.current === null) return;
+    const v = pendingValueRef.current;
+    pendingValueRef.current = null;
+    onChange(v);
   }
 
   return (
@@ -64,11 +75,21 @@ export function RangeSlider({
           className="w-full accent-accent"
           onInput={(e) => {
             const v = Number((e.target as HTMLInputElement).value);
-            onInstant?.(v);
+            if (onInstant) {
+              // Defer the canonical onChange to release so the slider
+              // doesn't fight mid-drag server rewrites.
+              pendingValueRef.current = v;
+              onInstant(v);
+            }
           }}
           onChange={(e) => {
-            onChange(Number(e.target.value));
+            // No instant-patch consumer → emit every step so the debounced
+            // server flow can drive visual feedback.
+            if (!onInstant) onChange(Number(e.target.value));
           }}
+          onPointerUp={commitPending}
+          onKeyUp={commitPending}
+          onBlur={commitPending}
         />
         {editing ? (
           <input

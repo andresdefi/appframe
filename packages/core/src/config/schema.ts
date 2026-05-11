@@ -158,6 +158,11 @@ export const overlaySchema = z.object({
   id: z.string(),
   type: z.enum(['icon', 'badge', 'star-rating', 'custom', 'shape']),
   imageDataUrl: z.string().optional(),
+  // Library-qualified icon identifier (e.g. "lucide:camera"). Set on icon
+  // overlays so we can re-fetch the source SVG and recolor it at any time.
+  // imageDataUrl stays the rendered cache; iconRef + shapeColor are the
+  // canonical source of truth for icon-type overlays.
+  iconRef: z.string().optional(),
   x: z.number().min(0).max(100),
   y: z.number().min(0).max(100),
   size: z.number().min(2).max(30).default(10),

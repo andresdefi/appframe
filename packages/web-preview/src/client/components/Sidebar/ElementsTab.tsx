@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { Section } from '../Controls/Section';
@@ -238,6 +238,37 @@ export function ElementsTab() {
               />
             )}
 
+            {ov.type === 'icon' && ov.iconRef && (
+              <ColorPicker
+                label="Color"
+                value={ov.shapeColor ?? '#6366f1'}
+                onChange={async (v) => {
+                  const ref = ov.iconRef;
+                  if (!ref) {
+                    updateOverlay(idx, { shapeColor: v });
+                    return;
+                  }
+                  // iconRef format: "<source>:<name>". Only Lucide is wired
+                  // today; other sources will plug in alongside.
+                  const [source, name] = ref.split(':');
+                  if (source !== 'lucide' || !name) {
+                    updateOverlay(idx, { shapeColor: v });
+                    return;
+                  }
+                  try {
+                    const rawSvg = await fetchIconSvg(name);
+                    const colored = recolorLucideSvg(rawSvg, v);
+                    const dataUrl = svgToDataUrl(colored);
+                    updateOverlay(idx, { shapeColor: v, imageDataUrl: dataUrl });
+                  } catch {
+                    // Keep the colour change even if the SVG refetch fails;
+                    // a later retry (or render) will refresh the data URL.
+                    updateOverlay(idx, { shapeColor: v });
+                  }
+                }}
+              />
+            )}
+
             {ov.type === 'custom' && (
               <div className="mt-2">
                 {ov.imageDataUrl ? (
@@ -344,7 +375,11 @@ const ROOT_CATEGORIES: CategoryDef[] = [
   {
     id: 'icons',
     label: 'Icons',
-    preview: [<PlaceholderTile key="1" />, <PlaceholderTile key="2" />, <PlaceholderTile key="3" />],
+    preview: [
+      <LucidePreviewTile key="camera" name="camera" />,
+      <LucidePreviewTile key="heart" name="heart" />,
+      <LucidePreviewTile key="bell" name="bell" />,
+    ],
   },
   {
     id: 'decor',
@@ -394,6 +429,9 @@ interface CategoryViewProps {
 }
 
 function CategoryView({ category, onBack, onAdd }: CategoryViewProps) {
+  if (category === 'icons') {
+    return <IconCategoryView onBack={onBack} onAdd={onAdd} />;
+  }
   const items = CATALOGS[category];
   const isComingSoon = items.length === 0;
 
@@ -428,6 +466,360 @@ function CategoryView({ category, onBack, onAdd }: CategoryViewProps) {
         </div>
       )}
     </Section>
+  );
+}
+
+// ---------- Icons category (Lucide via /api/elements/icons) ----------
+
+interface IconEntry {
+  name: string;
+  tags: string[];
+}
+
+// Lucide's real category metadata, served by /api/elements/icons/categories.
+// Generated once from the Lucide repo and shipped as a snapshot — see
+// scripts/sync-lucide-categories.mjs for the refresh path.
+interface CategoryMeta {
+  id: string;
+  title: string;
+}
+interface CategoriesPayload {
+  categories: CategoryMeta[];
+  iconCategories: Record<string, string[]>;
+}
+
+let cachedCategoriesPayload: CategoriesPayload | null = null;
+
+async function fetchIconCategories(): Promise<CategoriesPayload> {
+  if (cachedCategoriesPayload) return cachedCategoriesPayload;
+  const res = await fetch('/api/elements/icons/categories');
+  if (!res.ok) throw new Error(`Categories fetch failed: ${res.status}`);
+  cachedCategoriesPayload = (await res.json()) as CategoriesPayload;
+  return cachedCategoriesPayload;
+}
+
+let cachedCatalog: IconEntry[] | null = null;
+const svgFetchCache = new Map<string, Promise<string>>();
+
+async function fetchIconCatalog(): Promise<IconEntry[]> {
+  if (cachedCatalog) return cachedCatalog;
+  const res = await fetch('/api/elements/icons/catalog');
+  if (!res.ok) throw new Error(`Catalog fetch failed: ${res.status}`);
+  const json = await res.json();
+  cachedCatalog = (json.icons ?? []) as IconEntry[];
+  return cachedCatalog;
+}
+
+function fetchIconSvg(name: string): Promise<string> {
+  const existing = svgFetchCache.get(name);
+  if (existing) return existing;
+  const promise = fetch(`/api/elements/icons/svg/${name}`).then((r) => {
+    if (!r.ok) throw new Error(`Icon ${name} fetch failed: ${r.status}`);
+    return r.text();
+  });
+  svgFetchCache.set(name, promise);
+  return promise;
+}
+
+// Replace Lucide's stroke="currentColor" with a concrete hex so the SVG
+// renders with the user's chosen colour even inside an `<img>` (which
+// doesn't resolve currentColor against the parent CSS).
+function recolorLucideSvg(svg: string, color: string): string {
+  return svg.replaceAll('currentColor', color);
+}
+
+function svgToDataUrl(svg: string): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+interface IconCategoryViewProps {
+  onBack: () => void;
+  onAdd: (item: CatalogItem) => void;
+}
+
+function IconCategoryView({ onBack, onAdd }: IconCategoryViewProps) {
+  const [catalog, setCatalog] = useState<IconEntry[] | null>(cachedCatalog);
+  const [categoriesPayload, setCategoriesPayload] = useState<CategoriesPayload | null>(
+    cachedCategoriesPayload,
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [color, setColor] = useState('#6366f1');
+  const [renderLimit, setRenderLimit] = useState(96);
+
+  useEffect(() => {
+    let active = true;
+    if (!catalog) {
+      fetchIconCatalog()
+        .then((entries) => {
+          if (active) setCatalog(entries);
+        })
+        .catch((err: unknown) => {
+          if (active) setError(err instanceof Error ? err.message : String(err));
+        });
+    }
+    if (!categoriesPayload) {
+      fetchIconCategories()
+        .then((payload) => {
+          if (active) setCategoriesPayload(payload);
+        })
+        .catch(() => {
+          // Categories are an enhancement — search still works without them.
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [catalog, categoriesPayload]);
+
+  const filtered = useMemo(() => {
+    if (!catalog) return [];
+    const q = query.trim().toLowerCase();
+    const iconCategoriesMap = categoriesPayload?.iconCategories ?? {};
+    return catalog.filter((entry) => {
+      if (activeCategory !== 'all') {
+        const cats = iconCategoriesMap[entry.name];
+        if (!cats || !cats.includes(activeCategory)) return false;
+      }
+      if (!q) return true;
+      if (entry.name.includes(q)) return true;
+      return entry.tags.some((tag) => tag.toLowerCase().includes(q));
+    });
+  }, [catalog, query, activeCategory, categoriesPayload]);
+
+  // Reset the lazy-render cap when filtering — otherwise switching from a
+  // narrow query to no query feels weirdly truncated.
+  useEffect(() => {
+    setRenderLimit(96);
+  }, [query, activeCategory]);
+
+  const handleAdd = async (name: string) => {
+    try {
+      const rawSvg = await fetchIconSvg(name);
+      const colored = recolorLucideSvg(rawSvg, color);
+      const dataUrl = svgToDataUrl(colored);
+      const item: CatalogItem = {
+        id: `lucide-${name}`,
+        label: name,
+        preview: <span />,
+        build: () => ({
+          type: 'icon',
+          imageDataUrl: dataUrl,
+          iconRef: `lucide:${name}`,
+          shapeColor: color,
+          size: 15,
+        }),
+      };
+      onAdd(item);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  return (
+    <Section title="" defaultCollapsed={false}>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1"
+      >
+        <span aria-hidden>‹</span>
+        <span>Back</span>
+      </button>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[13px] font-semibold text-text">Icons</div>
+        <div className="text-[10px] text-text-dim">{catalog ? `${filtered.length} / ${catalog.length}` : '…'}</div>
+      </div>
+      <div className="mb-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search 1900+ icons (e.g. camera, lock, heart)"
+          className="w-full px-2.5 py-1.5 bg-surface-2 border border-border rounded-md text-text text-[12px] outline-none focus:border-accent"
+        />
+      </div>
+      <CategoryChips
+        categories={categoriesPayload?.categories ?? []}
+        activeCategory={activeCategory}
+        onChange={setActiveCategory}
+      />
+      <div className="mb-3">
+        <ColorPicker label="Icon color" value={color} onChange={setColor} />
+      </div>
+
+      {error && (
+        <p className="text-[11px] text-red-400 mb-2">Failed to load icons: {error}</p>
+      )}
+      {!catalog && !error && (
+        <p className="text-[11px] text-text-dim">Loading icon catalog…</p>
+      )}
+      {catalog && (
+        <>
+          <div className="grid grid-cols-4 gap-1.5">
+            {filtered.slice(0, renderLimit).map((entry) => (
+              <IconTile key={entry.name} name={entry.name} color={color} onClick={() => handleAdd(entry.name)} />
+            ))}
+          </div>
+          {filtered.length > renderLimit && (
+            <button
+              type="button"
+              onClick={() => setRenderLimit((n) => n + 96)}
+              className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+            >
+              Show more ({filtered.length - renderLimit} remaining)
+            </button>
+          )}
+        </>
+      )}
+    </Section>
+  );
+}
+
+// Lucide ships 42 categories. Surface the ones most useful for App Store
+// screenshots up front and tuck the rest behind a "More" toggle so the
+// sidebar doesn't drown in chip rows.
+const PRIORITY_CATEGORY_IDS = [
+  'arrows',
+  'shapes',
+  'devices',
+  'communication',
+  'people',
+  'files',
+  'finance',
+  'shopping',
+  'travel',
+  'photography',
+  'security',
+  'social',
+];
+
+function CategoryChips({
+  categories,
+  activeCategory,
+  onChange,
+}: {
+  categories: CategoryMeta[];
+  activeCategory: string;
+  onChange: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const priority: CategoryMeta[] = [];
+  const rest: CategoryMeta[] = [];
+  for (const cat of categories) {
+    if (PRIORITY_CATEGORY_IDS.includes(cat.id)) priority.push(cat);
+    else rest.push(cat);
+  }
+  // Stable order: priority list follows PRIORITY_CATEGORY_IDS; the rest
+  // are alphabetised by title so the More list reads naturally.
+  priority.sort(
+    (a, b) => PRIORITY_CATEGORY_IDS.indexOf(a.id) - PRIORITY_CATEGORY_IDS.indexOf(b.id),
+  );
+  rest.sort((a, b) => a.title.localeCompare(b.title));
+
+  // If the active category is in the hidden set, auto-expand so the user
+  // can see what's selected.
+  const activeInRest = rest.some((c) => c.id === activeCategory);
+  const isExpanded = expanded || activeInRest;
+
+  return (
+    <div className="mb-3 flex flex-wrap gap-1">
+      <CategoryChip
+        label="All"
+        isActive={activeCategory === 'all'}
+        onClick={() => onChange('all')}
+      />
+      {priority.map((cat) => (
+        <CategoryChip
+          key={cat.id}
+          label={cat.title}
+          isActive={activeCategory === cat.id}
+          onClick={() => onChange(cat.id)}
+        />
+      ))}
+      {isExpanded &&
+        rest.map((cat) => (
+          <CategoryChip
+            key={cat.id}
+            label={cat.title}
+            isActive={activeCategory === cat.id}
+            onClick={() => onChange(cat.id)}
+          />
+        ))}
+      {rest.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="px-2 py-0.5 rounded-full text-[10px] border border-dashed border-border text-text-dim hover:text-text hover:border-accent/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {isExpanded ? 'Less' : `+${rest.length} more`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CategoryChip({
+  label,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-2 py-0.5 rounded-full text-[10px] border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+        isActive
+          ? 'bg-accent/15 border-accent/60 text-text'
+          : 'bg-surface-2 border-border text-text-dim hover:text-text hover:border-accent/30'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+interface IconTileProps {
+  name: string;
+  color: string;
+  onClick: () => void;
+}
+
+function IconTile({ name, color, onClick }: IconTileProps) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetchIconSvg(name)
+      .then((svg) => {
+        if (!active) return;
+        setDataUrl(svgToDataUrl(recolorLucideSvg(svg, color)));
+      })
+      .catch(() => {
+        // Tile stays blank on failure; user can search for another icon.
+      });
+    return () => {
+      active = false;
+    };
+  }, [name, color]);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={name}
+      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      {dataUrl ? (
+        <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain" />
+      ) : (
+        <span className="w-3 h-3 rounded-full bg-border" aria-hidden />
+      )}
+    </button>
   );
 }
 
@@ -560,6 +952,30 @@ function PreviewStarRating() {
 function PlaceholderTile() {
   return (
     <div className="w-3 h-3 rounded-full bg-border" aria-hidden />
+  );
+}
+
+// Tiny tile that fetches a single Lucide icon and renders it as a preview.
+// Used inside category cards on the root view.
+function LucidePreviewTile({ name }: { name: string }) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetchIconSvg(name)
+      .then((svg) => {
+        if (active) setDataUrl(svgToDataUrl(recolorLucideSvg(svg, '#94a3b8')));
+      })
+      .catch(() => {
+        // Tile stays as the placeholder dot on failure.
+      });
+    return () => {
+      active = false;
+    };
+  }, [name]);
+  return dataUrl ? (
+    <img src={dataUrl} alt={name} className="block w-3/5 h-3/5 object-contain" />
+  ) : (
+    <PlaceholderTile />
   );
 }
 

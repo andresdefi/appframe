@@ -118,6 +118,24 @@ export function useDragPosition(
           }
         }
 
+        // Priority matches visual z-index: overlays (z:10) and annotations
+        // (z:6) sit on top of the screenshot, so dragging them shouldn't
+        // be stolen by text or device underneath. Text comes next, then
+        // device as the catch-all.
+        if (overlayEl) {
+          const idxAttr = overlayEl.getAttribute('data-idx');
+          const overlayIdx = idxAttr ? parseInt(idxAttr, 10) : -1;
+          if (overlayIdx >= 0) {
+            return { cls: 'overlay-item', el: overlayEl, kind: 'overlay', overlayIdx };
+          }
+        }
+        if (annotationEl) {
+          const idxAttr = annotationEl.getAttribute('data-idx');
+          const annotationIdx = idxAttr ? parseInt(idxAttr, 10) : -1;
+          if (annotationIdx >= 0) {
+            return { cls: 'annotation-shape', el: annotationEl, kind: 'annotation', annotationIdx };
+          }
+        }
         // When multiple text elements overlap, pick the one whose vertical center is closest to the click.
         const textHits: Array<{ cls: 'eyebrow' | 'headline' | 'subtitle'; el: HTMLElement; dy: number }> = [];
         if (eyebrowEl) {
@@ -136,20 +154,6 @@ export function useDragPosition(
           textHits.sort((a, b) => a.dy - b.dy);
           const best = textHits[0]!;
           return { cls: best.cls, el: best.el, kind: 'text' };
-        }
-        if (overlayEl) {
-          const idxAttr = overlayEl.getAttribute('data-idx');
-          const overlayIdx = idxAttr ? parseInt(idxAttr, 10) : -1;
-          if (overlayIdx >= 0) {
-            return { cls: 'overlay-item', el: overlayEl, kind: 'overlay', overlayIdx };
-          }
-        }
-        if (annotationEl) {
-          const idxAttr = annotationEl.getAttribute('data-idx');
-          const annotationIdx = idxAttr ? parseInt(idxAttr, 10) : -1;
-          if (annotationIdx >= 0) {
-            return { cls: 'annotation-shape', el: annotationEl, kind: 'annotation', annotationIdx };
-          }
         }
         if (deviceEl) return { cls: 'device-wrapper', el: deviceEl, kind: 'device' };
       } catch {

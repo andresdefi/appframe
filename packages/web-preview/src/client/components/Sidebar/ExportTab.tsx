@@ -335,27 +335,10 @@ export function ExportTab() {
           onChange={setExportSize}
           options={sizeOptions}
         />
-        <button
-          className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-2"
-          onClick={handleConfigExport}
-          disabled={exporting}
-        >
-          {sessionBacked ? 'Download Selected Variant Config' : 'Download Current Config'}
-        </button>
-
-        {sessionBacked && (
-          <button
-            className="w-full py-2 text-xs bg-surface-2 border border-emerald-500/30 rounded-md text-emerald-200 hover:text-white disabled:opacity-50 mt-1"
-            onClick={handleApprovedArtifactExport}
-            disabled={exporting || !approvedVariant}
-          >
-            {approvedVariant ? `Export Approved Artifact (${approvedVariant.name})` : 'Export Approved Artifact'}
-          </button>
-        )}
 
         {isPanoramic ? (
           <button
-            className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-md disabled:opacity-50 mt-1"
+            className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-md disabled:opacity-50 mt-2"
             onClick={handlePanoramicExportAll}
             disabled={exporting}
           >
@@ -364,7 +347,7 @@ export function ExportTab() {
         ) : (
           <>
             <button
-              className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-md disabled:opacity-50 mt-1"
+              className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-md disabled:opacity-50 mt-2"
               onClick={handleExportCurrent}
               disabled={exporting || !screens[selectedScreen]}
             >
@@ -379,6 +362,24 @@ export function ExportTab() {
             </button>
           </>
         )}
+
+        {sessionBacked && (
+          <button
+            className="w-full py-2 text-xs bg-surface-2 border border-emerald-500/30 rounded-md text-emerald-200 hover:text-white disabled:opacity-50 mt-1"
+            onClick={handleApprovedArtifactExport}
+            disabled={exporting || !approvedVariant}
+          >
+            {approvedVariant ? `Export Approved Artifact (${approvedVariant.name})` : 'Export Approved Artifact'}
+          </button>
+        )}
+
+        <button
+          className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-1"
+          onClick={handleConfigExport}
+          disabled={exporting}
+        >
+          {sessionBacked ? 'Download Selected Variant Config' : 'Download Current Config'}
+        </button>
       </Section>
 
       {availableLocales.length > 1 && (

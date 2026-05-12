@@ -94,9 +94,9 @@ export function PreviewArea() {
               height: Math.round(previewH * effectiveScale),
             }}
             onClick={addScreen}
-            aria-label="Add a new frame"
+            aria-label="Add a new screen"
           >
-            + Add Frame
+            + Add Screen
           </button>
         </div>
       </div>

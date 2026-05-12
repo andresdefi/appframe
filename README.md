@@ -423,4 +423,8 @@ examples/         Example app configs
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+Bundled artwork from third-party creators (hand-drawn arrows, Lucide
+icons, device frames, fonts) retains its original license. See
+[NOTICE.md](NOTICE.md) for attribution and license details.

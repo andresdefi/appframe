@@ -271,6 +271,21 @@ export function ElementsTab() {
                       return;
                     }
                   }
+                  // Arrow sources (e.g. handyarrows) live under the
+                  // /api/elements/arrows/svg/<source>/<name> route; recolour
+                  // via fetch + currentColor replace, same as Lucide.
+                  if (source && name && source !== 'lucide') {
+                    try {
+                      const rawSvg = await fetchArrowSvg(source, name);
+                      const colored = recolorLucideSvg(rawSvg, v);
+                      const dataUrl = svgToDataUrl(colored);
+                      updateOverlay(idx, { shapeColor: v, imageDataUrl: dataUrl });
+                      return;
+                    } catch {
+                      updateOverlay(idx, { shapeColor: v });
+                      return;
+                    }
+                  }
                   if (source !== 'lucide' || !name) {
                     updateOverlay(idx, { shapeColor: v });
                     return;
@@ -390,12 +405,12 @@ const ROOT_CATEGORIES: CategoryDef[] = [
     id: 'arrows',
     label: 'Arrows',
     preview: [
-      <PreviewArrow key="ar" />,
-      <PreviewArrow key="ad" rotate={90} />,
-      <PreviewArrow key="al" rotate={180} />,
-      <PreviewArrow key="au" rotate={-90} />,
-      <PreviewArrow key="adr" rotate={45} />,
-      <PreviewArrow key="adl" rotate={-45} />,
+      <HandyArrowPreviewTile key="1" name="arrow-1" />,
+      <HandyArrowPreviewTile key="3" name="arrow-3" />,
+      <HandyArrowPreviewTile key="10" name="arrow-10" />,
+      <HandyArrowPreviewTile key="50" name="arrow-50" />,
+      <HandyArrowPreviewTile key="80" name="arrow-80" />,
+      <HandyArrowPreviewTile key="120" name="arrow-120" />,
     ],
   },
   {
@@ -484,6 +499,9 @@ function CategoryView({ category, onBack, onAdd }: CategoryViewProps) {
   }
   if (category === 'shapes') {
     return <ShapeCategoryView onBack={onBack} onAdd={onAdd} />;
+  }
+  if (category === 'arrows') {
+    return <ArrowCategoryView onBack={onBack} onAdd={onAdd} />;
   }
   const items = CATALOGS[category];
   const isComingSoon = items.length === 0;
@@ -784,6 +802,198 @@ function ShapeCategoryView({ onBack, onAdd }: ShapeCategoryViewProps) {
         ))}
       </div>
     </Section>
+  );
+}
+
+// ---------- Arrows category (curated SVG packs) ----------
+
+interface ArrowSourceDef {
+  id: string;
+  title: string;
+  attribution: string;
+  attributionUrl: string;
+  license: string;
+  arrows: string[];
+}
+
+let cachedArrowsCatalog: ArrowSourceDef[] | null = null;
+const arrowSvgFetchCache = new Map<string, Promise<string>>();
+
+async function fetchArrowsCatalog(): Promise<ArrowSourceDef[]> {
+  if (cachedArrowsCatalog) return cachedArrowsCatalog;
+  const res = await fetch('/api/elements/arrows/catalog');
+  if (!res.ok) throw new Error(`Arrows catalog fetch failed: ${res.status}`);
+  const json = await res.json();
+  cachedArrowsCatalog = (json.sources ?? []) as ArrowSourceDef[];
+  return cachedArrowsCatalog;
+}
+
+function fetchArrowSvg(source: string, name: string): Promise<string> {
+  const key = `${source}/${name}`;
+  const existing = arrowSvgFetchCache.get(key);
+  if (existing) return existing;
+  const promise = fetch(`/api/elements/arrows/svg/${source}/${name}`).then((r) => {
+    if (!r.ok) throw new Error(`Arrow ${key} fetch failed: ${r.status}`);
+    return r.text();
+  });
+  arrowSvgFetchCache.set(key, promise);
+  return promise;
+}
+
+interface ArrowCategoryViewProps {
+  onBack: () => void;
+  onAdd: (item: CatalogItem) => void;
+}
+
+function ArrowCategoryView({ onBack, onAdd }: ArrowCategoryViewProps) {
+  const [catalog, setCatalog] = useState<ArrowSourceDef[] | null>(cachedArrowsCatalog);
+  const [error, setError] = useState<string | null>(null);
+  const [color, setColor] = useState('#111111');
+  const [renderLimit, setRenderLimit] = useState(96);
+
+  useEffect(() => {
+    if (catalog) return;
+    let active = true;
+    fetchArrowsCatalog()
+      .then((sources) => {
+        if (active) setCatalog(sources);
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      active = false;
+    };
+  }, [catalog]);
+
+  const totalCount = (catalog ?? []).reduce((n, s) => n + s.arrows.length, 0);
+
+  const handleAdd = async (source: string, name: string) => {
+    try {
+      const rawSvg = await fetchArrowSvg(source, name);
+      const colored = recolorLucideSvg(rawSvg, color);
+      const dataUrl = svgToDataUrl(colored);
+      const item: CatalogItem = {
+        id: `arrow-${source}-${name}`,
+        label: name,
+        preview: <span />,
+        build: () => ({
+          type: 'icon',
+          imageDataUrl: dataUrl,
+          iconRef: `${source}:${name}`,
+          shapeColor: color,
+          size: 15,
+        }),
+      };
+      onAdd(item);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  return (
+    <Section title="" defaultCollapsed={false}>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1"
+      >
+        <span aria-hidden>‹</span>
+        <span>Back</span>
+      </button>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[13px] font-semibold text-text">Arrows</div>
+        <div className="text-[10px] text-text-dim">{catalog ? `${totalCount} total` : '…'}</div>
+      </div>
+      <div className="mb-3">
+        <ColorPicker label="Arrow color" value={color} onChange={setColor} />
+      </div>
+
+      {error && <p className="text-[11px] text-red-400 mb-2">Failed to load arrows: {error}</p>}
+      {!catalog && !error && <p className="text-[11px] text-text-dim">Loading arrows…</p>}
+      {catalog && (
+        <>
+          {catalog.map((source) => {
+            const visible = source.arrows.slice(0, renderLimit);
+            return (
+              <div key={source.id} className="mb-4">
+                <div className="text-[11px] font-medium text-text-dim mb-1.5">{source.title}</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {visible.map((name) => (
+                    <ArrowTile
+                      key={`${source.id}-${name}`}
+                      source={source.id}
+                      name={name}
+                      color={color}
+                      onClick={() => handleAdd(source.id, name)}
+                    />
+                  ))}
+                </div>
+                {source.arrows.length > renderLimit && (
+                  <button
+                    type="button"
+                    onClick={() => setRenderLimit((n) => n + 96)}
+                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                  >
+                    Show more ({source.arrows.length - renderLimit} remaining)
+                  </button>
+                )}
+                <div className="text-[10px] text-text-dim mt-1.5 leading-snug">
+                  By{' '}
+                  <a
+                    href={source.attributionUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-text"
+                  >
+                    {source.attribution}
+                  </a>{' '}
+                  · {source.license}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+    </Section>
+  );
+}
+
+interface ArrowTileProps {
+  source: string;
+  name: string;
+  color: string;
+  onClick: () => void;
+}
+
+function ArrowTile({ source, name, color, onClick }: ArrowTileProps) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetchArrowSvg(source, name)
+      .then((svg) => {
+        if (active) setDataUrl(svgToDataUrl(recolorLucideSvg(svg, color)));
+      })
+      .catch(() => {
+        // Tile stays blank on failure.
+      });
+    return () => {
+      active = false;
+    };
+  }, [source, name, color]);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={name}
+      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      {dataUrl ? (
+        <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain" />
+      ) : (
+        <span className="w-3 h-3 rounded-full bg-border" aria-hidden />
+      )}
+    </button>
   );
 }
 
@@ -1229,6 +1439,29 @@ function ShapePreviewTile({ shapeId }: { shapeId: string }) {
   const svg = buildShapeSvg(shapeId, '#94a3b8');
   if (!svg) return <PlaceholderTile />;
   return <img src={svgToDataUrl(svg)} alt={shapeId} className="block w-3/5 h-3/5 object-contain" />;
+}
+
+// Mini preview of a handyarrows arrow on the root Arrows card.
+function HandyArrowPreviewTile({ name }: { name: string }) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetchArrowSvg('handyarrows', name)
+      .then((svg) => {
+        if (active) setDataUrl(svgToDataUrl(recolorLucideSvg(svg, '#94a3b8')));
+      })
+      .catch(() => {
+        // Tile stays as the placeholder dot on failure.
+      });
+    return () => {
+      active = false;
+    };
+  }, [name]);
+  return dataUrl ? (
+    <img src={dataUrl} alt={name} className="block w-3/5 h-3/5 object-contain" />
+  ) : (
+    <PlaceholderTile />
+  );
 }
 
 // Tiny tile that fetches a single Lucide icon and renders it as a preview.

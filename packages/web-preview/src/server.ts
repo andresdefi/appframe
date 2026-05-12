@@ -726,6 +726,80 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
+  // ---------- Elements: Arrows ----------
+  // Sources live under packages/web-preview/data/arrows/<source>/. Each
+  // source bundles a set of hand-curated arrow SVGs from a specific
+  // creator/pack — see the per-source attribution surfaced in the picker.
+  const arrowsBaseDir = join(__dirname, '..', 'data', 'arrows');
+  interface ArrowSourceDef {
+    id: string;
+    title: string;
+    attribution: string;
+    attributionUrl: string;
+    license: string;
+  }
+  const ARROW_SOURCES: ArrowSourceDef[] = [
+    {
+      id: 'handyarrows',
+      title: 'Handy Arrows',
+      attribution: 'Eren Cana Arica',
+      attributionUrl: 'https://handyarrows.com',
+      license: 'CC-BY 4.0',
+    },
+  ];
+
+  app.get('/api/elements/arrows/catalog', async (_req, res) => {
+    try {
+      const { readdir } = await import('node:fs/promises');
+      const sources = await Promise.all(
+        ARROW_SOURCES.map(async (source) => {
+          const dir = join(arrowsBaseDir, source.id);
+          let files: string[] = [];
+          try {
+            files = (await readdir(dir)).filter((n) => n.endsWith('.svg'));
+          } catch {
+            // Source folder absent — return empty list rather than 500.
+          }
+          // Stable numeric-aware sort so "arrow-2" comes before "arrow-10".
+          files.sort((a, b) => {
+            const an = parseInt(a.match(/(\d+)/)?.[1] ?? '0', 10);
+            const bn = parseInt(b.match(/(\d+)/)?.[1] ?? '0', 10);
+            return an - bn;
+          });
+          return {
+            ...source,
+            arrows: files.map((f) => f.replace(/\.svg$/, '')),
+          };
+        }),
+      );
+      res.json({ sources });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load arrows catalog';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get('/api/elements/arrows/svg/:source/:name', async (req, res) => {
+    const { source, name } = req.params;
+    // Strict allowlist on both segments — keep the read inside data/arrows.
+    if (!/^[a-z0-9-]+$/.test(source) || !/^[a-z0-9-]+$/.test(name)) {
+      res.status(400).json({ error: 'Invalid source or arrow name' });
+      return;
+    }
+    if (!ARROW_SOURCES.some((s) => s.id === source)) {
+      res.status(404).json({ error: 'Unknown arrow source' });
+      return;
+    }
+    try {
+      const svg = await readFile(join(arrowsBaseDir, source, `${name}.svg`), 'utf-8');
+      res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.send(svg);
+    } catch {
+      res.status(404).json({ error: `Arrow "${name}" not found in ${source}` });
+    }
+  });
+
   app.get('/api/elements/icons/svg/:name', async (req, res) => {
     if (!lucideIconsDir) {
       res.status(500).json({ error: 'lucide-static not installed' });

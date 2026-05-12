@@ -6,7 +6,7 @@ export function getPlatformPreviewSize(platform: string) {
 }
 
 const PREFERRED_DEFAULT_SIZE_KEY: Record<string, string> = {
-  iphone: 'ios-6.5',
+  iphone: 'ios-6.9',
 };
 
 export function getDefaultExportSizeKey(

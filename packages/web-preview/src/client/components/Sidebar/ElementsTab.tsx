@@ -27,7 +27,7 @@ interface CatalogItem {
 const OVERLAY_BASE: Omit<Overlay, 'id' | 'type'> = {
   x: 45,
   y: 45,
-  size: 200,
+  size: 100,
   rotation: 0,
   opacity: 1,
 };
@@ -91,7 +91,7 @@ export function ElementsTab() {
         type: 'custom',
         imageDataUrl: dataUrl,
         ...OVERLAY_BASE,
-        size: 200,
+        size: 100,
       } as Overlay;
       update({ overlays: [...screen.overlays, overlay] });
     };
@@ -165,7 +165,7 @@ export function ElementsTab() {
               label="Size"
               value={ov.size}
               min={50}
-              max={2000}
+              max={600}
               step={5}
               formatValue={(v) => `${v}px`}
               onChange={(v) => updateOverlay(idx, { size: v })}
@@ -801,7 +801,7 @@ function ShapeCategoryView({ onBack, onAdd }: ShapeCategoryViewProps) {
         imageDataUrl: dataUrl,
         iconRef: `shape:${shape.id}`,
         shapeColor: color,
-        size: 200,
+        size: 100,
       }),
     };
     onAdd(item);
@@ -930,7 +930,7 @@ function ArrowCategoryView({ onBack, onAdd }: ArrowCategoryViewProps) {
           imageDataUrl: dataUrl,
           iconRef: `${source}:${name}`,
           shapeColor: color,
-          size: 200,
+          size: 100,
         }),
       };
       onAdd(item);
@@ -1138,7 +1138,7 @@ function BlobCategoryView({ onBack, onAdd }: BlobCategoryViewProps) {
           imageDataUrl: dataUrl,
           iconRef: `${source}:${name}`,
           shapeColor: color,
-          size: 400,
+          size: 250,
         }),
       };
       onAdd(item);
@@ -1343,7 +1343,7 @@ function IconCategoryView({ onBack, onAdd }: IconCategoryViewProps) {
           imageDataUrl: dataUrl,
           iconRef: `lucide:${name}`,
           shapeColor: color,
-          size: 200,
+          size: 100,
         }),
       };
       onAdd(item);
@@ -1621,7 +1621,7 @@ const CATALOGS: Record<CategoryId, CatalogItem[]> = {
       id: 'star-rating',
       label: 'Star rating',
       preview: <PreviewStarRating />,
-      build: () => ({ type: 'star-rating', shapeColor: '#f59e0b', size: 200 }),
+      build: () => ({ type: 'star-rating', shapeColor: '#f59e0b', size: 100 }),
     },
   ],
 };

@@ -807,32 +807,52 @@ function ShapeCategoryView({ onBack, onAdd }: ShapeCategoryViewProps) {
 
 // ---------- Arrows category (curated SVG packs) ----------
 
+interface ArrowEntry {
+  name: string;
+  v: number; // Cache-bust version stamp (file mtime), from catalog.
+}
+
 interface ArrowSourceDef {
   id: string;
   title: string;
   attribution: string;
   attributionUrl: string;
   license: string;
-  arrows: string[];
+  arrows: ArrowEntry[];
 }
 
 let cachedArrowsCatalog: ArrowSourceDef[] | null = null;
 const arrowSvgFetchCache = new Map<string, Promise<string>>();
+// Maps "<source>/<name>" → latest known version stamp so per-tile fetches
+// can bust cache when an arrow's source file changes upstream.
+const arrowVersionMap = new Map<string, number>();
 
 async function fetchArrowsCatalog(): Promise<ArrowSourceDef[]> {
   if (cachedArrowsCatalog) return cachedArrowsCatalog;
   const res = await fetch('/api/elements/arrows/catalog');
   if (!res.ok) throw new Error(`Arrows catalog fetch failed: ${res.status}`);
   const json = await res.json();
-  cachedArrowsCatalog = (json.sources ?? []) as ArrowSourceDef[];
-  return cachedArrowsCatalog;
+  const sources = (json.sources ?? []) as ArrowSourceDef[];
+  cachedArrowsCatalog = sources;
+  // Populate the version map from the catalog so any later fetch by
+  // (source, name) can apply the right cache-buster.
+  for (const src of sources) {
+    for (const entry of src.arrows) {
+      arrowVersionMap.set(`${src.id}/${entry.name}`, entry.v);
+    }
+  }
+  return sources;
 }
 
 function fetchArrowSvg(source: string, name: string): Promise<string> {
   const key = `${source}/${name}`;
   const existing = arrowSvgFetchCache.get(key);
   if (existing) return existing;
-  const promise = fetch(`/api/elements/arrows/svg/${source}/${name}`).then((r) => {
+  const v = arrowVersionMap.get(key);
+  const url = v
+    ? `/api/elements/arrows/svg/${source}/${name}?v=${v}`
+    : `/api/elements/arrows/svg/${source}/${name}`;
+  const promise = fetch(url).then((r) => {
     if (!r.ok) throw new Error(`Arrow ${key} fetch failed: ${r.status}`);
     return r.text();
   });
@@ -919,13 +939,13 @@ function ArrowCategoryView({ onBack, onAdd }: ArrowCategoryViewProps) {
               <div key={source.id} className="mb-4">
                 <div className="text-[11px] font-medium text-text-dim mb-1.5">{source.title}</div>
                 <div className="grid grid-cols-4 gap-1.5">
-                  {visible.map((name) => (
+                  {visible.map((entry) => (
                     <ArrowTile
-                      key={`${source.id}-${name}`}
+                      key={`${source.id}-${entry.name}`}
                       source={source.id}
-                      name={name}
+                      name={entry.name}
                       color={color}
-                      onClick={() => handleAdd(source.id, name)}
+                      onClick={() => handleAdd(source.id, entry.name)}
                     />
                   ))}
                 </div>

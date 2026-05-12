@@ -764,7 +764,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   app.get('/api/elements/arrows/catalog', async (_req, res) => {
     try {
-      const { readdir } = await import('node:fs/promises');
+      const { readdir, stat } = await import('node:fs/promises');
       const sources = await Promise.all(
         ARROW_SOURCES.map(async (source) => {
           const dir = join(arrowsBaseDir, source.id);
@@ -774,16 +774,28 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           } catch {
             // Source folder absent — return empty list rather than 500.
           }
-          // Stable numeric-aware sort so "arrow-2" comes before "arrow-10".
           files.sort((a, b) => {
             const an = parseInt(a.match(/(\d+)/)?.[1] ?? '0', 10);
             const bn = parseInt(b.match(/(\d+)/)?.[1] ?? '0', 10);
             return an - bn;
           });
-          return {
-            ...source,
-            arrows: files.map((f) => f.replace(/\.svg$/, '')),
-          };
+          // Stamp each arrow with the file's mtime in seconds — the client
+          // appends it to the SVG fetch URL as a version hint so updates
+          // bust any client-side cache. Falling back to 0 keeps the URL
+          // stable if stat fails.
+          const arrows = await Promise.all(
+            files.map(async (f) => {
+              const name = f.replace(/\.svg$/, '');
+              let v = 0;
+              try {
+                v = Math.floor((await stat(join(dir, f))).mtimeMs / 1000);
+              } catch {
+                // ignore — use 0
+              }
+              return { name, v };
+            }),
+          );
+          return { ...source, arrows };
         }),
       );
       res.json({ sources });
@@ -807,7 +819,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     try {
       const svg = await readFile(join(arrowsBaseDir, source, `${name}.svg`), 'utf-8');
       res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      // No `immutable` — content can change when scripts re-sync. ETag
+      // lets the browser revalidate cheaply.
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
       res.send(svg);
     } catch {
       res.status(404).json({ error: `Arrow "${name}" not found in ${source}` });
@@ -829,7 +843,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     try {
       const svg = await readFile(join(lucideIconsDir, `${name}.svg`), 'utf-8');
       res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      // No `immutable` — content can change when scripts re-sync. ETag
+      // lets the browser revalidate cheaply.
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
       res.send(svg);
     } catch {
       res.status(404).json({ error: `Icon "${name}" not found` });

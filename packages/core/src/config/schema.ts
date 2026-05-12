@@ -163,9 +163,24 @@ export const overlaySchema = z.object({
   // imageDataUrl stays the rendered cache; iconRef + shapeColor are the
   // canonical source of truth for icon-type overlays.
   iconRef: z.string().optional(),
-  x: z.number().min(0).max(100),
-  y: z.number().min(0).max(100),
-  size: z.number().min(2).max(30).default(10),
+  // Element position is in canvas-% but can go negative or > 100 so the
+  // element can bleed off any edge of the canvas (or sit fully outside).
+  x: z.number().min(-100).max(200),
+  y: z.number().min(-100).max(200),
+  // Element size is in raw canvas pixels (not %) so absolute physical
+  // size is predictable regardless of canvas dimensions. Min ~50px keeps
+  // elements visible; max lets blobs spill far beyond the canvas for big
+  // atmospheric backdrops. Pre-px configs stored size as a 1-50 percentage
+  // of canvas width — anything below 50 here is treated as that legacy
+  // value and converted using the standard 1290px reference.
+  size: z.preprocess(
+    (v) => {
+      if (typeof v !== 'number') return v;
+      if (v < 50) return Math.max(50, Math.round(v * 12.9));
+      return v;
+    },
+    z.number().min(20).max(3000).default(200),
+  ),
   rotation: z.number().min(-180).max(180).default(0),
   opacity: z.number().min(0).max(1).default(1),
   shapeType: z.enum(['circle', 'rectangle', 'line', 'arrow']).optional(),

@@ -385,8 +385,9 @@ export function useDragPosition(
           if (!drag || drag.kind !== 'overlay') return;
           const dx = (ev.clientX - drag.startX) / drag.scale;
           const dy = (ev.clientY - drag.startY) / drag.scale;
-          const newX = Math.max(0, Math.min(100, (drag.startOverlayX ?? 0) + (dx / canvasW) * 100));
-          const newY = Math.max(0, Math.min(100, (drag.startOverlayY ?? 0) + (dy / canvasH) * 100));
+          // Allow off-canvas placement so elements can bleed past any edge.
+          const newX = Math.max(-50, Math.min(150, (drag.startOverlayX ?? 0) + (dx / canvasW) * 100));
+          const newY = Math.max(-50, Math.min(150, (drag.startOverlayY ?? 0) + (dy / canvasH) * 100));
           drag.el.style.left = newX + '%';
           drag.el.style.top = newY + '%';
         };
@@ -397,8 +398,8 @@ export function useDragPosition(
           drag.el.style.outline = 'none';
           const dx = (ev.clientX - drag.startX) / drag.scale;
           const dy = (ev.clientY - drag.startY) / drag.scale;
-          const newX = Math.max(0, Math.min(100, (drag.startOverlayX ?? 0) + (dx / canvasW) * 100));
-          const newY = Math.max(0, Math.min(100, (drag.startOverlayY ?? 0) + (dy / canvasH) * 100));
+          const newX = Math.max(-50, Math.min(150, (drag.startOverlayX ?? 0) + (dx / canvasW) * 100));
+          const newY = Math.max(-50, Math.min(150, (drag.startOverlayY ?? 0) + (dy / canvasH) * 100));
           const roundedX = Math.round(newX * 10) / 10;
           const roundedY = Math.round(newY * 10) / 10;
           const ovIdx = drag.overlayIdx ?? -1;

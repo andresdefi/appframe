@@ -530,7 +530,7 @@ export function useInstantPatch() {
       const canvasWidth = cRect.width;
       const canvasHeight = cRect.height;
 
-      const sizePx = Math.round((canvasWidth * overlay.size) / 100);
+      const sizePx = Math.round(overlay.size);
       const baseX = Math.round((canvasWidth * overlay.x) / 100);
       const baseY = Math.round((canvasHeight * overlay.y) / 100);
       // Grow the wrapper to give blur halo transparent room while keeping

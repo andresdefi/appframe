@@ -5,7 +5,8 @@
 {% set overlayIdx = loop.index0 %}
 {% set ovX = (canvasWidth * overlay.x / 100) | round %}
 {% set ovY = (canvasHeight * overlay.y / 100) | round %}
-{% set ovSize = (canvasWidth * overlay.size / 100) | round %}
+{# Element size is stored as raw canvas pixels. #}
+{% set ovSize = overlay.size | round %}
 {# Soft-blur halo needs transparent room inside the wrapper or it
    clips into a blurred rectangle. Grow the wrapper by 1.5× the blur
    amount on each side and shift its origin to compensate, so the

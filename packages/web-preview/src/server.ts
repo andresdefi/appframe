@@ -858,26 +858,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
-  // Expand an SVG's viewBox so the original path sits inside a larger
-  // transparent box. With paddingRatio=0.5 the new viewBox is twice as
-  // wide/tall, leaving 25% transparent margin on each side. Lets CSS
-  // filter:blur() fade nicely instead of smudging the path against the
-  // edges of the rendered image (which otherwise produces a square halo).
-  function expandSvgViewBox(svg: string, paddingRatio = 0.5): string {
-    return svg.replace(
-      /viewBox="(-?[\d.]+)\s+(-?[\d.]+)\s+([\d.]+)\s+([\d.]+)"/,
-      (_match, xStr, yStr, wStr, hStr) => {
-        const x = parseFloat(xStr);
-        const y = parseFloat(yStr);
-        const w = parseFloat(wStr);
-        const h = parseFloat(hStr);
-        const padX = w * paddingRatio;
-        const padY = h * paddingRatio;
-        return `viewBox="${x - padX} ${y - padY} ${w + padX * 2} ${h + padY * 2}"`;
-      },
-    );
-  }
-
   app.get('/api/elements/blobs/svg/:source/:name', async (req, res) => {
     const { source, name } = req.params;
     if (!/^[a-z0-9-]+$/.test(source) || !/^[a-z0-9-]+$/.test(name)) {

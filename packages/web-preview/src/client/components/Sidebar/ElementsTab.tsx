@@ -22,12 +22,12 @@ interface CatalogItem {
   build: () => Partial<Overlay>;
 }
 
-// Shared base for a new overlay (size, position, etc.). Catalog items
-// override with their type-specific config.
+// Shared base for a new overlay (position, rotation, opacity). Catalog
+// items override `size` (raw px) and type-specific config.
 const OVERLAY_BASE: Omit<Overlay, 'id' | 'type'> = {
   x: 45,
   y: 45,
-  size: 10,
+  size: 200,
   rotation: 0,
   opacity: 1,
 };
@@ -91,7 +91,7 @@ export function ElementsTab() {
         type: 'custom',
         imageDataUrl: dataUrl,
         ...OVERLAY_BASE,
-        size: 15,
+        size: 200,
       } as Overlay;
       update({ overlays: [...screen.overlays, overlay] });
     };
@@ -146,8 +146,8 @@ export function ElementsTab() {
             <RangeSlider
               label="Position X"
               value={ov.x}
-              min={0}
-              max={100}
+              min={-50}
+              max={150}
               formatValue={(v) => `${v}%`}
               onChange={(v) => updateOverlay(idx, { x: v })}
               onInstant={(v) => instantOverlay(idx, { x: v })}
@@ -155,8 +155,8 @@ export function ElementsTab() {
             <RangeSlider
               label="Position Y"
               value={ov.y}
-              min={0}
-              max={100}
+              min={-50}
+              max={150}
               formatValue={(v) => `${v}%`}
               onChange={(v) => updateOverlay(idx, { y: v })}
               onInstant={(v) => instantOverlay(idx, { y: v })}
@@ -164,9 +164,10 @@ export function ElementsTab() {
             <RangeSlider
               label="Size"
               value={ov.size}
-              min={1}
-              max={50}
-              formatValue={(v) => `${v}%`}
+              min={50}
+              max={2000}
+              step={5}
+              formatValue={(v) => `${v}px`}
               onChange={(v) => updateOverlay(idx, { size: v })}
               onInstant={(v) => instantOverlay(idx, { size: v })}
             />
@@ -200,15 +201,6 @@ export function ElementsTab() {
                 { value: 'behind-text', label: 'Behind text' },
                 { value: 'behind-device', label: 'Behind device' },
               ]}
-            />
-            <RangeSlider
-              label="Soft blur"
-              value={ov.softBlur ?? 0}
-              min={0}
-              max={200}
-              formatValue={(v) => `${v}px`}
-              onChange={(v) => updateOverlay(idx, { softBlur: v })}
-              onInstant={(v) => instantOverlay(idx, { softBlur: v })}
             />
             <Select
               label="Blend mode"
@@ -809,7 +801,7 @@ function ShapeCategoryView({ onBack, onAdd }: ShapeCategoryViewProps) {
         imageDataUrl: dataUrl,
         iconRef: `shape:${shape.id}`,
         shapeColor: color,
-        size: 15,
+        size: 200,
       }),
     };
     onAdd(item);
@@ -938,7 +930,7 @@ function ArrowCategoryView({ onBack, onAdd }: ArrowCategoryViewProps) {
           imageDataUrl: dataUrl,
           iconRef: `${source}:${name}`,
           shapeColor: color,
-          size: 15,
+          size: 200,
         }),
       };
       onAdd(item);
@@ -1146,7 +1138,7 @@ function BlobCategoryView({ onBack, onAdd }: BlobCategoryViewProps) {
           imageDataUrl: dataUrl,
           iconRef: `${source}:${name}`,
           shapeColor: color,
-          size: 20,
+          size: 400,
         }),
       };
       onAdd(item);
@@ -1351,7 +1343,7 @@ function IconCategoryView({ onBack, onAdd }: IconCategoryViewProps) {
           imageDataUrl: dataUrl,
           iconRef: `lucide:${name}`,
           shapeColor: color,
-          size: 15,
+          size: 200,
         }),
       };
       onAdd(item);
@@ -1629,7 +1621,7 @@ const CATALOGS: Record<CategoryId, CatalogItem[]> = {
       id: 'star-rating',
       label: 'Star rating',
       preview: <PreviewStarRating />,
-      build: () => ({ type: 'star-rating', shapeColor: '#f59e0b', size: 15 }),
+      build: () => ({ type: 'star-rating', shapeColor: '#f59e0b', size: 200 }),
     },
   ],
 };

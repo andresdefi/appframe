@@ -746,6 +746,20 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       attributionUrl: 'https://handyarrows.com',
       license: 'CC-BY 4.0',
     },
+    {
+      id: 'yokui',
+      title: 'Yokui',
+      attribution: 'Yokui (Figma Community)',
+      attributionUrl: 'https://www.figma.com/design/drOVURBi5jiqueM88edcTK/Yokui---Hand-Drawn-Arrows--Community-',
+      license: 'Figma Community — Free for Use',
+    },
+    {
+      id: 'handdrowing',
+      title: 'Hand-Drawing',
+      attribution: 'arrows hand-drowing (Figma Community)',
+      attributionUrl: 'https://www.figma.com/design/sLdWVs5Z7gMQGiGEO4lYqM/arrows-hand-drowing--Community-',
+      license: 'Figma Community — Free for Use',
+    },
   ];
 
   app.get('/api/elements/arrows/catalog', async (_req, res) => {

@@ -16,6 +16,24 @@ is MIT-licensed (see LICENSE).
   Arrows picker. To regenerate the snapshot, run
   `node scripts/sync-handyarrows.mjs`.
 
+### Hand-drawn arrows — Yokui pack (Figma Community)
+
+- **Files:** `packages/web-preview/data/arrows/yokui/*.svg`
+- **Source:** [Yokui — Hand-Drawn Arrows on Figma Community](https://www.figma.com/design/drOVURBi5jiqueM88edcTK/Yokui---Hand-Drawn-Arrows--Community-)
+- **License:** Figma Community — "Free for Use" (no explicit redistribution
+  clause stated on the file's Community page). Bundled here for use inside
+  appframe. If the creator objects to redistribution, please open an issue
+  and the bundled assets will be removed.
+
+### Hand-drawn arrows — Hand-Drawing pack (Figma Community)
+
+- **Files:** `packages/web-preview/data/arrows/handdrowing/*.svg`
+- **Source:** [arrows hand-drowing on Figma Community](https://www.figma.com/design/sLdWVs5Z7gMQGiGEO4lYqM/arrows-hand-drowing--Community-)
+- **License:** Figma Community — "Free for Use" (no explicit redistribution
+  clause stated on the file's Community page). Bundled here for use inside
+  appframe. If the creator objects to redistribution, please open an issue
+  and the bundled assets will be removed.
+
 ## Icon libraries
 
 ### Lucide

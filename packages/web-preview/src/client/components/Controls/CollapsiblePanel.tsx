@@ -19,7 +19,7 @@ export function CollapsiblePanel({ title, onRemove, children, defaultCollapsed =
   }, [children, collapsed]);
 
   return (
-    <div className="border border-border rounded-md p-2 mb-1.5 text-[11px]">
+    <div className="surface-card rounded-lg p-2 mb-1.5 text-[11px]">
       <div className="flex justify-between items-center mb-1.5">
         <button
           className="flex items-center gap-1 font-semibold text-text-dim hover:text-text transition-colors cursor-pointer bg-transparent border-none p-0 text-[11px]"

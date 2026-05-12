@@ -155,7 +155,7 @@ export function EffectsTab() {
           </p>
         )}
         <button
-          className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2 transition-transform duration-150 active:scale-[0.97]"
+          className="w-full py-1.5 text-xs bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text mb-2 transition duration-150 active:scale-[0.97]"
           onClick={addAnnotation}
         >
           + Add Annotation
@@ -248,7 +248,7 @@ export function EffectsTab() {
           </p>
         )}
         <button
-          className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2 transition-transform duration-150 active:scale-[0.97]"
+          className="w-full py-1.5 text-xs bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text mb-2 transition duration-150 active:scale-[0.97]"
           onClick={addCallout}
         >
           + Add Callout

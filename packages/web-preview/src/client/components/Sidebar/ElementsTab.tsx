@@ -366,7 +366,7 @@ export function ElementsTab() {
                 />
                 <button
                   type="button"
-                  className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text transition-transform duration-150 active:scale-[0.97]"
+                  className="w-full py-1.5 text-xs bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text transition duration-150 active:scale-[0.97]"
                   onClick={() => fileInputRefs.current[idx]?.click()}
                 >
                   {ov.imageDataUrl ? 'Replace image' : 'Choose image'}
@@ -397,7 +397,7 @@ function RootView({ onPickCategory, onUploadImage }: RootViewProps) {
       </div>
       <button
         type="button"
-        className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent/40 transition-transform duration-150 active:scale-[0.97]"
+        className="w-full py-2 text-xs bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text transition duration-150 active:scale-[0.97]"
         onClick={onUploadImage}
       >
         Upload custom image
@@ -493,7 +493,7 @@ function CategoryCard({ category, onClick }: { category: CategoryDef; onClick: (
     <button
       type="button"
       onClick={onClick}
-      className="text-left rounded-md border border-border bg-surface-2 p-2.5 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="text-left rounded-lg bg-surface-2 surface-card surface-card-hover p-2.5 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div className="grid grid-cols-3 gap-1 mb-2">
         {category.preview.map((node, i) => (
@@ -557,7 +557,7 @@ function CategoryView({ category, onBack, onAdd }: CategoryViewProps) {
               type="button"
               title={item.label}
               onClick={() => onAdd(item)}
-              className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="aspect-square rounded-lg bg-surface-2 surface-card surface-card-hover hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {item.preview}
             </button>
@@ -981,7 +981,7 @@ function ArrowCategoryView({ onBack, onAdd }: ArrowCategoryViewProps) {
                   <button
                     type="button"
                     onClick={() => setRenderLimit((n) => n + 96)}
-                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text transition-transform duration-150 active:scale-[0.97]"
+                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text transition duration-150 active:scale-[0.97]"
                   >
                     Show more ({source.arrows.length - renderLimit} remaining)
                   </button>
@@ -1034,7 +1034,7 @@ function ArrowTile({ source, name, color, onClick }: ArrowTileProps) {
       type="button"
       onClick={onClick}
       title={name}
-      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="aspect-square rounded-lg bg-surface-2 surface-card surface-card-hover hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {dataUrl ? (
         <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain thumb-outline rounded-sm" />
@@ -1189,7 +1189,7 @@ function BlobCategoryView({ onBack, onAdd }: BlobCategoryViewProps) {
                   <button
                     type="button"
                     onClick={() => setRenderLimit((n) => n + 96)}
-                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text transition-transform duration-150 active:scale-[0.97]"
+                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text transition duration-150 active:scale-[0.97]"
                   >
                     Show more ({source.blobs.length - renderLimit} remaining)
                   </button>
@@ -1242,7 +1242,7 @@ function BlobTile({ source, name, color, onClick }: BlobTileProps) {
       type="button"
       onClick={onClick}
       title={name}
-      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="aspect-square rounded-lg bg-surface-2 surface-card surface-card-hover hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {dataUrl ? (
         <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain thumb-outline rounded-sm" />
@@ -1260,7 +1260,7 @@ function ShapeTile({ shape, color, onClick }: { shape: ShapeDef; color: string; 
       type="button"
       onClick={onClick}
       title={shape.label}
-      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="aspect-square rounded-lg bg-surface-2 surface-card surface-card-hover hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <img src={dataUrl} alt={shape.label} className="block w-2/3 h-2/3 object-contain thumb-outline rounded-sm" />
     </button>
@@ -1401,7 +1401,7 @@ function IconCategoryView({ onBack, onAdd }: IconCategoryViewProps) {
             <button
               type="button"
               onClick={() => setRenderLimit((n) => n + 96)}
-              className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text transition-transform duration-150 active:scale-[0.97]"
+              className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text transition duration-150 active:scale-[0.97]"
             >
               Show more ({filtered.length - renderLimit} remaining)
             </button>
@@ -1547,7 +1547,7 @@ function IconTile({ name, color, onClick }: IconTileProps) {
       type="button"
       onClick={onClick}
       title={name}
-      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="aspect-square rounded-lg bg-surface-2 surface-card surface-card-hover hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {dataUrl ? (
         <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain thumb-outline rounded-sm" />

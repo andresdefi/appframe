@@ -27,7 +27,7 @@ export function Section({ title, children, hidden, tooltip, defaultCollapsed = t
     <div className="mx-3 my-1.5 first:mt-3 last:mb-3">
       {title && (
         <button
-          className="w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-surface-2 border border-border text-left cursor-pointer hover:border-accent/30 transition duration-150 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl bg-surface-2 surface-card surface-card-hover text-left cursor-pointer transition duration-150 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={() => setCollapsed(!collapsed)}
           aria-expanded={!collapsed}
         >

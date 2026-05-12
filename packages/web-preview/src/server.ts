@@ -10,7 +10,6 @@ import {
   validateConfigOrThrow,
   generateScreenshots,
   generatePanoramicScreenshots,
-  generateWithKoubou,
   listFrames,
   getFrame,
   getDefaultFrame,
@@ -27,7 +26,6 @@ import {
   injectAnnotationsHTML,
   injectOverlaysHTML,
   detectKoubou,
-  renderSingleScreenWithKoubou,
   resolveLocalizedAsset,
 } from '@appframe/core';
 import type {
@@ -37,7 +35,6 @@ import type {
   FrameStyle,
   CompositionPreset,
   FrameDefinition,
-  KoubouSingleScreenOptions,
   PanoramicElement,
   PanoramicBackground,
   PanoramicBackgroundLayer,
@@ -358,7 +355,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const nextConfig = sourceState ? buildConfigFromEditorState(baseConfig, sourceState) : baseConfig;
       const exportLocaleRaw = expectOptionalString(sourceState?.locale);
       const exportLocale = exportLocaleRaw && exportLocaleRaw !== 'default' ? exportLocaleRaw : undefined;
-      const exportRenderer = expectOptionalString(sourceState?.exportRenderer) ?? 'playwright';
       const exportSize = expectOptionalString(sourceState?.exportSize) ?? '';
       const slug = slugifyName(variantName);
       const outputDir = join(dirname(resolvedSessionPath), 'variant-output', slug);
@@ -373,17 +369,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
             configPath,
             outputDir,
           })
-        : exportRenderer === 'koubou'
-          ? await generateWithKoubou({
-              configPath,
-              outputDir,
-              locale: exportLocale,
-            })
-          : await generateScreenshots({
-              configPath,
-              outputDir,
-              locale: exportLocale,
-            });
+        : await generateScreenshots({
+            configPath,
+            outputDir,
+            locale: exportLocale,
+          });
 
       const filePaths = result.screenshots.map((entry) => entry.outputPath);
       const fileNames = filePaths.map((entry) => entry.split('/').pop() ?? entry);
@@ -396,7 +386,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         mode: nextConfig.mode === 'panoramic' ? 'panoramic' : 'individual',
         platform: nextConfig.output.platforms.length === 1 ? nextConfig.output.platforms[0] : 'all',
         locale: exportLocale ?? 'default',
-        renderer: exportRenderer,
+        renderer: 'playwright',
         sizeKey: exportSize,
         filePaths,
         fileNames,
@@ -413,7 +403,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           exportedAt,
           outputDir,
           configPath,
-          renderer: exportRenderer,
+          renderer: 'playwright',
           sizeKey: exportSize || null,
           locale: exportLocale ?? 'default',
           filePaths,
@@ -1174,7 +1164,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     subtitleOpacity?: number;
     subtitleLetterSpacing?: string;
     subtitleTextTransform?: string;
-    renderer?: 'playwright' | 'koubou';
     deviceColor?: string;
     // Background overrides
     backgroundType?: 'preset' | 'solid' | 'gradient' | 'image';
@@ -1347,7 +1336,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       subtitleOpacity: expectNumber(body.subtitleOpacity),
       subtitleLetterSpacing: expectString(body.subtitleLetterSpacing),
       subtitleTextTransform: expectString(body.subtitleTextTransform),
-      renderer: expectString(body.renderer) as 'playwright' | 'koubou' | undefined,
       deviceColor: expectString(body.deviceColor),
       // Background overrides
       backgroundType: expectString(body.backgroundType) as PreviewParams['backgroundType'],
@@ -1838,29 +1826,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
-  // Map STORE_SIZES keys to Koubou output_size values (iOS only)
-  function sizeKeyToKoubouOutput(sizeKey: string): string | null {
-    const map: Record<string, string> = {
-      'ios-6.9': 'iPhone6_9',
-      'ios-6.7': 'iPhone6_7',
-      'ios-6.5': 'iPhone6_5',
-      'ios-5.5': 'iPhone5_5',
-      'ios-ipad-12.9': 'iPadPro12_9',
-      'ios-ipad-11': 'iPadPro11',
-      'mac-2880x1800': 'MacBookPro14',
-      'mac-2560x1600': 'MacBookAir',
-      'mac-1440x900': 'MacBookAir',
-      'mac-1280x800': 'MacBookAir',
-      'watch-ultra3': 'WatchUltra',
-      'watch-ultra': 'WatchUltra',
-      'watch-s10': 'WatchS7_45',
-      'watch-s7': 'WatchS7_45',
-      'watch-s4': 'WatchS4_44',
-      'watch-s3': 'WatchS4_40',
-    };
-    return map[sizeKey] ?? null;
-  }
-
   function getRequestPayload(body: unknown): Record<string, unknown> {
     if (
       body &&
@@ -1879,7 +1844,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.post('/api/export', async (req, res) => {
     try {
       const p = clampPreviewParams(parseBody(getRequestPayload(req.body)));
-      const sizeKey = p.sizeKey ?? 'ios-6.5';
+      const sizeKey = p.sizeKey ?? 'ios-6.9';
 
       const { STORE_SIZES } = await import('@appframe/core');
       const sizeSpec = STORE_SIZES[sizeKey];
@@ -1888,126 +1853,44 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         return;
       }
 
-      if (p.renderer === 'koubou') {
-        // --- Koubou rendering path ---
-        const koubouOutputSize = sizeKeyToKoubouOutput(sizeKey);
-        if (!koubouOutputSize) {
-          res.status(400).json({
-            error: `Koubou does not support size: ${sizeKey}. Use Playwright for Android sizes.`,
-          });
-          return;
-        }
+      p.width = sizeSpec.width;
+      p.height = sizeSpec.height;
 
-        const screen = config.screens[p.screenIndex] ?? null;
-        let screenshotData = p.clientScreenshot;
-        if (!screenshotData && screen) {
-          const screenshotPath = getLocalizedScreenshotPath(
-            config,
-            configDir,
-            p.screenIndex,
-            p.locale,
-            screen.screenshot,
-            p.localeConfig,
-          );
-          if (!screenshotPath.startsWith(resolve(configDir))) {
-            res.status(400).json({ error: 'Screenshot path escapes project directory' });
-            return;
-          }
-          screenshotData = await screenshotToDataUrl(screenshotPath);
-        }
-        if (!screenshotData) {
-          res.status(400).json({ error: 'No screenshot data available' });
-          return;
-        }
+      const { context } = await resolveContext(p);
 
-        const resolvedHeadline =
-          resolveLocalizedScreenText(
-            config,
-            p.screenIndex,
-            p.locale,
-            p.localeConfig,
-            'headline',
-            p.headline,
-            screen?.headline ?? 'New Screen',
-            p.preferLocaleText ?? false,
-          ) ?? 'New Screen';
-        const resolvedSubtitle = resolveLocalizedScreenText(
-          config,
-          p.screenIndex,
-          p.locale,
-          p.localeConfig,
-          'subtitle',
-          p.subtitle,
-          screen?.subtitle,
-          p.preferLocaleText ?? false,
-        );
+      let html = await templateEngine.render(context);
+      html = injectTextPositionCSS(html, {
+        eyebrowTop: p.eyebrowTop,
+        eyebrowLeft: p.eyebrowLeft,
+        eyebrowWidth: p.eyebrowWidth,
+        headlineTop: p.headlineTop,
+        headlineLeft: p.headlineLeft,
+        headlineWidth: p.headlineWidth,
+        subtitleTop: p.subtitleTop,
+        subtitleLeft: p.subtitleLeft,
+        subtitleWidth: p.subtitleWidth,
+      });
+      if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
+      if (p.annotations && p.annotations.length > 0)
+        html = injectAnnotationsHTML(html, p.annotations, p.width);
 
-        const imageBuffer = await renderSingleScreenWithKoubou({
-          screenshotData,
-          headline: resolvedHeadline,
-          subtitle: resolvedSubtitle,
-          style: p.style ?? config.theme.style,
-          colors: p.colors ? { ...config.theme.colors, ...p.colors } : config.theme.colors,
-          font: p.font ?? config.theme.font,
-          fontWeight: p.fontWeight ?? config.theme.fontWeight,
-          headlineSize: p.headlineSize ?? config.theme.headlineSize,
-          subtitleSize: p.subtitleSize ?? config.theme.subtitleSize,
-          layout: p.layout ?? screen?.layout ?? 'center',
-          frameId: p.frameId ?? config.frames.ios,
-          frameStyle: p.fStyle ?? config.frames.style,
-          deviceColor: p.deviceColor ?? config.frames.deviceColor,
-          outputSize: koubouOutputSize,
-          headlineGradient: p.headlineGradient ?? config.theme.headlineGradient,
-          subtitleGradient: p.subtitleGradient ?? config.theme.subtitleGradient,
-          spotlight: p.spotlight,
-          annotations: p.annotations as KoubouSingleScreenOptions['annotations'],
+      const tmpPath = join(configDir, `.appframe-export-${Date.now()}.png`);
+      const { unlink } = await import('node:fs/promises');
+      try {
+        await renderer.render({
+          html,
+          width: sizeSpec.width,
+          height: sizeSpec.height,
+          outputPath: tmpPath,
         });
 
-        const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${p.screenIndex + 1}_${sizeKey}_koubou.png`;
+        const imageBuffer = await readFile(tmpPath);
+        const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${p.screenIndex + 1}_${sizeKey}.png`;
         res.set('Content-Type', 'image/png');
         res.set('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(imageBuffer);
-      } else {
-        // --- Playwright rendering path (default) ---
-        p.width = sizeSpec.width;
-        p.height = sizeSpec.height;
-
-        const { context } = await resolveContext(p);
-
-        let html = await templateEngine.render(context);
-        html = injectTextPositionCSS(html, {
-          eyebrowTop: p.eyebrowTop,
-          eyebrowLeft: p.eyebrowLeft,
-          eyebrowWidth: p.eyebrowWidth,
-          headlineTop: p.headlineTop,
-          headlineLeft: p.headlineLeft,
-          headlineWidth: p.headlineWidth,
-          subtitleTop: p.subtitleTop,
-          subtitleLeft: p.subtitleLeft,
-          subtitleWidth: p.subtitleWidth,
-        });
-        if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
-        if (p.annotations && p.annotations.length > 0)
-          html = injectAnnotationsHTML(html, p.annotations, p.width);
-
-        const tmpPath = join(configDir, `.appframe-export-${Date.now()}.png`);
-        const { unlink } = await import('node:fs/promises');
-        try {
-          await renderer.render({
-            html,
-            width: sizeSpec.width,
-            height: sizeSpec.height,
-            outputPath: tmpPath,
-          });
-
-          const imageBuffer = await readFile(tmpPath);
-          const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${p.screenIndex + 1}_${sizeKey}.png`;
-          res.set('Content-Type', 'image/png');
-          res.set('Content-Disposition', `attachment; filename="${filename}"`);
-          res.send(imageBuffer);
-        } finally {
-          await unlink(tmpPath).catch(() => {});
-        }
+      } finally {
+        await unlink(tmpPath).catch(() => {});
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -2030,7 +1913,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
       const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
       const frameIndex = body.frameIndex as number | undefined;
-      const sizeKey = (body.sizeKey as string) ?? 'ios-6.5';
+      const sizeKey = (body.sizeKey as string) ?? 'ios-6.9';
 
       const { STORE_SIZES } = await import('@appframe/core');
       const sizeSpec = STORE_SIZES[sizeKey];

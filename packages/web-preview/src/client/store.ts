@@ -240,7 +240,6 @@ export interface VariantSnapshot {
   panoramicEffects: PanoramicEffects;
   selectedElementIndex: number | null;
   exportSize: string;
-  exportRenderer: string;
 }
 
 export interface VariantRecord {
@@ -292,7 +291,6 @@ export interface PreviewStore {
   koubouAvailable: boolean;
   sizes: Record<string, SizeEntry[]>;
   exportSize: string;
-  exportRenderer: string;
 
   // Per-screen state
   screens: ScreenState[];
@@ -327,7 +325,6 @@ export interface PreviewStore {
   recordVariantArtifactForVariant: (variantId: string, artifact: Omit<VariantArtifact, 'id' | 'exportedAt'>) => void;
   setPreviewBg: (bg: 'dark' | 'light') => void;
   setExportSize: (size: string) => void;
-  setExportRenderer: (renderer: string) => void;
   setFonts: (fonts: FontData[]) => void;
   setFrames: (frames: FrameData[]) => void;
   setDeviceFamilies: (families: DeviceFamily[]) => void;
@@ -728,7 +725,6 @@ export function variantSnapshotFromState(
     | 'panoramicEffects'
     | 'selectedElementIndex'
     | 'exportSize'
-    | 'exportRenderer'
   >,
 ): VariantSnapshot {
   return {
@@ -746,7 +742,6 @@ export function variantSnapshotFromState(
     panoramicEffects: deepCopy(state.panoramicEffects),
     selectedElementIndex: state.selectedElementIndex,
     exportSize: state.exportSize,
-    exportRenderer: state.exportRenderer,
   };
 }
 
@@ -768,7 +763,6 @@ function applyVariantSnapshot(
   | 'panoramicEffects'
   | 'selectedElementIndex'
   | 'exportSize'
-  | 'exportRenderer'
 > {
   return {
     platform: snapshot.platform,
@@ -785,7 +779,6 @@ function applyVariantSnapshot(
     panoramicEffects: deepCopy(snapshot.panoramicEffects),
     selectedElementIndex: snapshot.selectedElementIndex,
     exportSize: snapshot.exportSize,
-    exportRenderer: snapshot.exportRenderer,
   };
 }
 
@@ -816,10 +809,6 @@ function coerceVariantSnapshot(
       (snapshot.panoramicEffects ?? fallback.panoramicEffects) as PanoramicEffects,
     ),
     exportSize: typeof snapshot.exportSize === 'string' ? snapshot.exportSize : fallback.exportSize,
-    exportRenderer:
-      typeof snapshot.exportRenderer === 'string'
-        ? snapshot.exportRenderer
-        : fallback.exportRenderer,
   };
 }
 
@@ -842,7 +831,6 @@ function syncActiveVariantRecord(
     | 'panoramicEffects'
     | 'selectedElementIndex'
     | 'exportSize'
-    | 'exportRenderer'
   >,
 ): VariantRecord[] {
   if (!activeVariantId) return variants;
@@ -872,7 +860,6 @@ function buildVariantRecord(
     | 'panoramicEffects'
     | 'selectedElementIndex'
     | 'exportSize'
-    | 'exportRenderer'
   >,
   options: {
     description?: string;
@@ -1090,7 +1077,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   koubouAvailable: false,
   sizes: {},
   exportSize: '',
-  exportRenderer: 'playwright',
   screens: [],
   sessionLocales: {},
   isSavingSession: false,
@@ -1397,7 +1383,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     }),
   setPreviewBg: (bg) => set({ previewBg: bg }),
   setExportSize: (size) => set({ exportSize: size }),
-  setExportRenderer: (renderer) => set({ exportRenderer: renderer }),
   setFonts: (fonts) => set({ fonts }),
   setFrames: (frames) => set({ frames }),
   setDeviceFamilies: (families) => set({ deviceFamilies: families }),
@@ -1458,7 +1443,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       panoramicEffects: currentState.panoramicEffects,
       selectedElementIndex: null,
       exportSize: currentState.exportSize,
-      exportRenderer: currentState.exportRenderer,
     }, {
       history: [makeHistoryEntry('created', 'Concept created from loaded config')],
       provenance: { origin: 'manual', branchDepth: 0, note: 'Initialized from the current config.' },
@@ -1518,7 +1502,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         panoramicEffects: state.panoramicEffects,
         selectedElementIndex: null,
         exportSize: state.exportSize,
-        exportRenderer: state.exportRenderer,
       };
       return {
         id: sv.id,

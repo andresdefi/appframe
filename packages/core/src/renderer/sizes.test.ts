@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { STORE_SIZES, getTargetSizes } from './sizes.js';
 
 describe('STORE_SIZES', () => {
-  it('has the correct iPhone 6.7" dimensions (1290x2796 at 2x)', () => {
-    const size = STORE_SIZES['ios-6.7']!;
-    expect(size.width * 2).toBe(1290);
-    expect(size.height * 2).toBe(2796);
+  it('has the correct iPhone 6.9" dimensions (1260x2736 at 2x)', () => {
+    const size = STORE_SIZES['ios-6.9']!;
+    expect(size.width * 2).toBe(1260);
+    expect(size.height * 2).toBe(2736);
     expect(size.platform).toBe('ios');
   });
 
@@ -49,7 +49,7 @@ describe('getTargetSizes', () => {
   });
 
   it('returns custom iOS sizes', () => {
-    const sizes = getTargetSizes(['ios'], [6.7]);
+    const sizes = getTargetSizes(['ios'], [6.3]);
     expect(sizes).toHaveLength(1);
   });
 

@@ -50,7 +50,6 @@ function resetStore() {
     koubouAvailable: false,
     sizes: {},
     exportSize: '',
-    exportRenderer: 'playwright',
     screens: [],
     isSavingSession: false,
   });

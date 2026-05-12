@@ -168,7 +168,6 @@ export function ExportTab() {
         locale,
         mode: 'panoramic',
         sizeKey: resolvedExportSize,
-        renderer: 'playwright',
         fileNames,
         manifestName: `${variantSlug}-manifest.json`,
       });
@@ -190,7 +189,6 @@ export function ExportTab() {
         locale,
         localeConfig: activeLocaleConfig,
         sizeKey: resolvedExportSize,
-        renderer: 'playwright',
       }));
       const fileName = `${variantSlug}-screen-${selectedScreen + 1}.png`;
       downloadBlob(blob, fileName);
@@ -219,8 +217,7 @@ export function ExportTab() {
           locale,
           localeConfig: activeLocaleConfig,
           sizeKey: resolvedExportSize,
-          renderer: 'playwright',
-        }));
+          }));
         const fileName = `${variantSlug}-screen-${i + 1}.png`;
         downloadBlob(blob, fileName);
         fileNames.push(fileName);
@@ -236,7 +233,6 @@ export function ExportTab() {
         locale,
         mode: 'individual',
         sizeKey: resolvedExportSize,
-        renderer: 'playwright',
         fileNames,
         manifestName: `${variantSlug}-manifest.json`,
       });
@@ -287,7 +283,6 @@ export function ExportTab() {
         activeVariantId,
         locale,
         exportSize: resolvedExportSize,
-        exportRenderer: 'playwright',
         mode: isPanoramic ? 'panoramic' : 'individual',
         sessionLocales,
         screens,

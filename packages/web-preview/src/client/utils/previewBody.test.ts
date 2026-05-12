@@ -140,13 +140,11 @@ describe('preview/export payload builders', () => {
       locale: 'es',
       localeConfig,
       sizeKey: 'ios-6.9',
-      renderer: 'playwright',
     });
 
     expect(exportBody).toMatchObject(previewBody);
     expect(exportBody).toMatchObject({
       sizeKey: 'ios-6.9',
-      renderer: 'playwright',
       preferLocaleText: true,
       headlineTop: 12,
       subtitleLeft: 14,
@@ -177,7 +175,6 @@ describe('preview/export payload builders', () => {
       locale: 'default',
       localeConfig: undefined,
       sizeKey: 'ios-6.9',
-      renderer: 'koubou',
     });
 
     expect(previewBody.locale).toBeUndefined();
@@ -188,6 +185,5 @@ describe('preview/export payload builders', () => {
     expect(exportBody.preferLocaleText).toBeUndefined();
     expect(previewBody.backgroundType).toBeUndefined();
     expect(exportBody.backgroundType).toBeUndefined();
-    expect(exportBody.renderer).toBe('koubou');
   });
 });

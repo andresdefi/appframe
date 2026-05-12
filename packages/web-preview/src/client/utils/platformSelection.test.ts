@@ -14,9 +14,9 @@ describe('platform selection helpers', () => {
   it('prefers ios-6.9 for iphone when present, else falls back to first', () => {
     const sizes = {
       iphone: [
-        { key: 'ios-6.7', name: 'iPhone 6.7"', width: 1290, height: 2796 },
-        { key: 'ios-6.9', name: 'iPhone 6.9"', width: 1260, height: 2736 },
         { key: 'ios-6.5', name: 'iPhone 6.5"', width: 1284, height: 2778 },
+        { key: 'ios-6.9', name: 'iPhone 6.9"', width: 1260, height: 2736 },
+        { key: 'ios-6.3', name: 'iPhone 6.3"', width: 1206, height: 2622 },
       ],
       android: [
         { key: 'android-phone', name: 'Android Phone', width: 1080, height: 1920 },
@@ -31,12 +31,12 @@ describe('platform selection helpers', () => {
   it('falls back to first iphone size when ios-6.9 is missing', () => {
     const sizes = {
       iphone: [
-        { key: 'ios-6.7', name: 'iPhone 6.7"', width: 1290, height: 2796 },
         { key: 'ios-6.5', name: 'iPhone 6.5"', width: 1284, height: 2778 },
+        { key: 'ios-6.3', name: 'iPhone 6.3"', width: 1206, height: 2622 },
       ],
     };
 
-    expect(getDefaultExportSizeKey(sizes, 'iphone')).toBe('ios-6.7');
+    expect(getDefaultExportSizeKey(sizes, 'iphone')).toBe('ios-6.5');
   });
 
   describe('isPlatformCompatibleWithScreenshot', () => {

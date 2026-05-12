@@ -121,7 +121,6 @@ export function buildExportBody(
     locale: string;
     localeConfig?: LocaleConfig;
     sizeKey: string;
-    renderer: string;
   },
 ): Record<string, unknown> {
   return {
@@ -133,6 +132,5 @@ export function buildExportBody(
       options.localeConfig,
     ),
     sizeKey: options.sizeKey,
-    renderer: options.renderer,
   };
 }

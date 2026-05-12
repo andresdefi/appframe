@@ -805,6 +805,79 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
+  // ---------- Elements: Blobs ----------
+  // Same shape as the arrows pipeline: SVGs under data/blobs/<source>/,
+  // each with its own attribution/license metadata.
+  const blobsBaseDir = join(__dirname, '..', 'data', 'blobs');
+  const BLOB_SOURCES: ArrowSourceDef[] = [
+    {
+      id: 'figma-blobs',
+      title: 'Blobs (Figma Community)',
+      attribution: 'Blobs and Section Waves (Figma Community)',
+      attributionUrl: 'https://www.figma.com/design/0xRmMhQRUuzfDEL25mkhad/Blobs-and-Section-Waves--Community-',
+      license: 'Figma Community — Free for Use',
+    },
+  ];
+
+  app.get('/api/elements/blobs/catalog', async (_req, res) => {
+    try {
+      const { readdir, stat } = await import('node:fs/promises');
+      const sources = await Promise.all(
+        BLOB_SOURCES.map(async (source) => {
+          const dir = join(blobsBaseDir, source.id);
+          let files: string[] = [];
+          try {
+            files = (await readdir(dir)).filter((n) => n.endsWith('.svg'));
+          } catch {
+            // Source folder absent — return empty list rather than 500.
+          }
+          files.sort((a, b) => {
+            const an = parseInt(a.match(/(\d+)/)?.[1] ?? '0', 10);
+            const bn = parseInt(b.match(/(\d+)/)?.[1] ?? '0', 10);
+            return an - bn;
+          });
+          const blobs = await Promise.all(
+            files.map(async (f) => {
+              const name = f.replace(/\.svg$/, '');
+              let v = 0;
+              try {
+                v = Math.floor((await stat(join(dir, f))).mtimeMs / 1000);
+              } catch {
+                // ignore — use 0
+              }
+              return { name, v };
+            }),
+          );
+          return { ...source, blobs };
+        }),
+      );
+      res.json({ sources });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load blobs catalog';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get('/api/elements/blobs/svg/:source/:name', async (req, res) => {
+    const { source, name } = req.params;
+    if (!/^[a-z0-9-]+$/.test(source) || !/^[a-z0-9-]+$/.test(name)) {
+      res.status(400).json({ error: 'Invalid source or blob name' });
+      return;
+    }
+    if (!BLOB_SOURCES.some((s) => s.id === source)) {
+      res.status(404).json({ error: 'Unknown blob source' });
+      return;
+    }
+    try {
+      const svg = await readFile(join(blobsBaseDir, source, `${name}.svg`), 'utf-8');
+      res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+      res.send(svg);
+    } catch {
+      res.status(404).json({ error: `Blob "${name}" not found in ${source}` });
+    }
+  });
+
   app.get('/api/elements/arrows/svg/:source/:name', async (req, res) => {
     const { source, name } = req.params;
     // Strict allowlist on both segments — keep the read inside data/arrows.

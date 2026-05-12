@@ -271,12 +271,14 @@ export function ElementsTab() {
                       return;
                     }
                   }
-                  // Arrow sources (e.g. handyarrows) live under the
-                  // /api/elements/arrows/svg/<source>/<name> route; recolour
-                  // via fetch + currentColor replace, same as Lucide.
+                  // Library-fed sources route through their own fetchers
+                  // so recolours hit the right /api/elements/<kind>/svg/...
+                  // endpoint. The data URL gets rebuilt with the new colour.
                   if (source && name && source !== 'lucide') {
+                    const fetcher =
+                      source === 'figma-blobs' ? fetchBlobSvg : fetchArrowSvg;
                     try {
-                      const rawSvg = await fetchArrowSvg(source, name);
+                      const rawSvg = await fetcher(source, name);
                       const colored = recolorLucideSvg(rawSvg, v);
                       const dataUrl = svgToDataUrl(colored);
                       updateOverlay(idx, { shapeColor: v, imageDataUrl: dataUrl });
@@ -441,12 +443,12 @@ const ROOT_CATEGORIES: CategoryDef[] = [
     id: 'blobs',
     label: 'Blobs',
     preview: [
-      <PlaceholderTile key="1" />,
-      <PlaceholderTile key="2" />,
-      <PlaceholderTile key="3" />,
-      <PlaceholderTile key="4" />,
-      <PlaceholderTile key="5" />,
-      <PlaceholderTile key="6" />,
+      <BlobPreviewTile key="1" name="blob-1" />,
+      <BlobPreviewTile key="3" name="blob-3" />,
+      <BlobPreviewTile key="7" name="blob-7" />,
+      <BlobPreviewTile key="11" name="blob-11" />,
+      <BlobPreviewTile key="15" name="blob-15" />,
+      <BlobPreviewTile key="19" name="blob-19" />,
     ],
   },
   {
@@ -502,6 +504,9 @@ function CategoryView({ category, onBack, onAdd }: CategoryViewProps) {
   }
   if (category === 'arrows') {
     return <ArrowCategoryView onBack={onBack} onAdd={onAdd} />;
+  }
+  if (category === 'blobs') {
+    return <BlobCategoryView onBack={onBack} onAdd={onAdd} />;
   }
   const items = CATALOGS[category];
   const isComingSoon = items.length === 0;
@@ -1017,6 +1022,214 @@ function ArrowTile({ source, name, color, onClick }: ArrowTileProps) {
   );
 }
 
+// ---------- Blobs category (curated SVG packs) ----------
+
+interface BlobEntry {
+  name: string;
+  v: number;
+}
+
+interface BlobSourceDef {
+  id: string;
+  title: string;
+  attribution: string;
+  attributionUrl: string;
+  license: string;
+  blobs: BlobEntry[];
+}
+
+let cachedBlobsCatalog: BlobSourceDef[] | null = null;
+const blobSvgFetchCache = new Map<string, Promise<string>>();
+const blobVersionMap = new Map<string, number>();
+
+async function fetchBlobsCatalog(): Promise<BlobSourceDef[]> {
+  if (cachedBlobsCatalog) return cachedBlobsCatalog;
+  const res = await fetch('/api/elements/blobs/catalog');
+  if (!res.ok) throw new Error(`Blobs catalog fetch failed: ${res.status}`);
+  const json = await res.json();
+  const sources = (json.sources ?? []) as BlobSourceDef[];
+  cachedBlobsCatalog = sources;
+  for (const src of sources) {
+    for (const entry of src.blobs) {
+      blobVersionMap.set(`${src.id}/${entry.name}`, entry.v);
+    }
+  }
+  return sources;
+}
+
+function fetchBlobSvg(source: string, name: string): Promise<string> {
+  const key = `${source}/${name}`;
+  const existing = blobSvgFetchCache.get(key);
+  if (existing) return existing;
+  const v = blobVersionMap.get(key);
+  const url = v
+    ? `/api/elements/blobs/svg/${source}/${name}?v=${v}`
+    : `/api/elements/blobs/svg/${source}/${name}`;
+  const promise = fetch(url).then((r) => {
+    if (!r.ok) throw new Error(`Blob ${key} fetch failed: ${r.status}`);
+    return r.text();
+  });
+  blobSvgFetchCache.set(key, promise);
+  return promise;
+}
+
+interface BlobCategoryViewProps {
+  onBack: () => void;
+  onAdd: (item: CatalogItem) => void;
+}
+
+function BlobCategoryView({ onBack, onAdd }: BlobCategoryViewProps) {
+  const [catalog, setCatalog] = useState<BlobSourceDef[] | null>(cachedBlobsCatalog);
+  const [error, setError] = useState<string | null>(null);
+  const [color, setColor] = useState('#6366f1');
+  const [renderLimit, setRenderLimit] = useState(96);
+
+  useEffect(() => {
+    if (catalog) return;
+    let active = true;
+    fetchBlobsCatalog()
+      .then((sources) => {
+        if (active) setCatalog(sources);
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      active = false;
+    };
+  }, [catalog]);
+
+  const totalCount = (catalog ?? []).reduce((n, s) => n + s.blobs.length, 0);
+
+  const handleAdd = async (source: string, name: string) => {
+    try {
+      const rawSvg = await fetchBlobSvg(source, name);
+      const colored = recolorLucideSvg(rawSvg, color);
+      const dataUrl = svgToDataUrl(colored);
+      const item: CatalogItem = {
+        id: `blob-${source}-${name}`,
+        label: name,
+        preview: <span />,
+        build: () => ({
+          type: 'icon',
+          imageDataUrl: dataUrl,
+          iconRef: `${source}:${name}`,
+          shapeColor: color,
+          size: 20,
+        }),
+      };
+      onAdd(item);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  return (
+    <Section title="" defaultCollapsed={false}>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1"
+      >
+        <span aria-hidden>‹</span>
+        <span>Back</span>
+      </button>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[13px] font-semibold text-text">Blobs</div>
+        <div className="text-[10px] text-text-dim">{catalog ? `${totalCount} total` : '…'}</div>
+      </div>
+      <div className="mb-3">
+        <ColorPicker label="Blob color" value={color} onChange={setColor} />
+      </div>
+
+      {error && <p className="text-[11px] text-red-400 mb-2">Failed to load blobs: {error}</p>}
+      {!catalog && !error && <p className="text-[11px] text-text-dim">Loading blobs…</p>}
+      {catalog && (
+        <>
+          {catalog.map((source) => {
+            const visible = source.blobs.slice(0, renderLimit);
+            return (
+              <div key={source.id} className="mb-4">
+                <div className="text-[11px] font-medium text-text-dim mb-1.5">{source.title}</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {visible.map((entry) => (
+                    <BlobTile
+                      key={`${source.id}-${entry.name}`}
+                      source={source.id}
+                      name={entry.name}
+                      color={color}
+                      onClick={() => handleAdd(source.id, entry.name)}
+                    />
+                  ))}
+                </div>
+                {source.blobs.length > renderLimit && (
+                  <button
+                    type="button"
+                    onClick={() => setRenderLimit((n) => n + 96)}
+                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                  >
+                    Show more ({source.blobs.length - renderLimit} remaining)
+                  </button>
+                )}
+                <div className="text-[10px] text-text-dim mt-1.5 leading-snug">
+                  By{' '}
+                  <a
+                    href={source.attributionUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-text"
+                  >
+                    {source.attribution}
+                  </a>{' '}
+                  · {source.license}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+    </Section>
+  );
+}
+
+interface BlobTileProps {
+  source: string;
+  name: string;
+  color: string;
+  onClick: () => void;
+}
+
+function BlobTile({ source, name, color, onClick }: BlobTileProps) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetchBlobSvg(source, name)
+      .then((svg) => {
+        if (active) setDataUrl(svgToDataUrl(recolorLucideSvg(svg, color)));
+      })
+      .catch(() => {
+        // Tile stays blank on failure.
+      });
+    return () => {
+      active = false;
+    };
+  }, [source, name, color]);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={name}
+      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      {dataUrl ? (
+        <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain" />
+      ) : (
+        <span className="w-3 h-3 rounded-full bg-border" aria-hidden />
+      )}
+    </button>
+  );
+}
+
 function ShapeTile({ shape, color, onClick }: { shape: ShapeDef; color: string; onClick: () => void }) {
   const dataUrl = svgToDataUrl(buildShapeSvg(shape.id, color) ?? '');
   return (
@@ -1459,6 +1672,32 @@ function ShapePreviewTile({ shapeId }: { shapeId: string }) {
   const svg = buildShapeSvg(shapeId, '#94a3b8');
   if (!svg) return <PlaceholderTile />;
   return <img src={svgToDataUrl(svg)} alt={shapeId} className="block w-3/5 h-3/5 object-contain" />;
+}
+
+// Mini preview of a Figma-sourced blob on the root Blobs card.
+function BlobPreviewTile({ name }: { name: string }) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    // Catalog provides the version stamp; pre-warm it so the cache-bust
+    // query string is applied on the first render.
+    fetchBlobsCatalog()
+      .then(() => fetchBlobSvg('figma-blobs', name))
+      .then((svg) => {
+        if (active) setDataUrl(svgToDataUrl(recolorLucideSvg(svg, '#94a3b8')));
+      })
+      .catch(() => {
+        // Tile stays as the placeholder dot on failure.
+      });
+    return () => {
+      active = false;
+    };
+  }, [name]);
+  return dataUrl ? (
+    <img src={dataUrl} alt={name} className="block w-3/5 h-3/5 object-contain" />
+  ) : (
+    <PlaceholderTile />
+  );
 }
 
 // Mini preview of a handyarrows arrow on the root Arrows card.

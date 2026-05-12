@@ -34,6 +34,15 @@ is MIT-licensed (see LICENSE).
   appframe. If the creator objects to redistribution, please open an issue
   and the bundled assets will be removed.
 
+### Blob shapes — Figma Community
+
+- **Files:** `packages/web-preview/data/blobs/figma-blobs/*.svg`
+- **Source:** [Blobs and Section Waves on Figma Community](https://www.figma.com/design/0xRmMhQRUuzfDEL25mkhad/Blobs-and-Section-Waves--Community-)
+- **License:** Figma Community — "Free for Use" (no explicit redistribution
+  clause stated on the file's Community page). Bundled here for use inside
+  appframe. If the creator objects to redistribution, please open an issue
+  and the bundled assets will be removed.
+
 ## Icon libraries
 
 ### Lucide

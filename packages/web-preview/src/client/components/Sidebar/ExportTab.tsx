@@ -49,9 +49,6 @@ export function ExportTab() {
   const sizes = usePreviewStore((s) => s.sizes);
   const exportSize = usePreviewStore((s) => s.exportSize);
   const setExportSize = usePreviewStore((s) => s.setExportSize);
-  const exportRenderer = usePreviewStore((s) => s.exportRenderer);
-  const setExportRenderer = usePreviewStore((s) => s.setExportRenderer);
-  const koubouAvailable = usePreviewStore((s) => s.koubouAvailable);
   const locale = usePreviewStore((s) => s.locale);
   const sessionLocales = usePreviewStore((s) => s.sessionLocales);
   const setLocale = usePreviewStore((s) => s.setLocale);
@@ -96,11 +93,6 @@ export function ExportTab() {
     }
   }, [exportSize, resolvedExportSize, setExportSize]);
 
-  const koubouDisabled = !koubouAvailable || platform === 'android';
-  const rendererOptions = [
-    { value: 'playwright', label: 'Playwright (fast)' },
-    { value: 'koubou', label: 'Koubou (pixel-perfect)', disabled: koubouDisabled, title: koubouDisabled ? (!koubouAvailable ? 'Koubou server not running' : 'Koubou is not available for Android') : undefined },
-  ];
 
   const activeLocaleConfig = locale === 'default' ? undefined : sessionLocales[locale];
   const availableLocales = getAvailableLocales(config, sessionLocales);
@@ -198,7 +190,7 @@ export function ExportTab() {
         locale,
         localeConfig: activeLocaleConfig,
         sizeKey: resolvedExportSize,
-        renderer: exportRenderer,
+        renderer: 'playwright',
       }));
       const fileName = `${variantSlug}-screen-${selectedScreen + 1}.png`;
       downloadBlob(blob, fileName);
@@ -227,7 +219,7 @@ export function ExportTab() {
           locale,
           localeConfig: activeLocaleConfig,
           sizeKey: resolvedExportSize,
-          renderer: exportRenderer,
+          renderer: 'playwright',
         }));
         const fileName = `${variantSlug}-screen-${i + 1}.png`;
         downloadBlob(blob, fileName);
@@ -244,7 +236,7 @@ export function ExportTab() {
         locale,
         mode: 'individual',
         sizeKey: resolvedExportSize,
-        renderer: exportRenderer,
+        renderer: 'playwright',
         fileNames,
         manifestName: `${variantSlug}-manifest.json`,
       });
@@ -295,7 +287,7 @@ export function ExportTab() {
         activeVariantId,
         locale,
         exportSize: resolvedExportSize,
-        exportRenderer,
+        exportRenderer: 'playwright',
         mode: isPanoramic ? 'panoramic' : 'individual',
         sessionLocales,
         screens,
@@ -348,15 +340,6 @@ export function ExportTab() {
           onChange={setExportSize}
           options={sizeOptions}
         />
-        {!isPanoramic && koubouAvailable && (
-          <Select
-            label="Renderer"
-            value={exportRenderer}
-            onChange={setExportRenderer}
-            options={rendererOptions}
-          />
-        )}
-
         <button
           className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-2"
           onClick={handleConfigExport}

@@ -40,8 +40,7 @@ Open-source tool for generating professional App Store & Play Store promotional 
 ## TODO
 
 ### Individual-mode UI inspection not yet done
-The 2026-04-20 pass reviewed the Platform / Screenshot / Device Frame / Device Layout / Device Shadow / Composition / Background / Text tabs end-to-end and landed a batch of fixes. Still un-inspected in that depth:
-- **Extras tab** — spotlight, annotations, loupe, callouts, overlays. Likely has dead or confusing controls (especially now that autopilot is gone). Do the same "drag each slider, check each toggle, report what feels wrong" pass.
+The 2026-04-20 pass reviewed the Platform / Screenshot / Device Frame / Device Layout / Device Shadow / Composition / Background / Text tabs end-to-end and landed a batch of fixes. A later session also inspected the **Extras tab** (spotlight / annotations / loupe / callouts / overlays). Still un-inspected in that depth:
 - **Download (Export) tab** — current state: Download current screen + Download all N. Needs pass to check per-size/per-locale options, progress UX, and whether file naming makes sense.
 - **Panoramic mode** — entire mode untouched this session. Sidebar tabs differ (`PanoramicTab`, `PanoramicEffectsTab`). Inspect with the same lens.
 

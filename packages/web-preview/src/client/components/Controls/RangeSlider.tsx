@@ -117,7 +117,7 @@ export function RangeSlider({
           />
         ) : (
           <span
-            className={`text-xs text-text-dim min-w-[40px] text-right shrink-0 transition-colors${disabled ? '' : ' cursor-text hover:text-text'}`}
+            className={`text-xs text-text-dim min-w-[40px] text-right shrink-0 tabular-nums transition-colors${disabled ? '' : ' cursor-text hover:text-text'}`}
             tabIndex={disabled ? undefined : 0}
             role="spinbutton"
             aria-label={`${label}: ${displayValue}. Click to edit`}

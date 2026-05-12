@@ -112,7 +112,7 @@ export function EffectsTab() {
       {/* Spotlight */}
       <Section title="Spotlight / Dimming" tooltip="Dim the background and highlight a specific area of your screenshot to draw attention." defaultCollapsed={false}>
         {!screen.spotlight && (
-          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
+          <p className="text-[10px] text-text-dim mb-2 leading-relaxed text-pretty">
             Dim the screenshot background and highlight a specific region to guide the viewer&apos;s eye.
           </p>
         )}
@@ -150,12 +150,12 @@ export function EffectsTab() {
       {/* Annotations */}
       <Section title="Annotations" tooltip="Draw shapes (rectangles, circles) over the screenshot to highlight specific UI elements.">
         {screen.annotations.length === 0 && (
-          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
+          <p className="text-[10px] text-text-dim mb-2 leading-relaxed text-pretty">
             Highlight areas of your screenshot with rectangles or circles. Great for drawing attention to specific features.
           </p>
         )}
         <button
-          className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
+          className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2 transition-transform duration-150 active:scale-[0.97]"
           onClick={addAnnotation}
         >
           + Add Annotation
@@ -243,12 +243,12 @@ export function EffectsTab() {
       {/* Callouts */}
       <Section title="Callouts" tooltip="Crop and enlarge a portion of the screenshot, displayed as a floating callout card.">
         {screen.callouts.length === 0 && (
-          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
+          <p className="text-[10px] text-text-dim mb-2 leading-relaxed text-pretty">
             Zoom into a specific area and display it as a floating card. Perfect for showcasing small UI details.
           </p>
         )}
         <button
-          className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
+          className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2 transition-transform duration-150 active:scale-[0.97]"
           onClick={addCallout}
         >
           + Add Callout

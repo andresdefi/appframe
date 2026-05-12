@@ -67,8 +67,8 @@ export function ConfirmDialog({
         className="bg-surface border border-border rounded-lg shadow-xl p-5 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-sm font-semibold text-text mb-2">{title}</h3>
-        <p id="confirm-dialog-message" className="text-xs text-text-dim mb-4 leading-relaxed">{message}</p>
+        <h3 className="text-sm font-semibold text-text mb-2 text-balance">{title}</h3>
+        <p id="confirm-dialog-message" className="text-xs text-text-dim mb-4 leading-relaxed text-pretty">{message}</p>
         <div className="flex gap-2 justify-end">
           <button
             ref={cancelRef}

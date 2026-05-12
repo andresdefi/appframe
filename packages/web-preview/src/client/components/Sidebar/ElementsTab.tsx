@@ -133,7 +133,7 @@ export function ElementsTab() {
         defaultCollapsed={view !== 'root'}
       >
         {screen.overlays.length === 0 && (
-          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
+          <p className="text-[10px] text-text-dim mb-2 leading-relaxed text-pretty">
             No elements yet. Pick one from a category above to add it.
           </p>
         )}
@@ -336,7 +336,7 @@ export function ElementsTab() {
                     <img
                       src={ov.imageDataUrl}
                       alt="Custom element"
-                      className="h-10 w-10 object-contain border border-border rounded bg-surface-2"
+                      className="h-10 w-10 object-contain border border-border rounded bg-surface-2 thumb-outline"
                     />
                     <button
                       type="button"
@@ -347,7 +347,7 @@ export function ElementsTab() {
                     </button>
                   </div>
                 ) : (
-                  <p className="text-[10px] text-text-dim mb-2">
+                  <p className="text-[10px] text-text-dim mb-2 text-pretty">
                     Upload a PNG, SVG, or JPG to use as this element.
                   </p>
                 )}
@@ -366,7 +366,7 @@ export function ElementsTab() {
                 />
                 <button
                   type="button"
-                  className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                  className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text transition-transform duration-150 active:scale-[0.97]"
                   onClick={() => fileInputRefs.current[idx]?.click()}
                 >
                   {ov.imageDataUrl ? 'Replace image' : 'Choose image'}
@@ -397,7 +397,7 @@ function RootView({ onPickCategory, onUploadImage }: RootViewProps) {
       </div>
       <button
         type="button"
-        className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent/40"
+        className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent/40 transition-transform duration-150 active:scale-[0.97]"
         onClick={onUploadImage}
       >
         Upload custom image
@@ -493,7 +493,7 @@ function CategoryCard({ category, onClick }: { category: CategoryDef; onClick: (
     <button
       type="button"
       onClick={onClick}
-      className="text-left rounded-md border border-border bg-surface-2 p-2.5 hover:border-accent/40 hover:bg-surface-2/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="text-left rounded-md border border-border bg-surface-2 p-2.5 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div className="grid grid-cols-3 gap-1 mb-2">
         {category.preview.map((node, i) => (
@@ -505,7 +505,7 @@ function CategoryCard({ category, onClick }: { category: CategoryDef; onClick: (
           </div>
         ))}
       </div>
-      <div className="text-[12px] font-medium text-text">{category.label}</div>
+      <div className="text-[12px] font-medium text-text text-balance">{category.label}</div>
     </button>
   );
 }
@@ -539,14 +539,14 @@ function CategoryView({ category, onBack, onAdd }: CategoryViewProps) {
       <button
         type="button"
         onClick={onBack}
-        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1"
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1 transition-transform duration-150 active:scale-[0.97]"
       >
         <span aria-hidden>‹</span>
         <span>Back</span>
       </button>
-      <div className="text-[13px] font-semibold text-text mb-2 capitalize">{category}</div>
+      <div className="text-[13px] font-semibold text-text mb-2 capitalize text-balance">{category}</div>
       {isComingSoon ? (
-        <p className="text-[11px] text-text-dim leading-relaxed">
+        <p className="text-[11px] text-text-dim leading-relaxed text-pretty">
           Coming soon. We&apos;re still picking the right library for {category}.
         </p>
       ) : (
@@ -557,7 +557,7 @@ function CategoryView({ category, onBack, onAdd }: CategoryViewProps) {
               type="button"
               title={item.label}
               onClick={() => onAdd(item)}
-              className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition-colors flex items-center justify-center text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {item.preview}
             </button>
@@ -812,13 +812,13 @@ function ShapeCategoryView({ onBack, onAdd }: ShapeCategoryViewProps) {
       <button
         type="button"
         onClick={onBack}
-        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1"
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1 transition-transform duration-150 active:scale-[0.97]"
       >
         <span aria-hidden>‹</span>
         <span>Back</span>
       </button>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[13px] font-semibold text-text">Shapes</div>
+        <div className="text-[13px] font-semibold text-text text-balance">Shapes</div>
         <div className="text-[10px] text-text-dim">{SHAPE_LIBRARY.length} primitives</div>
       </div>
       <div className="mb-3">
@@ -944,13 +944,13 @@ function ArrowCategoryView({ onBack, onAdd }: ArrowCategoryViewProps) {
       <button
         type="button"
         onClick={onBack}
-        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1"
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1 transition-transform duration-150 active:scale-[0.97]"
       >
         <span aria-hidden>‹</span>
         <span>Back</span>
       </button>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[13px] font-semibold text-text">Arrows</div>
+        <div className="text-[13px] font-semibold text-text text-balance">Arrows</div>
         <div className="text-[10px] text-text-dim">{catalog ? `${totalCount} total` : '…'}</div>
       </div>
       <div className="mb-3">
@@ -981,12 +981,12 @@ function ArrowCategoryView({ onBack, onAdd }: ArrowCategoryViewProps) {
                   <button
                     type="button"
                     onClick={() => setRenderLimit((n) => n + 96)}
-                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text transition-transform duration-150 active:scale-[0.97]"
                   >
                     Show more ({source.arrows.length - renderLimit} remaining)
                   </button>
                 )}
-                <div className="text-[10px] text-text-dim mt-1.5 leading-snug">
+                <div className="text-[10px] text-text-dim mt-1.5 leading-snug text-pretty">
                   By{' '}
                   <a
                     href={source.attributionUrl}
@@ -1034,10 +1034,10 @@ function ArrowTile({ source, name, color, onClick }: ArrowTileProps) {
       type="button"
       onClick={onClick}
       title={name}
-      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {dataUrl ? (
-        <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain" />
+        <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain thumb-outline rounded-sm" />
       ) : (
         <span className="w-3 h-3 rounded-full bg-border" aria-hidden />
       )}
@@ -1152,13 +1152,13 @@ function BlobCategoryView({ onBack, onAdd }: BlobCategoryViewProps) {
       <button
         type="button"
         onClick={onBack}
-        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1"
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1 transition-transform duration-150 active:scale-[0.97]"
       >
         <span aria-hidden>‹</span>
         <span>Back</span>
       </button>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[13px] font-semibold text-text">Blobs</div>
+        <div className="text-[13px] font-semibold text-text text-balance">Blobs</div>
         <div className="text-[10px] text-text-dim">{catalog ? `${totalCount} total` : '…'}</div>
       </div>
       <div className="mb-3">
@@ -1189,12 +1189,12 @@ function BlobCategoryView({ onBack, onAdd }: BlobCategoryViewProps) {
                   <button
                     type="button"
                     onClick={() => setRenderLimit((n) => n + 96)}
-                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                    className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text transition-transform duration-150 active:scale-[0.97]"
                   >
                     Show more ({source.blobs.length - renderLimit} remaining)
                   </button>
                 )}
-                <div className="text-[10px] text-text-dim mt-1.5 leading-snug">
+                <div className="text-[10px] text-text-dim mt-1.5 leading-snug text-pretty">
                   By{' '}
                   <a
                     href={source.attributionUrl}
@@ -1242,10 +1242,10 @@ function BlobTile({ source, name, color, onClick }: BlobTileProps) {
       type="button"
       onClick={onClick}
       title={name}
-      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {dataUrl ? (
-        <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain" />
+        <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain thumb-outline rounded-sm" />
       ) : (
         <span className="w-3 h-3 rounded-full bg-border" aria-hidden />
       )}
@@ -1260,9 +1260,9 @@ function ShapeTile({ shape, color, onClick }: { shape: ShapeDef; color: string; 
       type="button"
       onClick={onClick}
       title={shape.label}
-      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
-      <img src={dataUrl} alt={shape.label} className="block w-2/3 h-2/3 object-contain" />
+      <img src={dataUrl} alt={shape.label} className="block w-2/3 h-2/3 object-contain thumb-outline rounded-sm" />
     </button>
   );
 }
@@ -1357,13 +1357,13 @@ function IconCategoryView({ onBack, onAdd }: IconCategoryViewProps) {
       <button
         type="button"
         onClick={onBack}
-        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1"
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1 transition-transform duration-150 active:scale-[0.97]"
       >
         <span aria-hidden>‹</span>
         <span>Back</span>
       </button>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[13px] font-semibold text-text">Icons</div>
+        <div className="text-[13px] font-semibold text-text text-balance">Icons</div>
         <div className="text-[10px] text-text-dim">{catalog ? `${filtered.length} / ${catalog.length}` : '…'}</div>
       </div>
       <div className="mb-2">
@@ -1401,7 +1401,7 @@ function IconCategoryView({ onBack, onAdd }: IconCategoryViewProps) {
             <button
               type="button"
               onClick={() => setRenderLimit((n) => n + 96)}
-              className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+              className="w-full mt-2 py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text transition-transform duration-150 active:scale-[0.97]"
             >
               Show more ({filtered.length - renderLimit} remaining)
             </button>
@@ -1487,7 +1487,7 @@ function CategoryChips({
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="px-2 py-0.5 rounded-full text-[10px] border border-dashed border-border text-text-dim hover:text-text hover:border-accent/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="px-2 py-0.5 rounded-full text-[10px] border border-dashed border-border text-text-dim hover:text-text hover:border-accent/30 transition duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {isExpanded ? 'Less' : `+${rest.length} more`}
         </button>
@@ -1509,7 +1509,7 @@ function CategoryChip({
     <button
       type="button"
       onClick={onClick}
-      className={`px-2 py-0.5 rounded-full text-[10px] border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+      className={`px-2 py-0.5 rounded-full text-[10px] border transition duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         isActive
           ? 'bg-accent/15 border-accent/60 text-text'
           : 'bg-surface-2 border-border text-text-dim hover:text-text hover:border-accent/30'
@@ -1547,10 +1547,10 @@ function IconTile({ name, color, onClick }: IconTileProps) {
       type="button"
       onClick={onClick}
       title={name}
-      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {dataUrl ? (
-        <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain" />
+        <img src={dataUrl} alt={name} className="block w-2/3 h-2/3 object-contain thumb-outline rounded-sm" />
       ) : (
         <span className="w-3 h-3 rounded-full bg-border" aria-hidden />
       )}
@@ -1694,7 +1694,7 @@ function PlaceholderTile() {
 function ShapePreviewTile({ shapeId }: { shapeId: string }) {
   const svg = buildShapeSvg(shapeId, '#94a3b8');
   if (!svg) return <PlaceholderTile />;
-  return <img src={svgToDataUrl(svg)} alt={shapeId} className="block w-3/5 h-3/5 object-contain" />;
+  return <img src={svgToDataUrl(svg)} alt={shapeId} className="block w-3/5 h-3/5 object-contain thumb-outline rounded-sm" />;
 }
 
 // Mini preview of a Figma-sourced blob on the root Blobs card.
@@ -1717,7 +1717,7 @@ function BlobPreviewTile({ name }: { name: string }) {
     };
   }, [name]);
   return dataUrl ? (
-    <img src={dataUrl} alt={name} className="block w-3/5 h-3/5 object-contain" />
+    <img src={dataUrl} alt={name} className="block w-3/5 h-3/5 object-contain thumb-outline rounded-sm" />
   ) : (
     <PlaceholderTile />
   );
@@ -1740,7 +1740,7 @@ function HandyArrowPreviewTile({ name }: { name: string }) {
     };
   }, [name]);
   return dataUrl ? (
-    <img src={dataUrl} alt={name} className="block w-3/5 h-3/5 object-contain" />
+    <img src={dataUrl} alt={name} className="block w-3/5 h-3/5 object-contain thumb-outline rounded-sm" />
   ) : (
     <PlaceholderTile />
   );
@@ -1764,7 +1764,7 @@ function LucidePreviewTile({ name }: { name: string }) {
     };
   }, [name]);
   return dataUrl ? (
-    <img src={dataUrl} alt={name} className="block w-3/5 h-3/5 object-contain" />
+    <img src={dataUrl} alt={name} className="block w-3/5 h-3/5 object-contain thumb-outline rounded-sm" />
   ) : (
     <PlaceholderTile />
   );

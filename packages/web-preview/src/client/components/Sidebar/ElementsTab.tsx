@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { Section } from '../Controls/Section';
@@ -101,18 +102,28 @@ export function ElementsTab() {
   return (
     <>
       {dialog}
-      {view === 'root' ? (
-        <RootView
-          onPickCategory={setView}
-          onUploadImage={() => rootFileInputRef.current?.click()}
-        />
-      ) : (
-        <CategoryView
-          category={view}
-          onBack={() => setView('root')}
-          onAdd={addOverlayFromItem}
-        />
-      )}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={view}
+          initial={{ opacity: 0, x: view === 'root' ? -16 : 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: view === 'root' ? -16 : 16, transition: { duration: 0.15, ease: 'easeIn' } }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+        >
+          {view === 'root' ? (
+            <RootView
+              onPickCategory={setView}
+              onUploadImage={() => rootFileInputRef.current?.click()}
+            />
+          ) : (
+            <CategoryView
+              category={view}
+              onBack={() => setView('root')}
+              onAdd={addOverlayFromItem}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       <input
         ref={rootFileInputRef}
@@ -390,11 +401,27 @@ interface RootViewProps {
 function RootView({ onPickCategory, onUploadImage }: RootViewProps) {
   return (
     <Section title="Elements" tooltip="Pick a category, then choose an element to drop onto the canvas." defaultCollapsed={false}>
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <motion.div
+        className="grid grid-cols-2 gap-2 mb-3"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: {},
+          visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
+        }}
+      >
         {ROOT_CATEGORIES.map((cat) => (
-          <CategoryCard key={cat.id} category={cat} onClick={() => onPickCategory(cat.id)} />
+          <motion.div
+            key={cat.id}
+            variants={{
+              hidden: { opacity: 0, y: 14 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+            }}
+          >
+            <CategoryCard category={cat} onClick={() => onPickCategory(cat.id)} />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
       <button
         type="button"
         className="w-full py-2 text-xs bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text transition duration-150 active:scale-[0.97]"
@@ -451,18 +478,6 @@ const ROOT_CATEGORIES: CategoryDef[] = [
     ],
   },
   {
-    id: 'decor',
-    label: 'Decor',
-    preview: [
-      <PlaceholderTile key="1" />,
-      <PlaceholderTile key="2" />,
-      <PlaceholderTile key="3" />,
-      <PlaceholderTile key="4" />,
-      <PlaceholderTile key="5" />,
-      <PlaceholderTile key="6" />,
-    ],
-  },
-  {
     id: 'blobs',
     label: 'Blobs',
     preview: [
@@ -474,18 +489,6 @@ const ROOT_CATEGORIES: CategoryDef[] = [
       <BlobPreviewTile key="19" name="blob-19" />,
     ],
   },
-  {
-    id: 'stars',
-    label: 'Stars',
-    preview: [
-      <PreviewStarRating key="1" />,
-      <PreviewStarRating key="2" />,
-      <PreviewStarRating key="3" />,
-      <PreviewStarRating key="4" />,
-      <PreviewStarRating key="5" />,
-      <PreviewStarRating key="6" />,
-    ],
-  },
 ];
 
 function CategoryCard({ category, onClick }: { category: CategoryDef; onClick: () => void }) {
@@ -493,7 +496,7 @@ function CategoryCard({ category, onClick }: { category: CategoryDef; onClick: (
     <button
       type="button"
       onClick={onClick}
-      className="text-left rounded-lg bg-surface-2 surface-card surface-card-hover p-2.5 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="h-full w-full text-left rounded-lg bg-surface-2 surface-card surface-card-hover p-2.5 hover:bg-surface-2/80 transition duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div className="grid grid-cols-3 gap-1 mb-2">
         {category.preview.map((node, i) => (

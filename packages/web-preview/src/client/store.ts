@@ -1071,7 +1071,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   previewW: 400,
   previewH: 868,
   selectedScreen: 0,
-  activeTab: 'background',
+  activeTab: (() => {
+    if (typeof window === 'undefined') return 'background';
+    return window.localStorage.getItem('appframe.activeTab') ?? 'background';
+  })(),
   locale: 'default',
   previewBg: 'dark',
   renderVersion: 0,
@@ -1096,7 +1099,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   setPlatform: (platform) => set({ platform }),
   setPreviewSize: (w, h) => set({ previewW: w, previewH: h }),
   setSelectedScreen: (index) => set({ selectedScreen: index }),
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  setActiveTab: (tab) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('appframe.activeTab', tab);
+    }
+    set({ activeTab: tab });
+  },
   setLocale: (locale) => set({ locale }),
   upsertLocaleConfig: (locale, localeConfig) =>
     set((state) => ({

@@ -515,6 +515,7 @@ export function useInstantPatch() {
         shapeColor?: string;
         shapeOpacity?: number;
         shapeBlur?: number;
+        layer?: 'front' | 'default' | 'behind-text';
       },
     ) => {
       const doc = getDoc();
@@ -534,6 +535,9 @@ export function useInstantPatch() {
       item.style.height = `${sizePx}px`;
       item.style.transform = `rotate(${overlay.rotation}deg)`;
       item.style.opacity = String(overlay.opacity);
+      // Layer tier — front above all, behind-text under text but above device.
+      const layer = overlay.layer ?? 'default';
+      item.style.zIndex = layer === 'front' ? '20' : layer === 'behind-text' ? '1' : '10';
 
       // Shape-specific inner element styling.
       if (overlay.type === 'shape') {

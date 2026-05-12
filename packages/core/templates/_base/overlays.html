@@ -1,13 +1,17 @@
 {# Floating elements — shapes, star ratings, or custom images positioned on canvas.
-   Each item is hit-testable so it can be dragged. #}
+   Each item is hit-testable so it can be dragged. Layer maps to a z-index
+   tier — "behind-text" tucks below text (z:2) but above the device (z:1). #}
 {% for overlay in overlays %}
 {% set overlayIdx = loop.index0 %}
 {% set ovX = (canvasWidth * overlay.x / 100) | round %}
 {% set ovY = (canvasHeight * overlay.y / 100) | round %}
 {% set ovSize = (canvasWidth * overlay.size / 100) | round %}
+{% set ovZ = 10 %}
+{% if overlay.layer == 'front' %}{% set ovZ = 20 %}{% endif %}
+{% if overlay.layer == 'behind-text' %}{% set ovZ = 1 %}{% endif %}
 <div class="overlay-item" data-idx="{{ overlayIdx }}" style="
   position: absolute;
-  z-index: 10;
+  z-index: {{ ovZ }};
   left: {{ ovX }}px;
   top: {{ ovY }}px;
   width: {{ ovSize }}px;

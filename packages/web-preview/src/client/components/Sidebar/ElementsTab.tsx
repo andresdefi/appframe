@@ -188,6 +188,18 @@ export function ElementsTab() {
               onChange={(v) => updateOverlay(idx, { opacity: v / 100 })}
               onInstant={(v) => instantOverlay(idx, { opacity: v / 100 })}
             />
+            <Select
+              label="Layer"
+              value={ov.layer ?? 'default'}
+              onChange={(v) =>
+                updateOverlay(idx, { layer: v as NonNullable<Overlay['layer']> })
+              }
+              options={[
+                { value: 'front', label: 'Front (above everything)' },
+                { value: 'default', label: 'Default (above text)' },
+                { value: 'behind-text', label: 'Behind text' },
+              ]}
+            />
 
             {ov.type === 'shape' && (
               <>
@@ -248,9 +260,17 @@ export function ElementsTab() {
                     updateOverlay(idx, { shapeColor: v });
                     return;
                   }
-                  // iconRef format: "<source>:<name>". Only Lucide is wired
-                  // today; other sources will plug in alongside.
+                  // iconRef format: "<source>:<name>". Lucide icons need a
+                  // server fetch + recolour; geometric shapes regenerate
+                  // locally.
                   const [source, name] = ref.split(':');
+                  if (source === 'shape' && name) {
+                    const svg = buildShapeSvg(name, v);
+                    if (svg) {
+                      updateOverlay(idx, { shapeColor: v, imageDataUrl: svgToDataUrl(svg) });
+                      return;
+                    }
+                  }
                   if (source !== 'lucide' || !name) {
                     updateOverlay(idx, { shapeColor: v });
                     return;
@@ -358,9 +378,12 @@ const ROOT_CATEGORIES: CategoryDef[] = [
     id: 'shapes',
     label: 'Shapes',
     preview: [
-      <PreviewCircle key="c" />,
-      <PreviewRectangle key="r" />,
-      <PreviewArrow key="a" />,
+      <ShapePreviewTile key="circle" shapeId="circle" />,
+      <ShapePreviewTile key="hexagon" shapeId="hexagon" />,
+      <ShapePreviewTile key="star-5" shapeId="star-5" />,
+      <ShapePreviewTile key="pentagon" shapeId="pentagon" />,
+      <ShapePreviewTile key="starburst-8" shapeId="starburst-8" />,
+      <ShapePreviewTile key="rounded-square" shapeId="rounded-square" />,
     ],
   },
   {
@@ -368,8 +391,11 @@ const ROOT_CATEGORIES: CategoryDef[] = [
     label: 'Arrows',
     preview: [
       <PreviewArrow key="ar" />,
-      <PreviewArrow key="ad" rotate={45} />,
+      <PreviewArrow key="ad" rotate={90} />,
       <PreviewArrow key="al" rotate={180} />,
+      <PreviewArrow key="au" rotate={-90} />,
+      <PreviewArrow key="adr" rotate={45} />,
+      <PreviewArrow key="adl" rotate={-45} />,
     ],
   },
   {
@@ -379,22 +405,46 @@ const ROOT_CATEGORIES: CategoryDef[] = [
       <LucidePreviewTile key="camera" name="camera" />,
       <LucidePreviewTile key="heart" name="heart" />,
       <LucidePreviewTile key="bell" name="bell" />,
+      <LucidePreviewTile key="star" name="star" />,
+      <LucidePreviewTile key="search" name="search" />,
+      <LucidePreviewTile key="settings" name="settings" />,
     ],
   },
   {
     id: 'decor',
     label: 'Decor',
-    preview: [<PlaceholderTile key="1" />, <PlaceholderTile key="2" />, <PlaceholderTile key="3" />],
+    preview: [
+      <PlaceholderTile key="1" />,
+      <PlaceholderTile key="2" />,
+      <PlaceholderTile key="3" />,
+      <PlaceholderTile key="4" />,
+      <PlaceholderTile key="5" />,
+      <PlaceholderTile key="6" />,
+    ],
   },
   {
     id: 'blobs',
     label: 'Blobs',
-    preview: [<PlaceholderTile key="1" />, <PlaceholderTile key="2" />, <PlaceholderTile key="3" />],
+    preview: [
+      <PlaceholderTile key="1" />,
+      <PlaceholderTile key="2" />,
+      <PlaceholderTile key="3" />,
+      <PlaceholderTile key="4" />,
+      <PlaceholderTile key="5" />,
+      <PlaceholderTile key="6" />,
+    ],
   },
   {
     id: 'stars',
     label: 'Stars',
-    preview: [<PreviewStarRating key="1" />, <PreviewStarRating key="2" />, <PreviewStarRating key="3" />],
+    preview: [
+      <PreviewStarRating key="1" />,
+      <PreviewStarRating key="2" />,
+      <PreviewStarRating key="3" />,
+      <PreviewStarRating key="4" />,
+      <PreviewStarRating key="5" />,
+      <PreviewStarRating key="6" />,
+    ],
   },
 ];
 
@@ -409,7 +459,7 @@ function CategoryCard({ category, onClick }: { category: CategoryDef; onClick: (
         {category.preview.map((node, i) => (
           <div
             key={i}
-            className="aspect-square rounded bg-surface border border-border/40 flex items-center justify-center text-text-dim"
+            className="aspect-square flex items-center justify-center text-text-dim"
           >
             {node}
           </div>
@@ -431,6 +481,9 @@ interface CategoryViewProps {
 function CategoryView({ category, onBack, onAdd }: CategoryViewProps) {
   if (category === 'icons') {
     return <IconCategoryView onBack={onBack} onAdd={onAdd} />;
+  }
+  if (category === 'shapes') {
+    return <ShapeCategoryView onBack={onBack} onAdd={onAdd} />;
   }
   const items = CATALOGS[category];
   const isComingSoon = items.length === 0;
@@ -530,6 +583,222 @@ function recolorLucideSvg(svg: string, color: string): string {
 
 function svgToDataUrl(svg: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+// ---------- Geometric shape primitives (Shapes category) ----------
+// Regular polygons + a handful of common decorative primitives, all
+// generated from math. No asset files — the SVG is the same shape on every
+// call, so quality control is trivial. Each generator returns the SVG
+// markup inside a 100×100 viewBox; the wrapper applies the chosen colour.
+
+function regularPolygonPoints(sides: number, rotateDeg = -90, radius = 45): string {
+  const cx = 50;
+  const cy = 50;
+  const rotateRad = (rotateDeg * Math.PI) / 180;
+  const pts: string[] = [];
+  for (let i = 0; i < sides; i++) {
+    const angle = (Math.PI * 2 * i) / sides + rotateRad;
+    pts.push(`${(cx + radius * Math.cos(angle)).toFixed(2)},${(cy + radius * Math.sin(angle)).toFixed(2)}`);
+  }
+  return pts.join(' ');
+}
+
+function starPoints(points: number, outerR = 45, innerR = 20): string {
+  const cx = 50;
+  const cy = 50;
+  const total = points * 2;
+  const start = -Math.PI / 2;
+  const pts: string[] = [];
+  for (let i = 0; i < total; i++) {
+    const r = i % 2 === 0 ? outerR : innerR;
+    const angle = start + (Math.PI * 2 * i) / total;
+    pts.push(`${(cx + r * Math.cos(angle)).toFixed(2)},${(cy + r * Math.sin(angle)).toFixed(2)}`);
+  }
+  return pts.join(' ');
+}
+
+interface ShapeDef {
+  id: string;
+  label: string;
+  // The SVG markup inside the wrapper. `fill="currentColor"` so the
+  // outer template/styling can recolour without rewriting paths.
+  inner: () => string;
+}
+
+const SHAPE_LIBRARY: ShapeDef[] = [
+  { id: 'circle', label: 'Circle', inner: () => `<circle cx="50" cy="50" r="45"/>` },
+  { id: 'square', label: 'Square', inner: () => `<rect x="5" y="5" width="90" height="90"/>` },
+  {
+    id: 'rounded-square',
+    label: 'Rounded square',
+    inner: () => `<rect x="5" y="5" width="90" height="90" rx="14"/>`,
+  },
+  {
+    id: 'pill',
+    label: 'Pill',
+    inner: () => `<rect x="5" y="32" width="90" height="36" rx="18"/>`,
+  },
+  {
+    id: 'ellipse',
+    label: 'Ellipse',
+    inner: () => `<ellipse cx="50" cy="50" rx="45" ry="28"/>`,
+  },
+  {
+    id: 'triangle',
+    label: 'Triangle',
+    inner: () => `<polygon points="${regularPolygonPoints(3)}"/>`,
+  },
+  {
+    id: 'diamond',
+    label: 'Diamond',
+    inner: () => `<polygon points="${regularPolygonPoints(4)}"/>`,
+  },
+  {
+    id: 'pentagon',
+    label: 'Pentagon',
+    inner: () => `<polygon points="${regularPolygonPoints(5)}"/>`,
+  },
+  {
+    id: 'hexagon',
+    label: 'Hexagon',
+    inner: () => `<polygon points="${regularPolygonPoints(6)}"/>`,
+  },
+  {
+    id: 'heptagon',
+    label: 'Heptagon',
+    inner: () => `<polygon points="${regularPolygonPoints(7)}"/>`,
+  },
+  {
+    id: 'octagon',
+    label: 'Octagon',
+    inner: () => `<polygon points="${regularPolygonPoints(8)}"/>`,
+  },
+  {
+    id: 'star-4',
+    label: '4-point star',
+    inner: () => `<polygon points="${starPoints(4, 45, 18)}"/>`,
+  },
+  {
+    id: 'star-5',
+    label: '5-point star',
+    inner: () => `<polygon points="${starPoints(5)}"/>`,
+  },
+  {
+    id: 'star-6',
+    label: '6-point star',
+    inner: () => `<polygon points="${starPoints(6, 45, 22)}"/>`,
+  },
+  {
+    id: 'starburst-8',
+    label: '8-point burst',
+    inner: () => `<polygon points="${starPoints(8, 45, 28)}"/>`,
+  },
+  {
+    id: 'starburst-12',
+    label: '12-point burst',
+    inner: () => `<polygon points="${starPoints(12, 45, 32)}"/>`,
+  },
+  {
+    id: 'plus',
+    label: 'Plus',
+    // Cross of two rectangles meeting in the middle.
+    inner: () => `<path d="M40 5h20v35h35v20h-35v35h-20v-35h-35v-20h35z"/>`,
+  },
+  {
+    id: 'heart',
+    label: 'Heart',
+    inner: () =>
+      `<path d="M50 88 C 8 60 8 22 30 22 C 42 22 50 32 50 32 C 50 32 58 22 70 22 C 92 22 92 60 50 88 Z"/>`,
+  },
+  {
+    id: 'speech-bubble',
+    label: 'Speech bubble',
+    inner: () =>
+      `<path d="M10 18 H90 A6 6 0 0 1 96 24 V60 A6 6 0 0 1 90 66 H40 L24 84 V66 H10 A6 6 0 0 1 4 60 V24 A6 6 0 0 1 10 18 Z"/>`,
+  },
+  {
+    id: 'arrow-tag',
+    label: 'Arrow tag',
+    // Rectangle with a notch cut out of the right side — quick "ribbon" look.
+    inner: () => `<polygon points="5,20 70,20 95,50 70,80 5,80"/>`,
+  },
+];
+
+const SHAPE_LIBRARY_BY_ID: Record<string, ShapeDef> = Object.fromEntries(
+  SHAPE_LIBRARY.map((s) => [s.id, s]),
+);
+
+function buildShapeSvg(id: string, color: string): string | null {
+  const def = SHAPE_LIBRARY_BY_ID[id];
+  if (!def) return null;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="${color}">${def.inner()}</svg>`;
+}
+
+interface ShapeCategoryViewProps {
+  onBack: () => void;
+  onAdd: (item: CatalogItem) => void;
+}
+
+function ShapeCategoryView({ onBack, onAdd }: ShapeCategoryViewProps) {
+  const [color, setColor] = useState('#6366f1');
+
+  const handleAdd = (shape: ShapeDef) => {
+    const svg = buildShapeSvg(shape.id, color);
+    if (!svg) return;
+    const dataUrl = svgToDataUrl(svg);
+    const item: CatalogItem = {
+      id: `shape-${shape.id}`,
+      label: shape.label,
+      preview: <span />,
+      build: () => ({
+        type: 'icon',
+        imageDataUrl: dataUrl,
+        iconRef: `shape:${shape.id}`,
+        shapeColor: color,
+        size: 15,
+      }),
+    };
+    onAdd(item);
+  };
+
+  return (
+    <Section title="" defaultCollapsed={false}>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-text-dim hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1"
+      >
+        <span aria-hidden>‹</span>
+        <span>Back</span>
+      </button>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[13px] font-semibold text-text">Shapes</div>
+        <div className="text-[10px] text-text-dim">{SHAPE_LIBRARY.length} primitives</div>
+      </div>
+      <div className="mb-3">
+        <ColorPicker label="Shape color" value={color} onChange={setColor} />
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {SHAPE_LIBRARY.map((shape) => (
+          <ShapeTile key={shape.id} shape={shape} color={color} onClick={() => handleAdd(shape)} />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function ShapeTile({ shape, color, onClick }: { shape: ShapeDef; color: string; onClick: () => void }) {
+  const dataUrl = svgToDataUrl(buildShapeSvg(shape.id, color) ?? '');
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={shape.label}
+      className="aspect-square rounded-md border border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-2/80 transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      <img src={dataUrl} alt={shape.label} className="block w-2/3 h-2/3 object-contain" />
+    </button>
+  );
 }
 
 interface IconCategoryViewProps {
@@ -953,6 +1222,13 @@ function PlaceholderTile() {
   return (
     <div className="w-3 h-3 rounded-full bg-border" aria-hidden />
   );
+}
+
+// Mini preview of a geometric shape primitive on the root Shapes card.
+function ShapePreviewTile({ shapeId }: { shapeId: string }) {
+  const svg = buildShapeSvg(shapeId, '#94a3b8');
+  if (!svg) return <PlaceholderTile />;
+  return <img src={svgToDataUrl(svg)} alt={shapeId} className="block w-3/5 h-3/5 object-contain" />;
 }
 
 // Tiny tile that fetches a single Lucide icon and renders it as a preview.

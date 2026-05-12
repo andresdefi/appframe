@@ -172,6 +172,10 @@ export const overlaySchema = z.object({
   shapeColor: hexColor.optional(),
   shapeOpacity: z.number().min(0).max(1).optional(),
   shapeBlur: z.number().min(0).max(30).optional(),
+  // Stacking tier. "front" sits above everything, "default" sits above the
+  // device + text (current behavior), "behind-text" tucks the element under
+  // text but still above the device frame.
+  layer: z.enum(['front', 'default', 'behind-text']).optional(),
 });
 export type Overlay = z.infer<typeof overlaySchema>;
 

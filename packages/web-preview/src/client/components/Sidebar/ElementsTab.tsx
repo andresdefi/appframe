@@ -198,6 +198,28 @@ export function ElementsTab() {
                 { value: 'front', label: 'Front (above everything)' },
                 { value: 'default', label: 'Default (above text)' },
                 { value: 'behind-text', label: 'Behind text' },
+                { value: 'behind-device', label: 'Behind device' },
+              ]}
+            />
+            <Select
+              label="Blend mode"
+              value={ov.blendMode ?? 'normal'}
+              onChange={(v) =>
+                updateOverlay(idx, { blendMode: v as NonNullable<Overlay['blendMode']> })
+              }
+              options={[
+                { value: 'normal', label: 'Normal' },
+                { value: 'multiply', label: 'Multiply (darken through)' },
+                { value: 'screen', label: 'Screen (lighten through)' },
+                { value: 'overlay', label: 'Overlay' },
+                { value: 'soft-light', label: 'Soft light' },
+                { value: 'hard-light', label: 'Hard light' },
+                { value: 'darken', label: 'Darken' },
+                { value: 'lighten', label: 'Lighten' },
+                { value: 'color-dodge', label: 'Color dodge' },
+                { value: 'color-burn', label: 'Color burn' },
+                { value: 'difference', label: 'Difference' },
+                { value: 'exclusion', label: 'Exclusion' },
               ]}
             />
 

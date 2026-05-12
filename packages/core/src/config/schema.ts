@@ -172,10 +172,29 @@ export const overlaySchema = z.object({
   shapeColor: hexColor.optional(),
   shapeOpacity: z.number().min(0).max(1).optional(),
   shapeBlur: z.number().min(0).max(30).optional(),
-  // Stacking tier. "front" sits above everything, "default" sits above the
-  // device + text (current behavior), "behind-text" tucks the element under
-  // text but still above the device frame.
-  layer: z.enum(['front', 'default', 'behind-text']).optional(),
+  // Stacking tier. "front" sits above everything, "default" sits above
+  // device + text (current behavior), "behind-text" sits under text but
+  // still above the device frame, and "behind-device" tucks under the
+  // device frame while remaining above the canvas background.
+  layer: z.enum(['front', 'default', 'behind-text', 'behind-device']).optional(),
+  // CSS mix-blend-mode applied to the overlay wrapper. Lets blobs / shapes
+  // blend with the canvas background (multiply, screen, overlay, etc.).
+  blendMode: z
+    .enum([
+      'normal',
+      'multiply',
+      'screen',
+      'overlay',
+      'soft-light',
+      'hard-light',
+      'darken',
+      'lighten',
+      'color-dodge',
+      'color-burn',
+      'difference',
+      'exclusion',
+    ])
+    .optional(),
 });
 export type Overlay = z.infer<typeof overlaySchema>;
 

@@ -9,6 +9,7 @@
 {% set ovZ = 10 %}
 {% if overlay.layer == 'front' %}{% set ovZ = 20 %}{% endif %}
 {% if overlay.layer == 'behind-text' %}{% set ovZ = 1 %}{% endif %}
+{% if overlay.layer == 'behind-device' %}{% set ovZ = 0 %}{% endif %}
 <div class="overlay-item" data-idx="{{ overlayIdx }}" style="
   position: absolute;
   z-index: {{ ovZ }};
@@ -20,6 +21,7 @@
   opacity: {{ overlay.opacity }};
   pointer-events: auto;
   cursor: move;
+  {% if overlay.blendMode and overlay.blendMode != 'normal' %}mix-blend-mode: {{ overlay.blendMode }};{% endif %}
 ">
   {% if overlay.type == 'shape' %}
     {% if overlay.shapeType == 'circle' %}

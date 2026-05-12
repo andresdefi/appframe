@@ -515,7 +515,8 @@ export function useInstantPatch() {
         shapeColor?: string;
         shapeOpacity?: number;
         shapeBlur?: number;
-        layer?: 'front' | 'default' | 'behind-text';
+        layer?: 'front' | 'default' | 'behind-text' | 'behind-device';
+        blendMode?: string;
       },
     ) => {
       const doc = getDoc();
@@ -535,9 +536,20 @@ export function useInstantPatch() {
       item.style.height = `${sizePx}px`;
       item.style.transform = `rotate(${overlay.rotation}deg)`;
       item.style.opacity = String(overlay.opacity);
-      // Layer tier — front above all, behind-text under text but above device.
+      // Layer tier — maps to z-index so the element stacks against the
+      // canvas: front (20) > default (10) > text (2) > behind-text (1) >
+      // device (1) > behind-device (0) > background (0).
       const layer = overlay.layer ?? 'default';
-      item.style.zIndex = layer === 'front' ? '20' : layer === 'behind-text' ? '1' : '10';
+      const zByLayer: Record<string, string> = {
+        front: '20',
+        default: '10',
+        'behind-text': '1',
+        'behind-device': '0',
+      };
+      item.style.zIndex = zByLayer[layer] ?? '10';
+      // Blend with canvas background. "normal" clears the property.
+      const blend = overlay.blendMode ?? 'normal';
+      item.style.mixBlendMode = blend === 'normal' ? '' : blend;
 
       // Shape-specific inner element styling.
       if (overlay.type === 'shape') {

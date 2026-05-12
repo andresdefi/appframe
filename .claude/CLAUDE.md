@@ -44,6 +44,9 @@ The 2026-04-20 pass reviewed the Platform / Screenshot / Device Frame / Device L
 - **Download (Export) tab** — current state: Download current screen + Download all N. Needs pass to check per-size/per-locale options, progress UX, and whether file naming makes sense.
 - **Panoramic mode** — entire mode untouched this session. Sidebar tabs differ (`PanoramicTab`, `PanoramicEffectsTab`). Inspect with the same lens.
 
+### Client-side export (deferred)
+The web UI currently exports via Playwright on the server. For a future hosted version of appframe, the export should move client-side (html-to-image style) to avoid per-export Chromium boots and server queue pressure. Full plan + phasing + open questions in `docs/client-side-export-plan.md`. Trigger to pick this up: hosted-version decision, or export speed becomes a top complaint.
+
 ### before.click gap list → editing primitives (task #16)
 Captured earlier: layer system, rich-text headlines, split / banded backgrounds, device bleed-off-canvas, multi-device collage, text-pattern backgrounds, z-order control. Pick the top 3–5 and scope a plan.
 

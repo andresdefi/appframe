@@ -179,6 +179,11 @@ export const overlaySchema = z.object({
   layer: z.enum(['front', 'default', 'behind-text', 'behind-device']).optional(),
   // CSS mix-blend-mode applied to the overlay wrapper. Lets blobs / shapes
   // blend with the canvas background (multiply, screen, overlay, etc.).
+  // Heavy CSS blur applied to the whole element. Lets a flat-color blob
+  // become an atmospheric glow at 80-150px+ — the modern Stripe/Coinbase
+  // background aesthetic. Distinct from the shape-internal shapeBlur
+  // (small range, shape-only).
+  softBlur: z.number().min(0).max(200).optional(),
   blendMode: z
     .enum([
       'normal',

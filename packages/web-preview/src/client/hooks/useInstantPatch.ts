@@ -517,6 +517,7 @@ export function useInstantPatch() {
         shapeBlur?: number;
         layer?: 'front' | 'default' | 'behind-text' | 'behind-device';
         blendMode?: string;
+        softBlur?: number;
       },
     ) => {
       const doc = getDoc();
@@ -530,10 +531,18 @@ export function useInstantPatch() {
       const canvasHeight = cRect.height;
 
       const sizePx = Math.round((canvasWidth * overlay.size) / 100);
-      item.style.left = `${Math.round((canvasWidth * overlay.x) / 100)}px`;
-      item.style.top = `${Math.round((canvasHeight * overlay.y) / 100)}px`;
-      item.style.width = `${sizePx}px`;
-      item.style.height = `${sizePx}px`;
+      const baseX = Math.round((canvasWidth * overlay.x) / 100);
+      const baseY = Math.round((canvasHeight * overlay.y) / 100);
+      // Grow the wrapper to give blur halo transparent room while keeping
+      // the visible content area = sizePx at the original (x, y).
+      const blurPad = Math.round((overlay.softBlur ?? 0) * 1.5);
+      const wrapperSize = sizePx + 2 * blurPad;
+      item.style.left = `${baseX - blurPad}px`;
+      item.style.top = `${baseY - blurPad}px`;
+      item.style.width = `${wrapperSize}px`;
+      item.style.height = `${wrapperSize}px`;
+      item.style.padding = blurPad > 0 ? `${blurPad}px` : '';
+      item.style.boxSizing = 'border-box';
       item.style.transform = `rotate(${overlay.rotation}deg)`;
       item.style.opacity = String(overlay.opacity);
       // Layer tier — maps to z-index so the element stacks against the
@@ -550,6 +559,9 @@ export function useInstantPatch() {
       // Blend with canvas background. "normal" clears the property.
       const blend = overlay.blendMode ?? 'normal';
       item.style.mixBlendMode = blend === 'normal' ? '' : blend;
+      // Heavy CSS blur — large values produce atmospheric glow blobs.
+      const softBlur = overlay.softBlur ?? 0;
+      item.style.filter = softBlur > 0 ? `blur(${softBlur}px)` : '';
 
       // Shape-specific inner element styling.
       if (overlay.type === 'shape') {

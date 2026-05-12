@@ -201,6 +201,15 @@ export function ElementsTab() {
                 { value: 'behind-device', label: 'Behind device' },
               ]}
             />
+            <RangeSlider
+              label="Soft blur"
+              value={ov.softBlur ?? 0}
+              min={0}
+              max={200}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => updateOverlay(idx, { softBlur: v })}
+              onInstant={(v) => instantOverlay(idx, { softBlur: v })}
+            />
             <Select
               label="Blend mode"
               value={ov.blendMode ?? 'normal'}

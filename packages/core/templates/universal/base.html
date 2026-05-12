@@ -59,6 +59,10 @@
       position: relative;
       overflow: hidden;
       background: {{ presetBackgroundCss | safe }};
+      /* Make the canvas a stacking-context / isolation root so element
+         mix-blend-mode values blend against the canvas content (background,
+         device, text) rather than the iframe document body. */
+      isolation: isolate;
     }
 
     {# === Decorative effects CSS === #}

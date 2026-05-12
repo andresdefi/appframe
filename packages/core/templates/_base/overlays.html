@@ -6,6 +6,14 @@
 {% set ovX = (canvasWidth * overlay.x / 100) | round %}
 {% set ovY = (canvasHeight * overlay.y / 100) | round %}
 {% set ovSize = (canvasWidth * overlay.size / 100) | round %}
+{# Soft-blur halo needs transparent room inside the wrapper or it
+   clips into a blurred rectangle. Grow the wrapper by 1.5× the blur
+   amount on each side and shift its origin to compensate, so the
+   visible content area stays at (ovX, ovY) with size ovSize. #}
+{% set blurPad = ((overlay.softBlur or 0) * 1.5) | round %}
+{% set wrapperX = ovX - blurPad %}
+{% set wrapperY = ovY - blurPad %}
+{% set wrapperSize = ovSize + 2 * blurPad %}
 {% set ovZ = 10 %}
 {% if overlay.layer == 'front' %}{% set ovZ = 20 %}{% endif %}
 {% if overlay.layer == 'behind-text' %}{% set ovZ = 1 %}{% endif %}
@@ -13,15 +21,18 @@
 <div class="overlay-item" data-idx="{{ overlayIdx }}" style="
   position: absolute;
   z-index: {{ ovZ }};
-  left: {{ ovX }}px;
-  top: {{ ovY }}px;
-  width: {{ ovSize }}px;
-  height: {{ ovSize }}px;
+  left: {{ wrapperX }}px;
+  top: {{ wrapperY }}px;
+  width: {{ wrapperSize }}px;
+  height: {{ wrapperSize }}px;
+  padding: {{ blurPad }}px;
+  box-sizing: border-box;
   transform: rotate({{ overlay.rotation }}deg);
   opacity: {{ overlay.opacity }};
   pointer-events: auto;
   cursor: move;
   {% if overlay.blendMode and overlay.blendMode != 'normal' %}mix-blend-mode: {{ overlay.blendMode }};{% endif %}
+  {% if overlay.softBlur %}filter: blur({{ overlay.softBlur }}px);{% endif %}
 ">
   {% if overlay.type == 'shape' %}
     {% if overlay.shapeType == 'circle' %}

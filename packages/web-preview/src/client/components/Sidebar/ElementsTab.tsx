@@ -400,7 +400,7 @@ interface RootViewProps {
 
 function RootView({ onPickCategory, onUploadImage }: RootViewProps) {
   return (
-    <Section title="Elements" tooltip="Pick a category, then choose an element to drop onto the canvas." defaultCollapsed={false}>
+    <div className="mx-3 mt-4 mb-4 px-1">
       <motion.div
         className="grid grid-cols-2 gap-2 mb-3"
         initial="hidden"
@@ -429,7 +429,7 @@ function RootView({ onPickCategory, onUploadImage }: RootViewProps) {
       >
         Upload custom image
       </button>
-    </Section>
+    </div>
   );
 }
 

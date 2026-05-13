@@ -2,7 +2,6 @@ import { useRef, useCallback } from 'react';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { usePreviewStore } from '../../store';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
-import { Section } from '../Controls/Section';
 import { ColorPicker } from '../Controls/ColorPicker';
 import { RangeSlider } from '../Controls/RangeSlider';
 import { Checkbox } from '../Controls/Checkbox';
@@ -100,9 +99,12 @@ export function DesignTab() {
   };
 
   return (
-    <>
-      <Section title="Background" tooltip="Pick a preset from any catalog below — Solid, Gradient, or Image. Each click applies immediately." defaultCollapsed={false}>
-        {/* Custom color picker — opens the HSV popover */}
+    <div className="mx-3 mt-4 mb-4 px-1">
+      {/* The entire Background tab IS the Background context — no need for
+          a wrapping "BACKGROUND" Section header. Content is rendered flush
+          with the tab; each subgroup (Solid / Gradient / Image / Customize)
+          gets its own inline title via BackgroundCategory or local divs. */}
+      {/* Custom color picker — opens the HSV popover */}
         <ColorPicker
           label="Custom color"
           value={screen.backgroundColor}
@@ -319,7 +321,6 @@ export function DesignTab() {
             </div>
           )}
         </div>
-      </Section>
-    </>
+    </div>
   );
 }

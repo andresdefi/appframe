@@ -40,9 +40,12 @@ Open-source tool for generating professional App Store & Play Store promotional 
 ## TODO
 
 ### Individual-mode UI inspection not yet done
-The 2026-04-20 pass reviewed the Platform / Screenshot / Device Frame / Device Layout / Device Shadow / Composition / Background / Text tabs end-to-end and landed a batch of fixes. A later session also inspected the **Extras tab** (spotlight / annotations / loupe / callouts / overlays). Still un-inspected in that depth:
-- **Download (Export) tab** — current state: Download current screen + Download all N. Needs pass to check per-size/per-locale options, progress UX, and whether file naming makes sense.
+The 2026-04-20 pass reviewed the Platform / Screenshot / Device Frame / Device Layout / Device Shadow / Composition / Background / Text tabs end-to-end and landed a batch of fixes. Later sessions inspected the **Extras** tab and audited / restructured the **Download (Export)** tab. Still un-inspected in that depth:
+- **Variants tab** — never deeply reviewed. The variant cards / grid + the approval / artifact flow.
 - **Panoramic mode** — entire mode untouched this session. Sidebar tabs differ (`PanoramicTab`, `PanoramicEffectsTab`). Inspect with the same lens.
+
+### Background catalog is intentionally local-only
+The Background tab ships with a curated catalog (50 solid colors + 66 gradients across Sunset / Ocean / Cosmic / Aurora / Vivid / Pastel / Glow / Mesh categories). Plus user image upload. **No Unsplash integration and no AI-generated backgrounds are planned** — those would balloon the scope (API keys, licensing, asset hosting, backend) without changing the core value-add. Power users who want photo backgrounds can upload their own.
 
 ### Client-side export (deferred)
 The web UI currently exports via Playwright on the server. For a future hosted version of appframe, the export should move client-side (html-to-image style) to avoid per-export Chromium boots and server queue pressure. Full plan + phasing + open questions in `docs/client-side-export-plan.md`. Trigger to pick this up: hosted-version decision, or export speed becomes a top complaint.

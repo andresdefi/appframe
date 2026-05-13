@@ -47,6 +47,9 @@ The 2026-04-20 pass reviewed the Platform / Screenshot / Device Frame / Device L
 ### Client-side export (deferred)
 The web UI currently exports via Playwright on the server. For a future hosted version of appframe, the export should move client-side (html-to-image style) to avoid per-export Chromium boots and server queue pressure. Full plan + phasing + open questions in `docs/client-side-export-plan.md`. Trigger to pick this up: hosted-version decision, or export speed becomes a top complaint.
 
+### Multi-locale screenshot sets (deferred)
+The current locale model is text-overlay only (one shared `screens` array, headlines swapped per locale) and relies on an OpenAI translation backend. The desired model: independent screen sets per locale, each with its own device screenshots and copy. The Locale dropdown in the Export tab has been hidden until this lands. Full plan + data-model change + phased rollout in `docs/multi-locale-screenshot-sets.md`. Couples naturally with the client-side-export work since both touch the rendering pipeline.
+
 ### before.click gap list → editing primitives (task #16)
 Captured earlier: layer system, rich-text headlines, split / banded backgrounds, device bleed-off-canvas, multi-device collage, text-pattern backgrounds, z-order control. Pick the top 3–5 and scope a plan.
 

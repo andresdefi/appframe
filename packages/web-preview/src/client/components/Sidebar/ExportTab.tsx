@@ -382,17 +382,6 @@ export function ExportTab() {
         </button>
       </Section>
 
-      {availableLocales.length > 1 && (
-        <Section title="Locale" tooltip="Select the language for localized previews and exports. Session translations are used immediately, and imported project locales remain available.">
-          <Select
-            label="Language"
-            value={locale}
-            onChange={handleLocaleChange}
-            options={localeOptions}
-          />
-        </Section>
-      )}
-
       <Section title="Preview Background" tooltip="Change the editor background color. This does not affect exported images.">
         <div className="flex gap-3">
           {(['dark', 'light'] as const).map((bg) => (

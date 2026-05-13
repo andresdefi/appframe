@@ -24,17 +24,17 @@ export function Section({ title, children, hidden, tooltip, defaultCollapsed = t
   if (hidden) return null;
 
   return (
-    <div className="mx-3 my-1.5 first:mt-3 last:mb-3">
+    <div className="mx-3 mt-5 mb-1 first:mt-4 last:mb-4">
       {title && (
         <button
-          className="w-full flex items-center gap-2.5 px-4 py-3 rounded-3xl bg-surface-2 surface-card surface-card-hover text-left cursor-pointer transition duration-150 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="group w-full flex items-center gap-2 px-2 py-1.5 mb-1.5 -mx-1 text-left cursor-pointer transition-colors hover:bg-surface-2/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md"
           onClick={() => setCollapsed(!collapsed)}
           aria-expanded={!collapsed}
         >
-          <span className="flex-1 text-[12px] font-medium text-text text-balance">{title}</span>
+          <span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-dim group-hover:text-text transition-colors text-balance">{title}</span>
           {tooltip && (
             <span
-              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-border text-[9px] text-text-dim cursor-help leading-none shrink-0"
+              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-surface-2 text-[9px] text-text-dim cursor-help leading-none shrink-0"
               title={tooltip}
               onClick={(e) => e.stopPropagation()}
               aria-label={tooltip}
@@ -43,7 +43,7 @@ export function Section({ title, children, hidden, tooltip, defaultCollapsed = t
             </span>
           )}
           <svg
-            className={`w-3.5 h-3.5 text-text-dim shrink-0 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`}
+            className={`w-3.5 h-3.5 text-text-dim group-hover:text-text shrink-0 transition-all duration-200 ${collapsed ? '' : 'rotate-180'}`}
             viewBox="0 0 12 12"
             fill="none"
             aria-hidden="true"
@@ -61,7 +61,7 @@ export function Section({ title, children, hidden, tooltip, defaultCollapsed = t
         }}
         aria-hidden={collapsed}
       >
-        <div className="px-1 pt-3 pb-1">
+        <div className="px-1 pb-1">
           {children}
         </div>
       </div>

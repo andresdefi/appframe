@@ -12,14 +12,23 @@ interface SectionProps {
 
 export function Section({ title, children, hidden, tooltip, defaultCollapsed = true }: SectionProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
-  const contentRef = useRef<HTMLDivElement>(null);
+  // The inner unconstrained wrapper — observed for size changes.
+  // The outer (clip) wrapper has maxHeight bound to contentHeight, so its
+  // own size doesn't react to inner growth and observing it would never fire.
+  const innerRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | undefined>(undefined);
 
   useEffect(() => {
-    if (contentRef.current && !collapsed) {
-      setContentHeight(contentRef.current.scrollHeight);
-    }
-  }, [children, collapsed]);
+    if (collapsed || !innerRef.current) return;
+    const el = innerRef.current;
+    setContentHeight(el.scrollHeight);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      setContentHeight(el.scrollHeight);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [collapsed, children]);
 
   if (hidden) return null;
 
@@ -53,7 +62,6 @@ export function Section({ title, children, hidden, tooltip, defaultCollapsed = t
         </button>
       )}
       <div
-        ref={contentRef}
         className="overflow-hidden transition-all duration-200 ease-in-out"
         style={{
           maxHeight: collapsed ? 0 : contentHeight ?? 'none',
@@ -61,7 +69,7 @@ export function Section({ title, children, hidden, tooltip, defaultCollapsed = t
         }}
         aria-hidden={collapsed}
       >
-        <div className="px-1 pb-1">
+        <div ref={innerRef} className="px-1 pb-1">
           {children}
         </div>
       </div>

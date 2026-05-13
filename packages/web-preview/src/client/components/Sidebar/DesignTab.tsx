@@ -7,14 +7,9 @@ import { ColorPicker } from '../Controls/ColorPicker';
 import { RangeSlider } from '../Controls/RangeSlider';
 import { Checkbox } from '../Controls/Checkbox';
 import { Select } from '../Controls/Select';
+import { BackgroundCategory } from '../Controls/BackgroundCategory';
 import { SOLID_PRESETS, GRADIENT_PRESETS } from '../../utils/presets';
-import type { BackgroundType } from '../../types';
-
-const BG_TYPES: { value: BackgroundType; label: string }[] = [
-  { value: 'solid', label: 'Solid' },
-  { value: 'gradient', label: 'Gradient' },
-  { value: 'image', label: 'Image' },
-];
+import type { GradientPreset } from '../../utils/presets';
 
 const RADIAL_POSITIONS = [
   { value: 'center', label: 'Center' },
@@ -23,6 +18,14 @@ const RADIAL_POSITIONS = [
   { value: 'left', label: 'Left' },
   { value: 'right', label: 'Right' },
 ];
+
+function gradientToCss(p: GradientPreset): string {
+  const colors = p.colors.join(', ');
+  if (p.type === 'radial') {
+    return `radial-gradient(circle at ${p.radialPosition ?? 'center'}, ${colors})`;
+  }
+  return `linear-gradient(${p.direction}deg, ${colors})`;
+}
 
 export function DesignTab() {
   const { screen, update } = useCurrentScreen();
@@ -55,6 +58,8 @@ export function DesignTab() {
   // for UI purposes so the radios match one option.
   const bgType = screen.backgroundType === 'preset' ? 'solid' : screen.backgroundType;
   const uiMode = bgType;
+  const currentColor = screen.backgroundColor;
+  const isCurrentSolid = uiMode === 'solid';
 
   const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -62,12 +67,27 @@ export function DesignTab() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
-      // Use getState() to avoid stale closure in the async callback
       const { selectedScreen, updateScreen } = usePreviewStore.getState();
       updateScreen(selectedScreen, { backgroundImageDataUrl: dataUrl });
     };
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  const applySolidPreset = (hex: string) => {
+    update({ backgroundType: 'solid', backgroundColor: hex });
+  };
+
+  const applyGradientPreset = (preset: GradientPreset) => {
+    update({
+      backgroundType: 'gradient',
+      backgroundGradient: {
+        type: preset.type ?? 'linear',
+        colors: [...preset.colors],
+        direction: preset.direction,
+        radialPosition: preset.radialPosition ?? 'center',
+      },
+    });
   };
 
   const addGradientStop = () => {
@@ -81,64 +101,66 @@ export function DesignTab() {
 
   return (
     <>
-      <Section title="Background" tooltip="Choose between solid colors, gradients, images, or template presets for your screenshot background." defaultCollapsed={false}>
-        {/* Background type radio */}
-        <div className="flex gap-3 mb-2.5">
-          {BG_TYPES.map((bt) => (
-            <label key={bt.value} className="text-xs text-text-dim cursor-pointer flex items-center gap-1">
-              <input
-                type="radio"
-                name="bg-type"
-                value={bt.value}
-                checked={uiMode === bt.value}
-                onChange={() => update({ backgroundType: bt.value })}
-                className="accent-accent"
+      <Section title="Background" tooltip="Pick a preset from any catalog below — Solid, Gradient, or Image. Each click applies immediately." defaultCollapsed={false}>
+        {/* Custom color picker — opens the HSV popover */}
+        <ColorPicker
+          label="Custom color"
+          value={screen.backgroundColor}
+          onChange={(v) => update({ backgroundType: 'solid', backgroundColor: v })}
+          onInstant={instantBgColor}
+        />
+
+        {/* Solid catalog */}
+        <BackgroundCategory
+          name="Solid"
+          items={SOLID_PRESETS}
+          initialCount={5}
+          renderTile={(hex) => {
+            const selected = isCurrentSolid && currentColor.toLowerCase() === hex.toLowerCase();
+            return (
+              <button
+                key={hex}
+                type="button"
+                className={`aspect-square rounded-md transition-all duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent thumb-outline ${
+                  selected ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : 'hover:scale-[1.06]'
+                }`}
+                style={{ background: hex }}
+                title={hex}
+                aria-label={`Solid ${hex}`}
+                aria-pressed={selected}
+                onClick={() => applySolidPreset(hex)}
               />
-              {bt.label}
-            </label>
-          ))}
-        </div>
+            );
+          }}
+        />
 
-        {/* Solid color controls */}
-        {uiMode === 'solid' && (
-          <ColorPicker
-            label="Color"
-            value={screen.backgroundColor}
-            onChange={(v) => update({ backgroundColor: v })}
-            onInstant={instantBgColor}
-            presets={SOLID_PRESETS}
-          />
-        )}
+        {/* Gradient catalog */}
+        <BackgroundCategory
+          name="Gradient"
+          items={GRADIENT_PRESETS}
+          initialCount={5}
+          renderTile={(preset) => {
+            const css = gradientToCss(preset);
+            return (
+              <button
+                key={preset.name}
+                type="button"
+                className="aspect-square rounded-lg transition-all duration-150 active:scale-[0.95] hover:scale-[1.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent thumb-outline"
+                style={{ background: css }}
+                title={preset.name}
+                aria-label={`Apply ${preset.name} gradient`}
+                onClick={() => applyGradientPreset(preset)}
+              />
+            );
+          }}
+        />
 
-        {/* Gradient controls */}
+        {/* Customize Gradient — sits between Gradient catalog and Image,
+            only when a gradient bg is active. Inlined under a small title
+            so it doesn't need a separate Section. */}
         {uiMode === 'gradient' && (
-          <>
-            {/* Gradient presets */}
-            <div className="flex flex-wrap gap-1 mb-2">
-              {GRADIENT_PRESETS.map((preset) => (
-                <button
-                  key={preset.name}
-                  className="w-8 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent focus:outline-none"
-                  style={{
-                    background: `linear-gradient(${preset.direction}deg, ${preset.colors.join(', ')})`,
-                  }}
-                  title={preset.name}
-                  aria-label={`Apply ${preset.name} gradient`}
-                  onClick={() =>
-                    update({
-                      backgroundGradient: {
-                        type: 'linear',
-                        colors: [...preset.colors],
-                        direction: preset.direction,
-                        radialPosition: 'center',
-                      },
-                    })
-                  }
-                />
-              ))}
-            </div>
-
-            {/* Linear/Radial toggle */}
+          <div className="mb-5">
+            <div className="text-sm font-semibold text-text mb-2 px-1">Customize gradient</div>
             <div className="flex gap-3 mb-2">
               {(['linear', 'radial'] as const).map((t) => (
                 <label key={t} className="text-xs text-text-dim cursor-pointer flex items-center gap-1">
@@ -164,7 +186,7 @@ export function DesignTab() {
                 value={screen.backgroundGradient.direction}
                 min={0}
                 max={360}
-                formatValue={(v) => `${v}\u00B0`}
+                formatValue={(v) => `${v}°`}
                 onChange={(v) =>
                   update({
                     backgroundGradient: { ...screen.backgroundGradient, direction: v },
@@ -187,7 +209,6 @@ export function DesignTab() {
               />
             )}
 
-            {/* Color stops */}
             {screen.backgroundGradient.colors.map((color, i) => (
               <ColorPicker
                 key={i}
@@ -211,50 +232,54 @@ export function DesignTab() {
                 + Add Color Stop
               </button>
             )}
-          </>
+          </div>
         )}
 
-        {/* Image controls */}
-        {uiMode === 'image' && (
-          <>
-            {!screen.backgroundImageDataUrl && (
-              <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
-                Upload a custom image to use as the screenshot background. Supports PNG, JPEG, and WebP.
-              </p>
-            )}
+        {/* Image section — peer row with its own controls */}
+        <div className="mb-5">
+          <div className="text-sm font-semibold text-text mb-2 px-1">Image</div>
+          {!screen.backgroundImageDataUrl ? (
             <button
-              className="btn-secondary w-full text-xs mb-2"
+              className="btn-secondary w-full text-xs"
               onClick={() => bgImageInputRef.current?.click()}
             >
-              Upload Background Image
+              Upload background image
             </button>
-            <input
-              ref={bgImageInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              aria-label="Upload background image"
-              onChange={handleBgImageUpload}
-            />
-
-            {screen.backgroundImageDataUrl && (
-              <div className="mt-1.5">
+          ) : (
+            <>
+              <div className="relative">
                 <img
                   src={screen.backgroundImageDataUrl}
-                  className="w-full max-h-20 object-cover rounded-md border border-border"
+                  className="w-full max-h-24 object-cover rounded-xl thumb-outline"
                   alt="Background"
                 />
+              </div>
+              <div className="flex gap-1.5 mt-2">
                 <button
-                  className="btn-secondary w-full text-[11px] mt-1"
+                  className="btn-secondary flex-1 text-[11px]"
+                  onClick={() => bgImageInputRef.current?.click()}
+                >
+                  Replace
+                </button>
+                <button
+                  className="btn-secondary flex-1 text-[11px]"
                   onClick={() => update({ backgroundImageDataUrl: null })}
                 >
                   Remove
                 </button>
               </div>
-            )}
-
-            {/* Overlay */}
-            <div className="mt-2">
+            </>
+          )}
+          <input
+            ref={bgImageInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            aria-label="Upload background image"
+            onChange={handleBgImageUpload}
+          />
+          {uiMode === 'image' && (
+            <div className="mt-3">
               <Checkbox
                 label="Dim Overlay"
                 checked={!!screen.backgroundOverlay}
@@ -269,7 +294,7 @@ export function DesignTab() {
               {screen.backgroundOverlay && (
                 <>
                   <ColorPicker
-                    label="Color"
+                    label="Overlay color"
                     value={screen.backgroundOverlay.color}
                     onChange={(v) =>
                       update({
@@ -292,10 +317,9 @@ export function DesignTab() {
                 </>
               )}
             </div>
-          </>
-        )}
+          )}
+        </div>
       </Section>
-
     </>
   );
 }

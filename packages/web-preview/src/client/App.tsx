@@ -213,7 +213,7 @@ export function App() {
         id="editor-sidebar"
         className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex w-full md:w-80 md:min-w-80 max-h-[45vh] md:max-h-none bg-surface flex-col shrink-0 order-2 md:order-1 md:rounded-r-3xl overflow-hidden`}
       >
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {sidebarContent}
         </div>
       </div>

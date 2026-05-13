@@ -59,7 +59,7 @@ export function PreviewArea() {
   const effectiveScale = manualZoom ?? scale;
 
   return (
-    <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg">
+    <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg relative">
       <div className="flex-1 overflow-auto">
         <div className="flex items-center justify-center gap-4 p-6 min-w-min min-h-full">
           {screens.map((screen, i) => (
@@ -97,31 +97,43 @@ export function PreviewArea() {
           </button>
         </div>
       </div>
-      {/* Zoom control */}
-      <div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-surface">
-        <span className="text-[10px] text-text-dim">Zoom</span>
-        <input
-          type="range"
-          min={10}
-          max={150}
-          value={Math.round((manualZoom ?? scale) * 100)}
-          onChange={(e) => setManualZoom(parseInt(e.target.value, 10) / 100)}
-          className="flex-1 h-1 accent-accent"
-          aria-label="Zoom level"
-          aria-valuemin={10}
-          aria-valuemax={150}
-          aria-valuenow={Math.round((manualZoom ?? scale) * 100)}
-          aria-valuetext={`${Math.round((manualZoom ?? scale) * 100)}%`}
-        />
-        <span className="text-[10px] text-text-dim w-8 text-right">{Math.round((manualZoom ?? scale) * 100)}%</span>
-        <button
-          className={`text-[10px] transition-opacity ${manualZoom !== null ? 'text-text-dim hover:text-text' : 'text-text-dim/50 cursor-default'}`}
-          onClick={() => setManualZoom(null)}
-          disabled={manualZoom === null}
-          aria-label="Reset zoom to fit"
+      {/* Floating zoom pill — absolutely positioned at the bottom of
+          the canvas so it doesn't claim its own row. pointer-events
+          stay enabled on the pill itself; stopPropagation on each
+          control prevents global drag handlers from interpreting the
+          interaction as a canvas drag. z-30 sits above the screen
+          card's internal spinner (z-20). */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 pointer-events-none z-30">
+        <div
+          className="flex items-center gap-3 px-4 py-2 rounded-full bg-surface-2 surface-card w-full max-w-md pointer-events-auto"
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
-          Fit
-        </button>
+          <span className="text-[10px] text-text-dim shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={10}
+            max={150}
+            value={Math.round((manualZoom ?? scale) * 100)}
+            onChange={(e) => setManualZoom(parseInt(e.target.value, 10) / 100)}
+            className="flex-1 h-1 accent-accent"
+            aria-label="Zoom level"
+            aria-valuemin={10}
+            aria-valuemax={150}
+            aria-valuenow={Math.round((manualZoom ?? scale) * 100)}
+            aria-valuetext={`${Math.round((manualZoom ?? scale) * 100)}%`}
+          />
+          <span className="text-[10px] text-text-dim w-9 text-right shrink-0 tabular-nums">{Math.round((manualZoom ?? scale) * 100)}%</span>
+          <button
+            className={`text-[10px] transition-opacity shrink-0 ${manualZoom !== null ? 'text-text-dim hover:text-text' : 'text-text-dim/50 cursor-default'}`}
+            onClick={() => setManualZoom(null)}
+            disabled={manualZoom === null}
+            aria-label="Reset zoom to fit"
+          >
+            Fit
+          </button>
+        </div>
       </div>
     </div>
   );

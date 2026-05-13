@@ -39,7 +39,7 @@ export function HeaderBar({
   const themeToggleLabel = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 
   return (
-    <div className="w-full min-h-11 px-3 py-2 md:px-4 flex flex-wrap items-center gap-2 md:gap-4 border-b border-border bg-surface shrink-0">
+    <div className="w-full min-h-11 px-3 py-2 md:px-4 flex flex-wrap items-center gap-2 md:gap-4 shrink-0">
       {/* Left: branding */}
       <div className="flex items-center gap-2 min-w-0">
         {showSidebarToggle && (
@@ -61,15 +61,12 @@ export function HeaderBar({
           <span className="text-xs text-text-dim truncate">{config.app.name}</span>
         )}
         {activeVariant && (
-          <span className="hidden sm:inline-flex text-[10px] text-text-dim bg-surface-2 px-1.5 py-0.5 rounded whitespace-nowrap">
+          <span className="hidden sm:inline-flex text-[10px] text-text-dim bg-surface-2 px-2 py-0.5 rounded-md whitespace-nowrap">
             {activeVariant.name}
           </span>
         )}
-        <span className="hidden sm:inline-flex text-[10px] text-text-dim bg-surface-2 px-1.5 py-0.5 rounded whitespace-nowrap">
-          {currentMode}
-        </span>
         {!isPanoramic && screens.length > 0 && (
-          <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded whitespace-nowrap">
+          <span className="text-[10px] text-text-dim bg-surface-2 px-2 py-0.5 rounded-md whitespace-nowrap tabular-nums">
             {selectedScreen + 1}/{screens.length}
           </span>
         )}
@@ -120,31 +117,24 @@ export function HeaderBar({
           )}
         </button>
         <button
-          className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-            isPanoramic
-              ? 'border-accent/40 bg-accent/10 text-accent'
-              : 'border-border bg-bg text-text-dim hover:border-accent/30 hover:text-text'
-          }`}
+          className="inline-flex items-center justify-center w-7 h-7 rounded border border-border bg-bg text-text-dim hover:text-text hover:border-accent/30 transition duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={togglePanoramic}
           title={modeToggleLabel}
           aria-label={`${modeToggleLabel}. Current mode: ${currentMode}.`}
           data-current-mode={currentMode.toLowerCase()}
         >
-          <span className="w-3 h-3 flex items-center justify-center" aria-hidden="true">
-            {isPanoramic ? (
-              <svg viewBox="0 0 12 12" fill="none" className="w-full h-full" aria-hidden="true">
-                <rect x="0.5" y="2" width="11" height="8" rx="1" stroke="currentColor" strokeWidth="1"/>
-                <line x1="3" y1="2" x2="3" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1"/>
-                <line x1="6" y1="2" x2="6" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1"/>
-                <line x1="9" y1="2" x2="9" y2="10" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1"/>
-              </svg>
-            ) : (
-              <svg viewBox="0 0 12 12" fill="none" className="w-full h-full" aria-hidden="true">
-                <rect x="2" y="1" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1"/>
-              </svg>
-            )}
-          </span>
-          {modeToggleLabel}
+          {isPanoramic ? (
+            <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5" aria-hidden="true">
+              <rect x="1" y="3" width="14" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
+              <line x1="4.5" y1="3" x2="4.5" y2="13" stroke="currentColor" strokeWidth="0.75" strokeDasharray="1.25 1.25"/>
+              <line x1="8" y1="3" x2="8" y2="13" stroke="currentColor" strokeWidth="0.75" strokeDasharray="1.25 1.25"/>
+              <line x1="11.5" y1="3" x2="11.5" y2="13" stroke="currentColor" strokeWidth="0.75" strokeDasharray="1.25 1.25"/>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5" aria-hidden="true">
+              <rect x="3" y="1.5" width="10" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
+            </svg>
+          )}
         </button>
       </div>
     </div>

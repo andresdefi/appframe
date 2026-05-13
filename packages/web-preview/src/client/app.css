@@ -53,6 +53,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Native <button> elements default to cursor: default in modern
+   browsers. Restore the hand cursor for every clickable button. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
@@ -113,8 +120,8 @@ body {
   justify-content: center;
   background-color: var(--color-surface-2);
   color: var(--color-text-dim);
-  padding: 0.5rem 0.875rem;
-  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
   border: 0;
   cursor: pointer;
   transition: color 150ms, background-color 150ms, transform 150ms;

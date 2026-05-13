@@ -205,24 +205,28 @@ export function App() {
   );
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden">
-      <HeaderBar
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={() => setSidebarOpen((open) => !open)}
-        showSidebarToggle={isNarrow}
-      />
-      <div className="flex-1 flex overflow-hidden min-h-0 flex-col md:flex-row">
-        {/* Sidebar */}
-        <div
-          id="editor-sidebar"
-          className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex w-full md:w-80 md:min-w-80 max-h-[45vh] md:max-h-none bg-surface border-b md:border-b-0 md:border-r border-border flex-col shrink-0`}
-        >
-          <div className="flex-1 overflow-y-auto">
-            {sidebarContent}
-          </div>
+    <div className="h-dvh flex flex-col md:flex-row overflow-hidden">
+      {/* Sidebar — runs full height on desktop, collapsible above the
+          preview on mobile. No border; bg-surface alone separates it
+          from the canvas. */}
+      <div
+        id="editor-sidebar"
+        className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex w-full md:w-80 md:min-w-80 max-h-[45vh] md:max-h-none bg-surface flex-col shrink-0 order-2 md:order-1 md:rounded-r-3xl overflow-hidden`}
+      >
+        <div className="flex-1 overflow-y-auto">
+          {sidebarContent}
         </div>
+      </div>
 
-        {/* Preview */}
+      {/* Right pane: transparent header + preview. The header only spans
+          the canvas width on desktop, so it doesn't collide with the
+          sidebar. */}
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0 order-1 md:order-2">
+        <HeaderBar
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((open) => !open)}
+          showSidebarToggle={isNarrow}
+        />
         {isPanoramic ? <PanoramicPreview /> : <PreviewArea />}
       </div>
     </div>

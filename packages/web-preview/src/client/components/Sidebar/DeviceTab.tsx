@@ -5,6 +5,7 @@ import { useInstantPatch } from '../../hooks/useInstantPatch';
 import type { DeviceFamily, FrameData } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
+import { TileGrid } from '../Controls/TileGrid';
 import { RangeSlider } from '../Controls/RangeSlider';
 import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
@@ -258,7 +259,7 @@ export function DeviceTab() {
           <div className="text-xs text-text-dim mb-2">{screen.screenshotName}</div>
         )}
         <button
-          className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+          className="btn-secondary w-full text-xs"
           onClick={() => fileInputRef.current?.click()}
         >
           Upload Screenshot
@@ -274,13 +275,13 @@ export function DeviceTab() {
         {screen.screenshotDataUrl && (
           <div className="flex gap-1 mt-1.5">
             <button
-              className="flex-1 py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+              className="btn-secondary flex-1 text-[11px]"
               onClick={() => setShowCrop(true)}
             >
               Crop
             </button>
             <button
-              className="flex-1 py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+              className="btn-secondary flex-1 text-[11px]"
               onClick={() =>
                 update({ screenshotDataUrl: null, screenshotName: null, screenshotDims: null })
               }
@@ -336,11 +337,12 @@ export function DeviceTab() {
         )}
 
         {/* Frame style — hidden for Koubou PNG devices */}
-        <Select
+        <TileGrid
           label="Frame Style"
           value={screen.frameStyle}
           onChange={(v) => update({ frameStyle: v as FrameStyle })}
           options={FRAME_STYLE_OPTIONS}
+          columns={2}
           hidden={!!isKoubouPng}
         />
 
@@ -412,11 +414,12 @@ export function DeviceTab() {
         />
         {screen.style !== 'fullscreen' && (
           <>
-            <Select
+            <TileGrid
               label="Layout"
               value={screen.layout}
               onChange={(v) => update({ layout: v as LayoutVariant })}
               options={LAYOUT_OPTIONS}
+              columns={3}
             />
             <RangeSlider
               label="Device Size"
@@ -485,7 +488,7 @@ export function DeviceTab() {
               />
             )}
             <button
-              className="w-full py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
+              className="btn-secondary w-full text-[11px] mt-1"
               onClick={() =>
                 update({
                   deviceScale: pd.deviceScale,
@@ -696,7 +699,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
         </div>
       )}
       <button
-        className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+        className="btn-secondary w-full text-xs"
         onClick={() => fileInputRef.current?.click()}
       >
         Upload Screenshot
@@ -711,7 +714,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
       />
       {extra.dataUrl && (
         <button
-          className="w-full py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1.5"
+          className="btn-secondary w-full text-[11px] mt-1.5"
           onClick={() => onChange({ dataUrl: null, name: null })}
         >
           Revert
@@ -770,7 +773,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
       </div>
 
       <button
-        className="w-full py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
+        className="btn-secondary w-full text-[11px] mt-1"
         onClick={() =>
           onChange({
             offsetX: null,

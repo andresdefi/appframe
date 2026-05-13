@@ -128,7 +128,7 @@ export function PanoramicEffectsTab() {
           </p>
         )}
         <button
-          className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
+          className="btn-secondary w-full text-xs mb-2"
           onClick={addAnnotation}
         >
           + Add Annotation
@@ -167,7 +167,7 @@ export function PanoramicEffectsTab() {
           </p>
         )}
         <button
-          className="w-full py-1.5 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
+          className="btn-secondary w-full text-xs mb-2"
           onClick={addOverlay}
         >
           + Add Overlay

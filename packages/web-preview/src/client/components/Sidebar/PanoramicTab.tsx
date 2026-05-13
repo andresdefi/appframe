@@ -391,7 +391,7 @@ function ElementInspector({ index }: { index: number }) {
                   <div className="text-xs text-text-dim mb-2 truncate">{element.screenshot}</div>
                 )}
                 <button
-                  className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                  className="btn-secondary w-full text-xs"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   Upload Screenshot
@@ -406,7 +406,7 @@ function ElementInspector({ index }: { index: number }) {
                 />
                 {element.screenshot.startsWith('data:') && (
                   <button
-                    className="w-full py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
+                    className="btn-secondary w-full text-[11px] mt-1"
                     onClick={() =>
                       update({
                         screenshot: config?.screens[0]?.screenshot ?? 'screenshots/screen-1.png',
@@ -648,7 +648,7 @@ function ElementInspector({ index }: { index: number }) {
                 rows={3}
                 value={element.content}
                 onChange={(e) => update({ content: e.target.value })}
-                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent resize-y min-h-[60px]"
+                className="input-shell w-full text-[13px] font-inherit resize-y min-h-[60px]"
               />
             </div>
             <ColorPicker
@@ -888,7 +888,7 @@ function ElementInspector({ index }: { index: number }) {
               <div className="text-xs text-text-dim mb-2 truncate">{element.src}</div>
             )}
             <button
-              className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+              className="btn-secondary w-full text-xs"
               onClick={() => imageInputRef.current?.click()}
             >
               {element.type === 'logo' ? 'Upload Logo' : 'Upload Image'}
@@ -1060,7 +1060,7 @@ function ElementInspector({ index }: { index: number }) {
               <div className="text-xs text-text-dim mb-2 truncate">{element.screenshot}</div>
             )}
             <button
-              className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+              className="btn-secondary w-full text-xs"
               onClick={() => fileInputRef.current?.click()}
             >
               Upload Screenshot
@@ -1207,7 +1207,7 @@ function ElementInspector({ index }: { index: number }) {
               <label className="block text-xs text-text-dim mb-1">Eyebrow</label>
               <input
                 type="text"
-                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] outline-none focus:border-accent"
+                className="input-shell w-full text-[13px]"
                 value={element.eyebrow ?? ''}
                 onChange={(e) => update({ eyebrow: e.target.value || undefined })}
               />
@@ -1218,7 +1218,7 @@ function ElementInspector({ index }: { index: number }) {
                 rows={2}
                 value={element.title ?? ''}
                 onChange={(e) => update({ title: e.target.value || undefined })}
-                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent resize-y min-h-[48px]"
+                className="input-shell w-full text-[13px] font-inherit resize-y min-h-[48px]"
               />
             </div>
             <div className="mb-2.5">
@@ -1227,7 +1227,7 @@ function ElementInspector({ index }: { index: number }) {
                 rows={3}
                 value={element.body ?? ''}
                 onChange={(e) => update({ body: e.target.value || undefined })}
-                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent resize-y min-h-[64px]"
+                className="input-shell w-full text-[13px] font-inherit resize-y min-h-[64px]"
               />
             </div>
           </Section>
@@ -1431,7 +1431,7 @@ function ElementInspector({ index }: { index: number }) {
               <label className="block text-xs text-text-dim mb-1">Text</label>
               <input
                 type="text"
-                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] outline-none focus:border-accent"
+                className="input-shell w-full text-[13px]"
                 value={element.content}
                 onChange={(e) => update({ content: e.target.value })}
               />
@@ -1533,7 +1533,7 @@ function ElementInspector({ index }: { index: number }) {
               <label className="block text-xs text-text-dim mb-1">Value</label>
               <input
                 type="text"
-                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] outline-none focus:border-accent"
+                className="input-shell w-full text-[13px]"
                 value={element.value}
                 onChange={(e) => update({ value: e.target.value })}
               />
@@ -1542,7 +1542,7 @@ function ElementInspector({ index }: { index: number }) {
               <label className="block text-xs text-text-dim mb-1">Detail</label>
               <input
                 type="text"
-                className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] outline-none focus:border-accent"
+                className="input-shell w-full text-[13px]"
                 value={element.detail ?? ''}
                 onChange={(e) => update({ detail: e.target.value || undefined })}
                 placeholder="App Store rating"
@@ -1670,7 +1670,7 @@ function ElementInspector({ index }: { index: number }) {
             <label className="block text-xs text-text-dim mb-1">Content</label>
             <input
               type="text"
-              className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] outline-none focus:border-accent"
+              className="input-shell w-full text-[13px]"
               value={element.content}
               onChange={(e) => update({ content: e.target.value })}
             />
@@ -1802,7 +1802,7 @@ function PanoramicBgImage({
   return (
     <>
       <button
-        className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
+        className="btn-secondary w-full text-xs mb-2"
         onClick={() => fileRef.current?.click()}
       >
         {buttonLabel}
@@ -1823,7 +1823,7 @@ function PanoramicBgImage({
             alt={alt}
           />
           <button
-            className="w-full py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
+            className="btn-secondary w-full text-[11px] mt-1"
             onClick={onRemove}
           >
             Remove
@@ -1898,7 +1898,7 @@ function ScreenshotUploader() {
   return (
     <>
       <button
-        className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+        className="btn-secondary w-full text-xs"
         onClick={() => fileRef.current?.click()}
       >
         Upload Screenshots
@@ -2329,7 +2329,7 @@ export function PanoramicTab() {
 
             {bgGradient.colors.length < 5 && (
               <button
-                className="w-full text-[11px] py-1 bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                className="btn-secondary w-full text-[11px]"
                 onClick={() => {
                   const colors = [...bgGradient.colors, '#ffffff'];
                   updateBackground({ gradient: { ...bgGradient, colors } });
@@ -2391,25 +2391,25 @@ export function PanoramicTab() {
         <Section title={`Layer Stack (${layers.length})`} defaultCollapsed>
           <div className="grid grid-cols-2 gap-1 mb-3">
             <button
-              className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+              className="btn-secondary text-[11px]"
               onClick={() => addLayer('gradient')}
             >
               + Gradient
             </button>
             <button
-              className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+              className="btn-secondary text-[11px]"
               onClick={() => addLayer('image')}
             >
               + Image
             </button>
             <button
-              className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+              className="btn-secondary text-[11px]"
               onClick={() => addLayer('glow')}
             >
               + Glow
             </button>
             <button
-              className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+              className="btn-secondary text-[11px]"
               onClick={() => addLayer('solid')}
             >
               + Solid
@@ -2445,7 +2445,7 @@ export function PanoramicTab() {
                 <>
                   <div className="flex gap-1 mb-3">
                     <button
-                      className="flex-1 py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-40"
+                      className="btn-secondary flex-1 text-[11px] disabled:opacity-40"
                       disabled={selectedLayerIndex === 0}
                       onClick={() => {
                         const nextLayers = [...layers];
@@ -2460,7 +2460,7 @@ export function PanoramicTab() {
                       Move Up
                     </button>
                     <button
-                      className="flex-1 py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-40"
+                      className="btn-secondary flex-1 text-[11px] disabled:opacity-40"
                       disabled={selectedLayerIndex === layers.length - 1}
                       onClick={() => {
                         const nextLayers = [...layers];
@@ -2695,49 +2695,49 @@ export function PanoramicTab() {
         {/* Add buttons */}
         <div className="grid grid-cols-5 gap-1 mb-3">
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addDevice}
           >
             + Device
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addText}
           >
             + Text
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addLabel}
           >
             + Label
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addDecoration}
           >
             + Decoration
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addImage}
           >
             + Image
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addCrop}
           >
             + Crop
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addCard}
           >
             + Card
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addGroup}
           >
             + Group
@@ -3075,7 +3075,7 @@ export function PanoramicBackgroundContent() {
 
             {bgGradient.colors.length < 5 && (
               <button
-                className="w-full text-[11px] py-1 bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                className="btn-secondary w-full text-[11px]"
                 onClick={() => {
                   const colors = [...bgGradient.colors, '#ffffff'];
                   updateBackground({ gradient: { ...bgGradient, colors } });
@@ -3278,37 +3278,37 @@ export function PanoramicDeviceContent() {
       <Section title={`Devices & Decorations (${filtered.length})`} defaultCollapsed={false}>
         <div className="grid grid-cols-3 gap-1 mb-3">
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addDevice}
           >
             + Device
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addDecoration}
           >
             + Decoration
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addImage}
           >
             + Image
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addLogo}
           >
             + Logo
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addCrop}
           >
             + Crop
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addGroup}
           >
             + Group
@@ -3503,31 +3503,31 @@ export function PanoramicTextContent() {
       <Section title={`Text & Labels (${filtered.length})`} defaultCollapsed={false}>
         <div className="grid grid-cols-5 gap-1 mb-3">
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addText}
           >
             + Text
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addLabel}
           >
             + Label
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addCard}
           >
             + Card
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addBadge}
           >
             + Badge
           </button>
           <button
-            className="py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-accent transition-colors"
+            className="btn-secondary text-[11px]"
             onClick={addProofChip}
           >
             + Proof

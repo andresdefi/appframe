@@ -25,16 +25,16 @@ export const Select = memo(function Select({ label, value, onChange, options, gr
   const id = useId();
   if (hidden) return null;
   return (
-    <div className="mb-2.5">
+    <div className="mb-3">
       {label && (
-        <label htmlFor={id} className="block text-xs text-text-dim mb-1">{label}</label>
+        <label htmlFor={id} className="block text-xs text-text-dim mb-1.5">{label}</label>
       )}
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={label || undefined}
-        className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent"
+        className="input-shell w-full text-[13px] font-inherit cursor-pointer"
       >
         {options?.map((opt) => (
           <option key={opt.value} value={opt.value} disabled={opt.disabled} title={opt.title}>

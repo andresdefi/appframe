@@ -336,7 +336,7 @@ export function ExportTab() {
 
         {isPanoramic ? (
           <button
-            className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-accent-fg rounded-md disabled:opacity-50 mt-2"
+            className="btn-primary w-full text-xs mt-2"
             onClick={handlePanoramicExportAll}
             disabled={exporting}
           >
@@ -345,14 +345,14 @@ export function ExportTab() {
         ) : (
           <>
             <button
-              className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-accent-fg rounded-md disabled:opacity-50 mt-2"
+              className="btn-primary w-full text-xs mt-2"
               onClick={handleExportCurrent}
               disabled={exporting || !screens[selectedScreen]}
             >
               {exporting ? 'Downloading...' : `Download screen ${selectedScreen + 1}`}
             </button>
             <button
-              className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-1"
+              className="btn-secondary w-full text-xs mt-1"
               onClick={handleExportAll}
               disabled={exporting}
             >
@@ -363,7 +363,7 @@ export function ExportTab() {
 
         {sessionBacked && (
           <button
-            className="w-full py-2 text-xs bg-surface-2 border border-emerald-500/30 rounded-md text-emerald-200 hover:text-white disabled:opacity-50 mt-1"
+            className="btn-secondary w-full text-xs mt-1 text-emerald-300 hover:text-emerald-100"
             onClick={handleApprovedArtifactExport}
             disabled={exporting || !approvedVariant}
           >
@@ -372,7 +372,7 @@ export function ExportTab() {
         )}
 
         <button
-          className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text disabled:opacity-50 mt-1"
+          className="btn-secondary w-full text-xs mt-1"
           onClick={handleConfigExport}
           disabled={exporting}
         >
@@ -383,13 +383,13 @@ export function ExportTab() {
       <Section title="Actions" tooltip="Refresh previews or reload the project from disk. Reloading resets unsaved session-only locale changes.">
         <div className="flex gap-2">
           <button
-            className="flex-1 py-2 text-xs bg-accent hover:bg-accent-hover text-accent-fg rounded-md"
+            className="btn-primary flex-1 text-xs"
             onClick={triggerRender}
           >
             Refresh All
           </button>
           <button
-            className="flex-1 py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+            className="btn-secondary flex-1 text-xs"
             onClick={handleReload}
           >
             Reload Project

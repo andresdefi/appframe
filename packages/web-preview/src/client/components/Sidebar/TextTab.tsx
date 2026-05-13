@@ -108,7 +108,7 @@ export function TextTab() {
             value={screen.eyebrow}
             onChange={(e) => update({ eyebrow: e.target.value })}
             placeholder='e.g. "Split View"'
-            className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent"
+            className="input-shell w-full text-[13px] font-inherit"
           />
         </div>
         <div className="mb-2.5">
@@ -118,7 +118,7 @@ export function TextTab() {
             rows={2}
             value={screen.headline}
             onChange={(e) => update({ headline: e.target.value })}
-            className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent resize-y min-h-[60px]"
+            className="input-shell w-full text-[13px] font-inherit resize-y min-h-[60px]"
           />
         </div>
         <div className="mb-2.5">
@@ -129,7 +129,7 @@ export function TextTab() {
             value={screen.subtitle}
             onChange={(e) => update({ subtitle: e.target.value })}
             placeholder="Optional subtitle"
-            className="w-full px-2.5 py-2 bg-surface-2 border border-border rounded-md text-text text-[13px] font-inherit outline-none focus:border-accent"
+            className="input-shell w-full text-[13px] font-inherit"
           />
         </div>
         <ColorPicker
@@ -378,7 +378,7 @@ export function TextTab() {
           Drag the headline or subtitle in the preview to reposition them.
         </span>
         <button
-          className="w-full py-1.5 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+          className="btn-secondary w-full text-[11px]"
           onClick={() =>
             update({ textPositions: { eyebrow: null, headline: null, subtitle: null } })
           }

@@ -205,7 +205,7 @@ export function DesignTab() {
 
             {screen.backgroundGradient.colors.length < 5 && (
               <button
-                className="w-full text-[11px] py-1 bg-surface-2 border border-border rounded-md text-text-dim hover:text-text"
+                className="btn-secondary w-full text-[11px]"
                 onClick={addGradientStop}
               >
                 + Add Color Stop
@@ -223,7 +223,7 @@ export function DesignTab() {
               </p>
             )}
             <button
-              className="w-full py-2 text-xs bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mb-2"
+              className="btn-secondary w-full text-xs mb-2"
               onClick={() => bgImageInputRef.current?.click()}
             >
               Upload Background Image
@@ -245,7 +245,7 @@ export function DesignTab() {
                   alt="Background"
                 />
                 <button
-                  className="w-full py-1 text-[11px] bg-surface-2 border border-border rounded-md text-text-dim hover:text-text mt-1"
+                  className="btn-secondary w-full text-[11px] mt-1"
                   onClick={() => update({ backgroundImageDataUrl: null })}
                 >
                   Remove

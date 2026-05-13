@@ -64,8 +64,8 @@ export function RangeSlider({
   }
 
   return (
-    <div className={`mb-2.5${disabled ? ' opacity-50 cursor-not-allowed' : ''}`}>
-      <label htmlFor={id} className="block text-xs text-text-dim mb-1">{label}</label>
+    <div className={`mb-3${disabled ? ' opacity-50 cursor-not-allowed' : ''}`}>
+      <label htmlFor={id} className="block text-xs text-text-dim mb-1.5">{label}</label>
       <div className="flex items-center gap-2">
         <input
           id={id}
@@ -113,7 +113,7 @@ export function RangeSlider({
               if (e.key === 'Enter') commitEdit();
               if (e.key === 'Escape') setEditing(false);
             }}
-            className="text-xs text-text bg-surface border border-border rounded px-1 py-0 min-w-[40px] w-[48px] text-right shrink-0 outline-none focus:border-accent"
+            className="text-xs text-text bg-surface-2 rounded-md px-1.5 py-0.5 min-w-[40px] w-[52px] text-right shrink-0 outline-none focus:ring-2 focus:ring-accent border-0"
           />
         ) : (
           <span

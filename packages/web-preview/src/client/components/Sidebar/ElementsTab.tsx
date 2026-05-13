@@ -1375,7 +1375,7 @@ function IconCategoryView({ onBack, onAdd }: IconCategoryViewProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search 1900+ icons (e.g. camera, lock, heart)"
-          className="w-full px-2.5 py-1.5 bg-surface-2 border border-border rounded-md text-text text-[12px] outline-none focus:border-accent"
+          className="input-shell w-full text-[12px] py-1.5"
         />
       </div>
       <CategoryChips

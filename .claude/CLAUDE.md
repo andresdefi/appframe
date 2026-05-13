@@ -45,7 +45,9 @@ The 2026-04-20 pass reviewed the Platform / Screenshot / Device Frame / Device L
 - **Panoramic mode** — entire mode untouched this session. Sidebar tabs differ (`PanoramicTab`, `PanoramicEffectsTab`). Inspect with the same lens.
 
 ### Background catalog is intentionally local-only
-The Background tab ships with a curated catalog (50 solid colors + 66 gradients across Sunset / Ocean / Cosmic / Aurora / Vivid / Pastel / Glow / Mesh categories). Plus user image upload. **No Unsplash integration and no AI-generated backgrounds are planned** — those would balloon the scope (API keys, licensing, asset hosting, backend) without changing the core value-add. Power users who want photo backgrounds can upload their own.
+The Background tab ships with a curated catalog (50 solid colors + 66 gradients across Sunset / Ocean / Cosmic / Aurora / Vivid / Pastel / Glow / Mesh categories). Plus user image upload. **No live API integrations are planned** — no Unsplash search, no AI-generated backgrounds. Those would balloon the scope (API keys, licensing complexity, asset hosting, backend dependencies) without changing the core value-add.
+
+What IS open for the catalog: **bundled high-quality image / texture / photo presets** added directly to the repo as static assets (license-cleared, hand-curated, no runtime API). New categories like "Photo", "Texture", "Abstract" can be added the same way the existing Solid/Gradient categories work — sourced upstream, organized by category, rendered as preset tiles in the catalog. The Image preset type can store either a data URL (current user-upload path) or a bundled asset URL.
 
 ### Client-side export (deferred)
 The web UI currently exports via Playwright on the server. For a future hosted version of appframe, the export should move client-side (html-to-image style) to avoid per-export Chromium boots and server queue pressure. Full plan + phasing + open questions in `docs/client-side-export-plan.md`. Trigger to pick this up: hosted-version decision, or export speed becomes a top complaint.

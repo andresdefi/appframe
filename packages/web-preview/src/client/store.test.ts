@@ -36,7 +36,7 @@ function resetStore() {
     selectedScreen: 0,
     activeTab: 'background',
     locale: 'default',
-    previewBg: 'dark',
+    theme: 'dark',
     renderVersion: 0,
     isPanoramic: false,
     panoramicFrameCount: 5,

@@ -4,8 +4,23 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>appframe — Preview</title>
-    <script type="module" crossorigin src="/assets/index-DzFl7Mc4.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-C9QTIKqk.css">
+    <script>
+      // Apply theme before React loads so there's no flash of wrong palette.
+      // Mirrors the read logic in store.ts; keep them in sync.
+      (function () {
+        try {
+          var stored = window.localStorage.getItem('appframe.theme');
+          var theme = (stored === 'dark' || stored === 'light')
+            ? stored
+            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (_) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-DIgFa2Cy.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BlRRFe9i.css">
   </head>
   <body>
     <div id="root"></div>

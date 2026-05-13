@@ -30,9 +30,13 @@ export function HeaderBar({
   const variants = usePreviewStore((s) => s.variants);
   const selectedScreen = usePreviewStore((s) => s.selectedScreen);
   const screens = usePreviewStore((s) => s.screens);
+  const theme = usePreviewStore((s) => s.theme);
+  const setTheme = usePreviewStore((s) => s.setTheme);
   const currentMode = isPanoramic ? 'Panoramic' : 'Individual';
   const modeToggleLabel = isPanoramic ? 'Switch to Individual' : 'Switch to Panoramic';
   const activeVariant = variants.find((variant) => variant.id === activeVariantId);
+  const nextTheme = theme === 'dark' ? 'light' : 'dark';
+  const themeToggleLabel = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 
   return (
     <div className="w-full min-h-11 px-3 py-2 md:px-4 flex flex-wrap items-center gap-2 md:gap-4 border-b border-border bg-surface shrink-0">
@@ -89,6 +93,32 @@ export function HeaderBar({
       </div>
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
+        <button
+          className="inline-flex items-center justify-center w-7 h-7 rounded border border-border bg-bg text-text-dim hover:text-text hover:border-accent/30 transition duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          onClick={() => setTheme(nextTheme)}
+          title={themeToggleLabel}
+          aria-label={themeToggleLabel}
+        >
+          {theme === 'dark' ? (
+            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="3" fill="currentColor" />
+              <g stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                <line x1="8" y1="1.5" x2="8" y2="3" />
+                <line x1="8" y1="13" x2="8" y2="14.5" />
+                <line x1="1.5" y1="8" x2="3" y2="8" />
+                <line x1="13" y1="8" x2="14.5" y2="8" />
+                <line x1="3.4" y1="3.4" x2="4.5" y2="4.5" />
+                <line x1="11.5" y1="11.5" x2="12.6" y2="12.6" />
+                <line x1="3.4" y1="12.6" x2="4.5" y2="11.5" />
+                <line x1="11.5" y1="4.5" x2="12.6" y2="3.4" />
+              </g>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" aria-hidden="true">
+              <path d="M13 9.5A6 6 0 1 1 6.5 3a5 5 0 0 0 6.5 6.5Z" fill="currentColor" />
+            </svg>
+          )}
+        </button>
         <button
           className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             isPanoramic

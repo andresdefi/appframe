@@ -13,7 +13,6 @@ export function PanoramicPreview() {
   const config = usePreviewStore((s) => s.config);
   const previewW = usePreviewStore((s) => s.previewW);
   const previewH = usePreviewStore((s) => s.previewH);
-  const previewBg = usePreviewStore((s) => s.previewBg);
   const locale = usePreviewStore((s) => s.locale);
   const localeConfig = usePreviewStore((s) => s.sessionLocales[s.locale]);
   const renderVersion = usePreviewStore((s) => s.renderVersion);
@@ -321,10 +320,8 @@ export function PanoramicPreview() {
     [isDragging, findElementAtPoint],
   );
 
-  const bgClass = previewBg === 'light' ? 'bg-gray-100' : 'bg-bg';
-
   return (
-    <div ref={areaRef} className={`flex-1 flex flex-col overflow-hidden ${bgClass}`}>
+    <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg">
       {/* Canvas */}
       <div className="flex-1 overflow-auto">
         <div className="flex items-center justify-center p-6 min-h-full min-w-min">

@@ -273,7 +273,7 @@ export interface PreviewStore {
   selectedScreen: number;
   activeTab: string;
   locale: string;
-  previewBg: 'dark' | 'light';
+  theme: 'dark' | 'light';
   renderVersion: number;
 
   // Panoramic mode state
@@ -323,7 +323,7 @@ export interface PreviewStore {
   setVariantStatus: (id: string, status: VariantStatus) => void;
   recordVariantArtifact: (artifact: Omit<VariantArtifact, 'id' | 'exportedAt'>) => void;
   recordVariantArtifactForVariant: (variantId: string, artifact: Omit<VariantArtifact, 'id' | 'exportedAt'>) => void;
-  setPreviewBg: (bg: 'dark' | 'light') => void;
+  setTheme: (theme: 'dark' | 'light') => void;
   setExportSize: (size: string) => void;
   setFonts: (fonts: FontData[]) => void;
   setFrames: (frames: FrameData[]) => void;
@@ -1063,7 +1063,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     return window.localStorage.getItem('appframe.activeTab') ?? 'background';
   })(),
   locale: 'default',
-  previewBg: 'dark',
+  theme: (() => {
+    if (typeof window === 'undefined') return 'dark';
+    const stored = window.localStorage.getItem('appframe.theme');
+    if (stored === 'dark' || stored === 'light') return stored;
+    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  })(),
   renderVersion: 0,
   isPanoramic: false,
   panoramicFrameCount: 5,
@@ -1381,7 +1386,13 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         ),
       };
     }),
-  setPreviewBg: (bg) => set({ previewBg: bg }),
+  setTheme: (theme) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('appframe.theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    set({ theme });
+  },
   setExportSize: (size) => set({ exportSize: size }),
   setFonts: (fonts) => set({ fonts }),
   setFrames: (frames) => set({ frames }),

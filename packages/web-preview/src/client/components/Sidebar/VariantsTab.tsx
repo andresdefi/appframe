@@ -308,7 +308,7 @@ export function VariantsTab() {
         <button
           type="button"
           onClick={() => setActiveTab('export')}
-          className="w-full mt-2 text-[11px] py-1.5 rounded-md bg-accent text-white hover:bg-accent-hover"
+          className="w-full mt-2 text-[11px] py-1.5 rounded-md bg-accent text-accent-fg hover:bg-accent-hover"
         >
           Go to Download
         </button>

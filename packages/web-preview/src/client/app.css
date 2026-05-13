@@ -1,15 +1,47 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-bg: #0a0a0f;
-  --color-surface: #141420;
-  --color-surface-2: #1e1e2e;
-  --color-border: #2a2a3a;
-  --color-text: #e2e8f0;
-  --color-text-dim: #8896aa;
-  --color-accent: #6366f1;
-  --color-accent-hover: #818cf8;
+  /* Dark mode — pure neutral grays, no blue cast. Matches Apple's
+     System dark palette and shots.so's chroma-less feel. */
+  --color-bg: #0a0a0a;
+  --color-surface: #141414;
+  --color-surface-2: #1f1f1f;
+  --color-border: #2a2a2a;
+  --color-text: #f5f5f7;
+  --color-text-dim: #8e8e93;
+  --color-accent: #fafafa;
+  --color-accent-hover: #ffffff;
+  --color-accent-fg: #0a0a0a;
   --color-green: #22c55e;
+  --thumb-outline: rgba(255, 255, 255, 0.08);
+  --card-hairline: rgba(255, 255, 255, 0.06);
+  --card-hairline-hover: rgba(255, 255, 255, 0.12);
+  --card-shadow-near: rgba(0, 0, 0, 0.3);
+  --card-shadow-far: rgba(0, 0, 0, 0.2);
+  --card-shadow-near-hover: rgba(0, 0, 0, 0.4);
+  --card-shadow-far-hover: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] {
+  /* Light mode — Tailwind neutral palette (true neutral, no cool tint
+     like zinc). */
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f5f5f5;
+  --color-border: #d4d4d4;
+  --color-text: #171717;
+  --color-text-dim: #737373;
+  --color-accent: #171717;
+  --color-accent-hover: #000000;
+  --color-accent-fg: #ffffff;
+  --color-green: #16a34a;
+  --thumb-outline: rgba(0, 0, 0, 0.08);
+  --card-hairline: rgba(0, 0, 0, 0.06);
+  --card-hairline-hover: rgba(0, 0, 0, 0.12);
+  --card-shadow-near: rgba(0, 0, 0, 0.06);
+  --card-shadow-far: rgba(0, 0, 0, 0.04);
+  --card-shadow-near-hover: rgba(0, 0, 0, 0.1);
+  --card-shadow-far-hover: rgba(0, 0, 0, 0.08);
 }
 
 body {
@@ -26,22 +58,22 @@ body {
 }
 
 .thumb-outline {
-  outline: 1px solid rgba(255, 255, 255, 0.08);
+  outline: 1px solid var(--thumb-outline);
   outline-offset: -1px;
 }
 
 .surface-card {
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    0 4px 12px rgba(0, 0, 0, 0.2);
+    0 0 0 1px var(--card-hairline),
+    0 1px 2px var(--card-shadow-near),
+    0 4px 12px var(--card-shadow-far);
 }
 
 .surface-card-hover:hover {
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 4px 8px rgba(0, 0, 0, 0.4),
-    0 12px 28px rgba(0, 0, 0, 0.3);
+    0 0 0 1px var(--card-hairline-hover),
+    0 4px 8px var(--card-shadow-near-hover),
+    0 12px 28px var(--card-shadow-far-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {

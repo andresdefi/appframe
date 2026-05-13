@@ -290,7 +290,7 @@ export function CropModal({ imageDataUrl, onApply, onCancel }: CropModalProps) {
       />
       <div className="flex gap-2 mt-3">
         <button
-          className="px-6 py-2 text-sm bg-accent text-white rounded-md hover:bg-accent-hover"
+          className="px-6 py-2 text-sm bg-accent text-accent-fg rounded-md hover:bg-accent-hover"
           onClick={handleApply}
         >
           Apply Crop

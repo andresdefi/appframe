@@ -17,7 +17,6 @@ export function PreviewArea() {
   const moveScreen = usePreviewStore((s) => s.moveScreen);
   const previewW = usePreviewStore((s) => s.previewW);
   const previewH = usePreviewStore((s) => s.previewH);
-  const previewBg = usePreviewStore((s) => s.previewBg);
   const renderVersion = usePreviewStore((s) => s.renderVersion);
   const platform = usePreviewStore((s) => s.platform);
   const locale = usePreviewStore((s) => s.locale);
@@ -56,13 +55,11 @@ export function PreviewArea() {
     return () => window.removeEventListener('resize', computeScale);
   }, [computeScale]);
 
-  const bgClass = previewBg === 'light' ? 'bg-gray-100' : 'bg-bg';
-
   const [manualZoom, setManualZoom] = useState<number | null>(null);
   const effectiveScale = manualZoom ?? scale;
 
   return (
-    <div ref={areaRef} className={`flex-1 flex flex-col overflow-hidden ${bgClass}`}>
+    <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg">
       <div className="flex-1 overflow-auto">
         <div className="flex items-center justify-center gap-4 p-6 min-w-min min-h-full">
           {screens.map((screen, i) => (
@@ -448,8 +445,8 @@ function ScreenCard({
     <>
     {dialog}
     <div
-      className={`shrink-0 cursor-pointer rounded-lg overflow-hidden transition-shadow ${
-        selected ? 'ring-2 ring-accent shadow-lg' : 'hover:ring-1 hover:ring-border'
+      className={`shrink-0 cursor-pointer rounded-lg overflow-hidden bg-surface transition-shadow ring-1 ${
+        selected ? 'ring-2 ring-accent shadow-lg' : 'ring-border hover:ring-text-dim'
       }`}
       onClick={onSelect}
     >
@@ -460,19 +457,19 @@ function ScreenCard({
             className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
             onClick={(e) => { e.stopPropagation(); onMoveLeft(); }}
             title="Move left"
-            aria-label={`Move frame ${index + 1} left`}
+            aria-label={`Move screen ${index + 1} left`}
           >
             &lsaquo;
           </button>
         ) : <span className="w-4" />}
-        <span className="text-text-dim font-medium">Frame {index + 1}</span>
+        <span className="text-text-dim font-medium">Screen {index + 1}</span>
         <div className="flex items-center gap-0.5">
           {canMoveRight && (
             <button
               className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
               onClick={(e) => { e.stopPropagation(); onMoveRight(); }}
               title="Move right"
-              aria-label={`Move frame ${index + 1} right`}
+              aria-label={`Move screen ${index + 1} right`}
             >
               &rsaquo;
             </button>
@@ -482,11 +479,11 @@ function ScreenCard({
               className="text-text-dim hover:text-red-400 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
               onClick={async (e) => {
                 e.stopPropagation();
-                const ok = await confirm({ title: 'Remove Frame', message: `Remove Frame ${index + 1}? This cannot be undone.` });
+                const ok = await confirm({ title: 'Remove Screen', message: `Remove Screen ${index + 1}? This cannot be undone.` });
                 if (ok) onRemove();
               }}
-              title="Remove frame"
-              aria-label={`Remove frame ${index + 1}`}
+              title="Remove screen"
+              aria-label={`Remove screen ${index + 1}`}
             >
               &times;
             </button>
@@ -516,7 +513,7 @@ function ScreenCard({
             height: previewH,
             transform: `scale(${scale})`,
           }}
-          title={`Frame ${index + 1}`}
+          title={`Screen ${index + 1}`}
         />
         {/* Center guides — only while actively dragging, and only when the
             dragged element's center exactly hits a canvas axis. */}

@@ -53,8 +53,6 @@ export function ExportTab() {
   const sessionLocales = usePreviewStore((s) => s.sessionLocales);
   const setLocale = usePreviewStore((s) => s.setLocale);
   const upsertLocaleConfig = usePreviewStore((s) => s.upsertLocaleConfig);
-  const previewBg = usePreviewStore((s) => s.previewBg);
-  const setPreviewBg = usePreviewStore((s) => s.setPreviewBg);
   const config = usePreviewStore((s) => s.config);
   const variants = usePreviewStore((s) => s.variants);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
@@ -338,7 +336,7 @@ export function ExportTab() {
 
         {isPanoramic ? (
           <button
-            className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-md disabled:opacity-50 mt-2"
+            className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-accent-fg rounded-md disabled:opacity-50 mt-2"
             onClick={handlePanoramicExportAll}
             disabled={exporting}
           >
@@ -347,7 +345,7 @@ export function ExportTab() {
         ) : (
           <>
             <button
-              className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-white rounded-md disabled:opacity-50 mt-2"
+              className="w-full py-2 text-xs font-semibold bg-accent hover:bg-accent-hover text-accent-fg rounded-md disabled:opacity-50 mt-2"
               onClick={handleExportCurrent}
               disabled={exporting || !screens[selectedScreen]}
             >
@@ -382,26 +380,10 @@ export function ExportTab() {
         </button>
       </Section>
 
-      <Section title="Preview Background" tooltip="Change the editor background color. This does not affect exported images.">
-        <div className="flex gap-3">
-          {(['dark', 'light'] as const).map((bg) => (
-            <label key={bg} className="text-xs text-text-dim cursor-pointer flex items-center gap-1">
-              <input
-                type="radio"
-                checked={previewBg === bg}
-                onChange={() => setPreviewBg(bg)}
-                className="accent-accent"
-              />
-              {bg.charAt(0).toUpperCase() + bg.slice(1)}
-            </label>
-          ))}
-        </div>
-      </Section>
-
       <Section title="Actions" tooltip="Refresh previews or reload the project from disk. Reloading resets unsaved session-only locale changes.">
         <div className="flex gap-2">
           <button
-            className="flex-1 py-2 text-xs bg-accent hover:bg-accent-hover text-white rounded-md"
+            className="flex-1 py-2 text-xs bg-accent hover:bg-accent-hover text-accent-fg rounded-md"
             onClick={triggerRender}
           >
             Refresh All

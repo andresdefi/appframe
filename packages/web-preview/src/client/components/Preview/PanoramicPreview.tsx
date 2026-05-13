@@ -321,7 +321,7 @@ export function PanoramicPreview() {
   );
 
   return (
-    <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg">
+    <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg relative">
       {/* Canvas */}
       <div className="flex-1 overflow-auto">
         <div className="flex items-center justify-center p-6 min-h-full min-w-min">
@@ -371,38 +371,49 @@ export function PanoramicPreview() {
           </div>
         </div>
       </div>
-      {/* Zoom control */}
-      <div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-surface">
-        <span className="text-[10px] text-text-dim">Zoom</span>
-        <input
-          type="range"
-          min={5}
-          max={100}
-          value={Math.round(scale * 100)}
-          onChange={(e) => setScale(parseInt(e.target.value, 10) / 100)}
-          className="flex-1 h-1 accent-accent"
-          aria-label="Zoom level"
-          aria-valuemin={5}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(scale * 100)}
-          aria-valuetext={`${Math.round(scale * 100)}%`}
-        />
-        <span className="text-[10px] text-text-dim w-8 text-right">{Math.round(scale * 100)}%</span>
-        <button
-          className="text-[10px] text-text-dim hover:text-text transition-opacity"
-          onClick={computeScale}
-          aria-label="Reset zoom to fit"
-        >
-          Fit
-        </button>
-        {selectedElementIndex !== null && (
-          <span
-            className="ml-auto text-[9px] text-text-dim border-l border-border pl-2"
+      {/* Floating zoom pill — matches individual mode. Element-select
+          hint moves into its own floating chip above the pill so the
+          zoom row stays compact. */}
+      {selectedElementIndex !== null && (
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 px-4 pointer-events-none z-30">
+          <div
+            className="text-[9px] text-text-dim bg-surface-2 surface-card rounded-full px-3 py-1 pointer-events-auto"
             title="Use arrow keys to nudge selected element. Hold Shift for larger steps."
           >
             Arrow keys to nudge
-          </span>
-        )}
+          </div>
+        </div>
+      )}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 pointer-events-none z-30">
+        <div
+          className="flex items-center gap-3 px-4 py-2 rounded-full bg-surface-2 surface-card w-full max-w-md pointer-events-auto"
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-[10px] text-text-dim shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={5}
+            max={100}
+            value={Math.round(scale * 100)}
+            onChange={(e) => setScale(parseInt(e.target.value, 10) / 100)}
+            className="flex-1 h-1 accent-accent"
+            aria-label="Zoom level"
+            aria-valuemin={5}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(scale * 100)}
+            aria-valuetext={`${Math.round(scale * 100)}%`}
+          />
+          <span className="text-[10px] text-text-dim w-9 text-right shrink-0 tabular-nums">{Math.round(scale * 100)}%</span>
+          <button
+            className="text-[10px] text-text-dim hover:text-text transition-opacity shrink-0"
+            onClick={computeScale}
+            aria-label="Reset zoom to fit"
+          >
+            Fit
+          </button>
+        </div>
       </div>
     </div>
   );

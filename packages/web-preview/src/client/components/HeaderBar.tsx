@@ -44,10 +44,10 @@ export function HeaderBar({
       <div className="flex items-center gap-2 min-w-0">
         {showSidebarToggle && (
           <button
-            className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            className={`inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
               sidebarOpen
-                ? 'border-accent/40 bg-accent/10 text-accent'
-                : 'border-border bg-bg text-text-dim hover:border-accent/30 hover:text-text'
+                ? 'bg-surface-2 text-text font-medium surface-card'
+                : 'bg-surface text-text-dim hover:text-text hover:bg-surface-2'
             }`}
             onClick={onToggleSidebar}
             aria-expanded={sidebarOpen}
@@ -72,26 +72,28 @@ export function HeaderBar({
         )}
       </div>
 
-      {/* Center: tabs */}
-      <div className="order-3 md:order-none basis-full md:basis-auto flex items-center gap-1 md:mx-auto overflow-x-auto">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            className={`text-[11px] px-3 py-1.5 rounded-md transition-colors whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              activeTab === tab.id
-                ? 'bg-accent/10 text-accent font-medium'
-                : 'text-text-dim hover:text-text hover:bg-surface-2'
-            }`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Center: segmented pill tabs */}
+      <div className="order-3 md:order-none basis-full md:basis-auto md:mx-auto overflow-x-auto">
+        <div className="inline-flex items-center gap-0.5 bg-surface rounded-full p-1">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              className={`text-[11px] px-3 py-1.5 rounded-full whitespace-nowrap transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                activeTab === tab.id
+                  ? 'bg-surface-2 text-text font-medium surface-card'
+                  : 'text-text-dim hover:text-text'
+              }`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
         <button
-          className="inline-flex items-center justify-center w-7 h-7 rounded border border-border bg-bg text-text-dim hover:text-text hover:border-accent/30 transition duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-surface text-text-dim hover:text-text hover:bg-surface-2 transition duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={() => setTheme(nextTheme)}
           title={themeToggleLabel}
           aria-label={themeToggleLabel}
@@ -117,7 +119,7 @@ export function HeaderBar({
           )}
         </button>
         <button
-          className="inline-flex items-center justify-center w-7 h-7 rounded border border-border bg-bg text-text-dim hover:text-text hover:border-accent/30 transition duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-surface text-text-dim hover:text-text hover:bg-surface-2 transition duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={togglePanoramic}
           title={modeToggleLabel}
           aria-label={`${modeToggleLabel}. Current mode: ${currentMode}.`}

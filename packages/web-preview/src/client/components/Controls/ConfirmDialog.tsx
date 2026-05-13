@@ -54,7 +54,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={onCancel}
       aria-hidden="true"
     >
@@ -64,29 +64,34 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-label={title}
         aria-describedby="confirm-dialog-message"
-        className="bg-surface border border-border rounded-lg shadow-xl p-5 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95"
+        className="bg-surface surface-card rounded-2xl p-6 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-sm font-semibold text-text mb-2 text-balance">{title}</h3>
-        <p id="confirm-dialog-message" className="text-xs text-text-dim mb-4 leading-relaxed text-pretty">{message}</p>
+        <h3 className="text-base font-semibold text-text mb-2 text-balance">{title}</h3>
+        <p id="confirm-dialog-message" className="text-xs text-text-dim mb-5 leading-relaxed text-pretty">{message}</p>
         <div className="flex gap-2 justify-end">
           <button
             ref={cancelRef}
-            className="px-3 py-1.5 text-[11px] font-medium bg-surface-2 border border-border rounded-md text-text-dim hover:text-text hover:border-text-dim transition-colors"
+            className="btn-secondary text-xs"
             onClick={onCancel}
           >
             {cancelLabel}
           </button>
-          <button
-            className={`px-3 py-1.5 text-[11px] font-medium rounded-md transition-colors ${
-              destructive
-                ? 'bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30'
-                : 'bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30'
-            }`}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </button>
+          {destructive ? (
+            <button
+              className="inline-flex items-center justify-center px-5 py-2.5 rounded-full font-semibold text-[13px] bg-red-500 text-white hover:bg-red-600 transition active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 shadow-md"
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+            </button>
+          ) : (
+            <button
+              className="btn-primary text-xs"
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

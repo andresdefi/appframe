@@ -14,7 +14,16 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
     return () => clearTimeout(t);
   }, [onDone]);
   return (
-    <div role="alert" aria-live="polite" className="fixed top-4 right-4 z-50 bg-green-600 text-white text-sm px-4 py-2 rounded-lg shadow-lg animate-in fade-in">
+    <div
+      role="alert"
+      aria-live="polite"
+      className="fixed top-4 right-4 z-50 inline-flex items-center gap-2 bg-surface-2 surface-card text-text text-xs font-medium pl-3 pr-4 py-2 rounded-full animate-in fade-in slide-in-from-top-2"
+    >
+      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500/20 text-green-400 shrink-0" aria-hidden="true">
+        <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none">
+          <path d="M2.5 6.5l2.5 2.5L9.5 3.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
       {message}
     </div>
   );

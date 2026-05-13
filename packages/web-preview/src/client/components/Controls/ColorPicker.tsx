@@ -1,4 +1,5 @@
-import { useId } from 'react';
+import { useId, useRef, useState } from 'react';
+import { ColorPickerPopover } from './ColorPickerPopover';
 
 interface ColorPickerProps {
   label: string;
@@ -18,30 +19,34 @@ export function ColorPicker({
   onPresetClick,
 }: ColorPickerProps) {
   const id = useId();
+  const [open, setOpen] = useState(false);
+  const swatchRef = useRef<HTMLButtonElement>(null);
+
   return (
-    <div className="mb-2.5">
-      <div className="flex items-center gap-2">
+    <div className="mb-3">
+      <div className="flex items-center gap-3">
         <label htmlFor={id} className="text-xs text-text-dim flex-1">{label}</label>
-        <input
-          id={id}
-          type="color"
-          value={value}
-          aria-label={label}
-          className="w-8 h-8 border border-border rounded-md cursor-pointer bg-transparent p-0.5"
-          onInput={(e) => {
-            onInstant?.((e.target as HTMLInputElement).value);
-          }}
-          onChange={(e) => {
-            onChange(e.target.value);
-          }}
-        />
+        <div className="relative inline-flex items-center gap-2 bg-surface-2 rounded-full pl-1 pr-3 py-1">
+          <button
+            id={id}
+            ref={swatchRef}
+            type="button"
+            className="relative w-6 h-6 rounded-full overflow-hidden thumb-outline block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            style={{ background: value }}
+            aria-label={`${label} color swatch — click to edit`}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+          />
+          <span className="text-[11px] text-text-dim font-mono tabular-nums uppercase">{value}</span>
+        </div>
       </div>
       {presets && presets.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-1.5">
+        <div className="flex flex-wrap gap-1.5 mt-2">
           {presets.map((color) => (
             <button
               key={color}
-              className="w-6 h-6 rounded border border-border cursor-pointer hover:scale-110 transition-transform focus:ring-2 focus:ring-accent focus:outline-none"
+              className="w-6 h-6 rounded-full thumb-outline cursor-pointer hover:scale-110 active:scale-95 transition-transform focus:ring-2 focus:ring-accent focus:outline-none"
               style={{ background: color }}
               title={color}
               aria-label={`Select color ${color}`}
@@ -52,6 +57,15 @@ export function ColorPicker({
             />
           ))}
         </div>
+      )}
+      {open && (
+        <ColorPickerPopover
+          triggerRef={swatchRef}
+          value={value}
+          onChange={onChange}
+          onInstant={onInstant}
+          onClose={() => setOpen(false)}
+        />
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { usePreviewStore } from '../../store';
 import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
@@ -15,6 +16,48 @@ export function PreviewArea() {
   const addScreen = usePreviewStore((s) => s.addScreen);
   const removeScreen = usePreviewStore((s) => s.removeScreen);
   const moveScreen = usePreviewStore((s) => s.moveScreen);
+
+  // --- Drag-and-drop reorder state ---
+  const [dragFromIdx, setDragFromIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragSide, setDragSide] = useState<'left' | 'right'>('right');
+
+  const handleDragStart = useCallback((idx: number) => {
+    setDragFromIdx(idx);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDragFromIdx(null);
+    setDragOverIdx(null);
+  }, []);
+
+  const handleDragOver = useCallback((idx: number, side: 'left' | 'right') => {
+    setDragOverIdx(idx);
+    setDragSide(side);
+  }, []);
+
+  const handleDragLeave = useCallback((idx: number) => {
+    setDragOverIdx((current) => (current === idx ? null : current));
+  }, []);
+
+  const handleDrop = useCallback(() => {
+    if (dragFromIdx === null || dragOverIdx === null) {
+      setDragFromIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+    // Compute the target index. When dropping on the right side of a card,
+    // the new position is one slot after that card. When the source is
+    // already to the left of the target, dropping "right" means target+1
+    // minus 1 (because removing source shifts indices) — net: target.
+    let toIdx = dragSide === 'right' ? dragOverIdx + 1 : dragOverIdx;
+    if (dragFromIdx < toIdx) toIdx -= 1;
+    if (toIdx !== dragFromIdx && toIdx >= 0) {
+      moveScreen(dragFromIdx, toIdx);
+    }
+    setDragFromIdx(null);
+    setDragOverIdx(null);
+  }, [dragFromIdx, dragOverIdx, dragSide, moveScreen]);
   const previewW = usePreviewStore((s) => s.previewW);
   const previewH = usePreviewStore((s) => s.previewH);
   const renderVersion = usePreviewStore((s) => s.renderVersion);
@@ -63,8 +106,14 @@ export function PreviewArea() {
       <div className="flex-1 overflow-auto">
         <div className="flex items-center justify-center gap-4 p-6 min-w-min min-h-full">
           {screens.map((screen, i) => (
+            <motion.div
+              key={screen.id}
+              layout
+              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              className="shrink-0"
+            >
             <ScreenCard
-              key={`screen-${screen.screenIndex}-${i}`}
+              key={`screen-${screen.id}`}
               index={i}
               selected={i === selectedScreen}
               previewW={previewW}
@@ -82,7 +131,19 @@ export function PreviewArea() {
               platform={platform}
               locale={locale}
               deviceFamilies={deviceFamilies}
+              dragFromIdx={dragFromIdx}
+              dropIndicator={
+                dragOverIdx === i && dragFromIdx !== null && dragFromIdx !== i
+                  ? dragSide
+                  : null
+              }
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             />
+            </motion.div>
           ))}
           <button
             className="shrink-0 flex items-center justify-center border-2 border-dashed border-border rounded-lg text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -157,6 +218,14 @@ interface ScreenCardProps {
   platform: string;
   locale: string;
   deviceFamilies: unknown[];
+  // Drag-and-drop reorder
+  dragFromIdx: number | null;
+  dropIndicator: 'left' | 'right' | null;
+  onDragStart: (idx: number) => void;
+  onDragEnd: () => void;
+  onDragOver: (idx: number, side: 'left' | 'right') => void;
+  onDragLeave: (idx: number) => void;
+  onDrop: () => void;
 }
 
 function ScreenCard({
@@ -164,6 +233,13 @@ function ScreenCard({
   selected,
   previewW,
   previewH,
+  dragFromIdx,
+  dropIndicator,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragLeave,
+  onDrop,
   scale,
   canRemove,
   canMoveLeft,
@@ -179,6 +255,7 @@ function ScreenCard({
 }: ScreenCardProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const { confirm, dialog } = useConfirmDialog();
   const [initialLoad, setInitialLoad] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
@@ -457,13 +534,60 @@ function ScreenCard({
     <>
     {dialog}
     <div
-      className={`shrink-0 cursor-pointer rounded-lg overflow-hidden bg-surface transition-shadow ring-1 ${
+      ref={cardRef}
+      className={`shrink-0 cursor-pointer rounded-lg overflow-hidden bg-surface transition-all relative ring-1 ${
         selected ? 'ring-2 ring-accent shadow-lg' : 'ring-border hover:ring-text-dim'
-      }`}
+      } ${dragFromIdx === index ? 'opacity-40' : ''}`}
       onClick={onSelect}
+      onDragOver={(e) => {
+        if (dragFromIdx === null || dragFromIdx === index) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        // Direction-based: the side is determined by where the drag is
+        // coming FROM, not where the cursor is within the target card.
+        // Dragging leftward (from a higher index) inserts before; dragging
+        // rightward inserts after. The cursor just has to be over the
+        // target, no halfway threshold.
+        const side: 'left' | 'right' = dragFromIdx > index ? 'left' : 'right';
+        onDragOver(index, side);
+      }}
+      onDragLeave={() => onDragLeave(index)}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDrop();
+      }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-2 py-1 bg-surface text-[10px]">
+      {/* Drop indicator — vertical bar on the targeted side */}
+      {dropIndicator && (
+        <div
+          className={`absolute top-0 bottom-0 w-1 bg-accent rounded-full pointer-events-none z-10 ${
+            dropIndicator === 'left' ? 'left-[-3px]' : 'right-[-3px]'
+          }`}
+          aria-hidden="true"
+        />
+      )}
+      {/* Header — drag handle. Drags the WHOLE card visually via
+          setDragImage(cardRef.current), not just the header strip. */}
+      <div
+        className="flex items-center justify-between px-2 py-1 bg-surface text-[10px] cursor-grab active:cursor-grabbing"
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move';
+          // Setting any drag data is required for Firefox to start the drag.
+          e.dataTransfer.setData('text/plain', String(index));
+          if (cardRef.current) {
+            const rect = cardRef.current.getBoundingClientRect();
+            e.dataTransfer.setDragImage(
+              cardRef.current,
+              e.clientX - rect.left,
+              e.clientY - rect.top,
+            );
+          }
+          onDragStart(index);
+        }}
+        onDragEnd={onDragEnd}
+        title="Drag to reorder"
+      >
         {canMoveLeft ? (
           <button
             className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"

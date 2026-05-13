@@ -79,6 +79,9 @@ export interface ExtraDeviceState {
 }
 
 export interface ScreenState {
+  /** Stable identifier — survives reorder. Used as React key and for
+   *  layout animations. screenIndex is positional and changes on move. */
+  id: string;
   screenIndex: number;
   eyebrow: string;
   headline: string;

@@ -32,6 +32,7 @@ export function createScreenState(
   const pd = PLATFORM_DEVICE_DEFAULTS[platform] ?? PLATFORM_DEVICE_DEFAULTS.iphone!;
 
   return {
+    id: crypto.randomUUID(),
     screenIndex: index,
     eyebrow: screen?.eyebrow ?? '',
     headline: screen ? screen.headline : 'New Frame',
@@ -775,7 +776,8 @@ function applyVariantSnapshot(
     locale: snapshot.locale,
     sessionLocales: deepCopy(snapshot.sessionLocales),
     isPanoramic: snapshot.isPanoramic,
-    screens: deepCopy(snapshot.screens),
+    // Backfill stable id for older snapshots that pre-date the field.
+    screens: deepCopy(snapshot.screens).map((s) => ({ ...s, id: s.id ?? crypto.randomUUID() })),
     selectedScreen: snapshot.selectedScreen,
     panoramicFrameCount: snapshot.panoramicFrameCount,
     panoramicBackground: deepCopy(snapshot.panoramicBackground),

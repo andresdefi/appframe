@@ -24,6 +24,7 @@ export type {
   SpotlightConfig,
   Annotation,
   BackgroundType,
+  BackgroundImageFit,
   BackgroundGradient,
   BackgroundOverlay,
   DeviceShadow,

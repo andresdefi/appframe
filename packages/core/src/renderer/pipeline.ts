@@ -251,6 +251,10 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
       const resolvedBackgroundColor = screen.backgroundColor ?? config.theme.backgroundColor;
       const resolvedBackgroundGradient = screen.backgroundGradient ?? config.theme.backgroundGradient;
       const resolvedBackgroundImage = screen.backgroundImage ?? config.theme.backgroundImage;
+      const resolvedBackgroundImageFit = screen.backgroundImageFit ?? config.theme.backgroundImageFit;
+      const resolvedBackgroundImagePositionX = screen.backgroundImagePositionX ?? config.theme.backgroundImagePositionX;
+      const resolvedBackgroundImagePositionY = screen.backgroundImagePositionY ?? config.theme.backgroundImagePositionY;
+      const resolvedBackgroundImageScale = screen.backgroundImageScale ?? config.theme.backgroundImageScale;
       const resolvedBackgroundOverlay = screen.backgroundOverlay ?? config.theme.backgroundOverlay;
 
       // When the screen (or theme) picks a solid override, apply it to the
@@ -296,6 +300,10 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         ...(resolvedBackgroundColor ? { backgroundColor: resolvedBackgroundColor } : {}),
         ...(resolvedBackgroundGradient ? { backgroundGradient: resolvedBackgroundGradient } : {}),
         ...(resolvedBackgroundImage ? { backgroundImageDataUrl: resolvedBackgroundImage } : {}),
+        ...(resolvedBackgroundImageFit ? { backgroundImageFit: resolvedBackgroundImageFit } : {}),
+        ...(resolvedBackgroundImagePositionX != null ? { backgroundImagePositionX: resolvedBackgroundImagePositionX } : {}),
+        ...(resolvedBackgroundImagePositionY != null ? { backgroundImagePositionY: resolvedBackgroundImagePositionY } : {}),
+        ...(resolvedBackgroundImageScale != null ? { backgroundImageScale: resolvedBackgroundImageScale } : {}),
         ...(resolvedBackgroundOverlay ? { backgroundOverlay: resolvedBackgroundOverlay } : {}),
         eyebrowFont: screen.eyebrowFont ?? config.theme.eyebrowFont,
         eyebrowFontWeight: screen.eyebrowFontWeight ?? config.theme.eyebrowFontWeight,

@@ -3,6 +3,7 @@ import type {
   LayoutVariant,
   FrameStyle,
   BackgroundType,
+  BackgroundImageFit,
   BackgroundGradient,
   BackgroundOverlay,
   DeviceShadow,
@@ -26,6 +27,7 @@ export type {
   LayoutVariant,
   FrameStyle,
   BackgroundType,
+  BackgroundImageFit,
   BackgroundGradient,
   BackgroundOverlay,
   DeviceShadow,
@@ -131,6 +133,10 @@ export interface ScreenState {
   backgroundColor: string;
   backgroundGradient: BackgroundGradient;
   backgroundImageDataUrl: string | null;
+  backgroundImageFit: BackgroundImageFit;
+  backgroundImagePositionX: number;
+  backgroundImagePositionY: number;
+  backgroundImageScale: number;
   backgroundOverlay: BackgroundOverlay | null;
   deviceShadow: DeviceShadow | null;
   borderSimulation: BorderSimulation | null;

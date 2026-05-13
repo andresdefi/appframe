@@ -29,7 +29,7 @@ function gradientToCss(p: GradientPreset): string {
 export function DesignTab() {
   const { screen, update } = useCurrentScreen();
   const bgImageInputRef = useRef<HTMLInputElement>(null);
-  const { patchBackground } = useInstantPatch();
+  const { patchBackground, patchBgOverlay } = useInstantPatch();
 
   const instantBgColor = useCallback(
     (color: string) => patchBackground({ type: 'solid', color }),
@@ -51,6 +51,21 @@ export function DesignTab() {
     [screen, patchBackground],
   );
 
+  const instantBgImage = useCallback(
+    (overrides?: { positionX?: number; positionY?: number; fit?: 'cover' | 'contain' | 'fill'; scale?: number }) => {
+      if (!screen || !screen.backgroundImageDataUrl) return;
+      patchBackground({
+        type: 'image',
+        imageDataUrl: screen.backgroundImageDataUrl,
+        imageFit: overrides?.fit ?? screen.backgroundImageFit,
+        imagePositionX: overrides?.positionX ?? screen.backgroundImagePositionX,
+        imagePositionY: overrides?.positionY ?? screen.backgroundImagePositionY,
+        imageScale: overrides?.scale ?? screen.backgroundImageScale,
+      });
+    },
+    [screen, patchBackground],
+  );
+
   if (!screen) return null;
 
   // Legacy screens may still carry backgroundType: 'preset' — treat as solid
@@ -67,7 +82,12 @@ export function DesignTab() {
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       const { selectedScreen, updateScreen } = usePreviewStore.getState();
-      updateScreen(selectedScreen, { backgroundImageDataUrl: dataUrl });
+      // Switch type to 'image' so the renderer actually uses the upload
+      // instead of keeping the previous solid/gradient.
+      updateScreen(selectedScreen, {
+        backgroundType: 'image',
+        backgroundImageDataUrl: dataUrl,
+      });
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -282,6 +302,52 @@ export function DesignTab() {
           />
           {uiMode === 'image' && (
             <div className="mt-3">
+              <Select
+                label="Fit"
+                value={screen.backgroundImageFit}
+                onChange={(v) => {
+                  const fit = v as 'cover' | 'contain' | 'fill';
+                  // Picking a fit always resets zoom to 100% so the fit
+                  // option takes effect cleanly. Users who want to zoom
+                  // can do so AFTER picking their fit.
+                  update({ backgroundImageFit: fit, backgroundImageScale: 100 });
+                  instantBgImage({ fit, scale: 100 });
+                }}
+                options={[
+                  { value: 'cover', label: 'Cover (fill, may crop)' },
+                  { value: 'contain', label: 'Contain (show all, may letterbox)' },
+                  { value: 'fill', label: 'Stretch (may distort)' },
+                ]}
+              />
+              <RangeSlider
+                label="Position X"
+                value={screen.backgroundImagePositionX}
+                min={0}
+                max={100}
+                formatValue={(v) => `${v}%`}
+                onChange={(v) => update({ backgroundImagePositionX: v })}
+                onInstant={(v) => instantBgImage({ positionX: v })}
+              />
+              <RangeSlider
+                label="Position Y"
+                value={screen.backgroundImagePositionY}
+                min={0}
+                max={100}
+                formatValue={(v) => `${v}%`}
+                onChange={(v) => update({ backgroundImagePositionY: v })}
+                onInstant={(v) => instantBgImage({ positionY: v })}
+              />
+              <RangeSlider
+                label="Zoom"
+                value={screen.backgroundImageScale}
+                min={50}
+                max={300}
+                formatValue={(v) => `${v}%`}
+                onChange={(v) => update({ backgroundImageScale: v })}
+                onInstant={(v) => instantBgImage({ scale: v })}
+                resetTo={100}
+                resetLabel="Fit"
+              />
               <Checkbox
                 label="Dim Overlay"
                 checked={!!screen.backgroundOverlay}
@@ -315,6 +381,7 @@ export function DesignTab() {
                         backgroundOverlay: { ...screen.backgroundOverlay!, opacity: v / 100 },
                       })
                     }
+                    onInstant={(v) => patchBgOverlay({ opacity: v / 100 })}
                   />
                 </>
               )}

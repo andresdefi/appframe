@@ -1175,6 +1175,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       radialPosition?: 'center' | 'top' | 'bottom' | 'left' | 'right';
     };
     backgroundImageDataUrl?: string;
+    backgroundImageFit?: 'cover' | 'contain' | 'fill';
+    backgroundImagePositionX?: number;
+    backgroundImagePositionY?: number;
+    backgroundImageScale?: number;
     backgroundOverlay?: { color: string; opacity: number };
     // Device enhancements
     deviceShadow?: { opacity: number; blur: number; color: string; offsetY: number };
@@ -1344,6 +1348,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         body.backgroundGradient,
       ) as PreviewParams['backgroundGradient'],
       backgroundImageDataUrl: expectString(body.backgroundImageDataUrl),
+      backgroundImageFit: expectString(body.backgroundImageFit) as PreviewParams['backgroundImageFit'],
+      backgroundImagePositionX: expectNumber(body.backgroundImagePositionX),
+      backgroundImagePositionY: expectNumber(body.backgroundImagePositionY),
+      backgroundImageScale: expectNumber(body.backgroundImageScale),
       backgroundOverlay: expectObject(body.backgroundOverlay) as PreviewParams['backgroundOverlay'],
       // Device enhancements
       deviceShadow: expectObject(body.deviceShadow) as PreviewParams['deviceShadow'],
@@ -1500,6 +1508,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
           }
         : config.theme.backgroundGradient,
       backgroundImageDataUrl: p.backgroundImageDataUrl,
+      backgroundImageFit: p.backgroundImageFit,
+      backgroundImagePositionX: p.backgroundImagePositionX,
+      backgroundImagePositionY: p.backgroundImagePositionY,
+      backgroundImageScale: p.backgroundImageScale,
       backgroundOverlay: p.backgroundOverlay ?? config.theme.backgroundOverlay,
       // Device enhancements
       deviceShadow: p.deviceShadow,

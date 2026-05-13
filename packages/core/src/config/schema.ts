@@ -76,6 +76,9 @@ const blendModeSchema = z.enum([
 
 export const backgroundTypeSchema = z.enum(['preset', 'solid', 'gradient', 'image']);
 
+export const backgroundImageFitSchema = z.enum(['cover', 'contain', 'fill']);
+export type BackgroundImageFit = z.infer<typeof backgroundImageFitSchema>;
+
 // --- Device Shadow ---
 
 export const deviceShadowSchema = z.object({
@@ -281,6 +284,10 @@ export const themeConfigSchema = z.object({
   backgroundColor: hexColor.optional(),
   backgroundGradient: backgroundGradientSchema.optional(),
   backgroundImage: z.string().optional(),
+  backgroundImageFit: backgroundImageFitSchema.optional(),
+  backgroundImagePositionX: z.number().min(0).max(100).optional(),
+  backgroundImagePositionY: z.number().min(0).max(100).optional(),
+  backgroundImageScale: z.number().min(50).max(300).optional(),
   backgroundOverlay: backgroundOverlaySchema.optional(),
   // Typography overrides (override preset defaults when specified)
   headlineLineHeight: z.number().min(0.8).max(2).optional(),
@@ -378,6 +385,10 @@ export const screenConfigSchema = z.object({
   backgroundColor: hexColor.optional(),
   backgroundGradient: backgroundGradientSchema.optional(),
   backgroundImage: z.string().optional(),
+  backgroundImageFit: backgroundImageFitSchema.optional(),
+  backgroundImagePositionX: z.number().min(0).max(100).optional(),
+  backgroundImagePositionY: z.number().min(0).max(100).optional(),
+  backgroundImageScale: z.number().min(50).max(300).optional(),
   backgroundOverlay: backgroundOverlaySchema.optional(),
   // Device enhancements
   deviceShadow: deviceShadowSchema.optional(),

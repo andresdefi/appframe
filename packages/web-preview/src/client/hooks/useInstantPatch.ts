@@ -103,12 +103,17 @@ export function useInstantPatch() {
    */
   const patchBackground = useCallback(
     (bg: {
-      type: 'solid' | 'gradient';
+      type: 'solid' | 'gradient' | 'image';
       color?: string;
       gradientType?: 'linear' | 'radial';
       colors?: string[];
       direction?: number;
       radialPosition?: string;
+      imageDataUrl?: string;
+      imageFit?: 'cover' | 'contain' | 'fill';
+      imagePositionX?: number;
+      imagePositionY?: number;
+      imageScale?: number;
     }) => {
       const doc = getDoc();
       if (!doc) return;
@@ -125,7 +130,44 @@ export function useInstantPatch() {
         } else {
           canvas.style.background = `linear-gradient(${bg.direction ?? 135}deg, ${colorStr})`;
         }
+      } else if (bg.type === 'image' && bg.imageDataUrl) {
+        // Update the canvas-bg-image <img> element's style directly.
+        // Object-fit handles fit, object-position handles pan, transform
+        // scale handles zoom — all orthogonal.
+        const img = doc.querySelector('.canvas-bg-image') as HTMLImageElement | null;
+        if (!img) {
+          // No img element yet (e.g. user just switched to image type and
+          // the full re-render hasn't landed). Skip the instant patch; the
+          // next render will set up the element with correct styles.
+          return;
+        }
+        if (bg.imageFit !== undefined) img.style.objectFit = bg.imageFit;
+        const posX = bg.imagePositionX;
+        const posY = bg.imagePositionY;
+        if (posX !== undefined || posY !== undefined) {
+          // Read current values from the img if only one axis is provided.
+          const currentPos = img.style.objectPosition.split(' ');
+          const x = posX ?? parseInt(currentPos[0] ?? '50', 10);
+          const y = posY ?? parseInt(currentPos[1] ?? '50', 10);
+          img.style.objectPosition = `${x}% ${y}%`;
+        }
+        if (bg.imageScale !== undefined) {
+          img.style.transform = `scale(${bg.imageScale / 100})`;
+        }
       }
+    },
+    [getDoc],
+  );
+
+  /** Patch the image-background dim overlay (color + opacity) live. */
+  const patchBgOverlay = useCallback(
+    (overlay: { color?: string; opacity?: number }) => {
+      const doc = getDoc();
+      if (!doc) return;
+      const el = doc.querySelector('.bg-overlay') as HTMLElement | null;
+      if (!el) return;
+      if (overlay.color !== undefined) el.style.background = overlay.color;
+      if (overlay.opacity !== undefined) el.style.opacity = String(overlay.opacity);
     },
     [getDoc],
   );
@@ -604,5 +646,5 @@ export function useInstantPatch() {
     [getDoc],
   );
 
-  return { patchDevice, patchBackground, patchText, patchBorder, patchSpotlight, patchAnnotation, patchLoupe, patchCallout, patchOverlay };
+  return { patchDevice, patchBackground, patchBgOverlay, patchText, patchBorder, patchSpotlight, patchAnnotation, patchLoupe, patchCallout, patchOverlay };
 }

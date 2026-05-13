@@ -116,6 +116,10 @@ export interface TemplateContext {
   backgroundColor?: string;
   backgroundGradient?: BackgroundGradient;
   backgroundImageDataUrl?: string;
+  backgroundImageFit?: 'cover' | 'contain' | 'fill';
+  backgroundImagePositionX?: number;
+  backgroundImagePositionY?: number;
+  backgroundImageScale?: number;
   backgroundOverlay?: { color: string; opacity: number };
 
   // Device enhancements
@@ -489,7 +493,12 @@ function resolvePresetContext(preset: StylePreset, context: TemplateContext) {
     resolvedBackgroundCss = buildGradientCss(context.backgroundGradient);
     resolvedBgEffect = 'none' as typeof resolvedBgEffect;
   } else if (bgType === 'image' && context.backgroundImageDataUrl) {
-    resolvedBackgroundCss = `url('${context.backgroundImageDataUrl}') center/cover no-repeat`;
+    // Image bg is rendered as a separate <img class="canvas-bg-image">
+    // element inside .canvas (see universal/base.html). The canvas itself
+    // gets a transparent background so the img shows through. This lets
+    // Fit (object-fit) and Zoom (transform: scale) be controlled
+    // independently — using background-size for both was conflicting.
+    resolvedBackgroundCss = 'transparent';
     resolvedBgEffect = 'none' as typeof resolvedBgEffect;
   }
 

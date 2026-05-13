@@ -207,6 +207,10 @@ export function buildConfigFromEditorState(
       ? screen.backgroundGradient as typeof original.backgroundGradient
       : undefined;
     const backgroundImage = expectOptionalString(screen.backgroundImageDataUrl);
+    const backgroundImageFit = expectOptionalString(screen.backgroundImageFit) as typeof original.backgroundImageFit;
+    const backgroundImagePositionX = typeof screen.backgroundImagePositionX === 'number' ? screen.backgroundImagePositionX : undefined;
+    const backgroundImagePositionY = typeof screen.backgroundImagePositionY === 'number' ? screen.backgroundImagePositionY : undefined;
+    const backgroundImageScale = typeof screen.backgroundImageScale === 'number' ? screen.backgroundImageScale : undefined;
     const backgroundOverlay = isRecord(screen.backgroundOverlay)
       ? screen.backgroundOverlay as typeof original.backgroundOverlay
       : undefined;
@@ -233,6 +237,10 @@ export function buildConfigFromEditorState(
       ...(backgroundType === 'solid' && backgroundColor ? { backgroundColor } : {}),
       ...(backgroundType === 'gradient' && backgroundGradient ? { backgroundGradient } : {}),
       ...(backgroundType === 'image' && backgroundImage ? { backgroundImage } : {}),
+      ...(backgroundType === 'image' && backgroundImageFit ? { backgroundImageFit } : {}),
+      ...(backgroundType === 'image' && backgroundImagePositionX != null ? { backgroundImagePositionX } : {}),
+      ...(backgroundType === 'image' && backgroundImagePositionY != null ? { backgroundImagePositionY } : {}),
+      ...(backgroundType === 'image' && backgroundImageScale != null ? { backgroundImageScale } : {}),
       ...(backgroundOverlay ? { backgroundOverlay } : {}),
       composition:
         (expectOptionalString(screen.composition) as typeof original.composition)

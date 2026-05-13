@@ -62,6 +62,10 @@ export function buildScreenRenderBody(
     backgroundColor: screen.backgroundType === 'solid' ? screen.backgroundColor : undefined,
     backgroundGradient: screen.backgroundType === 'gradient' ? screen.backgroundGradient : undefined,
     backgroundImageDataUrl: screen.backgroundType === 'image' ? screen.backgroundImageDataUrl : undefined,
+    backgroundImageFit: screen.backgroundType === 'image' ? screen.backgroundImageFit : undefined,
+    backgroundImagePositionX: screen.backgroundType === 'image' ? screen.backgroundImagePositionX : undefined,
+    backgroundImagePositionY: screen.backgroundType === 'image' ? screen.backgroundImagePositionY : undefined,
+    backgroundImageScale: screen.backgroundType === 'image' ? screen.backgroundImageScale : undefined,
     backgroundOverlay:
       screen.backgroundType === 'image' && screen.backgroundOverlay
         ? screen.backgroundOverlay

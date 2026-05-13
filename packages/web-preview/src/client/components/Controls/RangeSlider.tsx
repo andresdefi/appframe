@@ -10,6 +10,11 @@ interface RangeSliderProps {
   onChange: (value: number) => void;
   onInstant?: (value: number) => void;
   disabled?: boolean;
+  /** When provided, shows a small reset button that snaps the value back
+   *  to this number whenever value !== resetTo. */
+  resetTo?: number;
+  /** Label for the reset button. Defaults to "Reset". */
+  resetLabel?: string;
 }
 
 export function RangeSlider({
@@ -22,6 +27,8 @@ export function RangeSlider({
   onChange,
   onInstant,
   disabled,
+  resetTo,
+  resetLabel = 'Reset',
 }: RangeSliderProps) {
   const id = useId();
   // Local mirror of the controlled value so the thumb and readout move
@@ -139,6 +146,17 @@ export function RangeSlider({
           >
             {displayValue}
           </span>
+        )}
+        {resetTo !== undefined && value !== resetTo && !disabled && (
+          <button
+            type="button"
+            onClick={() => onChange(resetTo)}
+            className="text-[10px] text-text-dim hover:text-text transition-colors shrink-0 px-1.5 py-0.5 rounded-md hover:bg-surface-2"
+            aria-label={`${resetLabel} to ${formatValue ? formatValue(resetTo) : resetTo}`}
+            title={`${resetLabel} to ${formatValue ? formatValue(resetTo) : resetTo}`}
+          >
+            {resetLabel}
+          </button>
         )}
       </div>
     </div>

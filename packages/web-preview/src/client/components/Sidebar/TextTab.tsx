@@ -7,6 +7,7 @@ import { Select } from '../Controls/Select';
 import { RangeSlider } from '../Controls/RangeSlider';
 import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
+import { RichTextEditor, richTextToPlain } from '../Controls/RichTextEditor';
 import { buildFontGroups } from '../../utils/fontGroups';
 import type { ScreenState } from '../../types';
 
@@ -38,12 +39,10 @@ export function TextTab() {
   const fontGroups = useMemo(() => buildFontGroups(fonts), [fonts]);
 
   const eyebrowId = useId();
-  const headlineId = useId();
-  const subtitleId = useId();
 
   if (!screen) return null;
 
-  const hasSubtitle = screen.subtitle.length > 0;
+  const hasSubtitle = richTextToPlain(screen.subtitle).length > 0;
   const hasEyebrow = screen.eyebrow.length > 0;
 
   function setOverrideFont(element: ElementKey, value: string) {
@@ -111,27 +110,19 @@ export function TextTab() {
             className="input-shell w-full text-[13px] font-inherit"
           />
         </div>
-        <div className="mb-2.5">
-          <label htmlFor={headlineId} className="block text-xs text-text-dim mb-1">Headline</label>
-          <textarea
-            id={headlineId}
-            rows={2}
-            value={screen.headline}
-            onChange={(e) => update({ headline: e.target.value })}
-            className="input-shell w-full text-[13px] font-inherit resize-y min-h-[60px]"
-          />
-        </div>
-        <div className="mb-2.5">
-          <label htmlFor={subtitleId} className="block text-xs text-text-dim mb-1">Subtitle</label>
-          <input
-            id={subtitleId}
-            type="text"
-            value={screen.subtitle}
-            onChange={(e) => update({ subtitle: e.target.value })}
-            placeholder="Optional subtitle"
-            className="input-shell w-full text-[13px] font-inherit"
-          />
-        </div>
+        <RichTextEditor
+          label="Headline"
+          value={screen.headline}
+          onChange={(html) => update({ headline: html })}
+          onInstant={(html) => patchText({ headlineHtml: html })}
+        />
+        <RichTextEditor
+          label="Subtitle"
+          value={screen.subtitle}
+          onChange={(html) => update({ subtitle: html })}
+          onInstant={(html) => patchText({ subtitleHtml: html })}
+          minHeight={48}
+        />
         <ColorPicker
           label="Headline Color"
           value={screen.colors.text}

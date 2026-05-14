@@ -326,9 +326,14 @@
 
     <div class="text-area">
       {% if eyebrow %}<div class="eyebrow">{{ eyebrow }}</div>{% endif %}
-      <div class="headline">{{ headline }}</div>
+      {# Headline and subtitle render as HTML (rich text from Tiptap) via
+         | safe. Old plain-text values are still safe — they contain no
+         tags. Tiptap's schema-validated output is the only source of
+         HTML; paste from outside is normalized by Tiptap before reaching
+         the state. === #}
+      <div class="headline">{{ headline | safe }}</div>
       {% if presetBgEffect == 'divider' %}<div class="divider"></div>{% endif %}
-      {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+      {% if subtitle %}<div class="subtitle">{{ subtitle | safe }}</div>{% endif %}
     </div>
     {% if composition and composition != 'single' and devices %}
       {% include "_base/composition-devices.html" %}

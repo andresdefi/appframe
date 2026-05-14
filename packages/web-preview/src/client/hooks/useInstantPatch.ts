@@ -181,6 +181,8 @@ export function useInstantPatch() {
       subtitleSize?: number;
       headlineRotation?: number;
       subtitleRotation?: number;
+      headlineHtml?: string;
+      subtitleHtml?: string;
     }) => {
       const doc = getDoc();
       if (!doc) return;

@@ -88,7 +88,7 @@ export function PreviewArea() {
 
     let s = Math.min(scaleForW, scaleForH);
     s = Math.min(s, 1.3);
-    s = Math.max(s, 0.1);
+    s = Math.max(s, 0.05);
     setScale(s);
   }, [previewH, previewW, screens.length]);
 
@@ -104,7 +104,10 @@ export function PreviewArea() {
   return (
     <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg relative">
       <div className="flex-1 overflow-auto">
-        <div className="flex items-center justify-center gap-4 p-6 min-w-min min-h-full">
+        <div
+          className="flex items-center gap-4 p-6 min-w-min min-h-full"
+          style={{ justifyContent: 'safe center' }}
+        >
           {screens.map((screen, i) => (
             <motion.div
               key={screen.id}
@@ -174,13 +177,13 @@ export function PreviewArea() {
           <span className="text-[10px] text-text-dim shrink-0">Zoom</span>
           <input
             type="range"
-            min={10}
+            min={5}
             max={150}
             value={Math.round((manualZoom ?? scale) * 100)}
             onChange={(e) => setManualZoom(parseInt(e.target.value, 10) / 100)}
             className="flex-1 h-1 accent-accent"
             aria-label="Zoom level"
-            aria-valuemin={10}
+            aria-valuemin={5}
             aria-valuemax={150}
             aria-valuenow={Math.round((manualZoom ?? scale) * 100)}
             aria-valuetext={`${Math.round((manualZoom ?? scale) * 100)}%`}
@@ -540,6 +543,7 @@ function ScreenCard({
       className={`shrink-0 cursor-pointer rounded-lg overflow-hidden bg-surface transition-all relative ring-1 ${
         selected ? 'ring-2 ring-accent shadow-lg' : 'ring-border hover:ring-text-dim'
       } ${dragFromIdx === index ? 'opacity-40' : ''}`}
+      style={{ width: previewW * scale }}
       onClick={onSelect}
       onDragOver={(e) => {
         if (dragFromIdx === null || dragFromIdx === index) return;
@@ -569,9 +573,12 @@ function ScreenCard({
         />
       )}
       {/* Header — drag handle. Drags the WHOLE card visually via
-          setDragImage(cardRef.current), not just the header strip. */}
+          setDragImage(cardRef.current), not just the header strip.
+          Below ~110px wide we'd be cramming controls into space that
+          isn't there; we strip down to just the screen number. The
+          whole header stays a drag source either way. */}
       <div
-        className="flex items-center justify-between px-2 py-1 bg-surface text-[10px] cursor-grab active:cursor-grabbing"
+        className="flex items-center justify-between gap-1 px-2 py-1 bg-surface text-[10px] cursor-grab active:cursor-grabbing overflow-hidden"
         draggable
         onDragStart={(e) => {
           e.dataTransfer.effectAllowed = 'move';
@@ -590,43 +597,49 @@ function ScreenCard({
         onDragEnd={onDragEnd}
         title="Drag to reorder"
       >
-        {canMoveLeft ? (
-          <button
-            className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-            onClick={(e) => { e.stopPropagation(); onMoveLeft(); }}
-            title="Move left"
-            aria-label={`Move screen ${index + 1} left`}
-          >
-            &lsaquo;
-          </button>
-        ) : <span className="w-4" />}
-        <span className="text-text-dim font-medium">Screen {index + 1}</span>
-        <div className="flex items-center gap-0.5">
-          {canMoveRight && (
-            <button
-              className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-              onClick={(e) => { e.stopPropagation(); onMoveRight(); }}
-              title="Move right"
-              aria-label={`Move screen ${index + 1} right`}
-            >
-              &rsaquo;
-            </button>
-          )}
-          {canRemove && (
-            <button
-              className="text-text-dim hover:text-red-400 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-              onClick={async (e) => {
-                e.stopPropagation();
-                const ok = await confirm({ title: 'Remove Screen', message: `Remove Screen ${index + 1}? This cannot be undone.` });
-                if (ok) onRemove();
-              }}
-              title="Remove screen"
-              aria-label={`Remove screen ${index + 1}`}
-            >
-              &times;
-            </button>
-          )}
-        </div>
+        {previewW * scale >= 110 ? (
+          <>
+            {canMoveLeft ? (
+              <button
+                className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded shrink-0"
+                onClick={(e) => { e.stopPropagation(); onMoveLeft(); }}
+                title="Move left"
+                aria-label={`Move screen ${index + 1} left`}
+              >
+                &lsaquo;
+              </button>
+            ) : <span className="w-4 shrink-0" />}
+            <span className="text-text-dim font-medium truncate min-w-0">Screen {index + 1}</span>
+            <div className="flex items-center gap-0.5 shrink-0">
+              {canMoveRight && (
+                <button
+                  className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                  onClick={(e) => { e.stopPropagation(); onMoveRight(); }}
+                  title="Move right"
+                  aria-label={`Move screen ${index + 1} right`}
+                >
+                  &rsaquo;
+                </button>
+              )}
+              {canRemove && (
+                <button
+                  className="text-text-dim hover:text-red-400 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const ok = await confirm({ title: 'Remove Screen', message: `Remove Screen ${index + 1}? This cannot be undone.` });
+                    if (ok) onRemove();
+                  }}
+                  title="Remove screen"
+                  aria-label={`Remove screen ${index + 1}`}
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <span className="text-text-dim font-medium truncate min-w-0 w-full text-center">{index + 1}</span>
+        )}
       </div>
 
       {/* Preview */}

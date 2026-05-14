@@ -1630,7 +1630,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       const last = screens[screens.length - 1];
       const newState = createScreenState(0, config, platform);
       newState.screenIndex = screens.length;
-      newState.headline = `Frame ${screens.length + 1}`;
+      newState.headline = `Screen ${screens.length + 1}`;
       newState.subtitle = '';
 
       if (last) {

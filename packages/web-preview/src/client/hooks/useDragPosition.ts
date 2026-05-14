@@ -65,7 +65,7 @@ export function useDragPosition(
   canvasW: number,
   canvasH: number,
   onDeviceDrop: (partial: { deviceTop: number; deviceOffsetX: number }) => void,
-  onTextDrop: (cls: 'headline' | 'subtitle', pos: TextPosition) => void,
+  onTextDrop: (cls: 'headline' | 'subtitle' | 'freeText', pos: TextPosition) => void,
   onAnnotationDrop: (idx: number, partial: { x: number; y: number }) => void,
   onOverlayDrop: (idx: number, partial: { x: number; y: number }) => void,
 ) {
@@ -74,7 +74,7 @@ export function useDragPosition(
   // can scope their feedback to that element rather than all draggables.
   const [dragTarget, setDragTarget] = useState<
     | { kind: 'device' }
-    | { kind: 'text'; cls: 'headline' | 'subtitle' }
+    | { kind: 'text'; cls: 'headline' | 'subtitle' | 'freeText' }
     | { kind: 'annotation'; idx: number }
     | { kind: 'overlay'; idx: number }
     | null
@@ -100,6 +100,7 @@ export function useDragPosition(
         const allEls = doc.elementsFromPoint(ix, iy) as HTMLElement[];
         let headlineEl: HTMLElement | null = null;
         let subtitleEl: HTMLElement | null = null;
+        let freeTextEl: HTMLElement | null = null;
         let deviceEl: HTMLElement | null = null;
         let annotationEl: HTMLElement | null = null;
         let overlayEl: HTMLElement | null = null;
@@ -109,6 +110,7 @@ export function useDragPosition(
           while (el && el !== doc.documentElement) {
             if (!headlineEl && el.classList?.contains('headline')) headlineEl = el;
             if (!subtitleEl && el.classList?.contains('subtitle')) subtitleEl = el;
+            if (!freeTextEl && el.classList?.contains('free-text')) freeTextEl = el;
             if (!deviceEl && el.classList?.contains('device-wrapper')) deviceEl = el;
             if (!annotationEl && el.classList?.contains('annotation-shape')) annotationEl = el;
             if (!overlayEl && el.classList?.contains('overlay-item')) overlayEl = el;
@@ -135,7 +137,7 @@ export function useDragPosition(
           }
         }
         // When multiple text elements overlap, pick the one whose vertical center is closest to the click.
-        const textHits: Array<{ cls: 'headline' | 'subtitle'; el: HTMLElement; dy: number }> = [];
+        const textHits: Array<{ cls: 'headline' | 'subtitle' | 'freeText'; el: HTMLElement; dy: number }> = [];
         if (headlineEl) {
           const vr = getViewportRect(headlineEl);
           textHits.push({ cls: 'headline', el: headlineEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
@@ -143,6 +145,10 @@ export function useDragPosition(
         if (subtitleEl) {
           const vr = getViewportRect(subtitleEl);
           textHits.push({ cls: 'subtitle', el: subtitleEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
+        }
+        if (freeTextEl) {
+          const vr = getViewportRect(freeTextEl);
+          textHits.push({ cls: 'freeText', el: freeTextEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
         }
         if (textHits.length > 0) {
           textHits.sort((a, b) => a.dy - b.dy);
@@ -230,7 +236,7 @@ export function useDragPosition(
         document.addEventListener('mouseup', onUp);
       } else if (hit.kind === 'text') {
         const el = hit.el;
-        const cls = hit.cls as 'headline' | 'subtitle';
+        const cls = hit.cls as 'headline' | 'subtitle' | 'freeText';
         const vr = getViewportRect(el);
         const alreadyPositioned = !!screen.textPositions[cls];
         // When already positioned, the element has transform: translateX(-50%),
@@ -240,9 +246,12 @@ export function useDragPosition(
         const origWidth = vr.width;
 
         if (!alreadyPositioned) {
-          const rotation = cls === 'headline'
-            ? screen.headlineRotation
-            : screen.subtitleRotation;
+          const rotation =
+            cls === 'headline'
+              ? screen.headlineRotation
+              : cls === 'subtitle'
+                ? screen.subtitleRotation
+                : screen.freeTextRotation;
           const parts = ['translateX(-50%)'];
           if (rotation) parts.push(`rotate(${rotation}deg)`);
           el.style.position = 'fixed';
@@ -290,7 +299,7 @@ export function useDragPosition(
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
           setDragTarget(null);
-          onTextDrop(drag.cls as 'headline' | 'subtitle', { x: leftPct, y: topPct, width: widthPct });
+          onTextDrop(drag.cls as 'headline' | 'subtitle' | 'freeText', { x: leftPct, y: topPct, width: widthPct });
         };
 
         document.addEventListener('mousemove', onMove);

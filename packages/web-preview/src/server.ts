@@ -1183,6 +1183,19 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     headlineFontWeight?: number;
     subtitleFont?: string;
     subtitleFontWeight?: number;
+    // Free text (third text slot)
+    freeText?: string;
+    freeTextEnabled?: boolean;
+    freeTextSize?: number;
+    freeTextFont?: string;
+    freeTextFontWeight?: number;
+    freeTextRotation?: number;
+    freeTextLetterSpacing?: string;
+    freeTextTextTransform?: string;
+    freeTextColor?: string;
+    freeTextTop?: number;
+    freeTextLeft?: number;
+    freeTextWidth?: number;
     // Effects
     loupe?: Loupe;
     callouts?: Array<{
@@ -1348,6 +1361,19 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       headlineFontWeight: expectNumber(body.headlineFontWeight),
       subtitleFont: expectString(body.subtitleFont),
       subtitleFontWeight: expectNumber(body.subtitleFontWeight),
+      // Free text
+      freeText: expectString(body.freeText),
+      freeTextEnabled: expectBoolean(body.freeTextEnabled),
+      freeTextSize: expectNumber(body.freeTextSize),
+      freeTextFont: expectString(body.freeTextFont),
+      freeTextFontWeight: expectNumber(body.freeTextFontWeight),
+      freeTextRotation: expectNumber(body.freeTextRotation),
+      freeTextLetterSpacing: expectString(body.freeTextLetterSpacing),
+      freeTextTextTransform: expectString(body.freeTextTextTransform),
+      freeTextColor: expectString(body.freeTextColor),
+      freeTextTop: expectNumber(body.freeTextTop),
+      freeTextLeft: expectNumber(body.freeTextLeft),
+      freeTextWidth: expectNumber(body.freeTextWidth),
       // Effects
       loupe: expectObject(body.loupe) as PreviewParams['loupe'],
       callouts: expectArray(body.callouts) as PreviewParams['callouts'],
@@ -1364,6 +1390,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     p.deviceRotation = clamp(p.deviceRotation, -360, 360);
     p.headlineSize = clamp(p.headlineSize, 0, 500);
     p.subtitleSize = clamp(p.subtitleSize, 0, 500);
+    p.freeTextSize = clamp(p.freeTextSize, 0, 500);
     return p;
   }
 
@@ -1498,13 +1525,43 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       deviceShadow: p.deviceShadow,
       borderSimulation: p.borderSimulation,
       cornerRadius: p.cornerRadius,
-      // Per-element font/weight overrides (screen → theme → global fallback)
-      headlineFont: p.headlineFont ?? screen?.headlineFont ?? config.theme.headlineFont,
+      // Per-element font/weight. The client now always sends concrete
+      // values (the cascade was removed); these fallbacks only fire for
+      // legacy SDK callers / older configs that pre-date the change.
+      headlineFont:
+        p.headlineFont ??
+        screen?.headlineFont ??
+        config.theme.headlineFont ??
+        config.theme.font ??
+        'inter',
       headlineFontWeight:
-        p.headlineFontWeight ?? screen?.headlineFontWeight ?? config.theme.headlineFontWeight,
-      subtitleFont: p.subtitleFont ?? screen?.subtitleFont ?? config.theme.subtitleFont,
+        p.headlineFontWeight ??
+        screen?.headlineFontWeight ??
+        config.theme.headlineFontWeight ??
+        config.theme.fontWeight ??
+        600,
+      subtitleFont:
+        p.subtitleFont ??
+        screen?.subtitleFont ??
+        config.theme.subtitleFont ??
+        config.theme.font ??
+        'inter',
       subtitleFontWeight:
-        p.subtitleFontWeight ?? screen?.subtitleFontWeight ?? config.theme.subtitleFontWeight,
+        p.subtitleFontWeight ??
+        screen?.subtitleFontWeight ??
+        config.theme.subtitleFontWeight ??
+        400,
+      // Free text (third text slot)
+      freeText: p.freeText,
+      freeTextEnabled: p.freeTextEnabled,
+      freeTextSize: p.freeTextSize,
+      freeTextFont:
+        p.freeTextFont ?? config.theme.freeTextFont ?? config.theme.font ?? 'inter',
+      freeTextFontWeight: p.freeTextFontWeight ?? config.theme.freeTextFontWeight ?? 400,
+      freeTextRotation: p.freeTextRotation,
+      freeTextLetterSpacing: p.freeTextLetterSpacing,
+      freeTextTextTransform: p.freeTextTextTransform,
+      freeTextColor: p.freeTextColor,
       // Effects
       loupe: p.loupe,
       callouts: p.callouts,
@@ -1641,6 +1698,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         subtitleLeft: p.subtitleLeft,
         subtitleWidth: p.subtitleWidth,
         subtitleRotation: p.subtitleRotation,
+        freeTextTop: p.freeTextTop,
+        freeTextLeft: p.freeTextLeft,
+        freeTextWidth: p.freeTextWidth,
+        freeTextRotation: p.freeTextRotation,
       });
       if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
       if (p.annotations && p.annotations.length > 0)
@@ -1783,6 +1844,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         subtitleLeft: p.subtitleLeft,
         subtitleWidth: p.subtitleWidth,
         subtitleRotation: p.subtitleRotation,
+        freeTextTop: p.freeTextTop,
+        freeTextLeft: p.freeTextLeft,
+        freeTextWidth: p.freeTextWidth,
+        freeTextRotation: p.freeTextRotation,
       });
       if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
       if (p.annotations && p.annotations.length > 0)
@@ -1850,6 +1915,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         subtitleTop: p.subtitleTop,
         subtitleLeft: p.subtitleLeft,
         subtitleWidth: p.subtitleWidth,
+        freeTextTop: p.freeTextTop,
+        freeTextLeft: p.freeTextLeft,
+        freeTextWidth: p.freeTextWidth,
       });
       if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
       if (p.annotations && p.annotations.length > 0)
@@ -2221,6 +2289,10 @@ function injectTextPositionCSS(
     subtitleLeft?: number;
     subtitleWidth?: number;
     subtitleRotation?: number;
+    freeTextTop?: number;
+    freeTextLeft?: number;
+    freeTextWidth?: number;
+    freeTextRotation?: number;
   },
 ): string {
   const rules: string[] = [];
@@ -2236,6 +2308,12 @@ function injectTextPositionCSS(
     const w = positions.subtitleWidth !== undefined ? `width: ${positions.subtitleWidth}%;` : '';
     rules.push(
       `.subtitle { position: fixed; top: ${positions.subtitleTop}%; left: ${positions.subtitleLeft}%; transform: ${transformWithRotation(positions.subtitleRotation)}; z-index: 10; margin: 0; ${w} }`,
+    );
+  }
+  if (positions.freeTextTop !== undefined && positions.freeTextLeft !== undefined) {
+    const w = positions.freeTextWidth !== undefined ? `width: ${positions.freeTextWidth}%;` : '';
+    rules.push(
+      `.free-text { position: fixed; top: ${positions.freeTextTop}%; left: ${positions.freeTextLeft}%; transform: ${transformWithRotation(positions.freeTextRotation)}; z-index: 10; margin: 0; ${w} }`,
     );
   }
   if (rules.length === 0) return html;

@@ -22,10 +22,10 @@ export function buildScreenRenderBody(
     colors: screen.colors,
     font: screen.font,
     fontWeight: screen.fontWeight,
-    headlineFont: screen.headlineFont ?? undefined,
-    headlineFontWeight: screen.headlineFontWeight ?? undefined,
-    subtitleFont: screen.subtitleFont ?? undefined,
-    subtitleFontWeight: screen.subtitleFontWeight ?? undefined,
+    headlineFont: screen.headlineFont,
+    headlineFontWeight: screen.headlineFontWeight,
+    subtitleFont: screen.subtitleFont,
+    subtitleFontWeight: screen.subtitleFontWeight,
     headlineSize: screen.headlineSize || undefined,
     subtitleSize: screen.subtitleSize || undefined,
     headlineRotation: screen.headlineRotation || undefined,
@@ -45,6 +45,23 @@ export function buildScreenRenderBody(
     subtitleTop: screen.textPositions.subtitle?.y,
     subtitleLeft: screen.textPositions.subtitle?.x,
     subtitleWidth: screen.textPositions.subtitle?.width,
+    // Free text — third text slot. Emit positional fields when set so the
+    // server's injectTextPositionCSS branch can place it via fixed
+    // positioning after drag, same as headline/subtitle.
+    freeText: screen.freeTextEnabled ? screen.freeText : undefined,
+    freeTextEnabled: screen.freeTextEnabled || undefined,
+    freeTextSize: screen.freeTextSize || undefined,
+    freeTextFont: screen.freeTextFont,
+    freeTextFontWeight: screen.freeTextFontWeight,
+    freeTextRotation: screen.freeTextRotation || undefined,
+    freeTextLetterSpacing: screen.freeTextLetterSpacing
+      ? `${screen.freeTextLetterSpacing / 100}em`
+      : undefined,
+    freeTextTextTransform: screen.freeTextTextTransform || undefined,
+    freeTextColor: screen.colors.freeText || undefined,
+    freeTextTop: screen.textPositions.freeText?.y,
+    freeTextLeft: screen.textPositions.freeText?.x,
+    freeTextWidth: screen.textPositions.freeText?.width,
     composition: screen.composition || 'single',
     headlineGradient: screen.headlineGradient,
     subtitleGradient: screen.subtitleGradient,

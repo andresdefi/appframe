@@ -279,9 +279,9 @@ function ScreenCard({
   );
 
   const handleTextDrop = useCallback(
-    (cls: 'headline' | 'subtitle', pos: TextPosition) => {
+    (cls: 'headline' | 'subtitle' | 'freeText', pos: TextPosition) => {
       const textPositions = {
-        ...(screen?.textPositions ?? { headline: null, subtitle: null }),
+        ...(screen?.textPositions ?? { headline: null, subtitle: null, freeText: null }),
       };
       textPositions[cls] = pos;
       updateScreen(index, { textPositions });
@@ -388,7 +388,9 @@ function ScreenCard({
     if (target.kind === 'device') {
       selector = '.device-wrapper';
     } else if (target.kind === 'text') {
-      selector = `.${target.cls}`;
+      // freeText maps to the CSS class `.free-text`; headline/subtitle match
+      // their cls 1:1.
+      selector = target.cls === 'freeText' ? '.free-text' : `.${target.cls}`;
     } else if (target.kind === 'annotation') {
       selector = `.annotation-shape[data-idx="${target.idx}"]`;
     } else {
@@ -442,7 +444,7 @@ function ScreenCard({
       refreshLoupe();
     };
     const observer = new MutationObserver(onMutation);
-    const selectors = ['.device-wrapper', '.headline', '.subtitle'];
+    const selectors = ['.device-wrapper', '.headline', '.subtitle', '.free-text'];
     let attached = 0;
     for (const selector of selectors) {
       const el = doc.querySelector(selector) as HTMLElement | null;

@@ -9,7 +9,6 @@ import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
 import { RichTextEditor, richTextToPlain } from '../Controls/RichTextEditor';
 import { buildFontGroups } from '../../utils/fontGroups';
-import type { ScreenState } from '../../types';
 
 const TEXT_TRANSFORM_OPTIONS = [
   { value: '', label: 'Auto' },
@@ -24,8 +23,6 @@ const FONT_STYLE_OPTIONS = [
   { value: 'normal', label: 'Normal' },
   { value: 'italic', label: 'Italic' },
 ];
-
-type ElementKey = 'headline' | 'subtitle';
 
 export function TextTab() {
   const { screen, update } = useCurrentScreen();
@@ -42,54 +39,16 @@ export function TextTab() {
 
   const hasSubtitle = richTextToPlain(screen.subtitle).length > 0;
 
-  function setOverrideFont(element: ElementKey, value: string) {
-    if (!screen) return;
-    const fontKey = `${element}Font` as const;
-    const patch: Partial<ScreenState> = {};
-    if (value === screen.font) {
-      patch[fontKey] = null;
-    } else {
-      patch[fontKey] = value;
-    }
-    update(patch);
-  }
-
-  function setOverrideWeight(element: ElementKey, value: number) {
-    if (!screen) return;
-    const weightKey = `${element}FontWeight` as const;
-    const patch: Partial<ScreenState> = {};
-    if (value === screen.fontWeight) {
-      patch[weightKey] = null;
-    } else {
-      patch[weightKey] = value;
-    }
-    update(patch);
-  }
-
-  function resetElementOverrides(element: ElementKey) {
-    if (element === 'headline') {
-      update({ headlineFont: null, headlineFontWeight: null });
-    } else {
-      update({ subtitleFont: null, subtitleFontWeight: null });
-    }
-  }
-
-  const effectiveHeadlineFont = screen.headlineFont ?? screen.font;
-  const effectiveHeadlineWeight = screen.headlineFontWeight ?? screen.fontWeight;
-  const effectiveSubtitleFont = screen.subtitleFont ?? screen.font;
-  const effectiveSubtitleWeight = screen.subtitleFontWeight ?? screen.fontWeight;
-
-  const headlineHasOverride =
-    screen.headlineFont !== null || screen.headlineFontWeight !== null;
-  const subtitleHasOverride =
-    screen.subtitleFont !== null || screen.subtitleFontWeight !== null;
-
   return (
     <>
-      {/* Text inputs */}
-      <Section title="Text" tooltip="Edit the headline and subtitle text that appears above or below the device frame." defaultCollapsed={false}>
+      {/* Headline */}
+      <Section
+        title="Headline"
+        tooltip="Edit the headline text and its typography. Use the toolbar color button: applies to the selection, or sets the base color when nothing is selected."
+        defaultCollapsed={false}
+      >
         <RichTextEditor
-          label="Headline"
+          label=""
           value={screen.headline}
           onChange={(html) => update({ headline: html })}
           onInstant={(html) => patchText({ headlineHtml: html })}
@@ -97,8 +56,83 @@ export function TextTab() {
           onBaseColor={(v) => update({ colors: { ...screen.colors, text: v } })}
           onBaseColorInstant={(v) => patchText({ headlineColor: v })}
         />
+        <Select
+          label="Font"
+          value={screen.headlineFont}
+          onChange={(v) => update({ headlineFont: v })}
+          groups={fontGroups}
+        />
+        <RangeSlider
+          label="Weight"
+          value={screen.headlineFontWeight}
+          min={100}
+          max={900}
+          step={100}
+          formatValue={(v) => String(v)}
+          onChange={(v) => update({ headlineFontWeight: v })}
+        />
+        <RangeSlider
+          label="Size"
+          value={screen.headlineSize < 40 ? 40 : screen.headlineSize}
+          min={40}
+          max={200}
+          formatValue={(v) => `${v}px`}
+          onChange={(v) => update({ headlineSize: v })}
+          onInstant={(v) => instantText('headlineSize', v)}
+        />
+        <RangeSlider
+          label="Rotation"
+          value={screen.headlineRotation}
+          min={-30}
+          max={30}
+          formatValue={(v) => `${v}°`}
+          onChange={(v) => update({ headlineRotation: v })}
+          onInstant={(v) => instantText('headlineRotation', v)}
+        />
+        <RangeSlider
+          label="Line Height"
+          value={screen.headlineLineHeight}
+          min={80}
+          max={180}
+          formatValue={(v) => (v === 0 ? 'Auto' : (v / 100).toFixed(2))}
+          onChange={(v) => update({ headlineLineHeight: v })}
+        />
+        <RangeSlider
+          label="Letter Spacing"
+          value={screen.headlineLetterSpacing}
+          min={-5}
+          max={10}
+          formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
+          onChange={(v) => update({ headlineLetterSpacing: v })}
+        />
+        <div className="flex gap-2 mb-2">
+          <div className="flex-1">
+            <Select
+              label="Case"
+              value={screen.headlineTextTransform}
+              onChange={(v) => update({ headlineTextTransform: v })}
+              options={TEXT_TRANSFORM_OPTIONS}
+            />
+          </div>
+          <div className="flex-1">
+            <Select
+              label="Style"
+              value={screen.headlineFontStyle}
+              onChange={(v) => update({ headlineFontStyle: v })}
+              options={FONT_STYLE_OPTIONS}
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* Subtitle */}
+      <Section
+        title="Subtitle"
+        tooltip="Edit the subtitle text and its typography."
+        defaultCollapsed
+      >
         <RichTextEditor
-          label="Subtitle"
+          label=""
           value={screen.subtitle}
           onChange={(html) => update({ subtitle: html })}
           onInstant={(html) => patchText({ subtitleHtml: html })}
@@ -107,146 +141,25 @@ export function TextTab() {
           onBaseColorInstant={(v) => patchText({ subtitleColor: v })}
           minHeight={48}
         />
-      </Section>
-
-      {/* Typography */}
-      <Section title="Typography" tooltip="Control font family, weight, size, rotation, spacing, and text transformations.">
-        <div className="mb-3 px-1">
-          <div className="text-[11px] font-medium text-text-dim uppercase tracking-wider mb-2">
-            Defaults (used when an element has no override)
-          </div>
-          <Select
-            label="Font"
-            value={screen.font}
-            onChange={(v) => update({ font: v })}
-            groups={fontGroups}
-          />
-          <RangeSlider
-            label="Font Weight"
-            value={screen.fontWeight}
-            min={100}
-            max={900}
-            step={100}
-            formatValue={(v) => String(v)}
-            onChange={(v) => update({ fontWeight: v })}
-          />
-        </div>
-
-        <Section title="Headline" defaultCollapsed={false}>
-          <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-[11px] text-text-dim">
-              {headlineHasOverride ? 'Custom override active' : 'Using defaults'}
-            </span>
-            <button
-              type="button"
-              onClick={() => resetElementOverrides('headline')}
-              disabled={!headlineHasOverride}
-              className="text-[11px] text-accent hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
-            >
-              Reset to default
-            </button>
-          </div>
-          <Select
-            label="Font"
-            value={effectiveHeadlineFont}
-            onChange={(v) => setOverrideFont('headline', v)}
-            groups={fontGroups}
-          />
-          <RangeSlider
-            label="Weight"
-            value={effectiveHeadlineWeight}
-            min={100}
-            max={900}
-            step={100}
-            formatValue={(v) => String(v)}
-            onChange={(v) => setOverrideWeight('headline', v)}
-          />
-          <RangeSlider
-            label="Headline Size"
-            value={screen.headlineSize < 40 ? 40 : screen.headlineSize}
-            min={40}
-            max={200}
-            formatValue={(v) => `${v}px`}
-            onChange={(v) => update({ headlineSize: v })}
-            onInstant={(v) => instantText('headlineSize', v)}
-          />
-          <RangeSlider
-            label="Headline Rotation"
-            value={screen.headlineRotation}
-            min={-30}
-            max={30}
-            formatValue={(v) => `${v}\u00B0`}
-            onChange={(v) => update({ headlineRotation: v })}
-            onInstant={(v) => instantText('headlineRotation', v)}
-          />
-          <RangeSlider
-            label="Headline Line Height"
-            value={screen.headlineLineHeight}
-            min={80}
-            max={180}
-            formatValue={(v) => (v === 0 ? 'Auto' : (v / 100).toFixed(2))}
-            onChange={(v) => update({ headlineLineHeight: v })}
-          />
-          <RangeSlider
-            label="Headline Letter Spacing"
-            value={screen.headlineLetterSpacing}
-            min={-5}
-            max={10}
-            formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
-            onChange={(v) => update({ headlineLetterSpacing: v })}
-          />
-          <div className="flex gap-2 mb-2">
-            <div className="flex-1">
-              <Select
-                label="Headline Case"
-                value={screen.headlineTextTransform}
-                onChange={(v) => update({ headlineTextTransform: v })}
-                options={TEXT_TRANSFORM_OPTIONS}
-              />
-            </div>
-            <div className="flex-1">
-              <Select
-                label="Headline Style"
-                value={screen.headlineFontStyle}
-                onChange={(v) => update({ headlineFontStyle: v })}
-                options={FONT_STYLE_OPTIONS}
-              />
-            </div>
-          </div>
-        </Section>
-
         {hasSubtitle && (
-          <Section title="Subtitle" defaultCollapsed>
-            <div className="flex items-center justify-between mb-2 px-1">
-              <span className="text-[11px] text-text-dim">
-                {subtitleHasOverride ? 'Custom override active' : 'Using defaults'}
-              </span>
-              <button
-                type="button"
-                onClick={() => resetElementOverrides('subtitle')}
-                disabled={!subtitleHasOverride}
-                className="text-[11px] text-accent hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
-              >
-                Reset to default
-              </button>
-            </div>
+          <>
             <Select
               label="Font"
-              value={effectiveSubtitleFont}
-              onChange={(v) => setOverrideFont('subtitle', v)}
+              value={screen.subtitleFont}
+              onChange={(v) => update({ subtitleFont: v })}
               groups={fontGroups}
             />
             <RangeSlider
               label="Weight"
-              value={effectiveSubtitleWeight}
+              value={screen.subtitleFontWeight}
               min={100}
               max={900}
               step={100}
               formatValue={(v) => String(v)}
-              onChange={(v) => setOverrideWeight('subtitle', v)}
+              onChange={(v) => update({ subtitleFontWeight: v })}
             />
             <RangeSlider
-              label="Subtitle Size"
+              label="Size"
               value={screen.subtitleSize < 20 ? 20 : screen.subtitleSize}
               min={20}
               max={120}
@@ -255,16 +168,16 @@ export function TextTab() {
               onInstant={(v) => instantText('subtitleSize', v)}
             />
             <RangeSlider
-              label="Subtitle Rotation"
+              label="Rotation"
               value={screen.subtitleRotation}
               min={-30}
               max={30}
-              formatValue={(v) => `${v}\u00B0`}
+              formatValue={(v) => `${v}°`}
               onChange={(v) => update({ subtitleRotation: v })}
               onInstant={(v) => instantText('subtitleRotation', v)}
             />
             <RangeSlider
-              label="Subtitle Opacity"
+              label="Opacity"
               value={screen.subtitleOpacity}
               min={0}
               max={100}
@@ -272,7 +185,7 @@ export function TextTab() {
               onChange={(v) => update({ subtitleOpacity: v })}
             />
             <RangeSlider
-              label="Subtitle Letter Spacing"
+              label="Letter Spacing"
               value={screen.subtitleLetterSpacing}
               min={-5}
               max={10}
@@ -280,12 +193,88 @@ export function TextTab() {
               onChange={(v) => update({ subtitleLetterSpacing: v })}
             />
             <Select
-              label="Subtitle Case"
+              label="Case"
               value={screen.subtitleTextTransform}
               onChange={(v) => update({ subtitleTextTransform: v })}
               options={TEXT_TRANSFORM_OPTIONS}
             />
-          </Section>
+          </>
+        )}
+      </Section>
+
+      {/* Free Text */}
+      <Section
+        title="Free Text"
+        tooltip="Optional third text slot, draggable in the canvas."
+        defaultCollapsed={!screen.freeTextEnabled}
+      >
+        <div className="mb-2">
+          <Checkbox
+            label="Enable free text"
+            checked={screen.freeTextEnabled}
+            onChange={(checked) => update({ freeTextEnabled: checked })}
+          />
+        </div>
+        {screen.freeTextEnabled && (
+          <>
+            <RichTextEditor
+              label=""
+              value={screen.freeText}
+              onChange={(html) => update({ freeText: html })}
+              onInstant={(html) => patchText({ freeTextHtml: html })}
+              baseColor={screen.colors.freeText}
+              onBaseColor={(v) => update({ colors: { ...screen.colors, freeText: v } })}
+              onBaseColorInstant={(v) => patchText({ freeTextColor: v })}
+              minHeight={48}
+            />
+            <Select
+              label="Font"
+              value={screen.freeTextFont}
+              onChange={(v) => update({ freeTextFont: v })}
+              groups={fontGroups}
+            />
+            <RangeSlider
+              label="Weight"
+              value={screen.freeTextFontWeight}
+              min={100}
+              max={900}
+              step={100}
+              formatValue={(v) => String(v)}
+              onChange={(v) => update({ freeTextFontWeight: v })}
+            />
+            <RangeSlider
+              label="Size"
+              value={screen.freeTextSize < 20 ? 20 : screen.freeTextSize}
+              min={20}
+              max={120}
+              formatValue={(v) => `${v}px`}
+              onChange={(v) => update({ freeTextSize: v })}
+              onInstant={(v) => instantText('freeTextSize', v)}
+            />
+            <RangeSlider
+              label="Rotation"
+              value={screen.freeTextRotation}
+              min={-30}
+              max={30}
+              formatValue={(v) => `${v}°`}
+              onChange={(v) => update({ freeTextRotation: v })}
+              onInstant={(v) => instantText('freeTextRotation', v)}
+            />
+            <RangeSlider
+              label="Letter Spacing"
+              value={screen.freeTextLetterSpacing}
+              min={-5}
+              max={10}
+              formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
+              onChange={(v) => update({ freeTextLetterSpacing: v })}
+            />
+            <Select
+              label="Case"
+              value={screen.freeTextTextTransform}
+              onChange={(v) => update({ freeTextTextTransform: v })}
+              options={TEXT_TRANSFORM_OPTIONS}
+            />
+          </>
         )}
       </Section>
 
@@ -297,7 +286,7 @@ export function TextTab() {
         <button
           className="btn-secondary w-full text-[11px]"
           onClick={() =>
-            update({ textPositions: { headline: null, subtitle: null } })
+            update({ textPositions: { headline: null, subtitle: null, freeText: null } })
           }
         >
           Reset to Default
@@ -348,7 +337,7 @@ export function TextTab() {
               value={screen.headlineGradient.direction}
               min={0}
               max={360}
-              formatValue={(v) => `${v}\u00B0`}
+              formatValue={(v) => `${v}°`}
               onChange={(v) =>
                 update({
                   headlineGradient: { ...screen.headlineGradient!, direction: v },
@@ -404,7 +393,7 @@ export function TextTab() {
               value={screen.subtitleGradient.direction}
               min={0}
               max={360}
-              formatValue={(v) => `${v}\u00B0`}
+              formatValue={(v) => `${v}°`}
               onChange={(v) =>
                 update({
                   subtitleGradient: { ...screen.subtitleGradient!, direction: v },

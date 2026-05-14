@@ -187,6 +187,10 @@ export function useInstantPatch() {
       subtitleHtml?: string;
       headlineColor?: string;
       subtitleColor?: string;
+      freeTextSize?: number;
+      freeTextRotation?: number;
+      freeTextHtml?: string;
+      freeTextColor?: string;
     }) => {
       const doc = getDoc();
       if (!doc) return;
@@ -234,6 +238,22 @@ export function useInstantPatch() {
         }
         if (partial.subtitleColor !== undefined) {
           subtitle.style.color = partial.subtitleColor;
+        }
+      }
+
+      const freeText = doc.querySelector('.free-text') as HTMLElement | null;
+      if (freeText) {
+        if (partial.freeTextSize !== undefined) {
+          freeText.style.fontSize = `${Math.round(partial.freeTextSize * scaleFactor)}px`;
+        }
+        if (partial.freeTextRotation !== undefined) {
+          applyRotation(freeText, partial.freeTextRotation);
+        }
+        if (partial.freeTextHtml !== undefined) {
+          freeText.innerHTML = partial.freeTextHtml;
+        }
+        if (partial.freeTextColor !== undefined) {
+          freeText.style.color = partial.freeTextColor;
         }
       }
     },

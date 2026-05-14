@@ -148,6 +148,11 @@ export function buildConfigFromEditorState(
         ?? undefined,
       subtitleFontWeight:
         typeof firstScreen.subtitleFontWeight === 'number' ? firstScreen.subtitleFontWeight : undefined,
+      freeTextFont:
+        (expectOptionalString(firstScreen.freeTextFont) as AppframeConfig['theme']['freeTextFont'])
+        ?? undefined,
+      freeTextFontWeight:
+        typeof firstScreen.freeTextFontWeight === 'number' ? firstScreen.freeTextFontWeight : undefined,
     };
 
     const colors = isRecord(firstScreen.colors) ? firstScreen.colors : null;
@@ -158,6 +163,7 @@ export function buildConfigFromEditorState(
         background: expectOptionalString(colors.background) ?? next.theme.colors.background,
         text: expectOptionalString(colors.text) ?? next.theme.colors.text,
         subtitle: expectOptionalString(colors.subtitle) ?? next.theme.colors.subtitle,
+        freeText: expectOptionalString(colors.freeText) ?? next.theme.colors.freeText,
       };
     }
 
@@ -271,6 +277,35 @@ export function buildConfigFromEditorState(
         : {}),
       ...(typeof screen.subtitleFontWeight === 'number'
         ? { subtitleFontWeight: screen.subtitleFontWeight }
+        : {}),
+      // Free text (third text slot) — only emit set fields so old configs
+      // round-trip cleanly without spurious empty values.
+      ...(typeof screen.freeTextEnabled === 'boolean'
+        ? { freeTextEnabled: screen.freeTextEnabled }
+        : {}),
+      ...(expectOptionalString(screen.freeText)
+        ? { freeText: expectOptionalString(screen.freeText) as string }
+        : {}),
+      ...(typeof screen.freeTextSize === 'number' && screen.freeTextSize > 0
+        ? { freeTextSize: screen.freeTextSize }
+        : {}),
+      ...(expectOptionalString(screen.freeTextFont)
+        ? { freeTextFont: expectOptionalString(screen.freeTextFont) as typeof original.freeTextFont }
+        : {}),
+      ...(typeof screen.freeTextFontWeight === 'number'
+        ? { freeTextFontWeight: screen.freeTextFontWeight }
+        : {}),
+      ...(typeof screen.freeTextRotation === 'number' && screen.freeTextRotation !== 0
+        ? { freeTextRotation: screen.freeTextRotation }
+        : {}),
+      ...(typeof screen.freeTextLetterSpacing === 'number' && screen.freeTextLetterSpacing !== 0
+        ? { freeTextLetterSpacing: `${screen.freeTextLetterSpacing / 100}em` }
+        : {}),
+      ...(expectOptionalString(screen.freeTextTextTransform)
+        ? {
+            freeTextTextTransform:
+              expectOptionalString(screen.freeTextTextTransform) as typeof original.freeTextTextTransform,
+          }
         : {}),
     };
   });

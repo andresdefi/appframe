@@ -132,11 +132,25 @@ export interface TemplateContext {
   subtitleFont?: string;
   subtitleFontWeight?: number;
 
+  // Free text — third text slot (toggleable). When freeTextEnabled is true
+  // and freeText is non-empty, the engine renders <div class="free-text">
+  // beneath the subtitle inside .text-area.
+  freeText?: string;
+  freeTextEnabled?: boolean;
+  freeTextSize?: number;
+  freeTextFont?: string;
+  freeTextFontWeight?: number;
+  freeTextRotation?: number;
+  freeTextLetterSpacing?: string;
+  freeTextTextTransform?: string;
+  freeTextColor?: string;
+
   // Injected by engine
   fontFaceCss?: string;
   fontFamily?: string;
   headlineFontFamily?: string;
   subtitleFontFamily?: string;
+  freeTextFontFamily?: string;
 }
 
 export interface DeviceContext {
@@ -401,6 +415,7 @@ export class TemplateEngine {
           fontKey,
           context.headlineFont,
           context.subtitleFont,
+          context.freeTextFont,
         ].filter((k): k is string => typeof k === 'string' && k.length > 0),
       ),
     );
@@ -420,8 +435,18 @@ export class TemplateEngine {
       ...presetContext,
       fontFaceCss: combinedFontFaceCss,
       fontFamily: globalFontFamily,
-      headlineFontFamily: context.headlineFont ? getFontName(context.headlineFont) : globalFontFamily,
-      subtitleFontFamily: context.subtitleFont ? getFontName(context.subtitleFont) : globalFontFamily,
+      // Per-element fonts are concrete (the cascade was removed). Fall back
+      // to the global family only when the caller didn't pass anything,
+      // which protects legacy SDK consumers passing partial contexts.
+      headlineFontFamily: context.headlineFont
+        ? getFontName(context.headlineFont)
+        : globalFontFamily,
+      subtitleFontFamily: context.subtitleFont
+        ? getFontName(context.subtitleFont)
+        : globalFontFamily,
+      freeTextFontFamily: context.freeTextFont
+        ? getFontName(context.freeTextFont)
+        : globalFontFamily,
     });
   }
 

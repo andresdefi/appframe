@@ -220,30 +220,33 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().toggleBold().run()}
             label="Bold"
           >
-            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor" aria-hidden>
-              <path d="M5 3h4.5a3 3 0 0 1 1.5 5.5A3.25 3.25 0 0 1 9.5 13H5V3zm2 2v3h2.4a1.5 1.5 0 0 0 0-3H7zm0 5v3h2.5a1.5 1.5 0 1 0 0-3H7z" />
-            </svg>
+            <span className="text-[13px] leading-none font-black" aria-hidden>B</span>
           </ToolbarButton>
           <ToolbarButton
             isActive={editor.isActive('italic')}
             onClick={() => editor.chain().focus().toggleItalic().run()}
             label="Italic"
           >
-            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
-              <line x1="10" y1="3" x2="14" y2="3" />
-              <line x1="2" y1="13" x2="6" y2="13" />
-              <line x1="9" y1="3" x2="7" y2="13" />
-            </svg>
+            <span
+              className="text-[13px] leading-none italic font-semibold"
+              style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+              aria-hidden
+            >
+              I
+            </span>
           </ToolbarButton>
           <ToolbarButton
             isActive={editor.isActive('underline')}
             onClick={() => editor.chain().focus().toggleUnderline().run()}
             label="Underline"
           >
-            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
-              <path d="M4 3v6a4 4 0 0 0 8 0V3" />
-              <line x1="3" y1="13" x2="13" y2="13" />
-            </svg>
+            <span
+              className="text-[13px] leading-none font-semibold"
+              style={{ textDecoration: 'underline', textUnderlineOffset: '2px' }}
+              aria-hidden
+            >
+              U
+            </span>
           </ToolbarButton>
 
           {/* Color picker trigger */}

@@ -40,6 +40,7 @@ export const colorConfigSchema = z.object({
   background: hexColor,
   text: hexColor,
   subtitle: hexColor.optional(),
+  freeText: hexColor.optional(),
 });
 
 export const textGradientSchema = z.object({
@@ -305,6 +306,9 @@ export const themeConfigSchema = z.object({
   headlineFontWeight: z.number().int().min(100).max(900).optional(),
   subtitleFont: fontIdSchema.optional(),
   subtitleFontWeight: z.number().int().min(100).max(900).optional(),
+  // Free text: theme-level font/weight defaults
+  freeTextFont: fontIdSchema.optional(),
+  freeTextFontWeight: z.number().int().min(100).max(900).optional(),
 });
 
 // --- Frames section ---
@@ -397,6 +401,17 @@ export const screenConfigSchema = z.object({
   headlineFontWeight: z.number().int().min(100).max(900).optional(),
   subtitleFont: fontIdSchema.optional(),
   subtitleFontWeight: z.number().int().min(100).max(900).optional(),
+  // Free text: third text slot per screen — toggleable, fully styleable.
+  // When freeTextEnabled is true and freeText has content, the engine
+  // renders a <div class="free-text"> below the subtitle in .text-area.
+  freeText: z.string().optional(),
+  freeTextEnabled: z.boolean().optional(),
+  freeTextSize: z.number().int().min(8).max(200).optional(),
+  freeTextFont: fontIdSchema.optional(),
+  freeTextFontWeight: z.number().int().min(100).max(900).optional(),
+  freeTextRotation: z.number().min(-30).max(30).optional(),
+  freeTextLetterSpacing: z.string().optional(),
+  freeTextTextTransform: z.enum(['', 'none', 'uppercase', 'lowercase', 'capitalize']).optional(),
 });
 
 // --- Locale section ---

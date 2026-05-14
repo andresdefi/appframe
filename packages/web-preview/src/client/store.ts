@@ -40,20 +40,36 @@ export function createScreenState(
     layout: 'center',
     font: config.theme.font,
     fontWeight: config.theme.fontWeight,
-    headlineFont: screen?.headlineFont ?? config.theme.headlineFont ?? null,
-    headlineFontWeight: screen?.headlineFontWeight ?? config.theme.headlineFontWeight ?? null,
-    subtitleFont: screen?.subtitleFont ?? config.theme.subtitleFont ?? null,
-    subtitleFontWeight: screen?.subtitleFontWeight ?? config.theme.subtitleFontWeight ?? null,
+    headlineFont:
+      screen?.headlineFont ?? config.theme.headlineFont ?? config.theme.font ?? 'inter',
+    headlineFontWeight:
+      screen?.headlineFontWeight ??
+      config.theme.headlineFontWeight ??
+      config.theme.fontWeight ??
+      600,
+    subtitleFont:
+      screen?.subtitleFont ?? config.theme.subtitleFont ?? config.theme.font ?? 'inter',
+    subtitleFontWeight:
+      screen?.subtitleFontWeight ?? config.theme.subtitleFontWeight ?? 400,
     headlineSize: config.theme.headlineSize ?? 0,
     subtitleSize: config.theme.subtitleSize ?? 0,
     headlineRotation: 0,
     subtitleRotation: 0,
+    freeText: '',
+    freeTextEnabled: false,
+    freeTextSize: 0,
+    freeTextFont: config.theme.freeTextFont ?? config.theme.font ?? 'inter',
+    freeTextFontWeight: config.theme.freeTextFontWeight ?? 400,
+    freeTextRotation: 0,
+    freeTextLetterSpacing: 0,
+    freeTextTextTransform: '',
     colors: {
       primary: config.theme.colors.primary,
       secondary: config.theme.colors.secondary,
       background: config.theme.colors.background,
       text: config.theme.colors.text,
       subtitle: config.theme.colors.subtitle ?? '#64748B',
+      freeText: config.theme.colors.freeText ?? config.theme.colors.subtitle ?? '#64748B',
     },
     frameId: config.frames.ios ?? config.frames.android ?? '',
     deviceColor: config.frames.deviceColor ?? '',
@@ -76,7 +92,7 @@ export function createScreenState(
     subtitleTextTransform: '',
     spotlight: null,
     annotations: [],
-    textPositions: { headline: null, subtitle: null },
+    textPositions: { headline: null, subtitle: null, freeText: null },
     screenshotDataUrl: null,
     screenshotName: screen?.screenshot?.split('/').pop() ?? null,
     screenshotDims: null,
@@ -782,7 +798,40 @@ function applyVariantSnapshot(
     sessionLocales: deepCopy(snapshot.sessionLocales),
     isPanoramic: snapshot.isPanoramic,
     // Backfill stable id for older snapshots that pre-date the field.
-    screens: deepCopy(snapshot.screens).map((s) => ({ ...s, id: s.id ?? crypto.randomUUID() })),
+    // Also backfill the freeText fields for snapshots saved before that
+    // feature shipped — defaults match createScreenState.
+    screens: deepCopy(snapshot.screens).map((s) => {
+      // Backfill per-element font/weight: older snapshots persisted these
+      // as null (meaning "inherit from screen.font"). The cascade is gone,
+      // so concrete defaults are required.
+      const fallbackFont = s.font ?? 'inter';
+      const next: ScreenState = {
+        ...s,
+        id: s.id ?? crypto.randomUUID(),
+        headlineFont: s.headlineFont ?? fallbackFont,
+        headlineFontWeight: s.headlineFontWeight ?? s.fontWeight ?? 600,
+        subtitleFont: s.subtitleFont ?? fallbackFont,
+        subtitleFontWeight: s.subtitleFontWeight ?? 400,
+        freeText: s.freeText ?? '',
+        freeTextEnabled: s.freeTextEnabled ?? false,
+        freeTextSize: s.freeTextSize ?? 0,
+        freeTextFont: s.freeTextFont ?? fallbackFont,
+        freeTextFontWeight: s.freeTextFontWeight ?? 400,
+        freeTextRotation: s.freeTextRotation ?? 0,
+        freeTextLetterSpacing: s.freeTextLetterSpacing ?? 0,
+        freeTextTextTransform: s.freeTextTextTransform ?? '',
+        colors: {
+          ...s.colors,
+          freeText: s.colors?.freeText ?? s.colors?.subtitle ?? '#64748B',
+        },
+        textPositions: {
+          headline: s.textPositions?.headline ?? null,
+          subtitle: s.textPositions?.subtitle ?? null,
+          freeText: s.textPositions?.freeText ?? null,
+        },
+      };
+      return next;
+    }),
     selectedScreen: snapshot.selectedScreen,
     panoramicFrameCount: snapshot.panoramicFrameCount,
     panoramicBackground: deepCopy(snapshot.panoramicBackground),

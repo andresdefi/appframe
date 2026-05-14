@@ -306,6 +306,16 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         headlineFontWeight: screen.headlineFontWeight ?? config.theme.headlineFontWeight,
         subtitleFont: screen.subtitleFont ?? config.theme.subtitleFont,
         subtitleFontWeight: screen.subtitleFontWeight ?? config.theme.subtitleFontWeight,
+        // Free text (third text slot) — emit only when enabled. Font/weight
+        // fall back to theme defaults the same way headline/subtitle do.
+        ...(screen.freeTextEnabled ? { freeTextEnabled: true } : {}),
+        ...(screen.freeText ? { freeText: screen.freeText } : {}),
+        ...(screen.freeTextSize != null ? { freeTextSize: screen.freeTextSize } : {}),
+        freeTextFont: screen.freeTextFont ?? config.theme.freeTextFont,
+        freeTextFontWeight: screen.freeTextFontWeight ?? config.theme.freeTextFontWeight,
+        ...(screen.freeTextRotation != null ? { freeTextRotation: screen.freeTextRotation } : {}),
+        ...(screen.freeTextLetterSpacing ? { freeTextLetterSpacing: screen.freeTextLetterSpacing } : {}),
+        ...(screen.freeTextTextTransform ? { freeTextTextTransform: screen.freeTextTextTransform } : {}),
       };
 
       // Render template to HTML

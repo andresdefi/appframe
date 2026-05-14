@@ -215,9 +215,9 @@
     }
 
     .headline {
-      font-family: '{{ headlineFontFamily or fontFamily }}', {{ presetFontFallback | safe }};
+      font-family: '{{ headlineFontFamily }}', {{ presetFontFallback | safe }};
       font-size: {{ (headlineSize * canvasWidth / 1290) | round if headlineSize else (canvasWidth * presetHeadlineFontSizeScale) | round }}px;
-      font-weight: {{ headlineFontWeight or fontWeight | default(presetFontWeight) }};
+      font-weight: {{ headlineFontWeight }};
       color: {{ colors.text }};
       line-height: {{ presetHeadlineLineHeight }};
       letter-spacing: {{ presetHeadlineLetterSpacing }};
@@ -227,17 +227,29 @@
     }
 
     .subtitle {
-      font-family: '{{ subtitleFontFamily or fontFamily }}', {{ presetFontFallback | safe }};
+      font-family: '{{ subtitleFontFamily }}', {{ presetFontFallback | safe }};
       font-size: {{ (subtitleSize * canvasWidth / 1290) | round if subtitleSize else (canvasWidth * presetSubtitleFontSizeScale) | round }}px;
       color: {{ colors.subtitle or colors.text }};
       opacity: {{ 1 if colors.subtitle else presetSubtitleOpacity }};
-      font-weight: {{ subtitleFontWeight or 400 }};
+      font-weight: {{ subtitleFontWeight }};
       line-height: {{ presetSubtitleLineHeight }};
       margin-top: {{ (canvasWidth * 0.012) | round }}px;
       {% if presetSubtitleLetterSpacing != '0' %}letter-spacing: {{ presetSubtitleLetterSpacing }};{% endif %}
       {% if presetSubtitleTextTransform != 'none' %}text-transform: {{ presetSubtitleTextTransform }};{% endif %}
       {% if presetHeadlineFontStyle != 'normal' %}font-style: normal;{% endif %}
       {% if subtitleRotation %}transform: rotate({{ subtitleRotation }}deg);{% endif %}
+    }
+
+    .free-text {
+      font-family: '{{ freeTextFontFamily }}', {{ presetFontFallback | safe }};
+      font-size: {{ (freeTextSize * canvasWidth / 1290) | round if freeTextSize else (canvasWidth * presetSubtitleFontSizeScale) | round }}px;
+      color: {{ freeTextColor or colors.freeText or colors.subtitle or colors.text }};
+      font-weight: {{ freeTextFontWeight }};
+      line-height: {{ presetSubtitleLineHeight }};
+      margin-top: {{ (canvasWidth * 0.012) | round }}px;
+      {% if freeTextLetterSpacing and freeTextLetterSpacing != '0' %}letter-spacing: {{ freeTextLetterSpacing }};{% endif %}
+      {% if freeTextTextTransform and freeTextTextTransform != 'none' %}text-transform: {{ freeTextTextTransform }};{% endif %}
+      {% if freeTextRotation %}transform: rotate({{ freeTextRotation }}deg);{% endif %}
     }
 
     {# === Device wrapper === #}
@@ -322,6 +334,7 @@
       <div class="headline">{{ headline | safe }}</div>
       {% if presetBgEffect == 'divider' %}<div class="divider"></div>{% endif %}
       {% if subtitle %}<div class="subtitle">{{ subtitle | safe }}</div>{% endif %}
+      {% if freeTextEnabled and freeText %}<div class="free-text">{{ freeText | safe }}</div>{% endif %}
     </div>
     {% if composition and composition != 'single' and devices %}
       {% include "_base/composition-devices.html" %}

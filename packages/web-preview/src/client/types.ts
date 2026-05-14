@@ -64,6 +64,7 @@ export interface ScreenColors {
   background: string;
   text: string;
   subtitle: string;
+  freeText: string;
 }
 
 export interface ExtraDeviceState {
@@ -89,14 +90,23 @@ export interface ScreenState {
   layout: LayoutVariant;
   font: string;
   fontWeight: number;
-  headlineFont: string | null;
-  headlineFontWeight: number | null;
-  subtitleFont: string | null;
-  subtitleFontWeight: number | null;
+  headlineFont: string;
+  headlineFontWeight: number;
+  subtitleFont: string;
+  subtitleFontWeight: number;
   headlineSize: number;
   subtitleSize: number;
   headlineRotation: number;
   subtitleRotation: number;
+  // Free text — third text slot, toggleable on/off, fully styleable.
+  freeText: string;
+  freeTextEnabled: boolean;
+  freeTextSize: number;
+  freeTextFont: string;
+  freeTextFontWeight: number;
+  freeTextRotation: number;
+  freeTextLetterSpacing: number;
+  freeTextTextTransform: string;
   colors: ScreenColors;
   frameId: string;
   deviceColor: string;
@@ -122,6 +132,7 @@ export interface ScreenState {
   textPositions: {
     headline: TextPosition | null;
     subtitle: TextPosition | null;
+    freeText: TextPosition | null;
   };
   screenshotDataUrl: string | null;
   screenshotName: string | null;

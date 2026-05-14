@@ -16,7 +16,6 @@ import { getDefaultExportSizeKey, getPlatformPreviewSize, isPlatformCompatibleWi
 import type {
   FrameStyle,
   LayoutVariant,
-  TemplateStyle,
   CompositionPreset,
   ExtraDeviceState,
 } from '../../types';
@@ -407,12 +406,10 @@ export function DeviceTab() {
       <Section title="Device Layout" tooltip="Control the size, position, rotation, and tilt of the device in the screenshot frame.">
         <Checkbox
           label="Fullscreen Screenshot"
-          checked={screen.style === 'fullscreen'}
-          onChange={(checked) =>
-            update({ style: (checked ? 'fullscreen' : 'minimal') as TemplateStyle })
-          }
+          checked={screen.isFullscreen}
+          onChange={(checked) => update({ isFullscreen: checked })}
         />
-        {screen.style !== 'fullscreen' && (
+        {!screen.isFullscreen && (
           <>
             <TileGrid
               label="Layout"

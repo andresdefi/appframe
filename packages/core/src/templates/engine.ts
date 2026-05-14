@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type {
-  TemplateStyle,
   LayoutVariant,
   ColorConfig,
   FrameStyle,
@@ -18,8 +17,70 @@ import type {
 } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
 import { loadFontFaces, getFontName } from '../fonts/loader.js';
-import { STYLE_PRESETS } from '../config/presets.js';
-import type { StylePreset } from '../config/presets.js';
+
+interface TypographyDefaults {
+  fontWeight: number;
+  headlineFontSizeScale: number;
+  subtitleFontSizeScale: number;
+  headlineLineHeight: number;
+  headlineLetterSpacing: string;
+  headlineTextTransform: string;
+  headlineFontStyle: string;
+  subtitleOpacity: number;
+  subtitleLineHeight: number;
+  subtitleLetterSpacing: string;
+  subtitleTextTransform: string;
+  fontFallback: string;
+}
+
+type ShadowIntensity = 'light' | 'medium' | 'heavy' | 'glow';
+
+interface ShadowConfig {
+  intensity: ShadowIntensity;
+  standard: Array<[number, number, number]>;
+  angled: Array<[number, number, number]>;
+  glowScale?: number;
+  glowAlpha?: string;
+}
+
+type BgEffect = 'none' | 'orbs' | 'glow' | 'shapes' | 'flat-circles' | 'divider';
+
+interface StylePreset {
+  backgroundCss: (colors: ColorConfig) => string;
+  bgEffect: BgEffect;
+  typography: TypographyDefaults;
+  shadow: ShadowConfig;
+  perspective: { angled: number; standard: number };
+  textAreaTop: number;
+  textAreaPadding: number;
+}
+
+const BASELINE: StylePreset = {
+  backgroundCss: (colors) => colors.background,
+  bgEffect: 'none',
+  typography: {
+    fontWeight: 600,
+    headlineFontSizeScale: 0.085,
+    subtitleFontSizeScale: 0.035,
+    headlineLineHeight: 1.12,
+    headlineLetterSpacing: '-0.02em',
+    headlineTextTransform: 'none',
+    headlineFontStyle: 'normal',
+    subtitleOpacity: 0.5,
+    subtitleLineHeight: 1.4,
+    subtitleLetterSpacing: '0',
+    subtitleTextTransform: 'none',
+    fontFallback: "'Inter', -apple-system, sans-serif",
+  },
+  shadow: {
+    intensity: 'light',
+    standard: [[0.02, 0.05, 0.15]],
+    angled: [[0.02, 0.05, 0.18]],
+  },
+  perspective: { angled: 1200, standard: 1500 },
+  textAreaTop: 0.03,
+  textAreaPadding: 0.07,
+};
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -30,10 +91,13 @@ export interface TemplateContext {
   screenshotDataUrl: string;
 
   // Theme
-  style: TemplateStyle;
   colors: ColorConfig;
   font: string;
   fontWeight: number;
+
+  // Per-screen layout flag — when true, the screenshot fills the canvas and
+  // the headline/subtitle text area is hidden.
+  isFullscreen?: boolean;
 
   // Layout
   layout: LayoutVariant;
@@ -317,7 +381,7 @@ function buildShadowCss(preset: StylePreset, context: TemplateContext): string {
   const layout = context.layout;
   const colors = context.colors;
 
-  if (preset.isFullscreen) return '';
+  if (context.isFullscreen) return '';
 
   let shadowDefs: Array<[number, number, number]>;
   if (layout === 'angled-left' || layout === 'angled-right') {
@@ -400,8 +464,7 @@ export class TemplateEngine {
     const faceCssList = await Promise.all(fontKeys.map((k) => this.getFontFaceCss(k)));
     const combinedFontFaceCss = faceCssList.join('\n\n');
 
-    const preset = STYLE_PRESETS[context.style];
-    const presetContext = resolvePresetContext(preset, context);
+    const presetContext = resolvePresetContext(BASELINE, context);
 
     const globalFontFamily = getFontName(fontKey);
 
@@ -503,7 +566,7 @@ function resolvePresetContext(preset: StylePreset, context: TemplateContext) {
       : buildShadowCss(preset, context);
 
   return {
-    isFullscreen: preset.isFullscreen,
+    isFullscreen: context.isFullscreen ?? false,
     presetBackgroundCss: resolvedBackgroundCss,
     presetBgEffect: resolvedBgEffect,
     presetFontFallback: typo.fontFallback,

@@ -7,7 +7,7 @@ import type { DeviceContext, TemplateContext } from '../templates/engine.js';
 import { Renderer } from './renderer.js';
 import { getTargetSizes } from './sizes.js';
 import type { GenerateOptions, GenerateResult, RenderResult, ScreenshotSize } from './types.js';
-import type { AppframeConfig, ScreenConfig, TemplateStyle } from '../config/schema.js';
+import type { AppframeConfig, ScreenConfig } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
 import { injectSpotlightHTML, injectAnnotationsHTML } from '../templates/injectors.js';
 import { resolveLocalizedAsset } from '../devices/assets.js';
@@ -242,9 +242,6 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         frameSvg = await loadFrameSvgContent(frame);
       }
 
-      // Build template context
-      const style = (options.templateOverride as TemplateStyle | undefined) ?? config.theme.style;
-
       // Merge per-screen background overrides onto theme-level values.
       // Per-screen wins when set; theme fills in gaps.
       const resolvedBackgroundType = screen.backgroundType ?? config.theme.backgroundType;
@@ -267,7 +264,7 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         headline,
         subtitle,
         screenshotDataUrl,
-        style,
+        isFullscreen: screen.isFullscreen ?? false,
         colors: resolvedColors,
         font: config.theme.font,
         fontWeight: config.theme.fontWeight,

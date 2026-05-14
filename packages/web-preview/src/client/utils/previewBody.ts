@@ -15,7 +15,7 @@ export function buildScreenRenderBody(
     locale: preferLocaleText ? locale : undefined,
     preferLocaleText: preferLocaleText || undefined,
     localeConfig: preferLocaleText ? localeConfig : undefined,
-    style: screen.style,
+    isFullscreen: screen.isFullscreen,
     layout: screen.layout,
     headline: screen.headline,
     subtitle: screen.subtitle,

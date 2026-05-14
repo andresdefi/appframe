@@ -27,7 +27,6 @@ export interface GenerateOptions {
   locale?: string;
   screenIndex?: number;
   outputDir?: string;
-  templateOverride?: string;
   onProgress?: (current: number, total: number, name: string) => void;
   /** Max number of screenshots to render in parallel (default: 3) */
   concurrency?: number;

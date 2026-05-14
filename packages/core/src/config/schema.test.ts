@@ -10,7 +10,6 @@ import {
   localizationConfigSchema,
   outputConfigSchema,
   platformSchema,
-  templateStyleSchema,
   frameStyleSchema,
   layoutVariantSchema,
   compositionPresetSchema,
@@ -73,27 +72,6 @@ describe('platformSchema', () => {
 
   it('rejects unknown', () => {
     expect(platformSchema.safeParse('web').success).toBe(false);
-  });
-});
-
-describe('templateStyleSchema', () => {
-  it('accepts all valid styles', () => {
-    for (const s of [
-      'minimal',
-      'bold',
-      'glow',
-      'playful',
-      'clean',
-      'branded',
-      'editorial',
-      'fullscreen',
-    ]) {
-      expect(templateStyleSchema.safeParse(s).success).toBe(true);
-    }
-  });
-
-  it('rejects unknown', () => {
-    expect(templateStyleSchema.safeParse('neon').success).toBe(false);
   });
 });
 
@@ -169,7 +147,6 @@ describe('appConfigSchema', () => {
 describe('themeConfigSchema', () => {
   it('accepts valid input with defaults', () => {
     const result = themeConfigSchema.safeParse({
-      style: 'minimal',
       colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' },
     });
     expect(result.success).toBe(true);
@@ -182,7 +159,6 @@ describe('themeConfigSchema', () => {
   it('rejects fontWeight outside range', () => {
     expect(
       themeConfigSchema.safeParse({
-        style: 'minimal',
         colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' },
         fontWeight: 1000,
       }).success,
@@ -425,7 +401,6 @@ describe('appframeConfigSchema refinements', () => {
   const validBase = {
     app: { name: 'App', description: 'D', platforms: ['ios'] },
     theme: {
-      style: 'minimal',
       colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' },
     },
     screens: [{ screenshot: 'test.png', headline: 'Hi' }],

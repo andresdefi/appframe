@@ -13,7 +13,6 @@ export function createMinimalConfig(overrides?: Partial<AppframeConfig>): Appfra
       features: [],
     },
     theme: {
-      style: 'minimal',
       colors: {
         primary: '#2563EB',
         secondary: '#7C3AED',

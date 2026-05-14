@@ -9,7 +9,6 @@ function makeValidConfig(overrides?: Record<string, unknown>) {
       platforms: ['ios'],
     },
     theme: {
-      style: 'minimal',
       colors: {
         primary: '#2563EB',
         secondary: '#7C3AED',
@@ -69,7 +68,6 @@ describe('validateConfig', () => {
   it('rejects invalid hex colors', () => {
     const config = makeValidConfig({
       theme: {
-        style: 'minimal',
         colors: {
           primary: 'not-a-color',
           secondary: '#7C3AED',
@@ -86,7 +84,6 @@ describe('validateConfig', () => {
     for (const color of ['#FFF', '#FF0000', '#FF0000FF']) {
       const config = makeValidConfig({
         theme: {
-          style: 'minimal',
           colors: {
             primary: color,
             secondary: '#7C3AED',
@@ -97,29 +94,6 @@ describe('validateConfig', () => {
       });
       const result = validateConfig(config);
       expect(result.success).toBe(true);
-    }
-  });
-
-  it('rejects invalid template style', () => {
-    const config = makeValidConfig({
-      theme: {
-        style: 'neon',
-        colors: { primary: '#FFF', secondary: '#FFF', background: '#FFF', text: '#FFF' },
-      },
-    });
-    const result = validateConfig(config);
-    expect(result.success).toBe(false);
-  });
-
-  it('accepts all valid template styles', () => {
-    for (const style of ['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial']) {
-      const config = makeValidConfig({
-        theme: {
-          style,
-          colors: { primary: '#FFF', secondary: '#FFF', background: '#FFF', text: '#FFF' },
-        },
-      });
-      expect(validateConfig(config).success).toBe(true);
     }
   });
 

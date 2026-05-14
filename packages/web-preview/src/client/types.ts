@@ -1,5 +1,4 @@
 import type {
-  TemplateStyle,
   LayoutVariant,
   FrameStyle,
   BackgroundType,
@@ -23,7 +22,6 @@ import type {
 } from '@appframe/core';
 
 export type {
-  TemplateStyle,
   LayoutVariant,
   FrameStyle,
   BackgroundType,
@@ -86,7 +84,7 @@ export interface ScreenState {
   screenIndex: number;
   headline: string;
   subtitle: string;
-  style: TemplateStyle;
+  isFullscreen: boolean;
   layout: LayoutVariant;
   font: string;
   fontWeight: number;

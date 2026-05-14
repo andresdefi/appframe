@@ -93,7 +93,6 @@ export function buildConfigFromEditorState(
   if (firstScreen && mode !== 'panoramic') {
     next.theme = {
       ...next.theme,
-      style: (expectOptionalString(firstScreen.style) as AppframeConfig['theme']['style']) ?? next.theme.style,
       font: expectOptionalString(firstScreen.font) ?? next.theme.font,
       fontWeight:
         typeof firstScreen.fontWeight === 'number'

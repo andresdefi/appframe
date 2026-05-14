@@ -16,7 +16,6 @@ export type {
   IOSOutputConfig,
   AndroidOutputConfig,
   Platform,
-  TemplateStyle,
   FrameStyle,
   LayoutVariant,
   CompositionPreset,
@@ -37,7 +36,5 @@ export type {
   PanoramicBackground,
   PanoramicBackgroundLayer,
 } from './schema.js';
-export { STYLE_PRESETS } from './presets.js';
-export type { StylePreset, TypographyDefaults, ShadowConfig, BgEffect, ShadowIntensity } from './presets.js';
 export { GRADIENT_PRESETS, SOLID_PRESETS } from './background-presets.js';
 export type { GradientPreset } from './background-presets.js';

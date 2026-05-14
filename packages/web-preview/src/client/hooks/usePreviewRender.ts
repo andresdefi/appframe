@@ -20,7 +20,7 @@ export function usePreviewRender() {
       screenIndex: index,
       headline: screen.headline,
       subtitle: screen.subtitle,
-      style: screen.style,
+      isFullscreen: screen.isFullscreen,
       layout: screen.layout,
       font: screen.font,
       fontWeight: screen.fontWeight,

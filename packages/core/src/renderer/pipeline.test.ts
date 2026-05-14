@@ -140,13 +140,6 @@ describe('generateScreenshots', () => {
     expect(result.screenshots.length).toBe(1);
   });
 
-  it('renders with templateOverride', async () => {
-    mockLoadConfig.mockResolvedValue(createMinimalConfig());
-
-    const result = await generateScreenshots({ configPath: '/tmp/appframe.yml', templateOverride: 'bold' });
-    expect(result.screenshots.length).toBe(1);
-  });
-
   it('handles screens with spotlight, annotations, and zoom callouts', async () => {
     const config = createMinimalConfig({
       screens: [{
@@ -202,7 +195,6 @@ describe('generateScreenshots', () => {
   it('uses screen-level background when set, overriding theme-level', async () => {
     const config = createMinimalConfig({
       theme: {
-        style: 'minimal',
         colors: { primary: '#2563EB', secondary: '#7C3AED', background: '#FFFFFF', text: '#0F172A' },
         font: 'inter',
         fontWeight: 600,
@@ -230,7 +222,6 @@ describe('generateScreenshots', () => {
   it('falls back to theme-level background when screen has none', async () => {
     const config = createMinimalConfig({
       theme: {
-        style: 'minimal',
         colors: { primary: '#2563EB', secondary: '#7C3AED', background: '#F8FAFC', text: '#0F172A' },
         font: 'inter',
         fontWeight: 600,

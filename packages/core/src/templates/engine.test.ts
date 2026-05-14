@@ -16,7 +16,6 @@ function makeContext(overrides?: Partial<TemplateContext>): TemplateContext {
   return {
     headline: 'Test Headline',
     screenshotDataUrl: mockScreenshotDataUrl(),
-    style: 'minimal',
     colors: { primary: '#2563EB', secondary: '#7C3AED', background: '#F8FAFC', text: '#0F172A' },
     font: 'inter',
     fontWeight: 600,
@@ -37,19 +36,16 @@ describe('TemplateEngine', () => {
     engine = new TemplateEngine();
   });
 
-  it('renders HTML for minimal style', async () => {
-    const html = await engine.render(makeContext({ style: 'minimal' }));
+  it('renders HTML for a minimal context', async () => {
+    const html = await engine.render(makeContext());
     expect(html).toContain('Test Headline');
     expect(html).toContain('<html');
     expect(html).toContain('</html>');
   });
 
-  it('renders HTML for all 8 styles', async () => {
-    const styles = ['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial', 'fullscreen'] as const;
-    for (const style of styles) {
-      const html = await engine.render(makeContext({ style }));
-      expect(html).toContain('<html');
-    }
+  it('renders fullscreen mode when isFullscreen is true', async () => {
+    const html = await engine.render(makeContext({ isFullscreen: true }));
+    expect(html).toContain('<html');
   });
 
   it('includes headline text in output', async () => {

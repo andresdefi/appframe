@@ -19,7 +19,6 @@ export type {
   IOSOutputConfig,
   AndroidOutputConfig,
   Platform,
-  TemplateStyle,
   FrameStyle,
   LayoutVariant,
   CompositionPreset,

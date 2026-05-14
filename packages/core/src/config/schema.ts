@@ -10,16 +10,6 @@ const hexColor = z
 export const fontIdSchema = z.enum(FONT_IDS as [string, ...string[]]);
 
 export const platformSchema = z.enum(['ios', 'android', 'mac', 'watch']);
-export const templateStyleSchema = z.enum([
-  'minimal',
-  'bold',
-  'glow',
-  'playful',
-  'clean',
-  'branded',
-  'editorial',
-  'fullscreen',
-]);
 export const frameStyleSchema = z.enum(['flat', 'none']);
 export const layoutVariantSchema = z.enum(['center', 'angled-left', 'angled-right']);
 
@@ -272,7 +262,6 @@ export const panoramicBackgroundLayerSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const themeConfigSchema = z.object({
-  style: templateStyleSchema,
   colors: colorConfigSchema,
   font: fontIdSchema.default('inter'),
   fontWeight: z.number().int().min(100).max(900).default(600),
@@ -372,6 +361,7 @@ export const screenConfigSchema = z.object({
   headline: z.string().min(1, 'Headline is required'),
   subtitle: z.string().optional(),
   layout: layoutVariantSchema.default('center'),
+  isFullscreen: z.boolean().optional(),
   device: z.string().optional(),
   background: z.string().optional(),
   composition: compositionPresetSchema.default('single'),
@@ -832,7 +822,6 @@ export const appframeConfigSchema = z
 // --- Inferred types ---
 
 export type Platform = z.infer<typeof platformSchema>;
-export type TemplateStyle = z.infer<typeof templateStyleSchema>;
 export type FrameStyle = z.infer<typeof frameStyleSchema>;
 export type LayoutVariant = z.infer<typeof layoutVariantSchema>;
 export type AppConfig = z.infer<typeof appConfigSchema>;

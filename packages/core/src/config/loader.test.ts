@@ -19,7 +19,7 @@ describe('loadConfig', () => {
   it('reads and validates a valid YAML config', async () => {
     const configData = {
       app: { name: 'Test', description: 'D', platforms: ['ios'] },
-      theme: { style: 'minimal', colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' } },
+      theme: { colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' } },
       screens: [{ screenshot: 'test.png', headline: 'Hello' }],
       output: { platforms: ['ios'] },
     };
@@ -52,7 +52,7 @@ describe('loadConfig', () => {
   it('fills Zod defaults', async () => {
     const configData = {
       app: { name: 'Test', description: 'D', platforms: ['ios'] },
-      theme: { style: 'bold', colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' } },
+      theme: { colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' } },
       screens: [{ screenshot: 'test.png', headline: 'Hello' }],
       output: { platforms: ['ios'] },
     };

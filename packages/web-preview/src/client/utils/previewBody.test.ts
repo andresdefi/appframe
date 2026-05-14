@@ -8,7 +8,7 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
     screenIndex: 2,
     headline: 'Track smarter',
     subtitle: 'See every expense clearly',
-    style: 'minimal',
+    isFullscreen: false,
     layout: 'center',
     font: 'inter',
     fontWeight: 700,

@@ -29,7 +29,6 @@ import {
 } from '@appframe/core';
 import type {
   AppframeConfig,
-  TemplateStyle,
   LayoutVariant,
   FrameStyle,
   CompositionPreset,
@@ -47,10 +46,8 @@ import type {
   PanoramicRenderedBackgroundLayer,
   PanoramicRenderedElement,
 } from '@appframe/core';
-import { planAiRefinement } from './aiRefinement.js';
 import {
   buildConfigFromEditorState,
-  materializeSessionSaveVariants,
   mergeSessionSaveRequest,
   type PersistedSessionRecord,
   type SessionSaveRequestBody,
@@ -75,7 +72,6 @@ function createDefaultConfig(): AppframeConfig {
       features: [],
     },
     theme: {
-      style: 'minimal',
       colors: {
         primary: '#2563EB',
         secondary: '#7C3AED',
@@ -236,64 +232,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });
-    }
-  });
-
-  app.post('/api/refine-with-ai', async (req, res) => {
-    try {
-      const body = req.body as SessionSaveRequestBody & { prompt?: unknown };
-      const prompt = expectString(body.prompt);
-      const activeVariantId = expectString(body.activeVariantId);
-      if (!prompt) {
-        res.status(400).json({ error: 'prompt is required' });
-        return;
-      }
-      if (!activeVariantId) {
-        res.status(400).json({ error: 'activeVariantId is required' });
-        return;
-      }
-      if (!Array.isArray(body.variants)) {
-        res.status(400).json({ error: 'variants array is required' });
-        return;
-      }
-
-      const session = resolvedSessionPath
-        ? JSON.parse(await readFile(resolvedSessionPath, 'utf-8')) as PersistedSessionRecord
-        : {
-            activeVariantId,
-            variants: [],
-          } satisfies PersistedSessionRecord;
-
-      const materializedVariants = materializeSessionSaveVariants({
-        session: Array.isArray(session.variants) ? session : { ...session, variants: [] },
-        bodyVariants: body.variants,
-        fallbackConfig: config,
-      });
-      const variantsWithConfig = materializedVariants
-        .filter((variant) => typeof variant.id === 'string' && isRecord(variant.config))
-        .map((variant) => ({
-          id: variant.id!,
-          name: typeof variant.name === 'string' ? variant.name : 'Variant',
-          description: typeof variant.description === 'string' ? variant.description : undefined,
-          status: typeof variant.status === 'string' ? variant.status : undefined,
-          provenance: variant.provenance,
-          score: variant.score,
-          config: variant.config as AppframeConfig,
-        }));
-
-      const plan = await planAiRefinement({
-        appName: config.app.name,
-        appDescription: config.app.description,
-        prompt,
-        activeVariantId,
-        variants: variantsWithConfig,
-      });
-
-      res.json(plan);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      const status = message.includes('OPENAI_API_KEY') ? 503 : 500;
-      res.status(status).json({ error: message });
     }
   });
 
@@ -569,11 +507,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });
     }
-  });
-
-  // API: List available templates
-  app.get('/api/templates', (_req, res) => {
-    res.json(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial', 'fullscreen']);
   });
 
   // API: List available fonts
@@ -1064,7 +997,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     locale: string;
     localeConfig?: LocaleConfig;
     preferLocaleText?: boolean;
-    style?: TemplateStyle;
+    isFullscreen?: boolean;
     layout?: LayoutVariant;
     headline?: string;
     subtitle?: string;
@@ -1257,7 +1190,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       locale: expectString(body.locale) ?? 'default',
       localeConfig: expectObject(body.localeConfig) as LocaleConfig | undefined,
       preferLocaleText: expectBoolean(body.preferLocaleText),
-      style: expectString(body.style) as TemplateStyle | undefined,
+      isFullscreen: expectBoolean(body.isFullscreen),
       layout: expectString(body.layout) as LayoutVariant | undefined,
       headline: expectString(body.headline),
       subtitle: expectString(body.subtitle),
@@ -1450,7 +1383,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       headline: resolvedHeadline,
       subtitle: resolvedSubtitle,
       screenshotDataUrl,
-      style: p.style ?? config.theme.style,
+      isFullscreen: p.isFullscreen ?? screen?.isFullscreen ?? false,
       colors: p.colors ? { ...config.theme.colors, ...p.colors } : config.theme.colors,
       font: p.font ?? config.theme.font,
       fontWeight: p.fontWeight ?? config.theme.fontWeight,

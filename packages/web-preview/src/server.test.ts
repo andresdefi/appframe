@@ -10,7 +10,7 @@ import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
 vi.mock('@appframe/core', () => ({
   loadConfig: vi.fn().mockResolvedValue({
     app: { name: 'TestApp', description: 'Test', platforms: ['ios'], features: [] },
-    theme: { style: 'minimal', colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' }, font: 'inter', fontWeight: 600 },
+    theme: { colors: { primary: '#FFF', secondary: '#000', background: '#FFF', text: '#000' }, font: 'inter', fontWeight: 600 },
     frames: { style: 'flat' },
     screens: [{ screenshot: 'test.png', headline: 'Hello', layout: 'center' }],
     output: { platforms: ['ios'], directory: './output' },
@@ -45,7 +45,7 @@ beforeEach(() => {
 
   let config: Record<string, unknown> = {
     app: { name: 'TestApp' },
-    theme: { style: 'minimal' },
+    theme: {},
     screens: [{ screenshot: 'test.png', headline: 'Hello' }],
   };
   let resolvedConfigPath: string | null = null;
@@ -77,9 +77,6 @@ beforeEach(() => {
   app.get('/api/frames', async (_req, res) => {
     try { res.json(await listFrames()); }
     catch (err) { res.status(500).json({ error: (err as Error).message }); }
-  });
-  app.get('/api/templates', (_req, res) => {
-    res.json(['minimal', 'bold', 'glow', 'playful', 'clean', 'branded', 'editorial', 'fullscreen']);
   });
   app.get('/api/fonts', (_req, res) => { res.json(FONT_CATALOG); });
   app.get('/api/compositions', (_req, res) => { res.json(Object.values(COMPOSITION_PRESETS)); });
@@ -122,16 +119,6 @@ describe('GET /api/frames', () => {
     const res = await request(app).get('/api/frames');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-  });
-});
-
-describe('GET /api/templates', () => {
-  it('returns 200 with 8 styles', async () => {
-    const res = await request(app).get('/api/templates');
-    expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(8);
-    expect(res.body).toContain('minimal');
-    expect(res.body).toContain('fullscreen');
   });
 });
 
@@ -180,7 +167,7 @@ describe('PUT /api/config', () => {
   it('stores the posted config so subsequent GET returns it', async () => {
     const updated = {
       app: { name: 'TestApp' },
-      theme: { style: 'bold' },
+      theme: { font: 'roboto' },
       screens: [{ screenshot: 'test.png', headline: 'Updated headline' }],
     };
 
@@ -192,7 +179,7 @@ describe('PUT /api/config', () => {
 
     const getRes = await request(app).get('/api/config');
     expect(getRes.status).toBe(200);
-    expect(getRes.body.theme.style).toBe('bold');
+    expect(getRes.body.theme.font).toBe('roboto');
     expect(getRes.body.screens[0].headline).toBe('Updated headline');
   });
 
@@ -215,7 +202,7 @@ describe('POST /api/save', () => {
 
     const updated = {
       app: { name: 'TestApp' },
-      theme: { style: 'minimal' },
+      theme: {},
       screens: [{ screenshot: 'x.png', headline: 'Saved!' }],
     };
     await request(app).put('/api/config').send(updated);

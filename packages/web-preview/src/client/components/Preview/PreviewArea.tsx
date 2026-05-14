@@ -335,15 +335,41 @@ function ScreenCard({
   useEffect(() => {
     loupeRef.current = screen?.loupe;
   }, [screen?.loupe]);
-  const refreshLoupe = useCallback(() => {
-    if (loupeRef.current) patchLoupe(loupeRef.current);
+  // patchLoupe's identity changes whenever `selectedScreen` flips (it closes
+  // over a useCallback chained off the store subscription). Stuffing it in
+  // a ref keeps `refreshLoupe` referentially stable so attachGuideObserver
+  // and the render effect downstream don't re-fire on every screen click.
+  // Without this, clicking any screen card rewrites all 5 iframes at once.
+  const patchLoupeRef = useRef(patchLoupe);
+  useEffect(() => {
+    patchLoupeRef.current = patchLoupe;
   }, [patchLoupe]);
+  const refreshLoupe = useCallback(() => {
+    if (loupeRef.current) patchLoupeRef.current(loupeRef.current);
+  }, []);
 
   const [cursorStyle, setCursorStyle] = useState('default');
   const [guides, setGuides] = useState<{ horizontal: boolean; vertical: boolean }>({
     horizontal: false,
     vertical: false,
   });
+  // Mirror of `guides` so setGuidesIfChanged can compare against the latest
+  // value without re-creating the callback on every render. Without this,
+  // recomputeGuides runs on every MutationObserver tick (~60×/sec while
+  // dragging) and React schedules a re-render for each one even when both
+  // booleans are unchanged — because `{ vertical, horizontal }` is a new
+  // object literal every call.
+  const guidesRef = useRef(guides);
+  const setGuidesIfChanged = useCallback(
+    (next: { horizontal: boolean; vertical: boolean }) => {
+      if (next.horizontal === guidesRef.current.horizontal && next.vertical === guidesRef.current.vertical) {
+        return;
+      }
+      guidesRef.current = next;
+      setGuides(next);
+    },
+    [],
+  );
   const guideObserverRef = useRef<MutationObserver | null>(null);
   // Ref-mirror of dragTarget so recomputeGuides can stay deps-free; the
   // MutationObserver and iframe-rewrite effect that depend on it would
@@ -358,18 +384,18 @@ function ScreenCard({
     // No active drag → nothing to align, clear guides. Render-side already
     // gates on isDragging, but clearing here keeps internal state honest.
     if (!target) {
-      setGuides({ horizontal: false, vertical: false });
+      setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
     }
     const iframe = iframeRef.current;
     const doc = iframe?.contentDocument;
     if (!doc) {
-      setGuides({ horizontal: false, vertical: false });
+      setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
     }
     const canvas = doc.querySelector('.canvas') as HTMLElement | null;
     if (!canvas) {
-      setGuides({ horizontal: false, vertical: false });
+      setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
     }
     const cRect = canvas.getBoundingClientRect();
@@ -401,7 +427,7 @@ function ScreenCard({
     }
     const el = doc.querySelector(selector) as HTMLElement | null;
     if (!el) {
-      setGuides({ horizontal: false, vertical: false });
+      setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
     }
     // Text elements only produce a meaningful center check once
@@ -409,7 +435,7 @@ function ScreenCard({
     // normal flow the block spans the entire text-area and would always
     // read as X-centered.
     if (target.kind === 'text' && view?.getComputedStyle(el).position !== 'fixed') {
-      setGuides({ horizontal: false, vertical: false });
+      setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
     }
     const rect = el.getBoundingClientRect();
@@ -417,7 +443,7 @@ function ScreenCard({
     const centerY = rect.top + rect.height / 2;
     const vertical = Math.abs(centerX - cCenterX) <= tolerancePxX;
     const horizontal = Math.abs(centerY - cCenterY) <= tolerancePxY;
-    setGuides({ vertical, horizontal });
+    setGuidesIfChanged({ vertical, horizontal });
   }, []);
 
   // MutationObserver fires only on style mutations, so drag-start (which
@@ -463,7 +489,7 @@ function ScreenCard({
       attached++;
     }
     if (attached === 0) {
-      setGuides({ horizontal: false, vertical: false });
+      setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
     }
     recomputeGuides();

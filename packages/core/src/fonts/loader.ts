@@ -327,3 +327,66 @@ export async function loadAllFontFaces(fontsDir?: string): Promise<string> {
   ]);
   return `${inter}\n\n${spaceGrotesk}`;
 }
+
+const fontUrlCache = new Map<string, string>();
+
+/**
+ * URL-based @font-face CSS — emits `src: url('<baseUrl>/<family>/<file>')`
+ * instead of inlining the font as a base64 data URI. Use this for the live
+ * preview server where every render rewrites the iframe and a 338KB per-render
+ * font payload freezes the main thread. The export pipeline keeps using
+ * `loadFontFaces` since Playwright resolves data URIs without an HTTP server.
+ *
+ * `baseUrl` is the path prefix the font files are served from
+ * (e.g. `/preview-fonts`). The server is expected to wire that path to the
+ * project's `fonts/` directory via `express.static`.
+ */
+export async function loadFontFacesUrl(
+  fontFamily: string,
+  baseUrl: string,
+  fontsDir?: string,
+): Promise<string> {
+  const cacheKey = `${fontFamily}:${baseUrl}:${fontsDir ?? 'default'}`;
+  const cached = fontUrlCache.get(cacheKey);
+  if (cached) return cached;
+
+  const dir = fontsDir ?? getFontsDir();
+  const fontDir = join(dir, fontFamily);
+
+  let files: string[];
+  try {
+    files = await readdir(fontDir);
+  } catch {
+    return '';
+  }
+
+  const fontFiles = files.filter((f) => {
+    if (/-Variable\.(woff2|woff|ttf|otf)$/i.test(f)) return false;
+    const ext = extname(f).toLowerCase();
+    return ['.woff2', '.woff', '.otf', '.ttf'].includes(ext);
+  });
+
+  const cssFamily = getFontName(fontFamily);
+  const faces: FontFace[] = fontFiles.map((file) => ({
+    family: cssFamily,
+    weight: parseWeight(file),
+    style: parseStyle(file),
+    src: `${baseUrl}/${fontFamily}/${file}`,
+    format: formatName(extname(file).toLowerCase()),
+  }));
+
+  faces.sort((a, b) => a.weight - b.weight || a.style.localeCompare(b.style));
+
+  const css = faces
+    .map((f) => `@font-face {
+  font-family: '${f.family}';
+  font-weight: ${f.weight};
+  font-style: ${f.style};
+  font-display: block;
+  src: url('${f.src}') format('${f.format}');
+}`)
+    .join('\n\n');
+
+  fontUrlCache.set(cacheKey, css);
+  return css;
+}

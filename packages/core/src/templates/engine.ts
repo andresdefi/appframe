@@ -16,7 +16,7 @@ import type {
   Overlay,
 } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
-import { loadFontFaces, getFontName } from '../fonts/loader.js';
+import { loadFontFaces, loadFontFacesUrl, getFontName } from '../fonts/loader.js';
 
 interface TypographyDefaults {
   fontWeight: number;
@@ -374,6 +374,15 @@ export interface PanoramicRenderedElement {
 export interface TemplateRenderOptions {
   templateDir?: string;
   fontsDir?: string;
+  /**
+   * Optional URL prefix that the fonts/ directory is served from. When set,
+   * the engine emits @font-face declarations with `src: url(<fontBaseUrl>/<family>/<file>)`
+   * instead of inlining the font as a base64 data URI. The live preview
+   * server uses this to keep each iframe rewrite at ~6KB instead of ~338KB;
+   * the export pipeline leaves it unset so Playwright renders fonts via
+   * data URIs without an HTTP server.
+   */
+  fontBaseUrl?: string;
 }
 
 function buildShadowCss(preset: StylePreset, context: TemplateContext): string {
@@ -413,12 +422,14 @@ export class TemplateEngine {
   private env: nunjucks.Environment;
   private templateDir: string;
   private fontsDir?: string;
+  private fontBaseUrl?: string;
   private fontFaceCache = new Map<string, string>();
   private compiledTemplateCache = new Map<string, nunjucks.Template>();
 
   constructor(options?: TemplateRenderOptions) {
     this.templateDir = options?.templateDir ?? join(__dirname, '..', '..', 'templates');
     this.fontsDir = options?.fontsDir;
+    this.fontBaseUrl = options?.fontBaseUrl;
     this.env = nunjucks.configure(this.templateDir, {
       autoescape: true,
       noCache: true,
@@ -442,7 +453,9 @@ export class TemplateEngine {
   private async getFontFaceCss(fontKey: string): Promise<string> {
     const cached = this.fontFaceCache.get(fontKey);
     if (cached !== undefined) return cached;
-    const css = await loadFontFaces(fontKey, this.fontsDir);
+    const css = this.fontBaseUrl
+      ? await loadFontFacesUrl(fontKey, this.fontBaseUrl, this.fontsDir)
+      : await loadFontFaces(fontKey, this.fontsDir);
     this.fontFaceCache.set(fontKey, css);
     return css;
   }
@@ -494,7 +507,10 @@ export class TemplateEngine {
     const fontKey = context.font || 'inter';
 
     if (!this.fontFaceCache.has(fontKey)) {
-      this.fontFaceCache.set(fontKey, await loadFontFaces(fontKey, this.fontsDir));
+      const css = this.fontBaseUrl
+        ? await loadFontFacesUrl(fontKey, this.fontBaseUrl, this.fontsDir)
+        : await loadFontFaces(fontKey, this.fontsDir);
+      this.fontFaceCache.set(fontKey, css);
     }
 
     const templatePath = join(this.templateDir, 'panoramic', 'base.html');

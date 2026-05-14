@@ -58,16 +58,37 @@ export function App() {
   useEffect(() => {
     async function init() {
       try {
-        const [cfg, fonts, frames] = await Promise.all([
+        // Fetch device families alongside project/fonts/frames so
+        // `deviceFamilies` is set before `initScreens` runs. Without this,
+        // ScreenCard's render effect fires twice on boot — once on initial
+        // mount and again when setDeviceFamilies updates the store, since
+        // `deviceFamilies` is in that effect's dep array. The koubou fetch
+        // can still fail when the Python package isn't installed; handle
+        // that as a resolved-but-empty result via Promise.allSettled.
+        const [cfgRes, fontsRes, framesRes, koubouRes] = await Promise.allSettled([
           fetchProject(),
           fetchFonts(),
           fetchFrames(),
+          fetchKoubouDevices(),
         ]);
+        if (cfgRes.status !== 'fulfilled') throw cfgRes.reason;
+        if (fontsRes.status !== 'fulfilled') throw fontsRes.reason;
+        if (framesRes.status !== 'fulfilled') throw framesRes.reason;
+        const cfg = cfgRes.value;
+        const fonts = fontsRes.value;
+        const frames = framesRes.value;
+
         const platform = cfg.app.platforms[0] ?? 'iphone';
         const size = getPlatformPreviewSize(platform);
         setPreviewSize(size.w, size.h);
         setFonts(fonts as FontData[]);
         setFrames(frames as never[]);
+        if (koubouRes.status === 'fulfilled') {
+          setDeviceFamilies(koubouRes.value.families as DeviceFamily[]);
+          setKoubouAvailable(true);
+        } else {
+          setKoubouAvailable(false);
+        }
         initScreens(cfg, platform);
 
         // Hydrate variants from session file if server was started with --session
@@ -78,16 +99,6 @@ export function App() {
           }
         } catch {
           // No session — use default single variant
-        }
-
-        // Fetch koubou devices (non-blocking — may not be available)
-        try {
-          const koubou = await fetchKoubouDevices();
-          const families = koubou.families as DeviceFamily[];
-          setDeviceFamilies(families);
-          setKoubouAvailable(true);
-        } catch {
-          setKoubouAvailable(false);
         }
 
         // Fetch sizes

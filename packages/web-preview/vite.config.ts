@@ -12,6 +12,13 @@ export default defineConfig({
         target: 'http://localhost:4400',
         changeOrigin: true,
       },
+      // Forward font requests to the Express server. Without this, Vite's SPA
+      // fallback returns index.html for /preview-fonts/* and the iframe fonts
+      // silently 404.
+      '/preview-fonts': {
+        target: 'http://localhost:4400',
+        changeOrigin: true,
+      },
     },
   },
   build: {

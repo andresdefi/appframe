@@ -189,6 +189,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.use(express.static(clientDistDir, { etag: false, lastModified: false }));
   // Legacy UI accessible at /legacy/ during migration
   app.use('/legacy', express.static(publicDir, { etag: false, lastModified: false }));
+  // Font files for the preview iframes — referenced by /preview-fonts/<family>/<file>
+  // in the @font-face declarations the engine emits when fontBaseUrl is set.
+  // Cache hard: font files are content-addressed by filename and never mutate
+  // for the lifetime of the dev server.
+  const fontsDir = join(__dirname, '..', '..', '..', 'fonts');
+  app.use(
+    '/preview-fonts',
+    express.static(fontsDir, { maxAge: '1d', etag: true, immutable: true }),
+  );
   app.use((_req, res, next) => {
     res.set('Cache-Control', 'no-store');
     next();
@@ -851,7 +860,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   const renderer = new Renderer();
   await renderer.init();
 
-  const templateEngine = new TemplateEngine();
+  // Use URL-mode fonts so every iframe rewrite stays ~6KB instead of ~338KB.
+  // The /preview-fonts static route is registered below; the iframe is loaded
+  // via doc.write so its base URL is inherited from the parent (same origin
+  // as this server, or the Vite dev proxy when running dev:client).
+  const templateEngine = new TemplateEngine({ fontBaseUrl: '/preview-fonts' });
 
   type KoubouFamily = NonNullable<ReturnType<typeof getDeviceFamily>>;
 

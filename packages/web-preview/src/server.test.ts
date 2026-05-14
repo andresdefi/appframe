@@ -27,14 +27,13 @@ vi.mock('@appframe/core', () => ({
   getDeviceFamilies: vi.fn().mockReturnValue([
     { id: 'iphone-16', name: 'iPhone 16', category: 'iphone', year: 2024, colors: [{ name: 'Black', koubouId: 'iPhone 16 - Black' }] },
   ]),
-  detectKoubou: vi.fn().mockResolvedValue({ available: false, version: null }),
   Renderer: vi.fn(),
   TemplateEngine: vi.fn(),
   getFrame: vi.fn(),
   getDefaultFrame: vi.fn(),
 }));
 
-import { listFrames, getDeviceFamilies, detectKoubou, FONT_CATALOG, COMPOSITION_PRESETS } from '@appframe/core';
+import { listFrames, getDeviceFamilies, FONT_CATALOG, COMPOSITION_PRESETS } from '@appframe/core';
 
 let app: Express;
 
@@ -50,7 +49,6 @@ beforeEach(() => {
     screens: [{ screenshot: 'test.png', headline: 'Hello' }],
   };
   let resolvedConfigPath: string | null = null;
-  let koubouStatusCache: { available: boolean; version: string | null } | null = null;
 
   app.get('/api/config', (_req, res) => { res.json(config); });
   app.get('/api/project', (_req, res) => { res.json(config); });
@@ -95,21 +93,10 @@ beforeEach(() => {
     }
     res.json({ families, grouped });
   });
-  app.get('/api/koubou-status', async (_req, res) => {
-    try {
-      if (!koubouStatusCache) {
-        const detection = await (detectKoubou as () => Promise<{ available: boolean; version: string | null }>)();
-        koubouStatusCache = { available: detection.available, version: detection.version };
-      }
-      res.json(koubouStatusCache);
-    } catch (err) { res.status(500).json({ error: (err as Error).message }); }
-  });
   app.post('/api/reload', async (_req, res) => {
-    koubouStatusCache = null;
     res.json({ success: true });
   });
   app.post('/api/project/reload', async (_req, res) => {
-    koubouStatusCache = null;
     res.json({ success: true });
   });
 });
@@ -173,45 +160,19 @@ describe('GET /api/koubou-devices', () => {
   });
 });
 
-describe('GET /api/koubou-status', () => {
-  it('returns availability status', async () => {
-    const res = await request(app).get('/api/koubou-status');
-    expect(res.status).toBe(200);
-    expect(res.body.available).toBe(false);
-  });
-
-  it('caches result on second call', async () => {
-    await request(app).get('/api/koubou-status');
-    await request(app).get('/api/koubou-status');
-    expect(detectKoubou).toHaveBeenCalledTimes(1);
-  });
-});
-
 describe('POST /api/reload', () => {
-  it('returns success and resets caches', async () => {
-    await request(app).get('/api/koubou-status');
-    expect(detectKoubou).toHaveBeenCalledTimes(1);
-
+  it('returns success', async () => {
     const res = await request(app).post('/api/reload');
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-
-    await request(app).get('/api/koubou-status');
-    expect(detectKoubou).toHaveBeenCalledTimes(2);
   });
 });
 
 describe('POST /api/project/reload', () => {
-  it('returns success and resets caches', async () => {
-    await request(app).get('/api/koubou-status');
-    expect(detectKoubou).toHaveBeenCalledTimes(1);
-
+  it('returns success', async () => {
     const res = await request(app).post('/api/project/reload');
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-
-    await request(app).get('/api/koubou-status');
-    expect(detectKoubou).toHaveBeenCalledTimes(2);
   });
 });
 

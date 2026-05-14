@@ -13,10 +13,10 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },
   ],
-  // The server is started manually before running tests (see e2e/README.md).
+  // Start the preview server manually with `pnpm preview` before running tests.
   // To auto-start, uncomment webServer below:
   // webServer: {
-  //   command: 'cd examples/panoramic-demo && node ../../packages/cli/dist/index.js preview',
+  //   command: 'pnpm preview',
   //   url: 'http://localhost:4400',
   //   reuseExistingServer: true,
   //   timeout: 15_000,

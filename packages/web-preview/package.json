@@ -5,6 +5,9 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "appframe-preview": "./dist/bin.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -12,6 +15,7 @@
     }
   },
   "scripts": {
+    "start": "node ./dist/bin.js",
     "build": "tsc && vite build",
     "build:client": "vite build",
     "dev": "tsc --watch",

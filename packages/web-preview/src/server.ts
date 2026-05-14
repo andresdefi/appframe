@@ -25,7 +25,6 @@ import {
   injectSpotlightHTML,
   injectAnnotationsHTML,
   injectOverlaysHTML,
-  detectKoubou,
   resolveLocalizedAsset,
 } from '@appframe/core';
 import type {
@@ -655,11 +654,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
-  // API: Koubou availability status (cached with 5-minute TTL)
-  const KOUBOU_CACHE_TTL = 300_000; // 5 minutes
-  let koubouStatusCache: { available: boolean; version: string | null; timestamp: number } | null =
-    null;
-
   // ---------- Elements: Icons (Lucide) ----------
   // Catalog is built once on first request from lucide-static's tags.json.
   // Each SVG is read from disk on demand; the client recolors them locally.
@@ -917,24 +911,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       res.send(svg);
     } catch {
       res.status(404).json({ error: `Icon "${name}" not found` });
-    }
-  });
-
-  app.get('/api/koubou-status', async (_req, res) => {
-    try {
-      const now = Date.now();
-      if (!koubouStatusCache || now - koubouStatusCache.timestamp > KOUBOU_CACHE_TTL) {
-        const detection = await detectKoubou();
-        koubouStatusCache = {
-          available: detection.available,
-          version: detection.version,
-          timestamp: now,
-        };
-      }
-      res.json({ available: koubouStatusCache.available, version: koubouStatusCache.version });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(500).json({ error: message });
     }
   });
 
@@ -2093,7 +2069,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         return;
       }
       config = await loadConfig(resolvedConfigPath);
-      koubouStatusCache = null;
       res.json({ success: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -2107,7 +2082,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         return;
       }
       config = await loadConfig(resolvedConfigPath);
-      koubouStatusCache = null;
       res.json({ success: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';

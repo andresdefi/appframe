@@ -89,18 +89,8 @@ export type {
 export { COMPOSITION_PRESETS } from './composer/presets.js';
 export type { CompositionDefinition, DeviceSlotPreset } from './composer/presets.js';
 
-// Koubou integration
 export {
-  detectKoubou,
-  translateConfig as translateKoubouConfig,
-  translateConfigWithLocalization,
-  generateWithKoubou,
-  generateKoubouConfig,
-  renderSingleScreenWithKoubou,
   resolveLocalizedAsset,
-  mapSizeToKoubou,
-  mapDeviceToKoubou,
-  KOUBOU_DIMENSIONS,
   getDeviceFamilies,
   getDeviceFamily,
   getDeviceId,
@@ -112,11 +102,6 @@ export {
   getDeviceFramePath,
 } from './devices/index.js';
 export type {
-  KoubouConfig,
-  KoubouLocalizationConfig,
-  KoubouDetectionResult,
-  KoubouSingleScreenOptions,
-  TranslateOptions as KoubouTranslateOptions,
   DeviceFamily,
   DeviceCategory,
   DeviceColorVariant,

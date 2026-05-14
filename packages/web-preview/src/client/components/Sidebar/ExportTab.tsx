@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePreviewStore } from '../../store';
-import type { LocaleConfig } from '../../types';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
-import { exportApprovedArtifact, fetchAutoTranslateLocale, fetchExport, fetchExportConfig, fetchPanoramicExport, reloadProject } from '../../utils/api';
+import { exportApprovedArtifact, fetchExport, fetchExportConfig, fetchPanoramicExport, reloadProject } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
-import { getAvailableLocales, getLocaleLabel } from '../../utils/locales';
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -60,8 +58,6 @@ export function ExportTab() {
   const setExportSize = usePreviewStore((s) => s.setExportSize);
   const locale = usePreviewStore((s) => s.locale);
   const sessionLocales = usePreviewStore((s) => s.sessionLocales);
-  const setLocale = usePreviewStore((s) => s.setLocale);
-  const upsertLocaleConfig = usePreviewStore((s) => s.upsertLocaleConfig);
   const config = usePreviewStore((s) => s.config);
   const variants = usePreviewStore((s) => s.variants);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
@@ -102,39 +98,9 @@ export function ExportTab() {
 
 
   const activeLocaleConfig = locale === 'default' ? undefined : sessionLocales[locale];
-  const availableLocales = getAvailableLocales(config, sessionLocales);
   const activeVariant = variants.find((variant) => variant.id === activeVariantId) ?? null;
   const approvedVariant = variants.find((variant) => variant.status === 'approved') ?? null;
   const variantSlug = slugifyVariantName(activeVariant?.name ?? 'variant');
-  const localeOptions = availableLocales.map((value) => ({
-    value,
-    label: getLocaleLabel(value),
-  }));
-
-  const handleLocaleChange = useCallback(async (nextLocale: string) => {
-    if (nextLocale === 'default' || sessionLocales[nextLocale]) {
-      setLocale(nextLocale);
-      setStatus(nextLocale === 'default' ? 'Using current working copy' : `Using ${getLocaleLabel(nextLocale)}`);
-      return;
-    }
-
-    setStatus(`Generating ${getLocaleLabel(nextLocale)} for this session...`);
-    try {
-      const result = await fetchAutoTranslateLocale(nextLocale, {
-        screens: screens.map((screen) => ({
-          headline: screen.headline,
-          subtitle: screen.subtitle || null,
-        })),
-        panoramicElements,
-      });
-      upsertLocaleConfig(result.locale, result.localeConfig as LocaleConfig);
-      setLocale(result.locale);
-      setStatus(`Added ${getLocaleLabel(result.locale)} to this session`);
-      setToast(`Added ${getLocaleLabel(result.locale)}`);
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Automatic translation failed');
-    }
-  }, [panoramicElements, screens, sessionLocales, setLocale, upsertLocaleConfig]);
 
   // --- Panoramic export helpers ---
   const buildPanoramicBody = (frameIndex?: number) => ({
@@ -174,6 +140,7 @@ export function ExportTab() {
         kind: 'frames',
         locale,
         mode: 'panoramic',
+        renderer: 'playwright',
         sizeKey: resolvedExportSize,
         fileNames,
         manifestName: `${variantSlug}-manifest.json`,
@@ -239,6 +206,7 @@ export function ExportTab() {
         kind: 'screens',
         locale,
         mode: 'individual',
+        renderer: 'playwright',
         sizeKey: resolvedExportSize,
         fileNames,
         manifestName: `${variantSlug}-manifest.json`,

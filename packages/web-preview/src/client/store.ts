@@ -34,16 +34,12 @@ export function createScreenState(
   return {
     id: crypto.randomUUID(),
     screenIndex: index,
-    eyebrow: screen?.eyebrow ?? '',
     headline: screen ? screen.headline : 'New Frame',
     subtitle: screen ? (screen.subtitle ?? '') : '',
-    accentColor: screen?.accentColor ?? '',
     style: 'minimal' as TemplateStyle,
     layout: 'center',
     font: config.theme.font,
     fontWeight: config.theme.fontWeight,
-    eyebrowFont: screen?.eyebrowFont ?? config.theme.eyebrowFont ?? null,
-    eyebrowFontWeight: screen?.eyebrowFontWeight ?? config.theme.eyebrowFontWeight ?? null,
     headlineFont: screen?.headlineFont ?? config.theme.headlineFont ?? null,
     headlineFontWeight: screen?.headlineFontWeight ?? config.theme.headlineFontWeight ?? null,
     subtitleFont: screen?.subtitleFont ?? config.theme.subtitleFont ?? null,
@@ -80,8 +76,7 @@ export function createScreenState(
     subtitleTextTransform: '',
     spotlight: null,
     annotations: [],
-    textPositions: { eyebrow: null, headline: null, subtitle: null },
-    eyebrowSize: 0,
+    textPositions: { headline: null, subtitle: null },
     screenshotDataUrl: null,
     screenshotName: screen?.screenshot?.split('/').pop() ?? null,
     screenshotDims: null,
@@ -571,11 +566,21 @@ function applyRefinementToSnapshot(snapshot: VariantSnapshot, actionId: Refineme
     next.panoramicBackground = {
       ...next.panoramicBackground,
       color: shiftHexColor(next.panoramicBackground.color, amount) ?? next.panoramicBackground.color,
-      layers: next.panoramicBackground.layers?.map((layer) => ({
-        ...layer,
-        color: shiftHexColor(layer.color, amount) ?? layer.color,
-        colors: layer.colors?.map((color) => shiftHexColor(color, amount) ?? color),
-      })),
+      layers: next.panoramicBackground.layers?.map((layer) => {
+        if (layer.kind === 'gradient') {
+          return {
+            ...layer,
+            colors: layer.colors.map((color) => shiftHexColor(color, amount) ?? color),
+          };
+        }
+        if (layer.kind === 'glow' || layer.kind === 'solid') {
+          return {
+            ...layer,
+            color: shiftHexColor(layer.color, amount) ?? layer.color,
+          };
+        }
+        return layer;
+      }),
     };
   }
 
@@ -631,13 +636,13 @@ function applyRefinementToSnapshot(snapshot: VariantSnapshot, actionId: Refineme
         if (element.type === 'card' || element.type === 'badge' || element.type === 'proof-chip' || element.type === 'logo') {
           return {
             ...element,
-            backgroundColor: shiftHexColor(element.backgroundColor, amount) ?? element.backgroundColor,
-            borderColor: shiftHexColor(element.borderColor, amount) ?? element.borderColor,
-            color: 'color' in element ? shiftHexColor(element.color, amount) ?? element.color : undefined,
-            titleColor: 'titleColor' in element ? shiftHexColor(element.titleColor, amount) ?? element.titleColor : undefined,
-            bodyColor: 'bodyColor' in element ? shiftHexColor(element.bodyColor, amount) ?? element.bodyColor : undefined,
-            eyebrowColor: 'eyebrowColor' in element ? shiftHexColor(element.eyebrowColor, amount) ?? element.eyebrowColor : undefined,
-            mutedColor: 'mutedColor' in element ? shiftHexColor(element.mutedColor, amount) ?? element.mutedColor : undefined,
+            ...(element.backgroundColor !== undefined ? { backgroundColor: shiftHexColor(element.backgroundColor, amount) ?? element.backgroundColor } : {}),
+            ...('borderColor' in element ? { borderColor: shiftHexColor(element.borderColor, amount) ?? element.borderColor } : {}),
+            ...('color' in element ? { color: shiftHexColor(element.color, amount) ?? element.color } : {}),
+            ...('titleColor' in element ? { titleColor: shiftHexColor(element.titleColor, amount) ?? element.titleColor } : {}),
+            ...('bodyColor' in element ? { bodyColor: shiftHexColor(element.bodyColor, amount) ?? element.bodyColor } : {}),
+            ...('eyebrowColor' in element ? { eyebrowColor: shiftHexColor(element.eyebrowColor, amount) ?? element.eyebrowColor } : {}),
+            ...('mutedColor' in element ? { mutedColor: shiftHexColor(element.mutedColor, amount) ?? element.mutedColor } : {}),
           };
         }
         if (element.type === 'decoration') {

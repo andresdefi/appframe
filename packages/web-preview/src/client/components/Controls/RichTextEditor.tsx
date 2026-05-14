@@ -24,6 +24,18 @@ interface RichTextEditorProps {
    *  this just rate-limits the canonical state update that triggers a
    *  full iframe rebuild. Default 200ms. */
   debounceMs?: number;
+  /** Base color for the element (applies when no text is selected at the
+   *  moment the toolbar color picker opens). Drives the swatch under the
+   *  color button when nothing is selected. */
+  baseColor?: string;
+  /** Canonical handler for base-color changes. Called when the user picks
+   *  a color in the toolbar with no text selected — also strips any
+   *  per-span inline colors so the new base is visible everywhere. */
+  onBaseColor?: (hex: string) => void;
+  /** Live-preview handler for base-color changes. Receives every hex as
+   *  the user moves through the color picker. Caller should patch the
+   *  iframe directly so the preview updates without a full re-render. */
+  onBaseColorInstant?: (hex: string) => void;
 }
 
 const TOOLBAR_BTN =
@@ -67,6 +79,9 @@ export function RichTextEditor({
   placeholder,
   minHeight = 56,
   debounceMs = 200,
+  baseColor,
+  onBaseColor,
+  onBaseColorInstant,
 }: RichTextEditorProps) {
   // Keep latest callbacks in refs so the debounce timer doesn't have to
   // capture them. This avoids resubscribing onUpdate every render.
@@ -136,24 +151,60 @@ export function RichTextEditor({
   // selection — but the saved range lets us re-target the right text
   // when applying the color.
   const savedRangeRef = useRef<{ from: number; to: number } | null>(null);
-  const currentColor = (editor?.getAttributes('textStyle')?.color as string | undefined) ?? '#ffffff';
+  // Whether the saved selection actually spans any text. When false, the
+  // toolbar color button acts as a base-color picker (applies to the whole
+  // element + strips per-span colors) instead of a per-selection picker.
+  const savedHasSelectionRef = useRef(false);
+  const selectionColor = editor?.getAttributes('textStyle')?.color as string | undefined;
+  // Swatch under the color button: prefer the selection's color, fall back
+  // to baseColor so the button reflects what a click would actually change.
+  const currentColor = selectionColor ?? baseColor ?? '#ffffff';
 
   const openColorPicker = () => {
     if (editor) {
       const { from, to } = editor.state.selection;
       savedRangeRef.current = { from, to };
+      savedHasSelectionRef.current = from !== to;
     }
     setColorOpen(true);
   };
 
-  const applyColor = (hex: string) => {
+  const applyColorInstant = (hex: string) => {
     if (!editor) return;
-    const range = savedRangeRef.current;
-    const chain = editor.chain().focus();
-    if (range && range.from !== range.to) {
-      chain.setTextSelection(range);
+    if (savedHasSelectionRef.current && savedRangeRef.current) {
+      // Per-selection color preview — Tiptap's setColor pushes into the
+      // editor state, which we debounce before persisting upstream.
+      editor
+        .chain()
+        .focus()
+        .setTextSelection(savedRangeRef.current)
+        .setColor(hex)
+        .run();
+      return;
     }
-    chain.setColor(hex).run();
+    // Base-color preview — patch the iframe's CSS directly without touching
+    // canonical state. The strip-spans pass waits until commit so the
+    // editor doesn't get rewritten on every color tick.
+    if (onBaseColorInstant) onBaseColorInstant(hex);
+  };
+
+  const applyColorCommit = (hex: string) => {
+    if (!editor) return;
+    if (savedHasSelectionRef.current && savedRangeRef.current) {
+      editor
+        .chain()
+        .focus()
+        .setTextSelection(savedRangeRef.current)
+        .setColor(hex)
+        .run();
+      return;
+    }
+    // Base-color commit: strip every per-span color so the new base shows
+    // through, then push the new color upstream. The selectAll pass emits
+    // an update so the canonical headline HTML stays in sync.
+    const cursor = savedRangeRef.current ?? editor.state.selection;
+    editor.chain().focus().selectAll().unsetColor().setTextSelection(cursor).run();
+    if (onBaseColor) onBaseColor(hex);
   };
 
   if (!editor) return null;
@@ -208,7 +259,7 @@ export function RichTextEditor({
                 openColorPicker();
               }
             }}
-            title="Text color"
+            title="Text color (selected text, or whole element if nothing is selected)"
             aria-label="Text color"
             aria-haspopup="dialog"
             aria-expanded={colorOpen}
@@ -275,8 +326,8 @@ export function RichTextEditor({
         <ColorPickerPopover
           triggerRef={colorBtnRef}
           value={currentColor}
-          onChange={applyColor}
-          onInstant={applyColor}
+          onChange={applyColorCommit}
+          onInstant={applyColorInstant}
           onClose={() => setColorOpen(false)}
         />
       )}

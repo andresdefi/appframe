@@ -83,16 +83,12 @@ export interface ScreenState {
    *  layout animations. screenIndex is positional and changes on move. */
   id: string;
   screenIndex: number;
-  eyebrow: string;
   headline: string;
   subtitle: string;
-  accentColor: string;
   style: TemplateStyle;
   layout: LayoutVariant;
   font: string;
   fontWeight: number;
-  eyebrowFont: string | null;
-  eyebrowFontWeight: number | null;
   headlineFont: string | null;
   headlineFontWeight: number | null;
   subtitleFont: string | null;
@@ -124,11 +120,9 @@ export interface ScreenState {
   spotlight: SpotlightConfig | null;
   annotations: Annotation[];
   textPositions: {
-    eyebrow: TextPosition | null;
     headline: TextPosition | null;
     subtitle: TextPosition | null;
   };
-  eyebrowSize: number;
   screenshotDataUrl: string | null;
   screenshotName: string | null;
   screenshotDims: { width: number; height: number } | null;

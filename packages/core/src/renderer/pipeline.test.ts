@@ -244,24 +244,4 @@ describe('generateScreenshots', () => {
     expect(ctx?.colors.background).toBe('#F8FAFC');
   });
 
-  it('passes eyebrow and accentColor through to template context', async () => {
-    const config = createMinimalConfig({
-      screens: [{
-        screenshot: 's.png',
-        headline: 'H',
-        eyebrow: 'Split View',
-        accentColor: '#F97316',
-        layout: 'center',
-        composition: 'single',
-        annotations: [],
-      }],
-    });
-    mockLoadConfig.mockResolvedValue(config);
-
-    await generateScreenshots({ configPath: '/tmp/appframe.yml' });
-
-    const ctx = templateEngineMocks.render.mock.calls[0]?.[0];
-    expect(ctx?.eyebrow).toBe('Split View');
-    expect(ctx?.accentColor).toBe('#F97316');
-  });
 });

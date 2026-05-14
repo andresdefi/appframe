@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { usePreviewStore } from '../../store';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
@@ -25,7 +25,7 @@ const FONT_STYLE_OPTIONS = [
   { value: 'italic', label: 'Italic' },
 ];
 
-type ElementKey = 'eyebrow' | 'headline' | 'subtitle';
+type ElementKey = 'headline' | 'subtitle';
 
 export function TextTab() {
   const { screen, update } = useCurrentScreen();
@@ -38,12 +38,9 @@ export function TextTab() {
 
   const fontGroups = useMemo(() => buildFontGroups(fonts), [fonts]);
 
-  const eyebrowId = useId();
-
   if (!screen) return null;
 
   const hasSubtitle = richTextToPlain(screen.subtitle).length > 0;
-  const hasEyebrow = screen.eyebrow.length > 0;
 
   function setOverrideFont(element: ElementKey, value: string) {
     if (!screen) return;
@@ -70,24 +67,18 @@ export function TextTab() {
   }
 
   function resetElementOverrides(element: ElementKey) {
-    if (element === 'eyebrow') {
-      update({ eyebrowFont: null, eyebrowFontWeight: null });
-    } else if (element === 'headline') {
+    if (element === 'headline') {
       update({ headlineFont: null, headlineFontWeight: null });
     } else {
       update({ subtitleFont: null, subtitleFontWeight: null });
     }
   }
 
-  const effectiveEyebrowFont = screen.eyebrowFont ?? screen.font;
-  const effectiveEyebrowWeight = screen.eyebrowFontWeight ?? screen.fontWeight;
   const effectiveHeadlineFont = screen.headlineFont ?? screen.font;
   const effectiveHeadlineWeight = screen.headlineFontWeight ?? screen.fontWeight;
   const effectiveSubtitleFont = screen.subtitleFont ?? screen.font;
   const effectiveSubtitleWeight = screen.subtitleFontWeight ?? screen.fontWeight;
 
-  const eyebrowHasOverride =
-    screen.eyebrowFont !== null || screen.eyebrowFontWeight !== null;
   const headlineHasOverride =
     screen.headlineFont !== null || screen.headlineFontWeight !== null;
   const subtitleHasOverride =
@@ -96,49 +87,25 @@ export function TextTab() {
   return (
     <>
       {/* Text inputs */}
-      <Section title="Text" tooltip="Edit the eyebrow, headline, and subtitle text that appears above or below the device frame." defaultCollapsed={false}>
-        <div className="mb-2.5">
-          <label htmlFor={eyebrowId} className="block text-xs text-text-dim mb-1">
-            Eyebrow <span className="text-text-dim opacity-60">(small label above the headline)</span>
-          </label>
-          <input
-            id={eyebrowId}
-            type="text"
-            value={screen.eyebrow}
-            onChange={(e) => update({ eyebrow: e.target.value })}
-            placeholder='e.g. "Split View"'
-            className="input-shell w-full text-[13px] font-inherit"
-          />
-        </div>
+      <Section title="Text" tooltip="Edit the headline and subtitle text that appears above or below the device frame." defaultCollapsed={false}>
         <RichTextEditor
           label="Headline"
           value={screen.headline}
           onChange={(html) => update({ headline: html })}
           onInstant={(html) => patchText({ headlineHtml: html })}
+          baseColor={screen.colors.text}
+          onBaseColor={(v) => update({ colors: { ...screen.colors, text: v } })}
+          onBaseColorInstant={(v) => patchText({ headlineColor: v })}
         />
         <RichTextEditor
           label="Subtitle"
           value={screen.subtitle}
           onChange={(html) => update({ subtitle: html })}
           onInstant={(html) => patchText({ subtitleHtml: html })}
+          baseColor={screen.colors.subtitle}
+          onBaseColor={(v) => update({ colors: { ...screen.colors, subtitle: v } })}
+          onBaseColorInstant={(v) => patchText({ subtitleColor: v })}
           minHeight={48}
-        />
-        <ColorPicker
-          label="Headline Color"
-          value={screen.colors.text}
-          onChange={(v) => update({ colors: { ...screen.colors, text: v } })}
-        />
-        {hasSubtitle && (
-          <ColorPicker
-            label="Subtitle Color"
-            value={screen.colors.subtitle}
-            onChange={(v) => update({ colors: { ...screen.colors, subtitle: v } })}
-          />
-        )}
-        <ColorPicker
-          label="Accent Color (eyebrow, links)"
-          value={screen.accentColor || screen.colors.primary}
-          onChange={(v) => update({ accentColor: v })}
         />
       </Section>
 
@@ -164,47 +131,6 @@ export function TextTab() {
             onChange={(v) => update({ fontWeight: v })}
           />
         </div>
-
-        {hasEyebrow && (
-          <Section title="Eyebrow" defaultCollapsed>
-            <div className="flex items-center justify-between mb-2 px-1">
-              <span className="text-[11px] text-text-dim">
-                {eyebrowHasOverride ? 'Custom override active' : 'Using defaults'}
-              </span>
-              <button
-                type="button"
-                onClick={() => resetElementOverrides('eyebrow')}
-                disabled={!eyebrowHasOverride}
-                className="text-[11px] text-accent hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
-              >
-                Reset to default
-              </button>
-            </div>
-            <Select
-              label="Font"
-              value={effectiveEyebrowFont}
-              onChange={(v) => setOverrideFont('eyebrow', v)}
-              groups={fontGroups}
-            />
-            <RangeSlider
-              label="Weight"
-              value={effectiveEyebrowWeight}
-              min={100}
-              max={900}
-              step={100}
-              formatValue={(v) => String(v)}
-              onChange={(v) => setOverrideWeight('eyebrow', v)}
-            />
-            <RangeSlider
-              label="Eyebrow Size"
-              value={screen.eyebrowSize}
-              min={0}
-              max={80}
-              formatValue={(v) => (v === 0 ? 'Auto' : `${v}px`)}
-              onChange={(v) => update({ eyebrowSize: v })}
-            />
-          </Section>
-        )}
 
         <Section title="Headline" defaultCollapsed={false}>
           <div className="flex items-center justify-between mb-2 px-1">
@@ -371,7 +297,7 @@ export function TextTab() {
         <button
           className="btn-secondary w-full text-[11px]"
           onClick={() =>
-            update({ textPositions: { eyebrow: null, headline: null, subtitle: null } })
+            update({ textPositions: { headline: null, subtitle: null } })
           }
         >
           Reset to Default

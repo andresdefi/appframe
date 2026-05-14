@@ -104,7 +104,7 @@ export function DesignTab() {
         type: preset.type ?? 'linear',
         colors: [...preset.colors],
         direction: preset.direction,
-        radialPosition: preset.radialPosition ?? 'center',
+        radialPosition: (preset.radialPosition ?? 'center') as 'center' | 'top' | 'bottom' | 'left' | 'right',
       },
     });
   };

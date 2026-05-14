@@ -16,6 +16,7 @@ vi.mock('./utils/api', async () => {
   };
 });
 
+import type { AppframeConfig } from '@appframe/core';
 import { buildSessionSavePayload, usePreviewStore } from './store';
 import { mergeSessionSaveRequest } from '../sessionPersistence';
 
@@ -57,7 +58,7 @@ function resetStore() {
 
 function makeIndividualConfig() {
   return {
-    mode: 'individual',
+    mode: 'individual' as const,
     app: {
       name: 'FocusFlow',
       description: 'Stay on top of your routine',
@@ -109,7 +110,7 @@ function makeIndividualConfig() {
 function makePanoramicConfig() {
   return {
     ...makeIndividualConfig(),
-    mode: 'panoramic',
+    mode: 'panoramic' as const,
     theme: {
       style: 'editorial',
       colors: {
@@ -247,7 +248,7 @@ describe('preview session refinement round-trips', () => {
     const mergedSession = mergeSessionSaveRequest({
       session: panoramicSession,
       body: payload,
-      fallbackConfig,
+      fallbackConfig: fallbackConfig as unknown as AppframeConfig,
       updatedAt: '2026-03-20T12:00:00.000Z',
     });
 
@@ -293,7 +294,7 @@ describe('preview session refinement round-trips', () => {
     const mergedSession = mergeSessionSaveRequest({
       session: individualSession,
       body: payload,
-      fallbackConfig: baseConfig,
+      fallbackConfig: baseConfig as unknown as AppframeConfig,
       updatedAt: '2026-03-20T12:05:00.000Z',
     });
 

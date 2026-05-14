@@ -2388,301 +2388,6 @@ export function PanoramicTab() {
           </>
         )}
 
-        <Section title={`Layer Stack (${layers.length})`} defaultCollapsed>
-          <div className="grid grid-cols-2 gap-1 mb-3">
-            <button
-              className="btn-secondary text-[11px]"
-              onClick={() => addLayer('gradient')}
-            >
-              + Gradient
-            </button>
-            <button
-              className="btn-secondary text-[11px]"
-              onClick={() => addLayer('image')}
-            >
-              + Image
-            </button>
-            <button
-              className="btn-secondary text-[11px]"
-              onClick={() => addLayer('glow')}
-            >
-              + Glow
-            </button>
-            <button
-              className="btn-secondary text-[11px]"
-              onClick={() => addLayer('solid')}
-            >
-              + Solid
-            </button>
-          </div>
-
-          {layers.length === 0 && (
-            <p className="text-xs text-text-dim">
-              Add layered gradients, textures, and glow passes on top of the base background.
-            </p>
-          )}
-
-          {layers.length > 0 && (
-            <>
-              <div className="space-y-1 mb-3">
-                {layers.map((layer, index) => (
-                  <button
-                    key={`${layer.kind}-${index}`}
-                    className={`w-full text-left text-xs px-2.5 py-2 rounded-md transition-colors ${
-                      index === selectedLayerIndex
-                        ? 'bg-accent/15 text-accent border border-accent/30'
-                        : 'bg-surface-2 border border-border hover:border-accent/30'
-                    }`}
-                    onClick={() => setSelectedLayerIndex(index)}
-                  >
-                    <span className="font-medium">{getBackgroundLayerLabel(layer)}</span>
-                    <span className="text-text-dim ml-1">#{index + 1}</span>
-                  </button>
-                ))}
-              </div>
-
-              {selectedLayer && (
-                <>
-                  <div className="flex gap-1 mb-3">
-                    <button
-                      className="btn-secondary flex-1 text-[11px] disabled:opacity-40"
-                      disabled={selectedLayerIndex === 0}
-                      onClick={() => {
-                        const nextLayers = [...layers];
-                        [nextLayers[selectedLayerIndex - 1], nextLayers[selectedLayerIndex]] = [
-                          nextLayers[selectedLayerIndex],
-                          nextLayers[selectedLayerIndex - 1],
-                        ];
-                        replaceLayers(nextLayers);
-                        setSelectedLayerIndex(selectedLayerIndex - 1);
-                      }}
-                    >
-                      Move Up
-                    </button>
-                    <button
-                      className="btn-secondary flex-1 text-[11px] disabled:opacity-40"
-                      disabled={selectedLayerIndex === layers.length - 1}
-                      onClick={() => {
-                        const nextLayers = [...layers];
-                        [nextLayers[selectedLayerIndex], nextLayers[selectedLayerIndex + 1]] = [
-                          nextLayers[selectedLayerIndex + 1],
-                          nextLayers[selectedLayerIndex],
-                        ];
-                        replaceLayers(nextLayers);
-                        setSelectedLayerIndex(selectedLayerIndex + 1);
-                      }}
-                    >
-                      Move Down
-                    </button>
-                    <button
-                      className="flex-1 py-1 text-[11px] bg-surface-2 border border-border rounded-md text-red-300 hover:text-red-200"
-                      onClick={() => {
-                        const nextLayers = layers.filter((_, index) => index !== selectedLayerIndex);
-                        replaceLayers(nextLayers);
-                        setSelectedLayerIndex(Math.max(0, Math.min(selectedLayerIndex, nextLayers.length - 1)));
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-
-                  <Select
-                    label="Blend Mode"
-                    value={selectedLayer.blendMode}
-                    onChange={(value) =>
-                      updateLayer(selectedLayerIndex, { ...selectedLayer, blendMode: value as typeof selectedLayer.blendMode })
-                    }
-                    options={BLEND_MODE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
-                  />
-                  <RangeSlider
-                    label="Opacity"
-                    value={Math.round(selectedLayer.opacity * 100)}
-                    min={0}
-                    max={100}
-                    formatValue={(v) => `${v}%`}
-                    onChange={(value) =>
-                      updateLayer(selectedLayerIndex, { ...selectedLayer, opacity: value / 100 } as PanoramicBackgroundLayer)
-                    }
-                  />
-                  <RangeSlider
-                    label="Blur"
-                    value={selectedLayer.blur}
-                    min={0}
-                    max={240}
-                    formatValue={(v) => `${v}px`}
-                    onChange={(value) =>
-                      updateLayer(selectedLayerIndex, { ...selectedLayer, blur: value } as PanoramicBackgroundLayer)
-                    }
-                  />
-
-                  {selectedLayer.kind === 'solid' && (
-                    <ColorPicker
-                      label="Color"
-                      value={selectedLayer.color}
-                      onChange={(value) =>
-                        updateLayer(selectedLayerIndex, { ...selectedLayer, color: value })
-                      }
-                    />
-                  )}
-
-                  {selectedLayer.kind === 'gradient' && (
-                    <>
-                      <Select
-                        label="Gradient Type"
-                        value={selectedLayer.gradientType}
-                        onChange={(value) =>
-                          updateLayer(selectedLayerIndex, {
-                            ...selectedLayer,
-                            gradientType: value as typeof selectedLayer.gradientType,
-                          })
-                        }
-                        options={[
-                          { value: 'linear', label: 'Linear' },
-                          { value: 'radial', label: 'Radial' },
-                          { value: 'mesh', label: 'Mesh' },
-                        ]}
-                      />
-                      {selectedLayer.gradientType === 'linear' && (
-                        <RangeSlider
-                          label="Direction"
-                          value={selectedLayer.direction}
-                          min={0}
-                          max={360}
-                          formatValue={(v) => `${v}\u00B0`}
-                          onChange={(value) =>
-                            updateLayer(selectedLayerIndex, { ...selectedLayer, direction: value })
-                          }
-                        />
-                      )}
-                      {selectedLayer.gradientType === 'radial' && (
-                        <Select
-                          label="Center"
-                          value={selectedLayer.radialPosition}
-                          onChange={(value) =>
-                            updateLayer(selectedLayerIndex, {
-                              ...selectedLayer,
-                              radialPosition: value as typeof selectedLayer.radialPosition,
-                            })
-                          }
-                          options={[
-                            { value: 'center', label: 'Center' },
-                            { value: 'top', label: 'Top' },
-                            { value: 'bottom', label: 'Bottom' },
-                            { value: 'left', label: 'Left' },
-                            { value: 'right', label: 'Right' },
-                          ]}
-                        />
-                      )}
-                      {selectedLayer.colors.map((color, colorIndex) => (
-                        <ColorPicker
-                          key={colorIndex}
-                          label={`Stop ${colorIndex + 1}`}
-                          value={color}
-                          onChange={(value) => {
-                            const colors = [...selectedLayer.colors];
-                            colors[colorIndex] = value;
-                            updateLayer(selectedLayerIndex, { ...selectedLayer, colors });
-                          }}
-                        />
-                      ))}
-                    </>
-                  )}
-
-                  {selectedLayer.kind === 'image' && (
-                    <>
-                      <PanoramicBgImage
-                        imageDataUrl={selectedLayer.image}
-                        onUpload={(dataUrl) => updateLayer(selectedLayerIndex, { ...selectedLayer, image: dataUrl })}
-                        onRemove={() => updateLayer(selectedLayerIndex, { ...selectedLayer, image: '' })}
-                        buttonLabel="Upload Layer Image"
-                        alt="Background layer"
-                      />
-                      <Select
-                        label="Fit"
-                        value={selectedLayer.fit}
-                        onChange={(value) =>
-                          updateLayer(selectedLayerIndex, { ...selectedLayer, fit: value as typeof selectedLayer.fit })
-                        }
-                        options={[
-                          { value: 'cover', label: 'Cover' },
-                          { value: 'contain', label: 'Contain' },
-                          { value: 'tile', label: 'Tile' },
-                        ]}
-                      />
-                      <Select
-                        label="Position"
-                        value={selectedLayer.position}
-                        onChange={(value) =>
-                          updateLayer(selectedLayerIndex, {
-                            ...selectedLayer,
-                            position: value as typeof selectedLayer.position,
-                          })
-                        }
-                        options={[
-                          { value: 'center', label: 'Center' },
-                          { value: 'top', label: 'Top' },
-                          { value: 'bottom', label: 'Bottom' },
-                          { value: 'left', label: 'Left' },
-                          { value: 'right', label: 'Right' },
-                        ]}
-                      />
-                      <RangeSlider
-                        label="Scale"
-                        value={selectedLayer.scale}
-                        min={10}
-                        max={400}
-                        formatValue={(v) => `${v}%`}
-                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, scale: value })}
-                      />
-                    </>
-                  )}
-
-                  {selectedLayer.kind === 'glow' && (
-                    <>
-                      <ColorPicker
-                        label="Glow Color"
-                        value={selectedLayer.color}
-                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, color: value })}
-                      />
-                      <RangeSlider
-                        label="X"
-                        value={selectedLayer.x}
-                        min={-50}
-                        max={150}
-                        formatValue={(v) => `${v}%`}
-                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, x: value })}
-                      />
-                      <RangeSlider
-                        label="Y"
-                        value={selectedLayer.y}
-                        min={-50}
-                        max={150}
-                        formatValue={(v) => `${v}%`}
-                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, y: value })}
-                      />
-                      <RangeSlider
-                        label="Width"
-                        value={selectedLayer.width}
-                        min={1}
-                        max={200}
-                        formatValue={(v) => `${v}%`}
-                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, width: value })}
-                      />
-                      <RangeSlider
-                        label="Height"
-                        value={selectedLayer.height}
-                        min={1}
-                        max={200}
-                        formatValue={(v) => `${v}%`}
-                        onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, height: value })}
-                      />
-                    </>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </Section>
       </Section>
 
       {/* Screenshots — bulk upload */}
@@ -3130,6 +2835,302 @@ export function PanoramicBackgroundContent() {
                 </>
               )}
             </div>
+          </>
+        )}
+      </Section>
+
+      <Section title={`Layer Stack (${layers.length})`} defaultCollapsed>
+        <div className="grid grid-cols-2 gap-1 mb-3">
+          <button
+            className="btn-secondary text-[11px]"
+            onClick={() => addLayer('gradient')}
+          >
+            + Gradient
+          </button>
+          <button
+            className="btn-secondary text-[11px]"
+            onClick={() => addLayer('image')}
+          >
+            + Image
+          </button>
+          <button
+            className="btn-secondary text-[11px]"
+            onClick={() => addLayer('glow')}
+          >
+            + Glow
+          </button>
+          <button
+            className="btn-secondary text-[11px]"
+            onClick={() => addLayer('solid')}
+          >
+            + Solid
+          </button>
+        </div>
+
+        {layers.length === 0 && (
+          <p className="text-xs text-text-dim">
+            Add layered gradients, textures, and glow passes on top of the base background.
+          </p>
+        )}
+
+        {layers.length > 0 && (
+          <>
+            <div className="space-y-1 mb-3">
+              {layers.map((layer, index) => (
+                <button
+                  key={`${layer.kind}-${index}`}
+                  className={`w-full text-left text-xs px-2.5 py-2 rounded-md transition-colors ${
+                    index === selectedLayerIndex
+                      ? 'bg-accent/15 text-accent border border-accent/30'
+                      : 'bg-surface-2 border border-border hover:border-accent/30'
+                  }`}
+                  onClick={() => setSelectedLayerIndex(index)}
+                >
+                  <span className="font-medium">{getBackgroundLayerLabel(layer)}</span>
+                  <span className="text-text-dim ml-1">#{index + 1}</span>
+                </button>
+              ))}
+            </div>
+
+            {selectedLayer && (
+              <>
+                <div className="flex gap-1 mb-3">
+                  <button
+                    className="btn-secondary flex-1 text-[11px] disabled:opacity-40"
+                    disabled={selectedLayerIndex === 0}
+                    onClick={() => {
+                      const nextLayers = [...layers];
+                      [nextLayers[selectedLayerIndex - 1], nextLayers[selectedLayerIndex]] = [
+                        nextLayers[selectedLayerIndex]!,
+                        nextLayers[selectedLayerIndex - 1]!,
+                      ];
+                      replaceLayers(nextLayers);
+                      setSelectedLayerIndex(selectedLayerIndex - 1);
+                    }}
+                  >
+                    Move Up
+                  </button>
+                  <button
+                    className="btn-secondary flex-1 text-[11px] disabled:opacity-40"
+                    disabled={selectedLayerIndex === layers.length - 1}
+                    onClick={() => {
+                      const nextLayers = [...layers];
+                      [nextLayers[selectedLayerIndex], nextLayers[selectedLayerIndex + 1]] = [
+                        nextLayers[selectedLayerIndex + 1]!,
+                        nextLayers[selectedLayerIndex]!,
+                      ];
+                      replaceLayers(nextLayers);
+                      setSelectedLayerIndex(selectedLayerIndex + 1);
+                    }}
+                  >
+                    Move Down
+                  </button>
+                  <button
+                    className="flex-1 py-1 text-[11px] bg-surface-2 border border-border rounded-md text-red-300 hover:text-red-200"
+                    onClick={() => {
+                      const nextLayers = layers.filter((_, index) => index !== selectedLayerIndex);
+                      replaceLayers(nextLayers);
+                      setSelectedLayerIndex(Math.max(0, Math.min(selectedLayerIndex, nextLayers.length - 1)));
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <Select
+                  label="Blend Mode"
+                  value={selectedLayer.blendMode}
+                  onChange={(value) =>
+                    updateLayer(selectedLayerIndex, { ...selectedLayer, blendMode: value as typeof selectedLayer.blendMode })
+                  }
+                  options={BLEND_MODE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+                />
+                <RangeSlider
+                  label="Opacity"
+                  value={Math.round(selectedLayer.opacity * 100)}
+                  min={0}
+                  max={100}
+                  formatValue={(v) => `${v}%`}
+                  onChange={(value) =>
+                    updateLayer(selectedLayerIndex, { ...selectedLayer, opacity: value / 100 } as PanoramicBackgroundLayer)
+                  }
+                />
+                <RangeSlider
+                  label="Blur"
+                  value={selectedLayer.blur}
+                  min={0}
+                  max={240}
+                  formatValue={(v) => `${v}px`}
+                  onChange={(value) =>
+                    updateLayer(selectedLayerIndex, { ...selectedLayer, blur: value } as PanoramicBackgroundLayer)
+                  }
+                />
+
+                {selectedLayer.kind === 'solid' && (
+                  <ColorPicker
+                    label="Color"
+                    value={selectedLayer.color}
+                    onChange={(value) =>
+                      updateLayer(selectedLayerIndex, { ...selectedLayer, color: value })
+                    }
+                  />
+                )}
+
+                {selectedLayer.kind === 'gradient' && (
+                  <>
+                    <Select
+                      label="Gradient Type"
+                      value={selectedLayer.gradientType}
+                      onChange={(value) =>
+                        updateLayer(selectedLayerIndex, {
+                          ...selectedLayer,
+                          gradientType: value as typeof selectedLayer.gradientType,
+                        })
+                      }
+                      options={[
+                        { value: 'linear', label: 'Linear' },
+                        { value: 'radial', label: 'Radial' },
+                        { value: 'mesh', label: 'Mesh' },
+                      ]}
+                    />
+                    {selectedLayer.gradientType === 'linear' && (
+                      <RangeSlider
+                        label="Direction"
+                        value={selectedLayer.direction}
+                        min={0}
+                        max={360}
+                        formatValue={(v) => `${v}\u00B0`}
+                        onChange={(value) =>
+                          updateLayer(selectedLayerIndex, { ...selectedLayer, direction: value })
+                        }
+                      />
+                    )}
+                    {selectedLayer.gradientType === 'radial' && (
+                      <Select
+                        label="Center"
+                        value={selectedLayer.radialPosition}
+                        onChange={(value) =>
+                          updateLayer(selectedLayerIndex, {
+                            ...selectedLayer,
+                            radialPosition: value as typeof selectedLayer.radialPosition,
+                          })
+                        }
+                        options={[
+                          { value: 'center', label: 'Center' },
+                          { value: 'top', label: 'Top' },
+                          { value: 'bottom', label: 'Bottom' },
+                          { value: 'left', label: 'Left' },
+                          { value: 'right', label: 'Right' },
+                        ]}
+                      />
+                    )}
+                    {selectedLayer.colors.map((color, colorIndex) => (
+                      <ColorPicker
+                        key={colorIndex}
+                        label={`Stop ${colorIndex + 1}`}
+                        value={color}
+                        onChange={(value) => {
+                          const colors = [...selectedLayer.colors];
+                          colors[colorIndex] = value;
+                          updateLayer(selectedLayerIndex, { ...selectedLayer, colors });
+                        }}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {selectedLayer.kind === 'image' && (
+                  <>
+                    <PanoramicBgImage
+                      imageDataUrl={selectedLayer.image}
+                      onUpload={(dataUrl) => updateLayer(selectedLayerIndex, { ...selectedLayer, image: dataUrl })}
+                      onRemove={() => updateLayer(selectedLayerIndex, { ...selectedLayer, image: '' })}
+                      buttonLabel="Upload Layer Image"
+                      alt="Background layer"
+                    />
+                    <Select
+                      label="Fit"
+                      value={selectedLayer.fit}
+                      onChange={(value) =>
+                        updateLayer(selectedLayerIndex, { ...selectedLayer, fit: value as typeof selectedLayer.fit })
+                      }
+                      options={[
+                        { value: 'cover', label: 'Cover' },
+                        { value: 'contain', label: 'Contain' },
+                        { value: 'tile', label: 'Tile' },
+                      ]}
+                    />
+                    <Select
+                      label="Position"
+                      value={selectedLayer.position}
+                      onChange={(value) =>
+                        updateLayer(selectedLayerIndex, {
+                          ...selectedLayer,
+                          position: value as typeof selectedLayer.position,
+                        })
+                      }
+                      options={[
+                        { value: 'center', label: 'Center' },
+                        { value: 'top', label: 'Top' },
+                        { value: 'bottom', label: 'Bottom' },
+                        { value: 'left', label: 'Left' },
+                        { value: 'right', label: 'Right' },
+                      ]}
+                    />
+                    <RangeSlider
+                      label="Scale"
+                      value={selectedLayer.scale}
+                      min={10}
+                      max={400}
+                      formatValue={(v) => `${v}%`}
+                      onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, scale: value })}
+                    />
+                  </>
+                )}
+
+                {selectedLayer.kind === 'glow' && (
+                  <>
+                    <ColorPicker
+                      label="Glow Color"
+                      value={selectedLayer.color}
+                      onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, color: value })}
+                    />
+                    <RangeSlider
+                      label="X"
+                      value={selectedLayer.x}
+                      min={-50}
+                      max={150}
+                      formatValue={(v) => `${v}%`}
+                      onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, x: value })}
+                    />
+                    <RangeSlider
+                      label="Y"
+                      value={selectedLayer.y}
+                      min={-50}
+                      max={150}
+                      formatValue={(v) => `${v}%`}
+                      onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, y: value })}
+                    />
+                    <RangeSlider
+                      label="Width"
+                      value={selectedLayer.width}
+                      min={1}
+                      max={200}
+                      formatValue={(v) => `${v}%`}
+                      onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, width: value })}
+                    />
+                    <RangeSlider
+                      label="Height"
+                      value={selectedLayer.height}
+                      min={1}
+                      max={200}
+                      formatValue={(v) => `${v}%`}
+                      onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, height: value })}
+                    />
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
       </Section>

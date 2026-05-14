@@ -41,8 +41,6 @@ export function usePreviewRender() {
       deviceTilt: screen.deviceTilt,
       headlineGradient: screen.headlineGradient,
       subtitleGradient: screen.subtitleGradient,
-      autoSizeHeadline: screen.autoSizeHeadline,
-      autoSizeSubtitle: screen.autoSizeSubtitle,
       headlineLineHeight: screen.headlineLineHeight,
       headlineLetterSpacing: screen.headlineLetterSpacing,
       headlineTextTransform: screen.headlineTextTransform,

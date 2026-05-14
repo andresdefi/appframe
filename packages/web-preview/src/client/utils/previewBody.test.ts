@@ -4,6 +4,7 @@ import { buildExportBody, buildPreviewBody } from './previewBody';
 
 function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
   return {
+    id: 'screen-2',
     screenIndex: 2,
     headline: 'Track smarter',
     subtitle: 'See every expense clearly',
@@ -11,6 +12,10 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
     layout: 'center',
     font: 'inter',
     fontWeight: 700,
+    headlineFont: null,
+    headlineFontWeight: null,
+    subtitleFont: null,
+    subtitleFontWeight: null,
     headlineSize: 88,
     subtitleSize: 36,
     headlineRotation: 5,
@@ -34,8 +39,6 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
     deviceTilt: 3,
     headlineGradient: { colors: ['#111111', '#222222'], direction: 45 },
     subtitleGradient: { colors: ['#333333', '#444444'], direction: 90 },
-    autoSizeHeadline: true,
-    autoSizeSubtitle: true,
     headlineLineHeight: 120,
     headlineLetterSpacing: 8,
     headlineTextTransform: 'uppercase',
@@ -63,6 +66,10 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
       radialPosition: 'center',
     },
     backgroundImageDataUrl: 'data:image/png;base64,BG',
+    backgroundImageFit: 'cover',
+    backgroundImagePositionX: 50,
+    backgroundImagePositionY: 50,
+    backgroundImageScale: 100,
     backgroundOverlay: { color: '#000000', opacity: 0.35 },
     deviceShadow: { opacity: 0.3, blur: 24, color: '#000000', offsetY: 12 },
     borderSimulation: { enabled: true, thickness: 2, color: '#ffffff', radius: 24 },

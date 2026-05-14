@@ -173,7 +173,9 @@ export function useInstantPatch() {
   );
 
   /**
-   * Patch text: font size and rotation for headline/subtitle.
+   * Patch text: font size, rotation, color, and inner HTML for headline/subtitle.
+   * innerHTML patches give keystroke-by-keystroke feedback from the rich-text
+   * editor without paying for a full template re-render.
    */
   const patchText = useCallback(
     (partial: {
@@ -183,6 +185,8 @@ export function useInstantPatch() {
       subtitleRotation?: number;
       headlineHtml?: string;
       subtitleHtml?: string;
+      headlineColor?: string;
+      subtitleColor?: string;
     }) => {
       const doc = getDoc();
       if (!doc) return;
@@ -201,27 +205,35 @@ export function useInstantPatch() {
         el.style.transform = parts.length > 0 ? parts.join(' ') : '';
       };
 
-      if (partial.headlineSize !== undefined || partial.headlineRotation !== undefined) {
-        const headline = doc.querySelector('.headline') as HTMLElement | null;
-        if (headline) {
-          if (partial.headlineSize !== undefined) {
-            headline.style.fontSize = `${Math.round(partial.headlineSize * scaleFactor)}px`;
-          }
-          if (partial.headlineRotation !== undefined) {
-            applyRotation(headline, partial.headlineRotation);
-          }
+      const headline = doc.querySelector('.headline') as HTMLElement | null;
+      if (headline) {
+        if (partial.headlineSize !== undefined) {
+          headline.style.fontSize = `${Math.round(partial.headlineSize * scaleFactor)}px`;
+        }
+        if (partial.headlineRotation !== undefined) {
+          applyRotation(headline, partial.headlineRotation);
+        }
+        if (partial.headlineHtml !== undefined) {
+          headline.innerHTML = partial.headlineHtml;
+        }
+        if (partial.headlineColor !== undefined) {
+          headline.style.color = partial.headlineColor;
         }
       }
 
-      if (partial.subtitleSize !== undefined || partial.subtitleRotation !== undefined) {
-        const subtitle = doc.querySelector('.subtitle') as HTMLElement | null;
-        if (subtitle) {
-          if (partial.subtitleSize !== undefined) {
-            subtitle.style.fontSize = `${Math.round(partial.subtitleSize * scaleFactor)}px`;
-          }
-          if (partial.subtitleRotation !== undefined) {
-            applyRotation(subtitle, partial.subtitleRotation);
-          }
+      const subtitle = doc.querySelector('.subtitle') as HTMLElement | null;
+      if (subtitle) {
+        if (partial.subtitleSize !== undefined) {
+          subtitle.style.fontSize = `${Math.round(partial.subtitleSize * scaleFactor)}px`;
+        }
+        if (partial.subtitleRotation !== undefined) {
+          applyRotation(subtitle, partial.subtitleRotation);
+        }
+        if (partial.subtitleHtml !== undefined) {
+          subtitle.innerHTML = partial.subtitleHtml;
+        }
+        if (partial.subtitleColor !== undefined) {
+          subtitle.style.color = partial.subtitleColor;
         }
       }
     },

@@ -264,9 +264,6 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         : config.theme.colors;
 
       const context: TemplateContext = {
-        eyebrow: screen.eyebrow,
-        eyebrowSize: screen.eyebrowSize,
-        accentColor: screen.accentColor,
         headline,
         subtitle,
         screenshotDataUrl,
@@ -305,8 +302,6 @@ export async function generateScreenshots(options: GenerateOptions): Promise<Gen
         ...(resolvedBackgroundImagePositionY != null ? { backgroundImagePositionY: resolvedBackgroundImagePositionY } : {}),
         ...(resolvedBackgroundImageScale != null ? { backgroundImageScale: resolvedBackgroundImageScale } : {}),
         ...(resolvedBackgroundOverlay ? { backgroundOverlay: resolvedBackgroundOverlay } : {}),
-        eyebrowFont: screen.eyebrowFont ?? config.theme.eyebrowFont,
-        eyebrowFontWeight: screen.eyebrowFontWeight ?? config.theme.eyebrowFontWeight,
         headlineFont: screen.headlineFont ?? config.theme.headlineFont,
         headlineFontWeight: screen.headlineFontWeight ?? config.theme.headlineFontWeight,
         subtitleFont: screen.subtitleFont ?? config.theme.subtitleFont,

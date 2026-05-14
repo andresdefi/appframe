@@ -301,8 +301,6 @@ export const themeConfigSchema = z.object({
   deviceScale: z.number().min(50).max(100).optional(),
   deviceTop: z.number().min(-80).max(80).optional(),
   // Per-element font/weight overrides (fall back to global font/fontWeight when unset)
-  eyebrowFont: fontIdSchema.optional(),
-  eyebrowFontWeight: z.number().int().min(100).max(900).optional(),
   headlineFont: fontIdSchema.optional(),
   headlineFontWeight: z.number().int().min(100).max(900).optional(),
   subtitleFont: fontIdSchema.optional(),
@@ -367,8 +365,6 @@ export type Annotation = z.infer<typeof annotationSchema>;
 
 export const screenConfigSchema = z.object({
   screenshot: z.string().min(1, 'Screenshot path is required'),
-  eyebrow: z.string().optional().describe('Short label shown above the headline (e.g. a section tag)'),
-  eyebrowSize: z.number().int().min(0).max(100).optional().describe('Eyebrow font size in px at 1290px reference width; 0 or omitted = auto (≈2.4% of canvas)'),
   headline: z.string().min(1, 'Headline is required'),
   subtitle: z.string().optional(),
   layout: layoutVariantSchema.default('center'),
@@ -378,8 +374,6 @@ export const screenConfigSchema = z.object({
   extraDevices: z.array(compositionDeviceSchema).optional(),
   spotlight: spotlightConfigSchema.optional(),
   annotations: z.array(annotationSchema).default([]),
-  // Per-screen color accent (eyebrow tint, headline highlights, etc.)
-  accentColor: hexColor.optional(),
   // Per-screen background overrides (take precedence over theme-level background)
   backgroundType: backgroundTypeSchema.optional(),
   backgroundColor: hexColor.optional(),
@@ -399,8 +393,6 @@ export const screenConfigSchema = z.object({
   callouts: z.array(calloutSchema).optional(),
   overlays: z.array(overlaySchema).optional(),
   // Per-element font/weight overrides (screen wins over theme; undefined falls back to global)
-  eyebrowFont: fontIdSchema.optional(),
-  eyebrowFontWeight: z.number().int().min(100).max(900).optional(),
   headlineFont: fontIdSchema.optional(),
   headlineFontWeight: z.number().int().min(100).max(900).optional(),
   subtitleFont: fontIdSchema.optional(),

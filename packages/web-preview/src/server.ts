@@ -1090,10 +1090,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     preferLocaleText?: boolean;
     style?: TemplateStyle;
     layout?: LayoutVariant;
-    eyebrow?: string;
     headline?: string;
     subtitle?: string;
-    accentColor?: string;
     colors?: Record<string, string>;
     font?: string;
     fontWeight?: number;
@@ -1111,10 +1109,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     deviceOffsetX?: number;
     deviceAngle?: number;
     deviceTilt?: number;
-    eyebrowTop?: number;
-    eyebrowLeft?: number;
-    eyebrowWidth?: number;
-    eyebrowSize?: number;
     headlineTop?: number;
     headlineLeft?: number;
     headlineWidth?: number;
@@ -1185,8 +1179,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     borderSimulation?: { enabled: boolean; thickness: number; color: string; radius: number };
     cornerRadius?: number;
     // Per-element font/weight overrides
-    eyebrowFont?: string;
-    eyebrowFontWeight?: number;
     headlineFont?: string;
     headlineFontWeight?: number;
     subtitleFont?: string;
@@ -1278,10 +1270,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       preferLocaleText: expectBoolean(body.preferLocaleText),
       style: expectString(body.style) as TemplateStyle | undefined,
       layout: expectString(body.layout) as LayoutVariant | undefined,
-      eyebrow: expectString(body.eyebrow),
       headline: expectString(body.headline),
       subtitle: expectString(body.subtitle),
-      accentColor: expectString(body.accentColor),
       colors: expectObject(body.colors) as Record<string, string> | undefined,
       font: expectString(body.font),
       fontWeight: expectNumber(body.fontWeight),
@@ -1299,10 +1289,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       deviceOffsetX: expectNumber(body.deviceOffsetX),
       deviceAngle: expectNumber(body.deviceAngle),
       deviceTilt: expectNumber(body.deviceTilt),
-      eyebrowTop: expectNumber(body.eyebrowTop),
-      eyebrowLeft: expectNumber(body.eyebrowLeft),
-      eyebrowWidth: expectNumber(body.eyebrowWidth),
-      eyebrowSize: expectNumber(body.eyebrowSize),
       headlineTop: expectNumber(body.headlineTop),
       headlineLeft: expectNumber(body.headlineLeft),
       headlineWidth: expectNumber(body.headlineWidth),
@@ -1358,8 +1344,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       borderSimulation: expectObject(body.borderSimulation) as PreviewParams['borderSimulation'],
       cornerRadius: expectNumber(body.cornerRadius),
       // Per-element font/weight overrides
-      eyebrowFont: expectString(body.eyebrowFont),
-      eyebrowFontWeight: expectNumber(body.eyebrowFontWeight),
       headlineFont: expectString(body.headlineFont),
       headlineFontWeight: expectNumber(body.headlineFontWeight),
       subtitleFont: expectString(body.subtitleFont),
@@ -1460,11 +1444,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
 
     const context: TemplateContext = {
-      eyebrow: p.eyebrow ?? screen?.eyebrow,
-      eyebrowSize: p.eyebrowSize ?? screen?.eyebrowSize,
       headline: resolvedHeadline,
       subtitle: resolvedSubtitle,
-      accentColor: p.accentColor ?? screen?.accentColor,
       screenshotDataUrl,
       style: p.style ?? config.theme.style,
       colors: p.colors ? { ...config.theme.colors, ...p.colors } : config.theme.colors,
@@ -1518,9 +1499,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       borderSimulation: p.borderSimulation,
       cornerRadius: p.cornerRadius,
       // Per-element font/weight overrides (screen → theme → global fallback)
-      eyebrowFont: p.eyebrowFont ?? screen?.eyebrowFont ?? config.theme.eyebrowFont,
-      eyebrowFontWeight:
-        p.eyebrowFontWeight ?? screen?.eyebrowFontWeight ?? config.theme.eyebrowFontWeight,
       headlineFont: p.headlineFont ?? screen?.headlineFont ?? config.theme.headlineFont,
       headlineFontWeight:
         p.headlineFontWeight ?? screen?.headlineFontWeight ?? config.theme.headlineFontWeight,
@@ -1655,9 +1633,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
       let html = await templateEngine.render(context);
       html = injectTextPositionCSS(html, {
-        eyebrowTop: p.eyebrowTop,
-        eyebrowLeft: p.eyebrowLeft,
-        eyebrowWidth: p.eyebrowWidth,
         headlineTop: p.headlineTop,
         headlineLeft: p.headlineLeft,
         headlineWidth: p.headlineWidth,
@@ -1800,9 +1775,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
       let html = await templateEngine.render(context);
       html = injectTextPositionCSS(html, {
-        eyebrowTop: p.eyebrowTop,
-        eyebrowLeft: p.eyebrowLeft,
-        eyebrowWidth: p.eyebrowWidth,
         headlineTop: p.headlineTop,
         headlineLeft: p.headlineLeft,
         headlineWidth: p.headlineWidth,
@@ -1872,9 +1844,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
       let html = await templateEngine.render(context);
       html = injectTextPositionCSS(html, {
-        eyebrowTop: p.eyebrowTop,
-        eyebrowLeft: p.eyebrowLeft,
-        eyebrowWidth: p.eyebrowWidth,
         headlineTop: p.headlineTop,
         headlineLeft: p.headlineLeft,
         headlineWidth: p.headlineWidth,
@@ -2244,9 +2213,6 @@ function localizePanoramicElement(
 function injectTextPositionCSS(
   html: string,
   positions: {
-    eyebrowTop?: number;
-    eyebrowLeft?: number;
-    eyebrowWidth?: number;
     headlineTop?: number;
     headlineLeft?: number;
     headlineWidth?: number;
@@ -2260,12 +2226,6 @@ function injectTextPositionCSS(
   const rules: string[] = [];
   const transformWithRotation = (rotation?: number) =>
     rotation ? `translateX(-50%) rotate(${rotation}deg)` : 'translateX(-50%)';
-  if (positions.eyebrowTop !== undefined && positions.eyebrowLeft !== undefined) {
-    const w = positions.eyebrowWidth !== undefined ? `width: ${positions.eyebrowWidth}%;` : '';
-    rules.push(
-      `.eyebrow { position: fixed; top: ${positions.eyebrowTop}%; left: ${positions.eyebrowLeft}%; transform: translateX(-50%); z-index: 10; margin: 0; ${w} }`,
-    );
-  }
   if (positions.headlineTop !== undefined && positions.headlineLeft !== undefined) {
     const w = positions.headlineWidth !== undefined ? `width: ${positions.headlineWidth}%;` : '';
     rules.push(

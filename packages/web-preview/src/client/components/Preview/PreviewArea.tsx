@@ -279,9 +279,9 @@ function ScreenCard({
   );
 
   const handleTextDrop = useCallback(
-    (cls: 'eyebrow' | 'headline' | 'subtitle', pos: TextPosition) => {
+    (cls: 'headline' | 'subtitle', pos: TextPosition) => {
       const textPositions = {
-        ...(screen?.textPositions ?? { eyebrow: null, headline: null, subtitle: null }),
+        ...(screen?.textPositions ?? { headline: null, subtitle: null }),
       };
       textPositions[cls] = pos;
       updateScreen(index, { textPositions });
@@ -423,7 +423,7 @@ function ScreenCard({
   }, [dragTarget, recomputeGuides]);
 
   // Attach a MutationObserver to every draggable element in the iframe (device
-  // wrapper + eyebrow + headline + subtitle). Both slider instant patches and
+  // wrapper + headline + subtitle). Both slider instant patches and
   // mouse drags mutate inline style attributes, so watching each element's
   // style catches every reposition in real time. The iframe is rewritten on
   // full re-renders, so this is called again from the fetchPreviewHtml .then()
@@ -442,7 +442,7 @@ function ScreenCard({
       refreshLoupe();
     };
     const observer = new MutationObserver(onMutation);
-    const selectors = ['.device-wrapper', '.eyebrow', '.headline', '.subtitle'];
+    const selectors = ['.device-wrapper', '.headline', '.subtitle'];
     let attached = 0;
     for (const selector of selectors) {
       const el = doc.querySelector(selector) as HTMLElement | null;

@@ -65,7 +65,7 @@ export function useDragPosition(
   canvasW: number,
   canvasH: number,
   onDeviceDrop: (partial: { deviceTop: number; deviceOffsetX: number }) => void,
-  onTextDrop: (cls: 'eyebrow' | 'headline' | 'subtitle', pos: TextPosition) => void,
+  onTextDrop: (cls: 'headline' | 'subtitle', pos: TextPosition) => void,
   onAnnotationDrop: (idx: number, partial: { x: number; y: number }) => void,
   onOverlayDrop: (idx: number, partial: { x: number; y: number }) => void,
 ) {
@@ -74,7 +74,7 @@ export function useDragPosition(
   // can scope their feedback to that element rather than all draggables.
   const [dragTarget, setDragTarget] = useState<
     | { kind: 'device' }
-    | { kind: 'text'; cls: 'eyebrow' | 'headline' | 'subtitle' }
+    | { kind: 'text'; cls: 'headline' | 'subtitle' }
     | { kind: 'annotation'; idx: number }
     | { kind: 'overlay'; idx: number }
     | null
@@ -98,7 +98,6 @@ export function useDragPosition(
         // then walk ancestors of each to classify the hit.
         // Collect unique text/device hits and prefer the closest text element.
         const allEls = doc.elementsFromPoint(ix, iy) as HTMLElement[];
-        let eyebrowEl: HTMLElement | null = null;
         let headlineEl: HTMLElement | null = null;
         let subtitleEl: HTMLElement | null = null;
         let deviceEl: HTMLElement | null = null;
@@ -108,7 +107,6 @@ export function useDragPosition(
         for (const startEl of allEls) {
           let el: HTMLElement | null = startEl;
           while (el && el !== doc.documentElement) {
-            if (!eyebrowEl && el.classList?.contains('eyebrow')) eyebrowEl = el;
             if (!headlineEl && el.classList?.contains('headline')) headlineEl = el;
             if (!subtitleEl && el.classList?.contains('subtitle')) subtitleEl = el;
             if (!deviceEl && el.classList?.contains('device-wrapper')) deviceEl = el;
@@ -137,11 +135,7 @@ export function useDragPosition(
           }
         }
         // When multiple text elements overlap, pick the one whose vertical center is closest to the click.
-        const textHits: Array<{ cls: 'eyebrow' | 'headline' | 'subtitle'; el: HTMLElement; dy: number }> = [];
-        if (eyebrowEl) {
-          const vr = getViewportRect(eyebrowEl);
-          textHits.push({ cls: 'eyebrow', el: eyebrowEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
-        }
+        const textHits: Array<{ cls: 'headline' | 'subtitle'; el: HTMLElement; dy: number }> = [];
         if (headlineEl) {
           const vr = getViewportRect(headlineEl);
           textHits.push({ cls: 'headline', el: headlineEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
@@ -236,7 +230,7 @@ export function useDragPosition(
         document.addEventListener('mouseup', onUp);
       } else if (hit.kind === 'text') {
         const el = hit.el;
-        const cls = hit.cls as 'eyebrow' | 'headline' | 'subtitle';
+        const cls = hit.cls as 'headline' | 'subtitle';
         const vr = getViewportRect(el);
         const alreadyPositioned = !!screen.textPositions[cls];
         // When already positioned, the element has transform: translateX(-50%),
@@ -248,9 +242,7 @@ export function useDragPosition(
         if (!alreadyPositioned) {
           const rotation = cls === 'headline'
             ? screen.headlineRotation
-            : cls === 'subtitle'
-              ? screen.subtitleRotation
-              : 0;
+            : screen.subtitleRotation;
           const parts = ['translateX(-50%)'];
           if (rotation) parts.push(`rotate(${rotation}deg)`);
           el.style.position = 'fixed';
@@ -298,7 +290,7 @@ export function useDragPosition(
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
           setDragTarget(null);
-          onTextDrop(drag.cls as 'eyebrow' | 'headline' | 'subtitle', { x: leftPct, y: topPct, width: widthPct });
+          onTextDrop(drag.cls as 'headline' | 'subtitle', { x: leftPct, y: topPct, width: widthPct });
         };
 
         document.addEventListener('mousemove', onMove);

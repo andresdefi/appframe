@@ -138,11 +138,6 @@ export function buildConfigFromEditorState(
       subtitleTextTransform:
         (expectOptionalString(firstScreen.subtitleTextTransform) as AppframeConfig['theme']['subtitleTextTransform'])
         ?? undefined,
-      eyebrowFont:
-        (expectOptionalString(firstScreen.eyebrowFont) as AppframeConfig['theme']['eyebrowFont'])
-        ?? undefined,
-      eyebrowFontWeight:
-        typeof firstScreen.eyebrowFontWeight === 'number' ? firstScreen.eyebrowFontWeight : undefined,
       headlineFont:
         (expectOptionalString(firstScreen.headlineFont) as AppframeConfig['theme']['headlineFont'])
         ?? undefined,
@@ -218,13 +213,8 @@ export function buildConfigFromEditorState(
     return {
       ...original,
       screenshot: normalizeScreenshotPath(original.screenshot, screen.screenshotName, index),
-      eyebrow: expectOptionalString(screen.eyebrow) ?? original.eyebrow,
-      eyebrowSize: typeof screen.eyebrowSize === 'number' && screen.eyebrowSize > 0
-        ? screen.eyebrowSize
-        : original.eyebrowSize,
       headline: expectOptionalString(screen.headline) ?? original.headline,
       subtitle: expectOptionalString(screen.subtitle),
-      accentColor: expectOptionalString(screen.accentColor) ?? original.accentColor,
       layout:
         (expectOptionalString(screen.layout) as typeof original.layout)
         ?? original.layout,
@@ -270,12 +260,6 @@ export function buildConfigFromEditorState(
       overlays: Array.isArray(screen.overlays)
         ? screen.overlays as typeof original.overlays
         : original.overlays,
-      ...(expectOptionalString(screen.eyebrowFont)
-        ? { eyebrowFont: expectOptionalString(screen.eyebrowFont) as typeof original.eyebrowFont }
-        : {}),
-      ...(typeof screen.eyebrowFontWeight === 'number'
-        ? { eyebrowFontWeight: screen.eyebrowFontWeight }
-        : {}),
       ...(expectOptionalString(screen.headlineFont)
         ? { headlineFont: expectOptionalString(screen.headlineFont) as typeof original.headlineFont }
         : {}),

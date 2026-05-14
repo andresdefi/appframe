@@ -25,15 +25,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export interface TemplateContext {
   // Screen content
-  eyebrow?: string;
-  eyebrowSize?: number;
   headline: string;
   subtitle?: string;
   screenshotDataUrl: string;
-
-  // Per-screen accent color (eyebrow tint, future inline spans). Falls back to
-  // theme colors when unset.
-  accentColor?: string;
 
   // Theme
   style: TemplateStyle;
@@ -133,8 +127,6 @@ export interface TemplateContext {
   overlays?: Overlay[];
 
   // Per-element font/weight overrides — each falls back to the global font / fontWeight
-  eyebrowFont?: string;
-  eyebrowFontWeight?: number;
   headlineFont?: string;
   headlineFontWeight?: number;
   subtitleFont?: string;
@@ -143,7 +135,6 @@ export interface TemplateContext {
   // Injected by engine
   fontFaceCss?: string;
   fontFamily?: string;
-  eyebrowFontFamily?: string;
   headlineFontFamily?: string;
   subtitleFontFamily?: string;
 }
@@ -408,7 +399,6 @@ export class TemplateEngine {
       new Set(
         [
           fontKey,
-          context.eyebrowFont,
           context.headlineFont,
           context.subtitleFont,
         ].filter((k): k is string => typeof k === 'string' && k.length > 0),
@@ -430,7 +420,6 @@ export class TemplateEngine {
       ...presetContext,
       fontFaceCss: combinedFontFaceCss,
       fontFamily: globalFontFamily,
-      eyebrowFontFamily: context.eyebrowFont ? getFontName(context.eyebrowFont) : globalFontFamily,
       headlineFontFamily: context.headlineFont ? getFontName(context.headlineFont) : globalFontFamily,
       subtitleFontFamily: context.subtitleFont ? getFontName(context.subtitleFont) : globalFontFamily,
     });

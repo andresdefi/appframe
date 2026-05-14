@@ -1,103 +1,110 @@
 # Client-Side Export — Future Work
 
-Status: deferred. Captured 2026-05-12 so we can pick this up later without rediscovering the trade-offs.
+Status: picking this up 2026-05-15. Original plan written 2026-05-12; updated after the
+CLI / MCP / store-upload packages were removed (see commit 345045d) and after the freeze
+fix (b359ffa) that put fonts on a proper URL pipeline.
 
 ## Why we'd do this
 
 The web preview currently exports via Playwright on the server. The flow:
 
-1. User clicks Download in the Export tab
-2. Server boots Chromium (~1-2s cold start, amortized across a batch)
-3. Server navigates to the rendered HTML, calls `page.screenshot()` per screen
-4. PNGs stream back to the user
+1. User clicks Download in the Export tab → `POST /api/export`
+2. Server runs `templateEngine.render(context)` → HTML
+3. Server passes the HTML to `Renderer.render()` → Playwright `page.setContent()` + `page.screenshot()`
+4. Server returns the PNG buffer
 
-For local CLI use this is fine. For a **hosted version of appframe** (multi-user SaaS), this is the wrong shape:
+For a single user on localhost this is fine — Chromium boots once when the server starts and stays warm. The real reasons to move off it:
 
-- Every export reserves a Chromium process on the server (memory + cold-start cost)
-- Batches like "6 screens × 28 locales = 168 screenshots" tie up a server worker for minutes
-- Per-user concurrency caps are painful — one heavy user can starve everyone else
-- Scaling means renting more compute proportional to export volume
+- **Drops Playwright entirely.** ~200MB Chromium binary, ~2s cold start, server-side dependency that has to be installed wherever the app runs. Removing it cuts the install footprint dramatically and makes the app trivially deployable (just a Node/HTTP server, no native deps).
+- **Unblocks a hosted version.** Multi-user SaaS doesn't tolerate per-export Chromium processes. Batches like "6 screens × 28 locales = 168 screenshots" tie up a worker for minutes.
+- **No server queue.** Exports happen in the user's tab on their CPU. Concurrent exports across users don't contend.
 
-Client-side export moves the rasterization to the user's browser. The server only serves the HTML template and assets. This is what shots.so / applaunchpad / appscreens do and it's why they feel instant.
+What we'd be replicating: shots.so / applaunchpad / appscreens all do client-side export. It's why they feel instant.
+
+## The current export shape (after recent cleanup)
+
+The codebase is much simpler than when this plan was first written:
+
+- Only the **web-preview** server consumes the renderer (CLI is gone)
+- Template engine and Playwright renderer both live in `packages/core`, called from `packages/web-preview/src/server.ts`
+- Two export endpoints: `/api/export` (individual mode) and `/api/panoramic-export` (panoramic mode)
+- One preview endpoint per mode: `/api/preview-html`, `/api/panoramic-preview-html` — these produce the **same HTML** the export uses, just sized for the preview iframe instead of the final canvas
+- All resources are same-origin: fonts (`/preview-fonts/*` since b359ffa), Lucide icons (`/api/elements/icons/*`), blob/arrow SVGs (`/api/elements/*`), device frames (bundled into the HTML), user uploads (data URIs already embedded)
+
+Because the preview iframe already renders the same HTML at preview-scale, **client-side export can reuse the existing iframe rather than spinning up a new render context**. Render a hidden full-size iframe with the export HTML, snapshot it, done.
 
 ## What we'd build
 
-The proposal: add an `html-to-image`-style path that runs entirely in the browser, alongside the existing Playwright path. Web UI uses the browser path; CLI keeps Playwright.
+Add an `html-to-image`-style path that runs entirely in the browser. With no CLI to support, the migration can be a clean swap: replace `/api/export` and `/api/panoramic-export` with a client-side rasterizer and delete the Playwright Renderer once parity is proven.
 
-### Phase 1 — Proof of concept (2-3 days)
+### Phase 1 — Proof of concept + parity gate (2-3 days)
 
-- Add `html-to-image` (or `dom-to-image`, evaluate both) to `packages/web-preview`
-- Wire a single button — "Download current screen, client-side" — behind a feature flag
-- Capture the live preview iframe contents and rasterize to PNG
-- Side-by-side compare against the existing Playwright export at 1x, 2x, 3x scale
-- **Decision gate:** is visual parity acceptable? If diffs are subtle (sub-pixel font rendering, minor SVG drift) we proceed. If diffs are blocking (broken text, misaligned device frames) the project stops and we look at a different approach (e.g., embedding `@resvg/resvg-wasm` or a custom SVG-to-canvas pipeline).
+The decision gate. If parity isn't acceptable here, the rest of the project is off and we keep Playwright.
 
-### Phase 2 — Resource pipeline (3-4 days)
+- Pick a library. Top candidates: `html-to-image`, `dom-to-image-more`, `modern-screenshot` (newer fork with bug fixes). Bake them off on a representative screen.
+- Wire a feature-flagged "Download (client-side)" button in `ExportTab.tsx` next to the existing Download button
+- Render a hidden full-size iframe (canvas dimensions, not preview-scaled) with the export HTML — the same HTML `/api/preview-html` returns, just sized differently
+- Wait for `iframe.contentDocument.fonts.ready`, snapshot to PNG, trigger download
+- Side-by-side compare against the current server-side export at 1x, 2x, 3x scale. Test corpus: at least the existing reference screenshots under `reference-screenshots/`
+- **Decision gate:** is visual parity acceptable? If diffs are subtle (sub-pixel font rendering, minor SVG drift) we proceed. If diffs are blocking (broken text, misaligned device frames, missing filters) the project stops here.
 
-Every external resource the template loads has to be either same-origin + CORS-friendly OR pre-fetched and inlined as base64 before snapshot. Audit list:
+### Phase 2 — Resource and font pipeline (1-2 days)
 
-- Fonts (served from `/fonts/*.woff2`) — already same-origin, `document.fonts.ready` already used
-- Lucide icons (fetched from `/api/elements/icons/svg/*`) — same-origin
-- Blob SVGs (`/api/elements/blobs/svg/*`) — same-origin
-- Arrow SVGs (`/api/elements/arrows/svg/*`) — same-origin
-- User-uploaded custom images — embedded as data URIs in the overlay state already
-- Device frame SVGs/PNGs (`/frames/*`) — same-origin
-- Background images (custom user uploads) — data URIs
+This is much smaller than originally scoped because the freeze fix (b359ffa) already moved fonts to a proper URL pipeline. The audit:
 
-Most things are already same-origin. The risk surface is mainly:
-- Fonts with multiple weights — verify `document.fonts.ready` waits for all loaded variants
-- SVG `<use href="#id">` references — html-to-image has historical issues with these
-- CSS filters / backdrop-filter — Safari vs Chrome rendering differences
+- **Fonts** — `/preview-fonts/<family>/<file>` is already same-origin and served as static. `document.fonts.ready` should be sufficient. Verify all weights resolve.
+- **Lucide icons** — `/api/elements/icons/svg/*`, same-origin.
+- **Blob / arrow SVGs** — `/api/elements/*`, same-origin.
+- **Device frame assets** — inlined into the HTML as `frameSvg | safe` or `framePngUrl` (data URI). Already self-contained.
+- **User-uploaded images** — embedded as data URIs in state. Already self-contained.
+
+The remaining real risks:
+
+- SVG `<use href="#id">` — `html-to-image` has historical issues with these. Spotlight masks and some icons use `<use>`. Test specifically.
+- CSS `filter` / `backdrop-filter` — Safari vs Chrome differences.
+- Device transforms with `perspective` + `rotateY` — confirm rasterizers handle 3D transforms correctly.
 
 ### Phase 3 — Batch, locales, sizes (2-3 days)
 
-- Convert "Download all N" to a client-side loop
-- Add `JSZip` for batch zipping into a single download
-- UX: progress bar with cancel button. The render runs on the main thread (Web Workers can't access the DOM), so the tab will be partially blocked during the batch. Acceptable for a few seconds, painful for a 170-screenshot run.
-- Optimization: render to OffscreenCanvas where supported, batch DOM mutations
-- Consider: render 4-8 screens in parallel by cloning the iframe content into multiple hidden containers
+- Convert "Download all" into a client-side loop
+- Add `JSZip` for zipping batch output
+- Progress bar with cancel
+- Optimization: render N screens in parallel by mounting N hidden iframes. The rasterization step is main-thread-bound (no OffscreenCanvas + foreignObject support yet), but font load and DOM layout can run concurrently
+- Honest UX: a 170-screenshot batch is going to feel slow no matter what. Set expectations in the UI ("This will take ~30 seconds, your tab will be busy")
 
-### Phase 4 — Keep CLI working (1-2 days)
+### Phase 4 — Delete server-side export (1 day)
 
-CLI cannot run html-to-image (no browser). Two options:
+Once client-side is the default and stable:
 
-- **Option A (recommended):** keep Playwright as the CLI renderer, html-to-image for the web UI. Document the difference — output is functionally identical for App Store submissions but byte-different. This is the path that ships fastest.
-- **Option B:** extract a shared "render HTML to PNG" interface with two backends. Won't produce byte-identical output, so the abstraction is mostly cosmetic. Not worth the complexity.
+- Remove `/api/export` and `/api/panoramic-export` endpoints from server.ts
+- Remove `Renderer` class and its imports from core
+- Remove `playwright` from `packages/web-preview/package.json` dependencies
+- Drop the `node packages/web-preview/dist/bin.js` requirement on having Chromium installed
+- Keep `templateEngine.render()` and `/api/preview-html` — those still produce the HTML, just consumed by the iframe instead of by Playwright
 
-Go with Option A.
+This is the payoff phase. Once Playwright is out, the install footprint shrinks by ~200MB and `pnpm install` becomes much faster.
 
-### Phase 5 — Quality, edge cases, parity testing (2-3 days)
+### Phase 5 — Quality, edge cases, parity testing (1-2 days)
 
-- Stress test with the worst-case batch: max screens × max locales × max sizes
-- Compare visual output against current Playwright export on a corpus of real user configs
+- Stress test the worst-case batch (max screens × max locales × max sizes)
+- Visual diff against the previous server-side exports on the `reference-screenshots/` corpus
 - Test in Safari, Chrome, Firefox — fix browser-specific rendering bugs
-- Verify mobile browsers can still export (or gracefully fall back)
-- Measure: does client-side actually beat server-side once Chromium's cold start is amortized? For a 168-screenshot batch, server-side might still win on raw throughput. The user-facing win is "no server queue, no rate limits, runs while user does other things."
+- Verify mobile browsers can still export (or fall back gracefully)
+- Final cleanup: anywhere in the codebase that still references `Renderer`, `chromium`, or `/api/export`
 
 ## Realistic timeline
 
-**Total: ~2 weeks of focused work.** Add 1 week of buffer for the inevitable browser-specific surprises = ~3 weeks calendar.
+**~7-9 days of focused work** (down from the 2-3 weeks the original plan estimated, mostly because Phase 4 "Keep CLI working" is now "Delete server-side renderer" and the resource pipeline audit got smaller).
 
-## Open questions to resolve before starting
+Add a week of buffer for browser-specific surprises in Phase 2/5 = ~2 weeks calendar.
 
-1. **Library choice:** `html-to-image` vs `dom-to-image` vs `modern-screenshot` (a newer fork). Bake-off in Phase 1.
-2. **Browser support floor:** is Safari 15+ enough? Safari is historically the messiest for SVG rasterization.
-3. **What's the failure mode** if the user is on an old browser or has resource-loading issues? Fall back to server-side Playwright, or just refuse to export?
-4. **For the hosted version specifically:** do we want client-side as the *only* path, or as the fast path with server-side as a paid feature for headless batch jobs? (E.g., a future API that lets a customer's CI generate screenshots without a browser.)
+## Open questions to resolve in Phase 1
 
-## Why we deferred this
-
-- Current export speed is acceptable for local CLI use
-- No hosted version yet — the urgency depends on whether/when that ships
-- The visual parity work in Phase 1 is the real risk; until we prove it works, we don't know if any of this is feasible
-- More urgent items in the queue: Download tab UX audit, the before.click gap-list editing primitives, repo hygiene cleanup
+1. **Library choice:** `html-to-image` vs `dom-to-image-more` vs `modern-screenshot`. Decide in the bake-off.
+2. **Snapshot source:** snapshot a hidden full-size iframe with the export HTML, or upscale-snapshot the live preview iframe? Hidden full-size is cleaner (matches export resolution directly) but means rendering twice.
+3. **Fallback strategy:** if rasterization fails (old browser, blocked resource, weird SVG), do we fall back to server-side or just error? Probably error in Phase 1-3, keep server-side as a flag-gated fallback through Phase 4 in case we need to roll back, then delete it.
+4. **Browser support floor:** Safari 15+? Older Safari has historically been messy for SVG-to-canvas.
 
 ## When to pick this up
 
-Pre-conditions:
-
-- Decision made on hosted version (the trigger event)
-- Or: export speed becomes a top-3 user complaint
-- Or: a 2-week slot opens with no higher-priority feature work
-
-The first task on day one: prototype Phase 1, decide the parity question, commit or kill the project.
+Picking it up now (2026-05-15) — no specific trigger event, just a free window and the codebase is in a clean state to make the swap. First task: prototype Phase 1, decide the parity question, commit or kill the project.

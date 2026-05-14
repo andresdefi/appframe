@@ -99,7 +99,7 @@ describe('templateStyleSchema', () => {
 
 describe('frameStyleSchema', () => {
   it('accepts all valid frame styles', () => {
-    for (const s of ['flat', '3d', 'none']) {
+    for (const s of ['flat', 'none']) {
       expect(frameStyleSchema.safeParse(s).success).toBe(true);
     }
   });

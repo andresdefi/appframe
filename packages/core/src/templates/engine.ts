@@ -315,32 +315,9 @@ export interface TemplateRenderOptions {
 function buildShadowCss(preset: StylePreset, context: TemplateContext): string {
   const cw = context.canvasWidth;
   const layout = context.layout;
-  const frameStyle = context.frameStyle;
   const colors = context.colors;
 
   if (preset.isFullscreen) return '';
-
-  // 3D frame style always uses the same 4-layer cascade
-  if (frameStyle === '3d') {
-    const layers = [
-      [0.005, 0.01, 0.3],
-      [0.02, 0.04, 0.2],
-      [0.06, 0.12, 0.25],
-      [0.1, 0.2, 0.15],
-    ];
-    // Glow preset adds a color glow layer on top
-    const glowLayer =
-      preset.shadow.intensity === 'glow' && preset.shadow.glowScale
-        ? `drop-shadow(0 0 ${Math.round(cw * preset.shadow.glowScale * 0.75)}px ${colors.primary}44) `
-        : '';
-    const shadowLayers = layers
-      .map(
-        ([y, b, a]) =>
-          `drop-shadow(0 ${Math.round(cw * y!)}px ${Math.round(cw * b!)}px rgba(0,0,0,${a}))`,
-      )
-      .join('\n          ');
-    return `filter: ${glowLayer}${shadowLayers};`;
-  }
 
   let shadowDefs: Array<[number, number, number]>;
   if (layout === 'angled-left' || layout === 'angled-right') {

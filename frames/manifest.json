@@ -20,7 +20,6 @@
         "width": 584,
         "height": 764
       },
-      "frameBorderRadius": 28,
       "screenResolution": {
         "width": 2048,
         "height": 2732
@@ -45,7 +44,6 @@
         "width": 524,
         "height": 732
       },
-      "frameBorderRadius": 26,
       "screenResolution": {
         "width": 1668,
         "height": 2388
@@ -70,7 +68,6 @@
         "width": 422,
         "height": 892
       },
-      "frameBorderRadius": 50,
       "screenResolution": {
         "width": 1170,
         "height": 2532
@@ -95,7 +92,6 @@
         "width": 554,
         "height": 744
       },
-      "frameBorderRadius": 24,
       "screenResolution": {
         "width": 1668,
         "height": 2388

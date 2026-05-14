@@ -404,7 +404,7 @@ export async function renderSingleScreenWithKoubou(
         subtitleGradient: options.subtitleGradient,
       },
       frames: {
-        style: options.frameStyle as 'flat' | '3d' | 'none',
+        style: options.frameStyle as 'flat' | 'none',
         ios: options.frameId,
         deviceColor: options.deviceColor,
       },

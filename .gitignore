@@ -35,3 +35,6 @@ test-results/
 
 # Build artifacts
 *.tgz
+
+# Local-only reference / test screenshots
+reference-screenshots/Jobee Pro/

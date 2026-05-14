@@ -12,7 +12,6 @@ export interface FrameDefinition {
   framePath: string;
   screenArea: ScreenArea;
   frameSize: FrameSize;
-  frameBorderRadius?: number;
   screenResolution: ScreenResolution;
   tags: string[];
 }

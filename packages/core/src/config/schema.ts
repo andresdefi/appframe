@@ -20,7 +20,7 @@ export const templateStyleSchema = z.enum([
   'editorial',
   'fullscreen',
 ]);
-export const frameStyleSchema = z.enum(['flat', '3d', 'none']);
+export const frameStyleSchema = z.enum(['flat', 'none']);
 export const layoutVariantSchema = z.enum(['center', 'angled-left', 'angled-right']);
 
 // --- App section ---

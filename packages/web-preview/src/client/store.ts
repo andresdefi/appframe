@@ -73,7 +73,7 @@ export function createScreenState(
     },
     frameId: config.frames.ios ?? config.frames.android ?? '',
     deviceColor: config.frames.deviceColor ?? '',
-    frameStyle: (config.frames.style === '3d' ? 'flat' : config.frames.style) as FrameStyle,
+    frameStyle: config.frames.style as FrameStyle,
     composition: 'single',
     deviceScale: pd.deviceScale,
     deviceTop: pd.deviceTop,

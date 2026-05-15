@@ -328,6 +328,7 @@ export interface PreviewStore {
   updateScreen: (index: number, partial: Partial<ScreenState>) => void;
   triggerRender: () => void;
   initScreens: (config: AppframeConfig, platform: string) => void;
+  hydrateProjectSnapshot: (snapshot: unknown) => void;
   hydrateSession: (session: {
     activeVariantId: string;
     variants: Array<{
@@ -1128,6 +1129,16 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       selectedScreen: 0,
       selectedElementIndex: null,
       ...panoramicUpdate,
+    });
+  },
+
+  hydrateProjectSnapshot: (snapshot) => {
+    const state = get();
+    const fallback = variantSnapshotFromState(state);
+    const coerced = coerceVariantSnapshot(snapshot, fallback);
+    set({
+      ...applyVariantSnapshot(coerced),
+      renderVersion: state.renderVersion + 1,
     });
   },
 

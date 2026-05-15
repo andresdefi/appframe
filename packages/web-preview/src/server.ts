@@ -55,6 +55,7 @@ import {
   resolveScreenshotUrlToDataUrl,
   type ScreenshotStorageOptions,
 } from './screenshotStorage.js';
+import { registerProjectRoutes, type ProjectStorageOptions } from './projectStorage.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -160,6 +161,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   const screenshotStorage: ScreenshotStorageOptions = {
     projectsRoot: options.projectsRoot ?? getDefaultProjectsRoot(),
   };
+  const projectStorage: ProjectStorageOptions = {
+    projectsRoot: screenshotStorage.projectsRoot,
+  };
 
   const resolvedConfigPath = configPath ? resolve(configPath) : undefined;
   const configDir = resolvedConfigPath ? dirname(resolvedConfigPath) : process.cwd();
@@ -206,6 +210,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   });
 
   registerScreenshotRoutes(app, screenshotStorage);
+  registerProjectRoutes(app, projectStorage);
 
   // API: Health check
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
-import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, fetchSession, putLiveConfig } from './utils/api';
+import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, fetchSession, putLiveConfig, loadProject } from './utils/api';
+import { useProjectAutosave } from './hooks/useProjectAutosave';
 import { HeaderBar } from './components/HeaderBar';
 import { DesignTab } from './components/Sidebar/DesignTab';
 import { DeviceTab } from './components/Sidebar/DeviceTab';
@@ -21,6 +22,9 @@ export function App() {
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
   const initScreens = usePreviewStore((s) => s.initScreens);
   const hydrateSession = usePreviewStore((s) => s.hydrateSession);
+  const hydrateProjectSnapshot = usePreviewStore((s) => s.hydrateProjectSnapshot);
+  const [autosaveEnabled, setAutosaveEnabled] = useState(false);
+  useProjectAutosave({ enabled: autosaveEnabled });
   const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
   const setFonts = usePreviewStore((s) => s.setFonts);
   const setFrames = usePreviewStore((s) => s.setFrames);
@@ -101,6 +105,25 @@ export function App() {
           // No session — use default single variant
         }
 
+        // Phase 2: restore the persisted project snapshot from disk if one
+        // exists. Boot order matters — this runs AFTER initScreens so the
+        // store has valid defaults to fall back to when the snapshot is
+        // partial. The autosave hook is enabled afterwards so it doesn't
+        // echo the hydration itself back to disk.
+        try {
+          const result = await loadProject();
+          if (result.kind === 'loaded') {
+            hydrateProjectSnapshot(result.envelope.data);
+          } else if (result.kind === 'corrupt' || result.kind === 'futureSchema') {
+            // Don't silently destroy the file — surface so the user can decide.
+            setError(`Could not restore the saved project: ${result.message}`);
+            return;
+          }
+        } catch (err) {
+          console.warn('Project restore failed', err);
+        }
+        setAutosaveEnabled(true);
+
         // Fetch sizes
         try {
           const sizes = await fetchSizes();
@@ -121,7 +144,7 @@ export function App() {
     }
 
     init();
-  }, [initScreens, hydrateSession, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
+  }, [initScreens, hydrateSession, hydrateProjectSnapshot, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
 
   useEffect(() => {
     const syncLayout = () => {

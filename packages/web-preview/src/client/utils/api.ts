@@ -160,6 +160,62 @@ export async function fetchExportConfig(body: Record<string, unknown>): Promise<
   return res.blob();
 }
 
+export interface ProjectEnvelope<T = unknown> {
+  schemaVersion: number;
+  savedAt: string;
+  data: T;
+}
+
+export type LoadProjectResult<T = unknown> =
+  | { kind: 'loaded'; envelope: ProjectEnvelope<T> }
+  | { kind: 'missing' }
+  | { kind: 'corrupt'; message: string }
+  | { kind: 'futureSchema'; message: string; schemaVersion: number };
+
+export async function loadProject<T = unknown>(project = 'default'): Promise<LoadProjectResult<T>> {
+  const res = await fetch(`${API}/api/projects/${encodeURIComponent(project)}`);
+  if (res.status === 404) return { kind: 'missing' };
+  if (res.status === 422) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return { kind: 'corrupt', message: data.error ?? 'project file is corrupted' };
+  }
+  if (res.status === 409) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string; schemaVersion?: number };
+    return {
+      kind: 'futureSchema',
+      message: data.error ?? 'project file is from a newer version',
+      schemaVersion: data.schemaVersion ?? 0,
+    };
+  }
+  if (!res.ok) throw new Error(`Load project failed: ${res.statusText}`);
+  const envelope = (await res.json()) as ProjectEnvelope<T>;
+  return { kind: 'loaded', envelope };
+}
+
+export async function saveProject(
+  data: unknown,
+  project = 'default',
+  signal?: AbortSignal,
+): Promise<{ savedAt: string }> {
+  const res = await fetch(`${API}/api/projects/${encodeURIComponent(project)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    signal,
+  });
+  if (!res.ok) {
+    let message = `Save project failed: ${res.statusText}`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // keep default
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<{ savedAt: string }>;
+}
+
 export interface UploadedScreenshot {
   project: string;
   filename: string;

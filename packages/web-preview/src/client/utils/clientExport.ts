@@ -41,16 +41,27 @@ async function prepareIframeForRender(html: string, width: number, height: numbe
   doc.open();
   doc.write(html);
   doc.close();
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (doc as any).fonts?.ready;
-  } catch {
-    // fonts API may be unavailable; layout may use fallbacks.
-  }
-  // 200ms settle window — matches the historical wait the server-side
-  // Renderer used after setContent. Long enough for layout + image decode
-  // to finish on slower machines, short enough to not feel laggy.
-  await new Promise((r) => setTimeout(r, 200));
+
+  // Wait for fonts and images in parallel so the rasterizer never captures
+  // a half-loaded state. The old 200ms generic settle was a guess that
+  // could be too short for a slow data-URI screenshot to decode; these two
+  // awaits are exact instead.
+  //
+  // - fonts.ready resolves when every @font-face has loaded. Catch-and-
+  //   shrug because some embeddings don't expose the API.
+  // - img.decode() resolves when each image is fully decoded into a
+  //   bitmap (stronger than img.complete, which only means the network
+  //   fetch finished). Promise.allSettled tolerates broken images —
+  //   we proceed past them rather than hanging the export.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fontsReady = (doc as any).fonts?.ready
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (doc as any).fonts.ready.catch(() => undefined)
+    : Promise.resolve();
+  const images = Array.from(doc.images);
+  const imagesDecoded = Promise.allSettled(images.map((img) => img.decode()));
+  await Promise.all([fontsReady, imagesDecoded]);
+
   return iframe;
 }
 

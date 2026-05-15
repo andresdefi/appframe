@@ -28,7 +28,7 @@ End-to-end:
 | Path | Server (Playwright, before) | Client (current) |
 |------|-----------------------------|------------------|
 | Single screen | ~1250 ms | ~300 ms |
-| 5-screen batch | ~6 s | ~2.8 s |
+| 5-screen batch | ~6 s | ~1.7 s |
 | 5-frame panoramic | ~6 s (separate renders per frame) | ~1.7 s (single rasterization + N crops) |
 | Per-render HTML payload | ~338 KB | ~5.9 KB |
 
@@ -77,7 +77,7 @@ The approve-artifact workflow (which let session-mode users persist a
 canonical exported artifact to disk) was a casualty — it depended on
 server-side rendering. Marked for client-side reconstruction later.
 
-### Phase 5 — cleanup + iframe reuse + verification (this commit)
+### Phase 5 — cleanup + iframe reuse + explicit awaits + verification
 
 - Deleted the POC bake-off (`/poc/export-bakeoff`, `ExportBakeoff.tsx`),
   its `/poc/test-screenshot` static route, the `html-to-image` and
@@ -88,6 +88,12 @@ server-side rendering. Marked for client-side reconstruction later.
   reused across all renders. doc.open/doc.write wipes the previous
   contents, so reuse is safe. Saves a handful of ms per export and,
   more importantly, avoids GC churn during long batches
+- Replaced the 200ms generic settle window with explicit awaits:
+  `fonts.ready` (already exact) + `Promise.allSettled` over every
+  `<img>.decode()`. Removes a timing-guess heuristic that could
+  half-snapshot slow images, and cuts the 5-screen batch from 2.8s to
+  1.7s (~38% faster) — the 200ms tax was being paid unconditionally on
+  every screen, and most renders don't need that much wait
 - Cross-browser status: Chromium verified working via Playwright.
   Firefox + WebKit were not tested locally (would require ~500 MB of
   browser-binary downloads). modern-screenshot has documented
@@ -116,8 +122,7 @@ server-side rendering. Marked for client-side reconstruction later.
 - Cross-browser verification in Firefox + WebKit. The infrastructure is
   there (`npx playwright install`) — just nobody ran it
 - Rebuild the approve-and-persist artifact workflow on the client path
-  when session-mode usage warrants it
-- The export approach uses `await page.fonts.ready + 200ms` to wait for
-  layout to settle. If exports occasionally produce half-loaded states
-  (large background images, slow icon loads) consider waiting for
-  `.complete` on all `<img>` elements explicitly
+  when session-mode usage warrants it. Shape: client renders all PNGs
+  via the existing `exportScreenClientSide` / `exportPanoramicSlicesClientSide`
+  helpers, POSTs the blobs + config YAML to a small new endpoint that
+  only writes to disk — no rendering, no Playwright on the server

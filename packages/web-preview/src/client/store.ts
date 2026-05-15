@@ -272,6 +272,10 @@ export interface PreviewStore {
   recommendedVariantId: string | null;
   sessionSaveBaseline: string | null;
   sessionBacked: boolean;
+  /** Active project slug, drives the autosave / load endpoints. */
+  activeProject: string;
+  /** Human-readable name of the active project, shown in the header. */
+  activeProjectDisplayName: string;
   platform: string;
   previewW: number;
   previewH: number;
@@ -306,6 +310,7 @@ export interface PreviewStore {
   setPreviewSize: (w: number, h: number) => void;
   setSelectedScreen: (index: number) => void;
   setActiveTab: (tab: string) => void;
+  setActiveProject: (project: string, displayName?: string) => void;
   setLocale: (locale: string) => void;
   upsertLocaleConfig: (locale: string, localeConfig: LocaleConfig) => void;
   createVariant: (name?: string) => void;
@@ -776,6 +781,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   recommendedVariantId: null,
   sessionSaveBaseline: null,
   sessionBacked: false,
+  activeProject: 'default',
+  activeProjectDisplayName: 'default',
   platform: 'iphone',
   previewW: 400,
   previewH: 868,
@@ -818,6 +825,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     }
     set({ activeTab: tab });
   },
+  setActiveProject: (project, displayName) =>
+    set({ activeProject: project, activeProjectDisplayName: displayName ?? project }),
   setLocale: (locale) => set({ locale }),
   upsertLocaleConfig: (locale, localeConfig) =>
     set((state) => ({

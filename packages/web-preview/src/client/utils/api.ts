@@ -216,6 +216,90 @@ export async function saveProject(
   return res.json() as Promise<{ savedAt: string }>;
 }
 
+export interface ProjectSummary {
+  /** Filesystem slug (directory name). */
+  name: string;
+  /** Human-readable name; falls back to slug when meta.json is missing. */
+  displayName: string;
+  createdAt: string;
+  lastOpenedAt: string;
+  savedAt: string;
+  hasProjectFile: boolean;
+}
+
+export interface ProjectMeta {
+  schemaVersion: number;
+  name: string;
+  displayName: string;
+  createdAt: string;
+  lastOpenedAt: string;
+}
+
+export async function fetchProjects(): Promise<ProjectSummary[]> {
+  const res = await fetch(`${API}/api/projects`);
+  if (!res.ok) throw new Error(`List projects failed: ${res.statusText}`);
+  const body = (await res.json()) as { projects: ProjectSummary[] };
+  return body.projects;
+}
+
+async function postProjectAction<T = { meta: ProjectMeta }>(
+  path: string,
+  body: Record<string, unknown> = {},
+): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `Project action failed: ${res.statusText}`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // keep default
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function createProject(name: string): Promise<ProjectMeta> {
+  const res = await postProjectAction('/api/projects', { name });
+  return res.meta;
+}
+
+export async function renameProjectApi(from: string, to: string): Promise<ProjectMeta> {
+  const res = await postProjectAction(`/api/projects/${encodeURIComponent(from)}/rename`, { to });
+  return res.meta;
+}
+
+export async function duplicateProjectApi(from: string, to: string): Promise<ProjectMeta> {
+  const res = await postProjectAction(`/api/projects/${encodeURIComponent(from)}/duplicate`, { to });
+  return res.meta;
+}
+
+export async function touchProject(project: string): Promise<ProjectMeta> {
+  const res = await postProjectAction(`/api/projects/${encodeURIComponent(project)}/touch`);
+  return res.meta;
+}
+
+export async function deleteProjectApi(project: string): Promise<void> {
+  const res = await fetch(`${API}/api/projects/${encodeURIComponent(project)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    let message = `Delete project failed: ${res.statusText}`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // keep default
+    }
+    throw new Error(message);
+  }
+}
+
 export interface UploadedScreenshot {
   project: string;
   filename: string;

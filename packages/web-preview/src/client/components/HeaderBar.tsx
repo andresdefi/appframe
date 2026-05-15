@@ -4,6 +4,7 @@ interface HeaderBarProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   showSidebarToggle: boolean;
+  onOpenProjectPicker: () => void;
 }
 
 const TABS = [
@@ -20,8 +21,11 @@ export function HeaderBar({
   sidebarOpen,
   onToggleSidebar,
   showSidebarToggle,
+  onOpenProjectPicker,
 }: HeaderBarProps) {
   const config = usePreviewStore((s) => s.config);
+  const activeProject = usePreviewStore((s) => s.activeProject);
+  const activeProjectDisplayName = usePreviewStore((s) => s.activeProjectDisplayName);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
   const togglePanoramic = usePreviewStore((s) => s.togglePanoramic);
   const undo = usePreviewStore((s) => s.undo);
@@ -59,6 +63,17 @@ export function HeaderBar({
           </button>
         )}
         <span className="text-sm font-semibold whitespace-nowrap">appframe</span>
+        <button
+          className="inline-flex items-center gap-1 text-[11px] text-text-dim hover:text-text bg-surface-2 hover:bg-surface px-2 py-1 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent max-w-[140px]"
+          onClick={onOpenProjectPicker}
+          title="Switch project"
+          aria-label={`Project: ${activeProjectDisplayName}. Click to switch.`}
+        >
+          <span className="truncate">{activeProjectDisplayName}</span>
+          <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 shrink-0" fill="none" aria-hidden="true">
+            <path d="M3 4.5 6 7.5l3-3" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
         {config && (
           <span className="text-xs text-text-dim truncate">{config.app.name}</span>
         )}

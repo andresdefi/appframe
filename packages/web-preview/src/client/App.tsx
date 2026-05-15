@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
-import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, fetchSession, putLiveConfig, loadProject } from './utils/api';
+import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, fetchSession, putLiveConfig, loadProject, fetchProjects, touchProject } from './utils/api';
 import { useProjectAutosave } from './hooks/useProjectAutosave';
+import { ProjectPicker } from './components/ProjectPicker';
 import { HeaderBar } from './components/HeaderBar';
 import { DesignTab } from './components/Sidebar/DesignTab';
 import { DeviceTab } from './components/Sidebar/DeviceTab';
@@ -23,8 +24,48 @@ export function App() {
   const initScreens = usePreviewStore((s) => s.initScreens);
   const hydrateSession = usePreviewStore((s) => s.hydrateSession);
   const hydrateProjectSnapshot = usePreviewStore((s) => s.hydrateProjectSnapshot);
+  const activeProject = usePreviewStore((s) => s.activeProject);
+  const setActiveProject = usePreviewStore((s) => s.setActiveProject);
   const [autosaveEnabled, setAutosaveEnabled] = useState(false);
-  useProjectAutosave({ enabled: autosaveEnabled });
+  const [pickerOpen, setPickerOpen] = useState(false);
+  useProjectAutosave({ enabled: autosaveEnabled, project: activeProject });
+
+  const switchToProject = async (name: string) => {
+    if (name === activeProject) {
+      setPickerOpen(false);
+      return;
+    }
+    // Temporarily disable autosave so the upcoming hydration doesn't echo
+    // straight back to disk for the new project. Re-enable after the swap.
+    setAutosaveEnabled(false);
+    try {
+      const result = await loadProject(name);
+      if (result.kind === 'corrupt' || result.kind === 'futureSchema') {
+        setError(`Could not open "${name}": ${result.message}`);
+        return;
+      }
+      if (result.kind === 'loaded') {
+        hydrateProjectSnapshot(result.envelope.data);
+      } else {
+        // Missing file (e.g. brand-new project) — leave the store as it is;
+        // the autosave hook will create the file on first edit.
+      }
+      // Look up the display name from the project list so the header chip
+      // shows the human-readable label rather than the slug.
+      let displayName = name;
+      try {
+        const list = await fetchProjects();
+        const found = list.find((p) => p.name === name);
+        if (found) displayName = found.displayName;
+      } catch {
+        // best effort
+      }
+      setActiveProject(name, displayName);
+      setPickerOpen(false);
+    } finally {
+      setAutosaveEnabled(true);
+    }
+  };
   const setPreviewSize = usePreviewStore((s) => s.setPreviewSize);
   const setFonts = usePreviewStore((s) => s.setFonts);
   const setFrames = usePreviewStore((s) => s.setFrames);
@@ -105,19 +146,38 @@ export function App() {
           // No session — use default single variant
         }
 
-        // Phase 2: restore the persisted project snapshot from disk if one
-        // exists. Boot order matters — this runs AFTER initScreens so the
-        // store has valid defaults to fall back to when the snapshot is
-        // partial. The autosave hook is enabled afterwards so it doesn't
-        // echo the hydration itself back to disk.
+        // Phase 3: auto-resume the most-recently-opened project on boot.
+        // The picker (HeaderBar button) lets the user switch / create /
+        // rename / delete later. The store has valid defaults from
+        // initScreens above, so a hydration that's missing fields still
+        // produces a usable view.
+        let resumeProject = 'default';
+        let resumeDisplayName = 'default';
         try {
-          const result = await loadProject();
+          const projects = await fetchProjects();
+          if (projects.length > 0) {
+            resumeProject = projects[0]!.name; // sorted by lastOpenedAt desc
+            resumeDisplayName = projects[0]!.displayName;
+          }
+        } catch (err) {
+          console.warn('Project listing failed', err);
+        }
+
+        try {
+          const result = await loadProject(resumeProject);
           if (result.kind === 'loaded') {
             hydrateProjectSnapshot(result.envelope.data);
+            setActiveProject(resumeProject, resumeDisplayName);
+            // Best-effort: bump lastOpenedAt so subsequent boots resume
+            // this project. Failing here shouldn't block the UI.
+            touchProject(resumeProject).catch(() => {});
           } else if (result.kind === 'corrupt' || result.kind === 'futureSchema') {
             // Don't silently destroy the file — surface so the user can decide.
             setError(`Could not restore the saved project: ${result.message}`);
             return;
+          } else {
+            // No saved project on disk — keep activeProject='default'.
+            // The autosave hook will create the file on first edit.
           }
         } catch (err) {
           console.warn('Project restore failed', err);
@@ -144,7 +204,7 @@ export function App() {
     }
 
     init();
-  }, [initScreens, hydrateSession, hydrateProjectSnapshot, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
+  }, [initScreens, hydrateSession, hydrateProjectSnapshot, setActiveProject, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
 
   useEffect(() => {
     const syncLayout = () => {
@@ -260,9 +320,19 @@ export function App() {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((open) => !open)}
           showSidebarToggle={isNarrow}
+          onOpenProjectPicker={() => setPickerOpen(true)}
         />
         {isPanoramic ? <PanoramicPreview /> : <PreviewArea />}
       </div>
+      {pickerOpen && (
+        <ProjectPicker
+          activeProject={activeProject}
+          onSelect={(name) => {
+            void switchToProject(name);
+          }}
+          onDismiss={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

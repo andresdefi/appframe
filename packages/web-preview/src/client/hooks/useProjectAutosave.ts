@@ -90,6 +90,11 @@ export function useProjectAutosave({
       unsubscribe();
       window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('visibilitychange', onVisibility);
+      // Flush before dispose so a project-switch doesn't drop the user's
+      // last edits to the project they're navigating away from. The
+      // scheduler was set up with the *old* project's URL, which is
+      // exactly what we want here.
+      scheduler.flushSync();
       scheduler.dispose();
     };
   }, [enabled, project, debounceMs]);

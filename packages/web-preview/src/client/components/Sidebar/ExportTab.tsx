@@ -5,7 +5,7 @@ import { Select } from '../Controls/Select';
 import { exportApprovedArtifact, fetchExport, fetchExportConfig, fetchPanoramicExport, reloadProject } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
-import { exportScreenClientSide, isClientExportEnabled } from '../../utils/clientExport';
+import { exportScreenClientSide, exportPanoramicSlicesClientSide, isClientExportEnabled } from '../../utils/clientExport';
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -152,6 +152,44 @@ export function ExportTab() {
     setToast(`Downloaded ${exported} frames`);
   };
 
+  // Phase 3 panoramic batch via the client-side path. Rasterizes the wide
+  // canvas once and slices it into N frame PNGs — N+1× fewer renders than
+  // the server-side loop and avoids any Chromium round-trip.
+  const handlePanoramicExportAllClientSide = async () => {
+    if (!config) return;
+    const sizeSpec = platformSizes.find((s) => s.key === resolvedExportSize);
+    if (!sizeSpec) {
+      setStatus(`Client export failed: unknown size key ${resolvedExportSize}`);
+      return;
+    }
+    setExporting(true);
+    setStatus(`Rendering ${panoramicFrameCount} frames (client)...`);
+    const t0 = performance.now();
+    try {
+      const slices = await exportPanoramicSlicesClientSide(
+        buildPanoramicBody() as unknown as Record<string, unknown>,
+        panoramicFrameCount,
+        sizeSpec.width,
+        sizeSpec.height,
+      );
+      const fileNames: string[] = [];
+      for (let i = 0; i < slices.length; i++) {
+        const fileName = `${variantSlug}-frame-${i + 1}.png`;
+        downloadBlob(slices[i]!, fileName);
+        fileNames.push(fileName);
+        // Brief pause between Save dialogs / writes — matches the server path.
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      const ms = Math.round(performance.now() - t0);
+      setStatus(`Downloaded ${slices.length} frames (client, ${ms}ms)`);
+      setToast(`Downloaded ${slices.length} frames (client, ${ms}ms)`);
+    } catch (err) {
+      setStatus(`Client export failed: ${err instanceof Error ? err.message : 'Unknown'}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleExportCurrent = async () => {
     const screen = screens[selectedScreen];
     if (!screen) return;
@@ -258,6 +296,52 @@ export function ExportTab() {
     setToast(`Downloaded ${exported} screenshots`);
   };
 
+  // Phase 3 individual batch via the client-side path. Loops the
+  // single-screen helper across all screens; mirrors handleExportAll's
+  // structure so the two paths can be A/B'd by clicking each button.
+  const handleExportAllClientSide = async () => {
+    if (screens.length === 0) return;
+    const sizeSpec = platformSizes.find((s) => s.key === resolvedExportSize);
+    if (!sizeSpec) {
+      setStatus(`Client export failed: unknown size key ${resolvedExportSize}`);
+      return;
+    }
+    setExporting(true);
+    let exported = 0;
+    const t0 = performance.now();
+    for (let i = 0; i < screens.length; i++) {
+      const screen = screens[i];
+      if (!screen) continue;
+      setStatus(`Rendering screen ${i + 1} of ${screens.length} (client)...`);
+      try {
+        const body = buildExportBody(screen, {
+          previewW,
+          previewH,
+          locale,
+          localeConfig: activeLocaleConfig,
+          sizeKey: resolvedExportSize,
+        });
+        const blob = await exportScreenClientSide(
+          body as unknown as Record<string, unknown>,
+          sizeSpec.width,
+          sizeSpec.height,
+        );
+        const fileName = `${variantSlug}-screen-${i + 1}.png`;
+        downloadBlob(blob, fileName);
+        exported++;
+        // Same inter-download delay as the server path — gives the browser
+        // a beat between Save File dialogs / disk writes.
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      } catch (err) {
+        setStatus(`Error on screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
+      }
+    }
+    const ms = Math.round(performance.now() - t0);
+    setExporting(false);
+    setStatus(`Downloaded ${exported} of ${screens.length} screens (client, ${ms}ms)`);
+    setToast(`Downloaded ${exported} screenshots (client, ${ms}ms)`);
+  };
+
   const handleReload = async () => {
     try {
       const cfg = await reloadProject();
@@ -353,13 +437,25 @@ export function ExportTab() {
         />
 
         {isPanoramic ? (
-          <button
-            className="btn-primary w-full text-xs mt-2"
-            onClick={handlePanoramicExportAll}
-            disabled={exporting}
-          >
-            {exporting ? 'Downloading...' : `Download all ${panoramicFrameCount} frames`}
-          </button>
+          <>
+            <button
+              className="btn-primary w-full text-xs mt-2"
+              onClick={handlePanoramicExportAll}
+              disabled={exporting}
+            >
+              {exporting ? 'Downloading...' : `Download all ${panoramicFrameCount} frames`}
+            </button>
+            {isClientExportEnabled() && (
+              <button
+                className="btn-secondary w-full text-xs mt-1 text-indigo-200 hover:text-white"
+                onClick={handlePanoramicExportAllClientSide}
+                disabled={exporting}
+                title="Client-side panoramic export. Single rasterization sliced into N frame PNGs."
+              >
+                {exporting ? 'Rendering...' : `Download all ${panoramicFrameCount} frames (client)`}
+              </button>
+            )}
+          </>
         ) : (
           <>
             <button
@@ -386,6 +482,16 @@ export function ExportTab() {
             >
               {exporting ? 'Downloading...' : `Download all ${screens.length} screens`}
             </button>
+            {isClientExportEnabled() && (
+              <button
+                className="btn-secondary w-full text-xs mt-1 text-indigo-200 hover:text-white"
+                onClick={handleExportAllClientSide}
+                disabled={exporting}
+                title="Client-side batch export. Loops the client-side renderer across all screens."
+              >
+                {exporting ? 'Rendering...' : `Download all ${screens.length} screens (client)`}
+              </button>
+            )}
           </>
         )}
 

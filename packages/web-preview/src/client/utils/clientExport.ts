@@ -90,3 +90,98 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   const res = await fetch(dataUrl);
   return res.blob();
 }
+
+/**
+ * Render the panoramic wide canvas once, then slice it into per-frame PNGs.
+ *
+ * The panoramic export produces N App Store screenshots from a single
+ * `frameCount * frameWidth` canvas. Server-side, that means N separate
+ * Playwright renders. Client-side, it's cheaper: one rasterization plus N
+ * canvas crops. This function does the single render and returns N blobs
+ * sized exactly `frameWidth × frameHeight`, in order.
+ *
+ * `body` must be the same shape `/api/panoramic-preview-html` accepts.
+ * The function does not mutate it.
+ */
+export async function exportPanoramicSlicesClientSide(
+  body: Record<string, unknown>,
+  frameCount: number,
+  frameWidth: number,
+  frameHeight: number,
+): Promise<Blob[]> {
+  const totalWidth = frameCount * frameWidth;
+
+  const res = await fetch('/api/panoramic-preview-html', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`panoramic-preview-html failed: ${res.status}`);
+  const html = await res.text();
+
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = `position: fixed; top: 0; left: -99999px; width: ${totalWidth}px; height: ${frameHeight}px; border: none;`;
+  document.body.appendChild(iframe);
+
+  try {
+    const doc = iframe.contentDocument;
+    if (!doc) throw new Error('iframe has no contentDocument');
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (doc as any).fonts?.ready;
+    } catch {
+      // ignore
+    }
+    await new Promise((r) => setTimeout(r, 200));
+
+    const dataUrl = await domToPng(doc.documentElement, {
+      scale: 1,
+      width: totalWidth,
+      height: frameHeight,
+    });
+
+    // Load the rasterized wide canvas as an Image so we can crop it.
+    const img = await loadImage(dataUrl);
+
+    const slices: Blob[] = [];
+    for (let i = 0; i < frameCount; i++) {
+      const canvas = document.createElement('canvas');
+      canvas.width = frameWidth;
+      canvas.height = frameHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('failed to acquire 2d context for slice canvas');
+      ctx.drawImage(
+        img,
+        i * frameWidth, 0, frameWidth, frameHeight, // source rect
+        0, 0, frameWidth, frameHeight,              // dest rect
+      );
+      const blob = await canvasToPngBlob(canvas);
+      slices.push(blob);
+    }
+    return slices;
+  } finally {
+    iframe.remove();
+  }
+}
+
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('image load failed'));
+    img.src = src;
+  });
+}
+
+async function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('canvas.toBlob returned null'));
+    }, 'image/png');
+  });
+}

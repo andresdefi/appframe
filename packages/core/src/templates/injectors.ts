@@ -26,31 +26,35 @@ export interface AnnotationParams {
 export function injectSpotlightHTML(html: string, spotlight: SpotlightParams): string {
   const { x, y, w, h, shape, dimOpacity, blur } = spotlight;
 
-  // SVG mask approach: white background (dimmed) + black cutout (clear)
-  const cutout = shape === 'circle'
-    ? `<ellipse cx="${x}%" cy="${y}%" rx="${w / 2}%" ry="${h / 2}%" fill="black"/>`
-    : `<rect x="${x - w / 2}%" y="${y - h / 2}%" width="${w}%" height="${h}%" fill="black"/>`;
-
-  const blurFilter = blur > 0
-    ? `<defs><filter id="spotlight-blur"><feGaussianBlur stdDeviation="${blur}"/></filter></defs>`
-    : '';
-  const filterAttr = blur > 0 ? ' filter="url(#spotlight-blur)"' : '';
+  // Box-shadow cutout approach: a transparent rectangle (or circle, via
+  // border-radius: 50%) positioned where the spotlight should land, with a
+  // huge box-shadow spread painting the dim everywhere outside it. No SVG,
+  // no <mask>, no url(#id) references — which means it survives
+  // foreignObject serialization in client-side rasterizers (html-to-image,
+  // modern-screenshot, dom-to-image-more). The blur parameter of box-shadow
+  // provides the soft-edge effect that the previous feGaussianBlur did.
+  //
+  // The container clips the shadow to canvas bounds; otherwise the 9999px
+  // spread would paint off-screen on browsers where overflow happens to be
+  // visible. .spotlight-overlay matches the canvas extent exactly.
+  const left = x - w / 2;
+  const top = y - h / 2;
+  const radius = shape === 'circle' ? '50%' : '0';
 
   const style = `<style>
-.spotlight-overlay { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
-.spotlight-overlay svg { width: 100%; height: 100%; display: block; }
+.spotlight-overlay { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+.spotlight-cutout {
+  position: absolute;
+  left: ${left}%;
+  top: ${top}%;
+  width: ${w}%;
+  height: ${h}%;
+  border-radius: ${radius};
+  box-shadow: 0 0 ${blur > 0 ? blur : 0}px 9999px rgba(0,0,0,${dimOpacity});
+}
 </style>`;
 
-  const overlay = `<div class="spotlight-overlay">
-<svg viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-${blurFilter}
-<mask id="spotlight-mask">
-<rect x="0" y="0" width="100" height="100" fill="white"/>
-${cutout}
-</mask>
-<rect x="0" y="0" width="100" height="100" fill="rgba(0,0,0,${dimOpacity})" mask="url(#spotlight-mask)"${filterAttr}/>
-</svg>
-</div>`;
+  const overlay = `<div class="spotlight-overlay"><div class="spotlight-cutout"></div></div>`;
 
   html = html.replace('</head>', `${style}\n</head>`);
   html = html.replace('</body>', `${overlay}\n</body>`);

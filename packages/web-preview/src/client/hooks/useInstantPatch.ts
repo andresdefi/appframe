@@ -284,10 +284,11 @@ export function useInstantPatch() {
   /**
    * Patch spotlight overlay: position, size, dim opacity, and blur.
    *
-   * Shape changes (circle ↔ rectangle) and blur crossings through 0 trigger
-   * full re-renders via the normal onChange flow — those mutate the DOM
-   * structure (different cutout element / filter presence), not just
-   * attributes, so they don't have a stable instant path.
+   * The spotlight is rendered as a single `.spotlight-cutout` div positioned
+   * where the cutout should appear, with a huge box-shadow painting the dim
+   * everywhere outside it (see injectSpotlightHTML for context). Patches
+   * just mutate that one element's inline style — position/size for moves,
+   * border-radius for shape changes, and box-shadow for opacity and blur.
    */
   const patchSpotlight = useCallback(
     (spotlight: {
@@ -301,42 +302,14 @@ export function useInstantPatch() {
     }) => {
       const doc = getDoc();
       if (!doc) return;
-      const svg = doc.querySelector('.spotlight-overlay svg');
-      if (!svg) return;
-
-      // Mask cutout is the last child of #spotlight-mask (first child is the
-      // full-canvas white background rect).
-      const mask = svg.querySelector('#spotlight-mask');
-      const cutout = mask?.lastElementChild ?? null;
-      if (cutout) {
-        const tag = cutout.tagName.toLowerCase();
-        if (spotlight.shape === 'circle' && tag === 'ellipse') {
-          cutout.setAttribute('cx', `${spotlight.x}%`);
-          cutout.setAttribute('cy', `${spotlight.y}%`);
-          cutout.setAttribute('rx', `${spotlight.w / 2}%`);
-          cutout.setAttribute('ry', `${spotlight.h / 2}%`);
-        } else if (spotlight.shape === 'rectangle' && tag === 'rect') {
-          cutout.setAttribute('x', `${spotlight.x - spotlight.w / 2}%`);
-          cutout.setAttribute('y', `${spotlight.y - spotlight.h / 2}%`);
-          cutout.setAttribute('width', `${spotlight.w}%`);
-          cutout.setAttribute('height', `${spotlight.h}%`);
-        }
-      }
-
-      // Dim layer is the final rect (the one with the mask attr applied).
-      const dimRect = svg.querySelector('rect[mask]');
-      if (dimRect) {
-        dimRect.setAttribute('fill', `rgba(0,0,0,${spotlight.dimOpacity})`);
-      }
-
-      // Blur filter is only present in the DOM when blur > 0. Skip the
-      // transition through zero; the onChange re-render adds/removes it.
-      if (spotlight.blur > 0) {
-        const feGaussian = svg.querySelector('#spotlight-blur feGaussianBlur');
-        if (feGaussian) {
-          feGaussian.setAttribute('stdDeviation', String(spotlight.blur));
-        }
-      }
+      const cutout = doc.querySelector('.spotlight-cutout') as HTMLElement | null;
+      if (!cutout) return;
+      cutout.style.left = `${spotlight.x - spotlight.w / 2}%`;
+      cutout.style.top = `${spotlight.y - spotlight.h / 2}%`;
+      cutout.style.width = `${spotlight.w}%`;
+      cutout.style.height = `${spotlight.h}%`;
+      cutout.style.borderRadius = spotlight.shape === 'circle' ? '50%' : '0';
+      cutout.style.boxShadow = `0 0 ${spotlight.blur > 0 ? spotlight.blur : 0}px 9999px rgba(0,0,0,${spotlight.dimOpacity})`;
     },
     [getDoc],
   );

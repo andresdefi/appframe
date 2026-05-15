@@ -9,37 +9,49 @@ describe('injectSpotlightHTML', () => {
       x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0,
     });
     expect(result).toContain('spotlight-overlay');
+    expect(result).toContain('spotlight-cutout');
     expect(result).toContain('<style>');
     expect(result).toContain('</style>');
   });
 
-  it('uses ellipse for circle shape', () => {
+  it('uses border-radius: 50% for circle shape', () => {
     const result = injectSpotlightHTML(BASE_HTML, {
       x: 50, y: 50, w: 30, h: 30, shape: 'circle', dimOpacity: 0.6, blur: 0,
     });
-    expect(result).toContain('<ellipse');
+    expect(result).toContain('border-radius: 50%');
   });
 
-  it('uses rect for rectangle shape', () => {
+  it('uses border-radius: 0 for rectangle shape', () => {
     const result = injectSpotlightHTML(BASE_HTML, {
       x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0,
     });
-    expect(result).toContain('<rect x=');
+    expect(result).toContain('border-radius: 0');
   });
 
-  it('includes blur filter when blur > 0', () => {
+  it('positions the cutout centered on the spotlight coords', () => {
+    // x/y are the spotlight CENTER as a %; the cutout div is anchored at
+    // top-left, so left = x - w/2 and top = y - h/2.
+    const result = injectSpotlightHTML(BASE_HTML, {
+      x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0,
+    });
+    expect(result).toContain('left: 35%');
+    expect(result).toContain('top: 35%');
+    expect(result).toContain('width: 30%');
+    expect(result).toContain('height: 30%');
+  });
+
+  it('applies blur in the box-shadow when blur > 0', () => {
     const result = injectSpotlightHTML(BASE_HTML, {
       x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 5,
     });
-    expect(result).toContain('spotlight-blur');
-    expect(result).toContain('feGaussianBlur');
+    expect(result).toContain('box-shadow: 0 0 5px 9999px rgba(0,0,0,0.6)');
   });
 
-  it('omits blur filter when blur is 0', () => {
+  it('uses 0px blur when blur is 0', () => {
     const result = injectSpotlightHTML(BASE_HTML, {
       x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0,
     });
-    expect(result).not.toContain('feGaussianBlur');
+    expect(result).toContain('box-shadow: 0 0 0px 9999px rgba(0,0,0,0.6)');
   });
 });
 

@@ -5,6 +5,7 @@ import { Select } from '../Controls/Select';
 import { exportApprovedArtifact, fetchExport, fetchExportConfig, fetchPanoramicExport, reloadProject } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
+import { exportScreenClientSide, isClientExportEnabled } from '../../utils/clientExport';
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -175,6 +176,46 @@ export function ExportTab() {
     }
   };
 
+  // Phase 2 client-side path. Gated by localStorage 'appframe.clientExport',
+  // sits next to the server Download button so we can A/B by clicking each.
+  // Once parity is confirmed across the full export corpus this becomes the
+  // default and the server path is deleted (Phase 4 of the migration plan).
+  const handleExportCurrentClientSide = async () => {
+    const screen = screens[selectedScreen];
+    if (!screen) return;
+    const sizeSpec = platformSizes.find((s) => s.key === resolvedExportSize);
+    if (!sizeSpec) {
+      setStatus(`Client export failed: unknown size key ${resolvedExportSize}`);
+      return;
+    }
+    setExporting(true);
+    setStatus(`Rendering screen ${selectedScreen + 1} (client)...`);
+    const t0 = performance.now();
+    try {
+      const body = buildExportBody(screen, {
+        previewW,
+        previewH,
+        locale,
+        localeConfig: activeLocaleConfig,
+        sizeKey: resolvedExportSize,
+      });
+      const blob = await exportScreenClientSide(
+        body as unknown as Record<string, unknown>,
+        sizeSpec.width,
+        sizeSpec.height,
+      );
+      const fileName = `${variantSlug}-screen-${selectedScreen + 1}.png`;
+      downloadBlob(blob, fileName);
+      const ms = Math.round(performance.now() - t0);
+      setStatus(`Downloaded screen ${selectedScreen + 1} (client, ${ms}ms)`);
+      setToast(`Downloaded ${fileName} (client-side, ${ms}ms)`);
+    } catch (err) {
+      setStatus(`Client export failed: ${err instanceof Error ? err.message : 'Unknown'}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleExportAll = async () => {
     if (screens.length === 0) return;
     setExporting(true);
@@ -328,6 +369,16 @@ export function ExportTab() {
             >
               {exporting ? 'Downloading...' : `Download screen ${selectedScreen + 1}`}
             </button>
+            {isClientExportEnabled() && (
+              <button
+                className="btn-secondary w-full text-xs mt-1 text-indigo-200 hover:text-white"
+                onClick={handleExportCurrentClientSide}
+                disabled={exporting || !screens[selectedScreen]}
+                title="Client-side export (modern-screenshot). Flag-gated via localStorage 'appframe.clientExport'."
+              >
+                {exporting ? 'Rendering...' : `Download screen ${selectedScreen + 1} (client)`}
+              </button>
+            )}
             <button
               className="btn-secondary w-full text-xs mt-1"
               onClick={handleExportAll}

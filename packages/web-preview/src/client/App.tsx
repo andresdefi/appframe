@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
-import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, fetchSession, putLiveConfig, loadProject, fetchProjects, touchProject } from './utils/api';
+import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, putLiveConfig, loadProject, fetchProjects, touchProject } from './utils/api';
 import { useProjectAutosave } from './hooks/useProjectAutosave';
 import { ProjectPicker } from './components/ProjectPicker';
 import { HeaderBar } from './components/HeaderBar';
@@ -22,7 +22,6 @@ export function App() {
   const config = usePreviewStore((s) => s.config);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
   const initScreens = usePreviewStore((s) => s.initScreens);
-  const hydrateSession = usePreviewStore((s) => s.hydrateSession);
   const hydrateProjectSnapshot = usePreviewStore((s) => s.hydrateProjectSnapshot);
   const activeProject = usePreviewStore((s) => s.activeProject);
   const setActiveProject = usePreviewStore((s) => s.setActiveProject);
@@ -136,16 +135,6 @@ export function App() {
         }
         initScreens(cfg, platform);
 
-        // Hydrate variants from session file if server was started with --session
-        try {
-          const session = await fetchSession() as Parameters<typeof hydrateSession>[0] | null;
-          if (session && Array.isArray(session.variants) && session.variants.length > 0) {
-            hydrateSession(session);
-          }
-        } catch {
-          // No session — use default single variant
-        }
-
         // Phase 3: auto-resume the most-recently-opened project on boot.
         // The picker (HeaderBar button) lets the user switch / create /
         // rename / delete later. The store has valid defaults from
@@ -204,7 +193,7 @@ export function App() {
     }
 
     init();
-  }, [initScreens, hydrateSession, hydrateProjectSnapshot, setActiveProject, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
+  }, [initScreens, hydrateProjectSnapshot, setActiveProject, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
 
   useEffect(() => {
     const syncLayout = () => {

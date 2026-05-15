@@ -10,7 +10,6 @@ import type {
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
-import { saveSession as saveSessionApi } from './utils/api';
 
 function getConfiguredLocaleText(
   locales: Record<string, LocaleConfig>,
@@ -247,6 +246,18 @@ export interface VariantSnapshot {
   exportSize: string;
 }
 
+/**
+ * What the autosave hook writes to disk. Wraps VariantSnapshot (the
+ * currently-displayed state) with the variants list so the user can pick
+ * up variant work where they left off. Each VariantRecord carries its
+ * own per-variant snapshot internally.
+ */
+export interface ProjectSnapshot extends VariantSnapshot {
+  variants: VariantRecord[];
+  activeVariantId: string | null;
+  recommendedVariantId: string | null;
+}
+
 export interface VariantRecord {
   id: string;
   name: string;
@@ -270,8 +281,6 @@ export interface PreviewStore {
   variants: VariantRecord[];
   activeVariantId: string | null;
   recommendedVariantId: string | null;
-  sessionSaveBaseline: string | null;
-  sessionBacked: boolean;
   /** Active project slug, drives the autosave / load endpoints. */
   activeProject: string;
   /** Human-readable name of the active project, shown in the header. */
@@ -334,23 +343,6 @@ export interface PreviewStore {
   triggerRender: () => void;
   initScreens: (config: AppframeConfig, platform: string) => void;
   hydrateProjectSnapshot: (snapshot: unknown) => void;
-  hydrateSession: (session: {
-    activeVariantId: string;
-    variants: Array<{
-      id: string;
-      name: string;
-      description?: string;
-      status: string;
-      config: AppframeConfig;
-      artifacts?: unknown[];
-      previewArtifacts?: VariantPreviewArtifact[];
-      copyAssignments?: VariantCopyAssignment[];
-      score?: VariantScoreSummary;
-      history?: VariantHistoryEntry[];
-      provenance?: VariantProvenance;
-    }>;
-    recommendedVariantId?: string | null;
-  }) => void;
   addScreen: () => void;
   removeScreen: (index: number) => void;
   moveScreen: (from: number, to: number) => void;
@@ -369,8 +361,6 @@ export interface PreviewStore {
   // Undo/redo
   undo: () => void;
   redo: () => void;
-  saveSession: () => Promise<void>;
-  isSavingSession: boolean;
 }
 
 // Simple undo/redo history for screen and panoramic state
@@ -448,6 +438,22 @@ export function variantSnapshotFromState(
     panoramicEffects: deepCopy(state.panoramicEffects),
     selectedElementIndex: state.selectedElementIndex,
     exportSize: state.exportSize,
+  };
+}
+
+export function projectSnapshotFromState(
+  state: Parameters<typeof variantSnapshotFromState>[0] &
+    Pick<PreviewStore, 'variants' | 'activeVariantId' | 'recommendedVariantId'>,
+): ProjectSnapshot {
+  // syncActiveVariantRecord refreshes the active variant's snapshot field
+  // from the current state before serializing, so a save always captures
+  // the user's latest edits in the active variant's record.
+  const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+  return {
+    ...variantSnapshotFromState(state),
+    variants: deepCopy(variants),
+    activeVariantId: state.activeVariantId,
+    recommendedVariantId: state.recommendedVariantId,
   };
 }
 
@@ -652,96 +658,6 @@ function cloneVariantRecord(
   };
 }
 
-function coerceVariantArtifact(candidate: unknown): VariantArtifact | null {
-  if (!isRecord(candidate)) return null;
-
-  const mode = candidate.mode === 'panoramic' ? 'panoramic' : 'individual';
-  const filePaths = Array.isArray(candidate.filePaths)
-    ? candidate.filePaths.filter((entry): entry is string => typeof entry === 'string')
-    : [];
-  const fileNames = Array.isArray(candidate.fileNames)
-    ? candidate.fileNames.filter((entry): entry is string => typeof entry === 'string')
-    : filePaths.map((entry) => entry.split('/').pop() ?? entry);
-
-  return {
-    id: typeof candidate.id === 'string' ? candidate.id : makeId('artifact'),
-    kind: candidate.kind === 'frames' ? 'frames' : mode === 'panoramic' ? 'frames' : 'screens',
-    exportedAt: typeof candidate.exportedAt === 'string' ? candidate.exportedAt : new Date().toISOString(),
-    locale: typeof candidate.locale === 'string' ? candidate.locale : 'default',
-    mode,
-    sizeKey: typeof candidate.sizeKey === 'string' ? candidate.sizeKey : '',
-    renderer: typeof candidate.renderer === 'string' ? candidate.renderer : 'playwright',
-    fileNames,
-    manifestName: typeof candidate.manifestName === 'string' ? candidate.manifestName : '',
-    outputDir: typeof candidate.outputDir === 'string' ? candidate.outputDir : undefined,
-    filePaths,
-    configPath: typeof candidate.configPath === 'string' ? candidate.configPath : undefined,
-  };
-}
-
-function coerceVariantHistory(candidate: unknown): VariantHistoryEntry[] {
-  if (!Array.isArray(candidate)) return [];
-  return candidate
-    .filter(isRecord)
-    .map((entry) => ({
-      id: typeof entry.id === 'string' ? entry.id : makeId('history'),
-      createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),
-      type:
-        entry.type === 'created'
-        || entry.type === 'duplicated'
-        || entry.type === 'status-change'
-        || entry.type === 'saved'
-          ? entry.type
-          : 'created',
-      label: typeof entry.label === 'string' ? entry.label : 'Variant updated',
-      detail: typeof entry.detail === 'string' ? entry.detail : undefined,
-      sourceVariantId: typeof entry.sourceVariantId === 'string' ? entry.sourceVariantId : undefined,
-    }));
-}
-
-function coerceVariantProvenance(candidate: unknown): VariantProvenance | undefined {
-  if (!isRecord(candidate)) return undefined;
-  const origin =
-    candidate.origin === 'manual' || candidate.origin === 'duplicate'
-      ? candidate.origin
-      : 'manual';
-  return {
-    origin,
-    parentVariantId: typeof candidate.parentVariantId === 'string' ? candidate.parentVariantId : undefined,
-    parentVariantName: typeof candidate.parentVariantName === 'string' ? candidate.parentVariantName : undefined,
-    branchDepth: typeof candidate.branchDepth === 'number' ? candidate.branchDepth : 0,
-    note: typeof candidate.note === 'string' ? candidate.note : undefined,
-  };
-}
-
-function serializeSaveVariant(variant: VariantRecord) {
-  return {
-    id: variant.id,
-    name: variant.name,
-    description: variant.description,
-    status: variant.status,
-    snapshot: deepCopy(variant.snapshot),
-    artifacts: deepCopy(variant.artifacts),
-    previewArtifacts: deepCopy(variant.previewArtifacts),
-    copyAssignments: deepCopy(variant.copyAssignments),
-    score: variant.score ? deepCopy(variant.score) : undefined,
-    history: deepCopy(variant.history),
-    provenance: variant.provenance ? deepCopy(variant.provenance) : undefined,
-  };
-}
-
-export function buildSessionSavePayload(args: {
-  activeVariantId: string;
-  recommendedVariantId: string | null;
-  variants: VariantRecord[];
-}) {
-  return {
-    activeVariantId: args.activeVariantId,
-    recommendedVariantId: args.recommendedVariantId,
-    variants: args.variants.map((variant) => serializeSaveVariant(variant)),
-  };
-}
-
 function nextVariantName(variants: VariantRecord[], prefix = 'Variant'): string {
   let index = variants.length + 1;
   let candidate = `${prefix} ${index}`;
@@ -779,8 +695,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   variants: [],
   activeVariantId: null,
   recommendedVariantId: null,
-  sessionSaveBaseline: null,
-  sessionBacked: false,
   activeProject: 'default',
   activeProjectDisplayName: 'default',
   platform: 'iphone',
@@ -813,7 +727,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   exportSize: '',
   screens: [],
   sessionLocales: {},
-  isSavingSession: false,
 
   setConfig: (config) => set({ config }),
   setPlatform: (platform) => set({ platform }),
@@ -1130,8 +1043,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       variants: [baseVariant],
       activeVariantId: baseVariant.id,
       recommendedVariantId: null,
-      sessionSaveBaseline: null,
-      sessionBacked: false,
       isPanoramic,
       locale: nextLocale,
       screens,
@@ -1145,94 +1056,20 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     const state = get();
     const fallback = variantSnapshotFromState(state);
     const coerced = coerceVariantSnapshot(snapshot, fallback);
+    const candidate = isRecord(snapshot) ? snapshot : {};
+    const variants = Array.isArray(candidate.variants)
+      ? (deepCopy(candidate.variants) as VariantRecord[])
+      : [];
+    const activeVariantId =
+      typeof candidate.activeVariantId === 'string' ? candidate.activeVariantId : null;
+    const recommendedVariantId =
+      typeof candidate.recommendedVariantId === 'string' ? candidate.recommendedVariantId : null;
     set({
       ...applyVariantSnapshot(coerced),
+      variants,
+      activeVariantId,
+      recommendedVariantId,
       renderVersion: state.renderVersion + 1,
-    });
-  },
-
-  hydrateSession: (session) => {
-    const state = get();
-    const { platform } = state;
-
-    const variants: VariantRecord[] = session.variants.map((sv) => {
-      const variantConfig = sv.config;
-      const isPanoramic = variantConfig.mode === 'panoramic';
-      const sessionLocales = deepCopy(variantConfig.locales ?? {});
-      const screens = variantConfig.screens.length > 0
-        ? variantConfig.screens.map((_s, i) => createScreenState(i, variantConfig, platform))
-        : [];
-      const panoramicState = variantConfig.panoramic
-        ? {
-            panoramicFrameCount: variantConfig.frameCount ?? 5,
-            panoramicBackground: variantConfig.panoramic.background,
-            panoramicElements: variantConfig.panoramic.elements,
-          }
-        : {
-            panoramicFrameCount: state.panoramicFrameCount,
-            panoramicBackground: state.panoramicBackground,
-            panoramicElements: state.panoramicElements,
-          };
-
-      const timestamp = new Date().toISOString();
-      const fallbackSnapshot: VariantSnapshot = {
-        platform,
-        previewW: state.previewW,
-        previewH: state.previewH,
-        locale: 'default',
-        sessionLocales,
-        isPanoramic,
-        screens,
-        selectedScreen: 0,
-        ...panoramicState,
-        panoramicEffects: state.panoramicEffects,
-        selectedElementIndex: null,
-        exportSize: state.exportSize,
-      };
-      return {
-        id: sv.id,
-        name: sv.name,
-        description: sv.description,
-        status: (sv.status === 'approved' ? 'approved' : 'draft') as VariantStatus,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        snapshot: coerceVariantSnapshot(
-          (sv as { editorSnapshot?: unknown }).editorSnapshot,
-          fallbackSnapshot,
-        ),
-        artifacts: Array.isArray(sv.artifacts)
-          ? sv.artifacts
-              .map((artifact) => coerceVariantArtifact(artifact))
-              .filter((artifact): artifact is VariantArtifact => artifact !== null)
-          : [],
-        previewArtifacts: sv.previewArtifacts ?? [],
-        copyAssignments: sv.copyAssignments ?? [],
-        score: sv.score,
-        history: coerceVariantHistory((sv as { history?: unknown }).history),
-        provenance: coerceVariantProvenance((sv as { provenance?: unknown }).provenance),
-      };
-    });
-
-    if (variants.length === 0) return;
-
-    const activeId = session.activeVariantId && variants.some((v) => v.id === session.activeVariantId)
-      ? session.activeVariantId
-      : variants[0]!.id;
-    const active = variants.find((v) => v.id === activeId)!;
-
-    const sessionSaveBaseline = JSON.stringify(buildSessionSavePayload({
-      activeVariantId: activeId,
-      recommendedVariantId: session.recommendedVariantId ?? null,
-      variants,
-    }));
-
-    set({
-      variants,
-      activeVariantId: activeId,
-      recommendedVariantId: session.recommendedVariantId ?? null,
-      sessionSaveBaseline,
-      sessionBacked: true,
-      ...applyVariantSnapshot(active.snapshot),
     });
   },
 
@@ -1552,26 +1389,4 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     _skipSnapshot = false;
   },
 
-  saveSession: async () => {
-    const state = get();
-    if (!state.sessionBacked || !state.activeVariantId) return;
-
-    set({ isSavingSession: true });
-    try {
-      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
-      const payload = buildSessionSavePayload({
-        activeVariantId: state.activeVariantId,
-        recommendedVariantId: state.recommendedVariantId,
-        variants,
-      });
-      await saveSessionApi(payload);
-      set({ variants });
-      set({ sessionSaveBaseline: JSON.stringify(payload) });
-    } catch (err) {
-      console.error('Failed to save session:', err);
-      throw err;
-    } finally {
-      set({ isSavingSession: false });
-    }
-  },
 }));

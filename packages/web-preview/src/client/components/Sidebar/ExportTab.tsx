@@ -67,8 +67,6 @@ export function ExportTab() {
   const triggerRender = usePreviewStore((s) => s.triggerRender);
   const screens = usePreviewStore((s) => s.screens);
   const selectedScreen = usePreviewStore((s) => s.selectedScreen);
-  const sessionBacked = usePreviewStore((s) => s.sessionBacked);
-
   // Panoramic state
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
   const panoramicFrameCount = usePreviewStore((s) => s.panoramicFrameCount);
@@ -356,7 +354,7 @@ export function ExportTab() {
           onClick={handleConfigExport}
           disabled={exporting}
         >
-          {sessionBacked ? 'Download Selected Variant Config' : 'Download Current Config'}
+          Download Current Config
         </button>
       </Section>
 

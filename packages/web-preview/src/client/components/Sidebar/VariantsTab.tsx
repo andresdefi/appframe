@@ -5,19 +5,16 @@ import { usePreviewStore } from '../../store';
 import type { VariantRecord } from '../../store';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
 
-function sessionAssetUrl(pathValue: string | null | undefined): string | null {
-  if (!pathValue) return null;
-  return `/api/session-asset?path=${encodeURIComponent(pathValue)}`;
-}
-
 function variantMode(variant: VariantRecord): 'Individual' | 'Panoramic' {
   return variant.snapshot.isPanoramic ? 'Panoramic' : 'Individual';
 }
 
-function variantThumb(variant: VariantRecord): string | null {
-  const artifact = variant.previewArtifacts[0];
-  if (!artifact) return null;
-  return sessionAssetUrl(artifact.thumbnailPath ?? artifact.filePaths[0] ?? null);
+function variantThumb(_variant: VariantRecord): string | null {
+  // Variant thumbnails used to be served from /api/session-asset, which was
+  // retired when variants moved into the project snapshot. Until a new
+  // thumbnail pipeline lands (e.g. captured from the live preview), variants
+  // simply show without a thumbnail.
+  return null;
 }
 
 interface VariantCardProps {

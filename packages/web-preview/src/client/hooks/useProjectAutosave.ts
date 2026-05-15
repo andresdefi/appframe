@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { usePreviewStore, variantSnapshotFromState, type VariantSnapshot } from '../store';
+import { usePreviewStore, projectSnapshotFromState, type ProjectSnapshot } from '../store';
 import { saveProject } from '../utils/api';
 import { createSaveScheduler } from '../utils/saveScheduler';
 
@@ -31,7 +31,7 @@ export function useProjectAutosave({
     if (!enabled) return;
     skipNextRef.current = true;
 
-    const scheduler = createSaveScheduler<VariantSnapshot>({
+    const scheduler = createSaveScheduler<ProjectSnapshot>({
       debounceMs,
       save: (snapshot, mode) => {
         if (mode === 'sync') {
@@ -69,6 +69,9 @@ export function useProjectAutosave({
         'panoramicEffects',
         'selectedElementIndex',
         'exportSize',
+        'variants',
+        'activeVariantId',
+        'recommendedVariantId',
       ];
       const changed = fields.some((f) => state[f] !== prev[f]);
       if (!changed) return;
@@ -76,7 +79,7 @@ export function useProjectAutosave({
         skipNextRef.current = false;
         return;
       }
-      scheduler.schedule(() => variantSnapshotFromState(usePreviewStore.getState()));
+      scheduler.schedule(() => projectSnapshotFromState(usePreviewStore.getState()));
     });
 
     const onBeforeUnload = () => scheduler.flushSync();

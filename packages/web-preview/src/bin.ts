@@ -3,7 +3,6 @@ import { startPreviewServer } from './server.js';
 
 interface ParsedArgs {
   config?: string;
-  session?: string;
   port?: number;
 }
 
@@ -15,9 +14,6 @@ function parseArgs(argv: string[]): ParsedArgs {
     if ((arg === '-c' || arg === '--config') && next) {
       out.config = next;
       i++;
-    } else if ((arg === '-s' || arg === '--session') && next) {
-      out.session = next;
-      i++;
     } else if (arg === '--port' && next) {
       out.port = parseInt(next, 10);
       i++;
@@ -26,7 +22,6 @@ function parseArgs(argv: string[]): ParsedArgs {
         'Usage: appframe-preview [options]\n\n' +
           'Options:\n' +
           '  -c, --config <path>   Path to config file\n' +
-          '  -s, --session <path>  Path to variant session file (.variants.session.json)\n' +
           '      --port <port>     Port for preview server (default: 4400)\n' +
           '  -h, --help            Show this help',
       );
@@ -40,7 +35,6 @@ const args = parseArgs(process.argv.slice(2));
 
 startPreviewServer({
   configPath: args.config,
-  sessionPath: args.session,
   port: args.port ?? 4400,
 }).catch((err: unknown) => {
   const message = err instanceof Error ? err.message : 'Unknown error';

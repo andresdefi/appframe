@@ -1,10 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import { join, dirname, resolve } from 'node:path';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { stringify as stringifyYaml } from 'yaml';
 import {
   loadConfig,
   listFrames,
@@ -42,12 +41,7 @@ import type {
   PanoramicRenderedBackgroundLayer,
   PanoramicRenderedElement,
 } from '@appframe/core';
-import {
-  buildConfigFromEditorState,
-  mergeSessionSaveRequest,
-  type PersistedSessionRecord,
-  type SessionSaveRequestBody,
-} from './sessionPersistence.js';
+import { buildConfigFromEditorState } from './editorState.js';
 import { autoTranslateLocale } from './translation.js';
 import {
   getDefaultProjectsRoot,
@@ -61,7 +55,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export interface PreviewServerOptions {
   configPath?: string;
-  sessionPath?: string;
   port?: number;
   projectsRoot?: string;
 }
@@ -157,7 +150,7 @@ function serializeConfigText(configValue: AppframeConfig, appName: string, varia
 }
 
 export async function startPreviewServer(options: PreviewServerOptions): Promise<void> {
-  const { configPath, sessionPath, port = 4400 } = options;
+  const { configPath, port = 4400 } = options;
   const screenshotStorage: ScreenshotStorageOptions = {
     projectsRoot: options.projectsRoot ?? getDefaultProjectsRoot(),
   };
@@ -171,18 +164,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   let config: AppframeConfig = resolvedConfigPath
     ? await loadConfig(resolvedConfigPath)
     : createDefaultConfig();
-
-  // Load variant session file if provided
-  const resolvedSessionPath = sessionPath ? resolve(sessionPath) : undefined;
-  let sessionData: unknown = null;
-  if (resolvedSessionPath) {
-    try {
-      const raw = await readFile(resolvedSessionPath, 'utf-8');
-      sessionData = JSON.parse(raw);
-    } catch {
-      console.log(`Warning: Could not load session file: ${resolvedSessionPath}`);
-    }
-  }
 
   const app = express();
   app.use(cors());
@@ -215,44 +196,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // API: Health check
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
-  // API: Get variant session data (from --session flag)
-  app.get('/api/session', (_req, res) => {
-    res.json(sessionData);
-  });
-
-  app.post('/api/session/save', async (req, res) => {
-    if (!resolvedSessionPath) {
-      res.status(400).json({ error: 'Preview was not started with a session file' });
-      return;
-    }
-
-    try {
-      const body = req.body as SessionSaveRequestBody;
-      const raw = await readFile(resolvedSessionPath, 'utf-8');
-      const session = JSON.parse(raw) as PersistedSessionRecord;
-
-      if (!Array.isArray(session.variants)) {
-        res.status(400).json({ error: 'Session file is missing variants' });
-        return;
-      }
-
-      const updatedAt = new Date().toISOString();
-      const nextSession = mergeSessionSaveRequest({
-        session,
-        body,
-        fallbackConfig: config,
-        updatedAt,
-      });
-
-      await writeFile(resolvedSessionPath, JSON.stringify(nextSession, null, 2), 'utf-8');
-      sessionData = nextSession;
-      res.json({ success: true, updatedAt });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(500).json({ error: message });
-    }
-  });
-
   app.post('/api/export-config', async (req, res) => {
     try {
       const body = isRecord(req.body) ? req.body : {};
@@ -267,31 +210,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(400).json({ error: message });
     }
-  });
-
-  app.get('/api/session-asset', (req, res) => {
-    const pathValue = typeof req.query.path === 'string' ? req.query.path : '';
-    if (!pathValue) {
-      res.status(400).json({ error: 'Missing asset path' });
-      return;
-    }
-
-    const resolvedAssetPath = resolve(pathValue);
-    const allowedRoots = [configDir, resolvedSessionPath ? dirname(resolvedSessionPath) : null].filter(
-      (value): value is string => Boolean(value),
-    );
-
-    if (!allowedRoots.some((root) => resolvedAssetPath.startsWith(root))) {
-      res.status(403).json({ error: 'Asset path is outside the preview session roots' });
-      return;
-    }
-
-    res.sendFile(resolvedAssetPath, (error) => {
-      if (error) {
-        const statusCode: number = (error as { statusCode?: number }).statusCode ?? 404;
-        res.status(statusCode).json({ error: 'Asset not found' });
-      }
-    });
   });
 
   // API: Get current live config (reflects in-browser edits, not disk state).
@@ -320,21 +238,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(400).json({ error: message });
-    }
-  });
-
-  // API: Persist the current live config back to the YAML file on disk.
-  app.post('/api/save', async (_req, res) => {
-    if (!resolvedConfigPath) {
-      res.status(400).json({ error: 'Preview was not started with a config file' });
-      return;
-    }
-    try {
-      await writeFile(resolvedConfigPath, stringifyYaml(config), 'utf-8');
-      res.json({ success: true, path: resolvedConfigPath });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(500).json({ error: message });
     }
   });
 

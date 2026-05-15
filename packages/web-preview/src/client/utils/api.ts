@@ -2,20 +2,6 @@ import type { AppframeConfig } from '../types';
 
 const API = '';
 
-export interface PersistedSessionVariant {
-  id: string;
-  name: string;
-  description?: string;
-  status: 'draft' | 'approved';
-  snapshot: unknown;
-  artifacts?: unknown[];
-  previewArtifacts?: unknown[];
-  copyAssignments?: unknown[];
-  score?: unknown;
-  history?: unknown[];
-  provenance?: unknown;
-}
-
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
   if (!res.ok) throw new Error(`Request failed: ${res.statusText}`);
@@ -24,10 +10,6 @@ async function fetchJson<T>(path: string): Promise<T> {
 
 export async function fetchProject(): Promise<AppframeConfig> {
   return fetchJson<AppframeConfig>('/api/project');
-}
-
-export async function fetchSession(): Promise<unknown> {
-  return fetchJson<unknown>('/api/session');
 }
 
 export async function fetchConfig(): Promise<AppframeConfig> {
@@ -49,50 +31,8 @@ export async function putLiveConfig(body: Record<string, unknown>, signal?: Abor
   if (!res.ok) throw new Error(`Live config update failed: ${res.statusText}`);
 }
 
-export async function saveLiveConfig(): Promise<{ success: boolean; path: string }> {
-  const res = await fetch(`${API}/api/save`, { method: 'POST' });
-  if (!res.ok) {
-    let message = `Save failed: ${res.statusText}`;
-    try {
-      const data = await res.json() as { error?: string };
-      if (data.error) message = data.error;
-    } catch {
-      // Keep default.
-    }
-    throw new Error(message);
-  }
-  return res.json() as Promise<{ success: boolean; path: string }>;
-}
-
 export async function reloadConfig(): Promise<AppframeConfig> {
   return reloadProject();
-}
-
-export async function saveSession(body: {
-  activeVariantId: string;
-  recommendedVariantId?: string | null;
-  recommendationReason?: string | null;
-  screenshotAnalysis?: unknown[] | null;
-  selectedCopySet?: unknown | null;
-  conceptPlan?: unknown | null;
-  reviewControls?: unknown | null;
-  variants: PersistedSessionVariant[];
-}): Promise<void> {
-  const res = await fetch(`${API}/api/session/save`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    let message = `Failed to save session: ${res.statusText}`;
-    try {
-      const data = await res.json() as { error?: string };
-      if (data.error) message = data.error;
-    } catch {
-      // Keep the default status text.
-    }
-    throw new Error(message);
-  }
 }
 
 export async function fetchPreviewHtml(body: Record<string, unknown>, signal?: AbortSignal): Promise<string> {

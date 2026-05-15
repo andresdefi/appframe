@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Section } from '../Controls/Section';
 import { usePreviewStore } from '../../store';
 import type { VariantRecord } from '../../store';
@@ -43,19 +44,71 @@ function VariantCard({
   const thumb = variantThumb(variant);
   const mode = variantMode(variant);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(variant.name);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Menu width tracks `w-36` (= 9rem ≈ 144 px). Height is an estimate based on
+  // 4 items × ~24 px + 8 px outer padding ≈ 104 px; an extra 8 px buffer lets
+  // the up-flip decision flip a little eagerly when borderline.
+  const MENU_WIDTH = 144;
+  const MENU_HEIGHT_ESTIMATE = 130;
+  const GAP = 4;
+  const EDGE_PADDING = 8;
+
+  // Position the menu in viewport coordinates (it renders into a portal at
+  // document.body so it isn't clipped by the sidebar's overflow-y-auto).
+  // Preferred placement: directly below the trigger, right-aligned to it.
+  // Flip vertically if not enough room below; clamp horizontally so the
+  // menu never lands off-screen.
+  const computeMenuPos = () => {
+    const trigger = triggerRef.current;
+    if (!trigger) return null;
+    const rect = trigger.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= MENU_HEIGHT_ESTIMATE + GAP
+      ? rect.bottom + GAP
+      : rect.top - MENU_HEIGHT_ESTIMATE - GAP;
+    let left = rect.right - MENU_WIDTH;
+    if (left < EDGE_PADDING) left = EDGE_PADDING;
+    if (left + MENU_WIDTH > window.innerWidth - EDGE_PADDING) {
+      left = window.innerWidth - MENU_WIDTH - EDGE_PADDING;
+    }
+    return { top, left };
+  };
+
+  // useLayoutEffect so the position lands before paint — avoids a one-frame
+  // flash at (0, 0) when the menu mounts.
+  useLayoutEffect(() => {
+    if (menuOpen) setMenuPos(computeMenuPos());
+    else setMenuPos(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuOpen]);
+
+  // Close on outside click, scroll, or resize. Scroll/resize would otherwise
+  // leave the menu floating at a stale viewport position.
   useEffect(() => {
     if (!menuOpen) return;
-    const handler = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
+    const clickHandler = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setMenuOpen(false);
     };
-    window.addEventListener('mousedown', handler);
-    return () => window.removeEventListener('mousedown', handler);
+    const dismissHandler = () => setMenuOpen(false);
+    window.addEventListener('mousedown', clickHandler);
+    window.addEventListener('resize', dismissHandler);
+    // Capture scrolls anywhere in the tree, including the sidebar's
+    // overflow-y-auto container — the menu would otherwise drift relative
+    // to its trigger.
+    window.addEventListener('scroll', dismissHandler, true);
+    return () => {
+      window.removeEventListener('mousedown', clickHandler);
+      window.removeEventListener('resize', dismissHandler);
+      window.removeEventListener('scroll', dismissHandler, true);
+    };
   }, [menuOpen]);
 
   useEffect(() => {
@@ -147,8 +200,9 @@ function VariantCard({
           </div>
         </div>
 
-        <div className="relative" ref={menuRef}>
+        <div className="relative">
           <button
+            ref={triggerRef}
             type="button"
             onClick={(e) => {
               e.stopPropagation();
@@ -165,10 +219,12 @@ function VariantCard({
               <circle cx="11" cy="7" r="1.2" />
             </svg>
           </button>
-          {menuOpen && (
+          {menuOpen && menuPos && createPortal(
             <div
+              ref={menuRef}
               role="menu"
-              className="absolute right-0 top-full mt-1 z-10 w-36 rounded-md border border-border bg-surface-2 shadow-lg py-1 text-[11px]"
+              className="fixed z-50 w-36 rounded-md border border-border bg-surface-2 shadow-lg py-1 text-[11px]"
+              style={{ top: menuPos.top, left: menuPos.left }}
             >
               <button
                 role="menuitem"
@@ -212,7 +268,8 @@ function VariantCard({
               >
                 Delete
               </button>
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </div>

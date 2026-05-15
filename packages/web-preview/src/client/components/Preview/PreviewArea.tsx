@@ -7,7 +7,16 @@ import { useDragPosition } from '../../hooks/useDragPosition';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { registerIframe } from '../../utils/iframeRegistry';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
+import { isSupportedImageFile, uploadImageFileToScreen } from '../../utils/uploadImageFile';
 import type { TextPosition } from '../../types';
+
+function dataTransferHasFiles(dt: DataTransfer | null): boolean {
+  if (!dt) return false;
+  // Some browsers (Safari) populate items but not types until drop. Check both.
+  if (dt.types && Array.from(dt.types).some((t) => t === 'Files')) return true;
+  if (dt.items && Array.from(dt.items).some((i) => i.kind === 'file')) return true;
+  return false;
+}
 
 export function PreviewArea() {
   const screens = usePreviewStore((s) => s.screens);
@@ -58,6 +67,31 @@ export function PreviewArea() {
     setDragFromIdx(null);
     setDragOverIdx(null);
   }, [dragFromIdx, dragOverIdx, dragSide, moveScreen]);
+
+  // --- File-drop-from-OS state (separate from internal card reorder) ---
+  const [fileDropTargetIdx, setFileDropTargetIdx] = useState<number | null>(null);
+  const updateScreen = usePreviewStore((s) => s.updateScreen);
+
+  const distributeFilesToScreens = useCallback(
+    async (files: File[], startIdx: number) => {
+      const images = files.filter(isSupportedImageFile);
+      if (images.length === 0) return;
+      // Upload sequentially so a slow connection doesn't fan out to N
+      // concurrent requests, and so the user sees screens populate in order.
+      const total = usePreviewStore.getState().screens.length;
+      for (let i = 0; i < images.length; i++) {
+        const targetIdx = startIdx + i;
+        if (targetIdx >= total) break; // ignore overflow files for v1
+        try {
+          const patch = await uploadImageFileToScreen(images[i]!);
+          updateScreen(targetIdx, patch);
+        } catch (err) {
+          console.error('Drop upload failed for screen', targetIdx, err);
+        }
+      }
+    },
+    [updateScreen],
+  );
   const previewW = usePreviewStore((s) => s.previewW);
   const previewH = usePreviewStore((s) => s.previewH);
   const renderVersion = usePreviewStore((s) => s.renderVersion);
@@ -102,7 +136,27 @@ export function PreviewArea() {
   const effectiveScale = manualZoom ?? scale;
 
   return (
-    <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg relative">
+    <div
+      ref={areaRef}
+      className="flex-1 flex flex-col overflow-hidden bg-bg relative"
+      onDragOver={(e) => {
+        // Stop the browser from navigating to the dropped file when the
+        // user misses a card. The card-level handler still wins for files
+        // dropped directly on a screen.
+        if (dataTransferHasFiles(e.dataTransfer)) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDrop={(e) => {
+        if (!dataTransferHasFiles(e.dataTransfer)) return;
+        e.preventDefault();
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length === 0) return;
+        // Fell off all cards — apply to the currently selected screen.
+        void distributeFilesToScreens(files, selectedScreen);
+      }}
+    >
       <div className="flex-1 overflow-auto">
         <div
           className="flex items-center gap-4 p-6 min-w-min min-h-full"
@@ -134,6 +188,13 @@ export function PreviewArea() {
               platform={platform}
               locale={locale}
               deviceFamilies={deviceFamilies}
+              fileDropActive={fileDropTargetIdx === i}
+              onFileDragEnter={(idx) => setFileDropTargetIdx(idx)}
+              onFileDragLeave={(idx) => setFileDropTargetIdx((cur) => (cur === idx ? null : cur))}
+              onFileDrop={(idx, files) => {
+                setFileDropTargetIdx(null);
+                void distributeFilesToScreens(files, idx);
+              }}
               dragFromIdx={dragFromIdx}
               dropIndicator={
                 dragOverIdx === i && dragFromIdx !== null && dragFromIdx !== i
@@ -229,6 +290,11 @@ interface ScreenCardProps {
   onDragOver: (idx: number, side: 'left' | 'right') => void;
   onDragLeave: (idx: number) => void;
   onDrop: () => void;
+  // File drop from OS
+  fileDropActive: boolean;
+  onFileDragEnter: (idx: number) => void;
+  onFileDragLeave: (idx: number) => void;
+  onFileDrop: (idx: number, files: File[]) => void;
 }
 
 function ScreenCard({
@@ -243,6 +309,10 @@ function ScreenCard({
   onDragOver,
   onDragLeave,
   onDrop,
+  fileDropActive,
+  onFileDragEnter,
+  onFileDragLeave,
+  onFileDrop,
   scale,
   canRemove,
   canMoveLeft,
@@ -568,10 +638,25 @@ function ScreenCard({
       ref={cardRef}
       className={`shrink-0 cursor-pointer rounded-lg overflow-hidden bg-surface transition-all relative ring-1 ${
         selected ? 'ring-2 ring-accent shadow-lg' : 'ring-border hover:ring-text-dim'
-      } ${dragFromIdx === index ? 'opacity-40' : ''}`}
+      } ${dragFromIdx === index ? 'opacity-40' : ''} ${
+        fileDropActive ? 'ring-2 ring-accent' : ''
+      }`}
       style={{ width: previewW * scale }}
       onClick={onSelect}
+      onDragEnter={(e) => {
+        if (dataTransferHasFiles(e.dataTransfer)) {
+          e.preventDefault();
+          onFileDragEnter(index);
+        }
+      }}
       onDragOver={(e) => {
+        if (dataTransferHasFiles(e.dataTransfer)) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          // Keep the highlight in case onDragEnter didn't fire (Safari).
+          if (!fileDropActive) onFileDragEnter(index);
+          return;
+        }
         if (dragFromIdx === null || dragFromIdx === index) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -583,8 +668,21 @@ function ScreenCard({
         const side: 'left' | 'right' = dragFromIdx > index ? 'left' : 'right';
         onDragOver(index, side);
       }}
-      onDragLeave={() => onDragLeave(index)}
+      onDragLeave={(e) => {
+        // Ignore dragLeave from internal child elements — only the card's
+        // boundary counts. relatedTarget is null when leaving the window.
+        const next = e.relatedTarget as Node | null;
+        if (next && e.currentTarget.contains(next)) return;
+        onDragLeave(index);
+        onFileDragLeave(index);
+      }}
       onDrop={(e) => {
+        if (dataTransferHasFiles(e.dataTransfer)) {
+          e.preventDefault();
+          const files = Array.from(e.dataTransfer.files);
+          onFileDrop(index, files);
+          return;
+        }
         e.preventDefault();
         onDrop();
       }}
@@ -597,6 +695,17 @@ function ScreenCard({
           }`}
           aria-hidden="true"
         />
+      )}
+      {/* File-drop overlay — appears when an OS file drag is over this card. */}
+      {fileDropActive && (
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center bg-accent/20 backdrop-blur-[2px] pointer-events-none"
+          aria-hidden="true"
+        >
+          <div className="bg-surface/90 text-text text-xs font-medium px-3 py-1.5 rounded-full shadow">
+            Drop to replace screenshot
+          </div>
+        </div>
       )}
       {/* Header — drag handle. Drags the WHOLE card visually via
           setDragImage(cardRef.current), not just the header strip.

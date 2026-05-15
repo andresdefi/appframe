@@ -22,6 +22,7 @@ import type {
 import { PLATFORM_DEVICE_DEFAULTS } from '../../types';
 import { COMPOSITION_PRESETS } from '../../utils/compositionPresets';
 import { uploadScreenshot } from '../../utils/api';
+import { uploadImageFileToScreen } from '../../utils/uploadImageFile';
 
 const LAYOUT_OPTIONS = [
   { value: 'center', label: 'Center' },
@@ -177,35 +178,12 @@ export function DeviceTab() {
     [deviceFamilies, frames, screen.screenshotDims, platform],
   );
 
-  const handleScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      const img = new Image();
-      img.onload = async () => {
-        const dims = { width: img.naturalWidth, height: img.naturalHeight };
-        try {
-          const uploaded = await uploadScreenshot({ filename: file.name, dataUrl });
-          update({
-            screenshotDataUrl: uploaded.url,
-            screenshotName: uploaded.filename,
-            screenshotDims: dims,
-          });
-        } catch (err) {
-          console.error('Screenshot upload failed, falling back to in-memory data URL', err);
-          update({
-            screenshotDataUrl: dataUrl,
-            screenshotName: file.name,
-            screenshotDims: dims,
-          });
-        }
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    if (!file) return;
+    const patch = await uploadImageFileToScreen(file);
+    update(patch);
   };
 
   const handleCropApply = (croppedDataUrl: string) => {

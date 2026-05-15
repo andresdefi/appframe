@@ -259,10 +259,10 @@ export function EffectsTab() {
             title={`Callout ${idx + 1}`}
             onRemove={() => removeCallout(idx)}
           >
-            <RangeSlider label="Callout Width" value={co.sourceW} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceW: v })} onInstant={(v) => instantCallout(idx, { sourceW: v })} />
-            <RangeSlider label="Vertical Size" value={co.sourceH} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceH: v })} onInstant={(v) => instantCallout(idx, { sourceH: v })} />
-            <RangeSlider label="Horizontal Placement" value={co.displayX} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayX: v })} onInstant={(v) => instantCallout(idx, { displayX: v })} />
-            <RangeSlider label="Vertical Placement" value={co.displayY} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayY: v })} onInstant={(v) => instantCallout(idx, { displayY: v })} />
+            <RangeSlider label="Callout Width" value={co.sourceW} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceW: v })} onInstant={(v) => instantCallout(idx, { sourceW: v })} />
+            <RangeSlider label="Vertical Size" value={co.sourceH} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceH: v })} onInstant={(v) => instantCallout(idx, { sourceH: v })} />
+            <RangeSlider label="Horizontal Placement" value={co.displayX} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayX: v })} onInstant={(v) => instantCallout(idx, { displayX: v })} />
+            <RangeSlider label="Vertical Placement" value={co.displayY} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayY: v })} onInstant={(v) => instantCallout(idx, { displayY: v })} />
             <RangeSlider label="Zoom" value={Math.round(co.displayScale * 100)} min={50} max={300} step={1} formatValue={(v) => `${(v / 100).toFixed(2)}x`} onChange={(v) => updateCallout(idx, { displayScale: v / 100 })} onInstant={(v) => instantCallout(idx, { displayScale: v / 100 })} />
             <RangeSlider label="Card Popout" value={Math.round((co.cardScale ?? 1) * 100)} min={50} max={300} step={1} formatValue={(v) => `${(v / 100).toFixed(2)}x`} onChange={(v) => updateCallout(idx, { cardScale: v / 100 })} onInstant={(v) => instantCallout(idx, { cardScale: v / 100 })} />
             <RangeSlider label="Rotation" value={co.rotation} min={-45} max={45} formatValue={(v) => `${v}\u00B0`} onChange={(v) => updateCallout(idx, { rotation: v })} onInstant={(v) => instantCallout(idx, { rotation: v })} />

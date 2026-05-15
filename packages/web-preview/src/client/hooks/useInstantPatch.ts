@@ -535,12 +535,17 @@ export function useInstantPatch() {
       clip.style.height = `${contentH}px`;
       clip.style.borderRadius = `${callout.borderRadius}px`;
 
-      const fullImgW = srcW > 0 ? Math.round(contentW / srcW) : 0;
-      const fullImgH = srcH > 0 ? Math.round(contentH / srcH) : 0;
-      img.style.width = `${fullImgW}px`;
-      img.style.height = `${fullImgH}px`;
-      img.style.left = `${-Math.round(srcX * fullImgW)}px`;
-      img.style.top = `${-Math.round(srcY * fullImgH)}px`;
+      // Mirror the rounding order of templates/_base/callouts.html exactly.
+      // Server does NOT share a pre-rounded fullImg* between width and
+      // offset — both rounds operate on the un-rounded `contentW / srcW`
+      // expression. Pre-rounding here used to produce up to ~1px of
+      // displacement on slider release.
+      const fullImgWRaw = srcW > 0 ? contentW / srcW : 0;
+      const fullImgHRaw = srcH > 0 ? contentH / srcH : 0;
+      img.style.width = `${Math.round(fullImgWRaw)}px`;
+      img.style.height = `${Math.round(fullImgHRaw)}px`;
+      img.style.left = `${-Math.round(srcX * fullImgWRaw)}px`;
+      img.style.top = `${-Math.round(srcY * fullImgHRaw)}px`;
     },
     [getDoc],
   );

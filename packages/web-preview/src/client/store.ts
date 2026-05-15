@@ -378,7 +378,7 @@ interface HistoryEntry {
 }
 
 const MAX_HISTORY = 50;
-let _undoStack: HistoryEntry[] = [];
+const _undoStack: HistoryEntry[] = [];
 let _redoStack: HistoryEntry[] = [];
 let _skipSnapshot = false;
 
@@ -407,48 +407,6 @@ function makeHistoryEntry(
     ...extras,
   };
 }
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function shiftHexColor(hex: string | undefined, amount: number): string | undefined {
-  if (!hex || !/^#([0-9a-f]{6}|[0-9a-f]{8})$/i.test(hex)) return hex;
-  const value = hex.slice(1);
-  const rgb = value.slice(0, 6);
-  const alpha = value.length === 8 ? value.slice(6) : '';
-  const next = [0, 2, 4]
-    .map((offset) => clamp(parseInt(rgb.slice(offset, offset + 2), 16) + amount, 0, 255))
-    .map((channel) => channel.toString(16).padStart(2, '0'))
-    .join('');
-  return `#${next}${alpha}`;
-}
-
-function shortenTextValue(value: string, maxWords: number): string {
-  const normalized = value
-    .replace(/\n/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-  if (normalized.length <= maxWords) return value;
-  return normalized.slice(0, maxWords).join(' ');
-}
-
-function mapPanoramicElementTree(
-  elements: PanoramicElement[],
-  mapper: (element: PanoramicElement) => PanoramicElement,
-): PanoramicElement[] {
-  return elements.map((element) => {
-    const mapped = mapper(element);
-    if (mapped.type === 'group') {
-      return {
-        ...mapped,
-        children: mapPanoramicElementTree(mapped.children, mapper) as Extract<PanoramicElement, { type: 'group' }>['children'],
-      };
-    }
-    return mapped;
-  });
-}
-
 
 export function variantSnapshotFromState(
   state: Pick<

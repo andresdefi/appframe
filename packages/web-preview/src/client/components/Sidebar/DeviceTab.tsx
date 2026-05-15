@@ -21,6 +21,7 @@ import type {
 } from '../../types';
 import { PLATFORM_DEVICE_DEFAULTS } from '../../types';
 import { COMPOSITION_PRESETS } from '../../utils/compositionPresets';
+import { uploadScreenshot } from '../../utils/api';
 
 const LAYOUT_OPTIONS = [
   { value: 'center', label: 'Center' },
@@ -182,15 +183,24 @@ export function DeviceTab() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
-      // Extract image dimensions for frame filtering + auto-matching
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const dims = { width: img.naturalWidth, height: img.naturalHeight };
-        update({
-          screenshotDataUrl: dataUrl,
-          screenshotName: file.name,
-          screenshotDims: dims,
-        });
+        try {
+          const uploaded = await uploadScreenshot({ filename: file.name, dataUrl });
+          update({
+            screenshotDataUrl: uploaded.url,
+            screenshotName: uploaded.filename,
+            screenshotDims: dims,
+          });
+        } catch (err) {
+          console.error('Screenshot upload failed, falling back to in-memory data URL', err);
+          update({
+            screenshotDataUrl: dataUrl,
+            screenshotName: file.name,
+            screenshotDims: dims,
+          });
+        }
       };
       img.src = dataUrl;
     };
@@ -200,14 +210,27 @@ export function DeviceTab() {
 
   const handleCropApply = (croppedDataUrl: string) => {
     setShowCrop(false);
-    // Re-extract dimensions from cropped image — keep current frame selection
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
       const dims = { width: img.naturalWidth, height: img.naturalHeight };
-      update({
-        screenshotDataUrl: croppedDataUrl,
-        screenshotDims: dims,
-      });
+      const baseName = screen.screenshotName || 'cropped.png';
+      const ext = baseName.includes('.') ? baseName.slice(baseName.lastIndexOf('.')) : '.png';
+      const stem = baseName.slice(0, baseName.length - ext.length).replace(/-cropped(-\d+)?$/, '');
+      const filename = `${stem || 'cropped'}-cropped${ext}`;
+      try {
+        const uploaded = await uploadScreenshot({ filename, dataUrl: croppedDataUrl });
+        update({
+          screenshotDataUrl: uploaded.url,
+          screenshotName: uploaded.filename,
+          screenshotDims: dims,
+        });
+      } catch (err) {
+        console.error('Cropped screenshot upload failed, falling back to in-memory data URL', err);
+        update({
+          screenshotDataUrl: croppedDataUrl,
+          screenshotDims: dims,
+        });
+      }
     };
     img.src = croppedDataUrl;
   };

@@ -160,6 +160,38 @@ export async function fetchExportConfig(body: Record<string, unknown>): Promise<
   return res.blob();
 }
 
+export interface UploadedScreenshot {
+  project: string;
+  filename: string;
+  relPath: string;
+  absPath: string;
+  url: string;
+  bytes: number;
+}
+
+export async function uploadScreenshot(input: {
+  filename: string;
+  dataUrl: string;
+  project?: string;
+}): Promise<UploadedScreenshot> {
+  const res = await fetch(`${API}/api/screenshots/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    let message = `Screenshot upload failed: ${res.statusText}`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // keep default
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<UploadedScreenshot>;
+}
+
 export async function fetchAutoTranslateLocale(
   locale: string,
   body: Record<string, unknown> = {},

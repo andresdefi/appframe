@@ -16,7 +16,7 @@ export async function loadConfig(configPath: string): Promise<AppframeConfig> {
     raw = parse(content);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    throw new Error(`Failed to parse YAML config: ${message}`);
+    throw new Error(`Failed to parse YAML config: ${message}`, { cause: err });
   }
 
   return validateConfigOrThrow(raw);

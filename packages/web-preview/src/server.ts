@@ -49,6 +49,12 @@ import {
   type SessionSaveRequestBody,
 } from './sessionPersistence.js';
 import { autoTranslateLocale } from './translation.js';
+import {
+  getDefaultProjectsRoot,
+  registerScreenshotRoutes,
+  resolveScreenshotUrlToDataUrl,
+  type ScreenshotStorageOptions,
+} from './screenshotStorage.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -56,6 +62,7 @@ export interface PreviewServerOptions {
   configPath?: string;
   sessionPath?: string;
   port?: number;
+  projectsRoot?: string;
 }
 
 function createDefaultConfig(): AppframeConfig {
@@ -150,6 +157,9 @@ function serializeConfigText(configValue: AppframeConfig, appName: string, varia
 
 export async function startPreviewServer(options: PreviewServerOptions): Promise<void> {
   const { configPath, sessionPath, port = 4400 } = options;
+  const screenshotStorage: ScreenshotStorageOptions = {
+    projectsRoot: options.projectsRoot ?? getDefaultProjectsRoot(),
+  };
 
   const resolvedConfigPath = configPath ? resolve(configPath) : undefined;
   const configDir = resolvedConfigPath ? dirname(resolvedConfigPath) : process.cwd();
@@ -194,6 +204,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     res.set('Cache-Control', 'no-store');
     next();
   });
+
+  registerScreenshotRoutes(app, screenshotStorage);
 
   // API: Health check
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
@@ -1200,7 +1212,8 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
     let screenshotDataUrl: string;
     if (p.clientScreenshot) {
-      screenshotDataUrl = p.clientScreenshot;
+      const resolved = await resolveScreenshotUrlToDataUrl(screenshotStorage, p.clientScreenshot);
+      screenshotDataUrl = resolved ?? p.clientScreenshot;
     } else {
       const screenshotPath = screen
         ? getLocalizedScreenshotPath(
@@ -1381,7 +1394,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         } else {
           const extra = p.extraScreenshots?.[i - 1];
           if (extra?.screenshotDataUrl) {
-            slotScreenshotDataUrl = extra.screenshotDataUrl;
+            const resolvedExtra = await resolveScreenshotUrlToDataUrl(
+              screenshotStorage,
+              extra.screenshotDataUrl,
+            );
+            slotScreenshotDataUrl = resolvedExtra ?? extra.screenshotDataUrl;
           } else {
             slotScreenshotDataUrl = screenshotDataUrl;
           }
@@ -2427,9 +2444,16 @@ async function resolveCanvasAssetDataUrl(
   value: string,
   baseDir: string,
   fallbackLabel: string,
+  storage?: ScreenshotStorageOptions,
 ): Promise<string> {
   if (value.startsWith('data:')) {
     return value;
+  }
+
+  if (value.startsWith('/api/screenshots/') && storage) {
+    const resolved = await resolveScreenshotUrlToDataUrl(storage, value);
+    if (resolved) return resolved;
+    return placeholderSvgDataUrlWithLabel(fallbackLabel);
   }
 
   const assetPath = resolve(baseDir, value);

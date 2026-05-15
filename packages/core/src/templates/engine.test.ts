@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type * as FontsLoader from '../fonts/loader.js';
 
 vi.mock('../fonts/loader.js', async () => {
-  const actual = await vi.importActual<typeof import('../fonts/loader.js')>('../fonts/loader.js');
+  const actual = await vi.importActual<typeof FontsLoader>('../fonts/loader.js');
   return {
     ...actual,
     loadFontFaces: vi.fn().mockResolvedValue('@font-face { font-family: "Inter"; }'),

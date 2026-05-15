@@ -1,26 +1,16 @@
 /**
- * Phase 2 of the client-side export migration. Single-screen rasterization
- * that runs entirely in the user's browser, alongside (not replacing) the
- * existing server-side Playwright path.
+ * Client-side export. Rasterizes the same HTML the iframe preview uses,
+ * entirely in the user's browser, via modern-screenshot. Single-screen and
+ * panoramic-slicing variants below.
  *
- * Behind a localStorage feature flag (`appframe.clientExport === '1'`) so it
- * can be enabled per browser without rolling out to everyone. Once Phase 3
- * (batch / locales / sizes) lands and visual parity is confirmed across the
- * full export corpus, the flag goes away and the server endpoint gets
- * deleted in Phase 4.
+ * This is the only export path — the previous server-side Playwright route
+ * (POST /api/export, POST /api/panoramic-export, the Renderer class) was
+ * removed in Phase 4 of the migration. See docs/client-side-export-plan.md
+ * for the history.
  */
 
 import { domToPng } from 'modern-screenshot';
 
-export const CLIENT_EXPORT_FLAG = 'appframe.clientExport';
-
-export function isClientExportEnabled(): boolean {
-  try {
-    return typeof window !== 'undefined' && window.localStorage.getItem(CLIENT_EXPORT_FLAG) === '1';
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Render a single screen to PNG entirely on the client. The body must be the

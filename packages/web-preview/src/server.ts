@@ -1,19 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import { join, dirname, resolve } from 'node:path';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { stringify as stringifyYaml } from 'yaml';
 import {
   loadConfig,
-  validateConfigOrThrow,
-  generateScreenshots,
-  generatePanoramicScreenshots,
   listFrames,
   getFrame,
   getDefaultFrame,
-  Renderer,
   TemplateEngine,
   FONT_CATALOG,
   COMPOSITION_PRESETS,
@@ -130,10 +126,6 @@ function createDefaultConfig(): AppframeConfig {
       directory: './output',
     },
   };
-}
-
-function makeId(prefix: string): string {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function expectOptionalString(value: unknown): string | undefined {
@@ -263,138 +255,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       res.set('Content-Type', 'application/x-yaml; charset=utf-8');
       res.set('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(yaml);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(400).json({ error: message });
-    }
-  });
-
-  app.post('/api/export-approved-artifact', async (req, res) => {
-    if (!resolvedSessionPath) {
-      res.status(400).json({ error: 'Preview was not started with a session file' });
-      return;
-    }
-
-    try {
-      const body = isRecord(req.body) ? req.body : {};
-      const raw = await readFile(resolvedSessionPath, 'utf-8');
-      const session = JSON.parse(raw) as {
-        activeVariantId?: string;
-        updatedAt?: string;
-        variants?: Array<Record<string, unknown>>;
-      };
-
-      if (!Array.isArray(session.variants)) {
-        res.status(400).json({ error: 'Session file is missing variants' });
-        return;
-      }
-
-      const approvedVariant = session.variants.find((variant) => variant.status === 'approved');
-      if (!approvedVariant) {
-        res.status(400).json({ error: 'No approved variant found' });
-        return;
-      }
-
-      const approvedVariantId = expectOptionalString(approvedVariant.id);
-      const variantName = expectOptionalString(approvedVariant.name) ?? 'Approved Variant';
-      const baseConfig = isRecord(approvedVariant.config)
-        ? validateConfigOrThrow(approvedVariant.config as AppframeConfig)
-        : config;
-      const currentEditorState = approvedVariantId && approvedVariantId === expectOptionalString(body.activeVariantId)
-        ? body
-        : null;
-      const persistedSnapshot = isRecord(approvedVariant.editorSnapshot)
-        ? approvedVariant.editorSnapshot
-        : null;
-      const sourceState = currentEditorState ?? persistedSnapshot;
-      const nextConfig = sourceState ? buildConfigFromEditorState(baseConfig, sourceState) : baseConfig;
-      const exportLocaleRaw = expectOptionalString(sourceState?.locale);
-      const exportLocale = exportLocaleRaw && exportLocaleRaw !== 'default' ? exportLocaleRaw : undefined;
-      const exportSize = expectOptionalString(sourceState?.exportSize) ?? '';
-      const slug = slugifyName(variantName);
-      const outputDir = join(dirname(resolvedSessionPath), 'variant-output', slug);
-      const configPath = join(outputDir, `${slug}.config.yaml`);
-      const exportedAt = new Date().toISOString();
-
-      await mkdir(outputDir, { recursive: true });
-      await writeFile(configPath, serializeConfigText(nextConfig, config.app.name, variantName), 'utf-8');
-
-      const result = nextConfig.mode === 'panoramic'
-        ? await generatePanoramicScreenshots({
-            configPath,
-            outputDir,
-          })
-        : await generateScreenshots({
-            configPath,
-            outputDir,
-            locale: exportLocale,
-          });
-
-      const filePaths = result.screenshots.map((entry) => entry.outputPath);
-      const fileNames = filePaths.map((entry) => entry.split('/').pop() ?? entry);
-      const manifestName = `${slug}.artifact.json`;
-      const manifestPath = join(outputDir, manifestName);
-      const artifact = {
-        id: makeId('artifact'),
-        exportedAt,
-        outputDir,
-        mode: nextConfig.mode === 'panoramic' ? 'panoramic' : 'individual',
-        platform: nextConfig.output.platforms.length === 1 ? nextConfig.output.platforms[0] : 'all',
-        locale: exportLocale ?? 'default',
-        renderer: 'playwright',
-        sizeKey: exportSize,
-        filePaths,
-        fileNames,
-        manifestName,
-        configPath,
-      };
-
-      await writeFile(
-        manifestPath,
-        JSON.stringify({
-          variantId: approvedVariantId ?? null,
-          variantName,
-          status: 'approved',
-          exportedAt,
-          outputDir,
-          configPath,
-          renderer: 'playwright',
-          sizeKey: exportSize || null,
-          locale: exportLocale ?? 'default',
-          filePaths,
-        }, null, 2),
-        'utf-8',
-      );
-
-      session.variants = session.variants.map((variant) => {
-        if (variant.id !== approvedVariant.id) return variant;
-        const existingArtifacts = Array.isArray(variant.artifacts)
-          ? variant.artifacts
-          : [];
-        return {
-          ...variant,
-          config: nextConfig,
-          editorSnapshot: sourceState ?? variant.editorSnapshot,
-          artifacts: [artifact, ...existingArtifacts],
-        };
-      });
-      session.activeVariantId = approvedVariantId ?? session.activeVariantId;
-      session.updatedAt = exportedAt;
-      await writeFile(resolvedSessionPath, JSON.stringify(session, null, 2), 'utf-8');
-      sessionData = session;
-
-      res.json({
-        success: true,
-        variantId: approvedVariantId ?? null,
-        variantName,
-        outputDir,
-        configPath,
-        manifestPath,
-        artifact: {
-          ...artifact,
-          kind: artifact.mode === 'panoramic' ? 'frames' : 'screens',
-        },
-      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(400).json({ error: message });
@@ -864,10 +724,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       res.status(404).json({ error: `Icon "${name}" not found` });
     }
   });
-
-  // API: Render a single screen preview
-  const renderer = new Renderer();
-  await renderer.init();
 
   // Use URL-mode fonts so every iframe rewrite stays ~6KB instead of ~338KB.
   // The /preview-fonts static route is registered below; the iframe is loaded
@@ -1760,262 +1616,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
-  app.post('/api/preview', async (req, res) => {
-    try {
-      const p = clampPreviewParams(parseBody(req.body as Record<string, unknown>));
-      const { context } = await resolveContext(p);
-
-      let html = await templateEngine.render(context);
-      html = injectTextPositionCSS(html, {
-        headlineTop: p.headlineTop,
-        headlineLeft: p.headlineLeft,
-        headlineWidth: p.headlineWidth,
-        headlineRotation: p.headlineRotation,
-        subtitleTop: p.subtitleTop,
-        subtitleLeft: p.subtitleLeft,
-        subtitleWidth: p.subtitleWidth,
-        subtitleRotation: p.subtitleRotation,
-        freeTextTop: p.freeTextTop,
-        freeTextLeft: p.freeTextLeft,
-        freeTextWidth: p.freeTextWidth,
-        freeTextRotation: p.freeTextRotation,
-      });
-      if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
-      if (p.annotations && p.annotations.length > 0)
-        html = injectAnnotationsHTML(html, p.annotations, p.width);
-
-      const tmpPath = join(configDir, `.appframe-preview-${Date.now()}.png`);
-      const { unlink } = await import('node:fs/promises');
-      try {
-        await renderer.render({
-          html,
-          width: p.width,
-          height: p.height,
-          outputPath: tmpPath,
-        });
-
-        const imageBuffer = await readFile(tmpPath);
-        res.set('Content-Type', 'image/png');
-        res.send(imageBuffer);
-      } finally {
-        await unlink(tmpPath).catch(() => {});
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(500).json({ error: message });
-    }
-  });
-
-  function getRequestPayload(body: unknown): Record<string, unknown> {
-    if (
-      body &&
-      typeof body === 'object' &&
-      'payload' in body &&
-      typeof (body as { payload?: unknown }).payload === 'string'
-    ) {
-      const raw = (body as { payload: string }).payload;
-      return JSON.parse(raw) as Record<string, unknown>;
-    }
-
-    return (body ?? {}) as Record<string, unknown>;
-  }
-
-  // API: Export full-resolution screenshot
-  app.post('/api/export', async (req, res) => {
-    try {
-      const p = clampPreviewParams(parseBody(getRequestPayload(req.body)));
-      const sizeKey = p.sizeKey ?? 'ios-6.9';
-
-      const { STORE_SIZES } = await import('@appframe/core');
-      const sizeSpec = STORE_SIZES[sizeKey];
-      if (!sizeSpec) {
-        res.status(400).json({ error: `Unknown size: ${sizeKey}` });
-        return;
-      }
-
-      p.width = sizeSpec.width;
-      p.height = sizeSpec.height;
-
-      const { context } = await resolveContext(p);
-
-      let html = await templateEngine.render(context);
-      html = injectTextPositionCSS(html, {
-        headlineTop: p.headlineTop,
-        headlineLeft: p.headlineLeft,
-        headlineWidth: p.headlineWidth,
-        subtitleTop: p.subtitleTop,
-        subtitleLeft: p.subtitleLeft,
-        subtitleWidth: p.subtitleWidth,
-        freeTextTop: p.freeTextTop,
-        freeTextLeft: p.freeTextLeft,
-        freeTextWidth: p.freeTextWidth,
-      });
-      if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
-      if (p.annotations && p.annotations.length > 0)
-        html = injectAnnotationsHTML(html, p.annotations, p.width);
-
-      const tmpPath = join(configDir, `.appframe-export-${Date.now()}.png`);
-      const { unlink } = await import('node:fs/promises');
-      try {
-        await renderer.render({
-          html,
-          width: sizeSpec.width,
-          height: sizeSpec.height,
-          outputPath: tmpPath,
-        });
-
-        const imageBuffer = await readFile(tmpPath);
-        const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_screen_${p.screenIndex + 1}_${sizeKey}.png`;
-        res.set('Content-Type', 'image/png');
-        res.set('Content-Disposition', `attachment; filename="${filename}"`);
-        res.send(imageBuffer);
-      } finally {
-        await unlink(tmpPath).catch(() => {});
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(500).json({ error: message });
-    }
-  });
-
-  // API: Export panoramic frame(s) as PNG
-  app.post('/api/panoramic-export', async (req, res) => {
-    try {
-      const body = getRequestPayload(req.body);
-      const locale = expectString(body.locale) ?? 'default';
-      const localeConfig = expectObject(body.localeConfig) as LocaleConfig | undefined;
-      const frameCount = body.frameCount as number;
-      const background = body.background as PanoramicBackground;
-      const elements = (body.elements as PanoramicElement[]).map((element, index) =>
-        localizePanoramicElement(config, configDir, element, locale, localeConfig, index),
-      );
-      const font = (body.font as string) ?? config.theme.font;
-      const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
-      const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
-      const frameIndex = body.frameIndex as number | undefined;
-      const sizeKey = (body.sizeKey as string) ?? 'ios-6.9';
-
-      const { STORE_SIZES } = await import('@appframe/core');
-      const sizeSpec = STORE_SIZES[sizeKey];
-      if (!sizeSpec) {
-        res.status(400).json({ error: `Unknown size: ${sizeKey}` });
-        return;
-      }
-
-      // Calculate export dimensions: each frame is sizeSpec size, total canvas is frameCount * width
-      const exportFrameW = sizeSpec.width;
-      const exportFrameH = sizeSpec.height;
-      const exportTotalW = exportFrameW * frameCount;
-      const renderedElements: PanoramicRenderedElement[] = await Promise.all(
-        elements.map((element) =>
-          buildPanoramicRenderedElement({
-            element,
-            space: {
-              originXPx: 0,
-              originYPx: 0,
-              widthPx: exportTotalW,
-              heightPx: exportFrameH,
-            },
-            config,
-            configDir,
-            frameStyle,
-          }),
-        ),
-      );
-      const backgroundCss = buildPanoramicBackgroundCss(background);
-      const backgroundLayers = await buildPanoramicRenderedBackgroundLayers({
-        background,
-        configDir,
-        canvasWidth: exportTotalW,
-        canvasHeight: exportFrameH,
-      });
-
-      const panoramicContext: PanoramicTemplateContext = {
-        canvasWidth: exportTotalW,
-        canvasHeight: exportFrameH,
-        frameCount,
-        frameWidth: exportFrameW,
-        font,
-        fontWeight,
-        frameStyle,
-        backgroundCss,
-        backgroundLayers,
-        showGuides: false, // No guides for export
-        elements: renderedElements,
-      };
-
-      let html = await templateEngine.renderPanoramic(panoramicContext);
-
-      // Inject effects for export too
-      const effects = body.effects as
-        | { spotlight?: unknown; annotations?: unknown[]; overlays?: unknown[] }
-        | undefined;
-      if (effects) {
-        if (effects.spotlight) {
-          html = injectSpotlightHTML(
-            html,
-            effects.spotlight as Parameters<typeof injectSpotlightHTML>[1],
-          );
-        }
-        if (effects.annotations && effects.annotations.length > 0) {
-          html = injectAnnotationsHTML(
-            html,
-            effects.annotations as Parameters<typeof injectAnnotationsHTML>[1],
-            exportTotalW,
-          );
-        }
-        if (effects.overlays && effects.overlays.length > 0) {
-          html = injectOverlaysHTML(
-            html,
-            effects.overlays as Parameters<typeof injectOverlaysHTML>[1],
-            exportTotalW,
-            exportFrameH,
-          );
-        }
-      }
-
-      const tmpPath = join(configDir, `.appframe-panoramic-export-${Date.now()}.png`);
-      const { unlink } = await import('node:fs/promises');
-      try {
-        if (frameIndex !== undefined) {
-          // Export a single frame — clip to that frame's region
-          await renderer.render({
-            html,
-            width: exportTotalW,
-            height: exportFrameH,
-            outputPath: tmpPath,
-            clip: {
-              x: frameIndex * exportFrameW,
-              y: 0,
-              width: exportFrameW,
-              height: exportFrameH,
-            },
-          });
-        } else {
-          // Export the full panoramic canvas
-          await renderer.render({
-            html,
-            width: exportTotalW,
-            height: exportFrameH,
-            outputPath: tmpPath,
-          });
-        }
-
-        const imageBuffer = await readFile(tmpPath);
-        const suffix = frameIndex !== undefined ? `frame_${frameIndex + 1}` : 'panoramic';
-        const filename = `${config.app.name.replace(/[^a-zA-Z0-9]/g, '_')}_${suffix}_${sizeKey}.png`;
-        res.set('Content-Type', 'image/png');
-        res.set('Content-Disposition', `attachment; filename="${filename}"`);
-        res.send(imageBuffer);
-      } finally {
-        await unlink(tmpPath).catch(() => {});
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.status(500).json({ error: message });
-    }
-  });
-
   // API: Reload config
   app.post('/api/reload', async (_req, res) => {
     try {
@@ -2044,7 +1644,17 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   });
 
-  // SPA fallback: serve React index.html for non-API routes
+  // SPA fallback: serve React index.html for non-API routes. /api/* requests
+  // that didn't match a handler above return 404 instead of the SPA HTML —
+  // otherwise client code that POSTs to a deleted endpoint silently gets a
+  // 200 + HTML and has to parse it before noticing.
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      res.status(404).json({ error: `No handler for ${req.method} ${req.path}` });
+      return;
+    }
+    next();
+  });
   app.use((_req, res) => {
     res.sendFile(join(clientDistDir, 'index.html'), (err) => {
       if (err) {
@@ -2057,12 +1667,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   app.listen(port, () => {
     console.log(`appframe preview running at http://localhost:${port}`);
     console.log(`live config for agents: http://localhost:${port}/api/config`);
-  });
-
-  // Cleanup on exit
-  process.on('SIGINT', async () => {
-    await renderer.close();
-    process.exit(0);
   });
 }
 

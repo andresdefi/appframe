@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePreviewStore } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
-import { exportApprovedArtifact, fetchExport, fetchExportConfig, fetchPanoramicExport, reloadProject } from '../../utils/api';
+import { fetchExportConfig, reloadProject } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
-import { exportScreenClientSide, exportPanoramicSlicesClientSide, isClientExportEnabled } from '../../utils/clientExport';
+import { exportScreenClientSide, exportPanoramicSlicesClientSide } from '../../utils/clientExport';
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -63,7 +63,6 @@ export function ExportTab() {
   const variants = usePreviewStore((s) => s.variants);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
   const recordVariantArtifact = usePreviewStore((s) => s.recordVariantArtifact);
-  const recordVariantArtifactForVariant = usePreviewStore((s) => s.recordVariantArtifactForVariant);
   const initScreens = usePreviewStore((s) => s.initScreens);
   const triggerRender = usePreviewStore((s) => s.triggerRender);
   const screens = usePreviewStore((s) => s.screens);
@@ -100,7 +99,6 @@ export function ExportTab() {
 
   const activeLocaleConfig = locale === 'default' ? undefined : sessionLocales[locale];
   const activeVariant = variants.find((variant) => variant.id === activeVariantId) ?? null;
-  const approvedVariant = variants.find((variant) => variant.status === 'approved') ?? null;
   const variantSlug = slugifyVariantName(activeVariant?.name ?? 'variant');
 
   // --- Panoramic export helpers ---
@@ -120,50 +118,18 @@ export function ExportTab() {
     frameIndex,
   });
 
+  // Panoramic batch export. Rasterizes the wide canvas once and slices it
+  // into N per-frame PNGs — one render plus N cheap canvas crops, no
+  // per-frame server round-trips.
   const handlePanoramicExportAll = async () => {
-    setExporting(true);
-    let exported = 0;
-    const fileNames: string[] = [];
-    for (let i = 0; i < panoramicFrameCount; i++) {
-      setStatus(`Downloading frame ${i + 1} of ${panoramicFrameCount}...`);
-      try {
-        const blob = await fetchPanoramicExport(buildPanoramicBody(i));
-        const fileName = `${variantSlug}-frame-${i + 1}.png`;
-        downloadBlob(blob, fileName);
-        fileNames.push(fileName);
-        exported++;
-      } catch (err) {
-        setStatus(`Error on frame ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
-      }
-    }
-    if (exported > 0) {
-      recordVariantArtifact({
-        kind: 'frames',
-        locale,
-        mode: 'panoramic',
-        renderer: 'playwright',
-        sizeKey: resolvedExportSize,
-        fileNames,
-        manifestName: `${variantSlug}-manifest.json`,
-      });
-    }
-    setExporting(false);
-    setStatus(`Downloaded ${exported} of ${panoramicFrameCount} frames`);
-    setToast(`Downloaded ${exported} frames`);
-  };
-
-  // Phase 3 panoramic batch via the client-side path. Rasterizes the wide
-  // canvas once and slices it into N frame PNGs — N+1× fewer renders than
-  // the server-side loop and avoids any Chromium round-trip.
-  const handlePanoramicExportAllClientSide = async () => {
     if (!config) return;
     const sizeSpec = platformSizes.find((s) => s.key === resolvedExportSize);
     if (!sizeSpec) {
-      setStatus(`Client export failed: unknown size key ${resolvedExportSize}`);
+      setStatus(`Export failed: unknown size key ${resolvedExportSize}`);
       return;
     }
     setExporting(true);
-    setStatus(`Rendering ${panoramicFrameCount} frames (client)...`);
+    setStatus(`Rendering ${panoramicFrameCount} frames...`);
     const t0 = performance.now();
     try {
       const slices = await exportPanoramicSlicesClientSide(
@@ -177,14 +143,25 @@ export function ExportTab() {
         const fileName = `${variantSlug}-frame-${i + 1}.png`;
         downloadBlob(slices[i]!, fileName);
         fileNames.push(fileName);
-        // Brief pause between Save dialogs / writes — matches the server path.
+        // Brief pause between Save dialogs / writes.
         await new Promise((r) => setTimeout(r, 250));
       }
+      if (slices.length > 0) {
+        recordVariantArtifact({
+          kind: 'frames',
+          locale,
+          mode: 'panoramic',
+          renderer: 'playwright',
+          sizeKey: resolvedExportSize,
+          fileNames,
+          manifestName: `${variantSlug}-manifest.json`,
+        });
+      }
       const ms = Math.round(performance.now() - t0);
-      setStatus(`Downloaded ${slices.length} frames (client, ${ms}ms)`);
-      setToast(`Downloaded ${slices.length} frames (client, ${ms}ms)`);
+      setStatus(`Downloaded ${slices.length} frames in ${ms}ms`);
+      setToast(`Downloaded ${slices.length} frames`);
     } catch (err) {
-      setStatus(`Client export failed: ${err instanceof Error ? err.message : 'Unknown'}`);
+      setStatus(`Export failed: ${err instanceof Error ? err.message : 'Unknown'}`);
     } finally {
       setExporting(false);
     }
@@ -193,41 +170,13 @@ export function ExportTab() {
   const handleExportCurrent = async () => {
     const screen = screens[selectedScreen];
     if (!screen) return;
-    setExporting(true);
-    setStatus(`Downloading screen ${selectedScreen + 1}...`);
-    try {
-      const blob = await fetchExport(buildExportBody(screen, {
-        previewW,
-        previewH,
-        locale,
-        localeConfig: activeLocaleConfig,
-        sizeKey: resolvedExportSize,
-      }));
-      const fileName = `${variantSlug}-screen-${selectedScreen + 1}.png`;
-      downloadBlob(blob, fileName);
-      setStatus(`Downloaded screen ${selectedScreen + 1}`);
-      setToast(`Downloaded ${fileName}`);
-    } catch (err) {
-      setStatus(`Error on screen ${selectedScreen + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  // Phase 2 client-side path. Gated by localStorage 'appframe.clientExport',
-  // sits next to the server Download button so we can A/B by clicking each.
-  // Once parity is confirmed across the full export corpus this becomes the
-  // default and the server path is deleted (Phase 4 of the migration plan).
-  const handleExportCurrentClientSide = async () => {
-    const screen = screens[selectedScreen];
-    if (!screen) return;
     const sizeSpec = platformSizes.find((s) => s.key === resolvedExportSize);
     if (!sizeSpec) {
-      setStatus(`Client export failed: unknown size key ${resolvedExportSize}`);
+      setStatus(`Export failed: unknown size key ${resolvedExportSize}`);
       return;
     }
     setExporting(true);
-    setStatus(`Rendering screen ${selectedScreen + 1} (client)...`);
+    setStatus(`Rendering screen ${selectedScreen + 1}...`);
     const t0 = performance.now();
     try {
       const body = buildExportBody(screen, {
@@ -245,10 +194,10 @@ export function ExportTab() {
       const fileName = `${variantSlug}-screen-${selectedScreen + 1}.png`;
       downloadBlob(blob, fileName);
       const ms = Math.round(performance.now() - t0);
-      setStatus(`Downloaded screen ${selectedScreen + 1} (client, ${ms}ms)`);
-      setToast(`Downloaded ${fileName} (client-side, ${ms}ms)`);
+      setStatus(`Downloaded screen ${selectedScreen + 1} in ${ms}ms`);
+      setToast(`Downloaded ${fileName}`);
     } catch (err) {
-      setStatus(`Client export failed: ${err instanceof Error ? err.message : 'Unknown'}`);
+      setStatus(`Error on screen ${selectedScreen + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
     } finally {
       setExporting(false);
     }
@@ -256,63 +205,19 @@ export function ExportTab() {
 
   const handleExportAll = async () => {
     if (screens.length === 0) return;
-    setExporting(true);
-    let exported = 0;
-    const fileNames: string[] = [];
-    for (let i = 0; i < screens.length; i++) {
-      const screen = screens[i];
-      if (!screen) continue;
-      setStatus(`Downloading screen ${i + 1} of ${screens.length}...`);
-      try {
-        const blob = await fetchExport(buildExportBody(screen, {
-          previewW,
-          previewH,
-          locale,
-          localeConfig: activeLocaleConfig,
-          sizeKey: resolvedExportSize,
-          }));
-        const fileName = `${variantSlug}-screen-${i + 1}.png`;
-        downloadBlob(blob, fileName);
-        fileNames.push(fileName);
-        exported++;
-        await new Promise((resolve) => setTimeout(resolve, 350));
-      } catch (err) {
-        setStatus(`Error on screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
-      }
-    }
-    if (exported > 0) {
-      recordVariantArtifact({
-        kind: 'screens',
-        locale,
-        mode: 'individual',
-        renderer: 'playwright',
-        sizeKey: resolvedExportSize,
-        fileNames,
-        manifestName: `${variantSlug}-manifest.json`,
-      });
-    }
-    setExporting(false);
-    setStatus(`Downloaded ${exported} of ${screens.length} screens`);
-    setToast(`Downloaded ${exported} screenshots`);
-  };
-
-  // Phase 3 individual batch via the client-side path. Loops the
-  // single-screen helper across all screens; mirrors handleExportAll's
-  // structure so the two paths can be A/B'd by clicking each button.
-  const handleExportAllClientSide = async () => {
-    if (screens.length === 0) return;
     const sizeSpec = platformSizes.find((s) => s.key === resolvedExportSize);
     if (!sizeSpec) {
-      setStatus(`Client export failed: unknown size key ${resolvedExportSize}`);
+      setStatus(`Export failed: unknown size key ${resolvedExportSize}`);
       return;
     }
     setExporting(true);
     let exported = 0;
+    const fileNames: string[] = [];
     const t0 = performance.now();
     for (let i = 0; i < screens.length; i++) {
       const screen = screens[i];
       if (!screen) continue;
-      setStatus(`Rendering screen ${i + 1} of ${screens.length} (client)...`);
+      setStatus(`Rendering screen ${i + 1} of ${screens.length}...`);
       try {
         const body = buildExportBody(screen, {
           previewW,
@@ -328,18 +233,29 @@ export function ExportTab() {
         );
         const fileName = `${variantSlug}-screen-${i + 1}.png`;
         downloadBlob(blob, fileName);
+        fileNames.push(fileName);
         exported++;
-        // Same inter-download delay as the server path — gives the browser
-        // a beat between Save File dialogs / disk writes.
+        // Brief pause between Save File dialogs / disk writes.
         await new Promise((resolve) => setTimeout(resolve, 250));
       } catch (err) {
         setStatus(`Error on screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
       }
     }
+    if (exported > 0) {
+      recordVariantArtifact({
+        kind: 'screens',
+        locale,
+        mode: 'individual',
+        renderer: 'playwright',
+        sizeKey: resolvedExportSize,
+        fileNames,
+        manifestName: `${variantSlug}-manifest.json`,
+      });
+    }
     const ms = Math.round(performance.now() - t0);
     setExporting(false);
-    setStatus(`Downloaded ${exported} of ${screens.length} screens (client, ${ms}ms)`);
-    setToast(`Downloaded ${exported} screenshots (client, ${ms}ms)`);
+    setStatus(`Downloaded ${exported} of ${screens.length} screens in ${ms}ms`);
+    setToast(`Downloaded ${exported} screenshots`);
   };
 
   const handleReload = async () => {
@@ -371,34 +287,6 @@ export function ExportTab() {
       setToast(`Downloaded ${fileName}`);
     } catch (err) {
       setStatus(`Config export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  };
-
-  const handleApprovedArtifactExport = async () => {
-    if (!sessionBacked || !approvedVariant) return;
-
-    try {
-      setStatus(`Exporting approved artifact for ${approvedVariant.name}...`);
-      const result = await exportApprovedArtifact({
-        activeVariantId,
-        locale,
-        exportSize: resolvedExportSize,
-        mode: isPanoramic ? 'panoramic' : 'individual',
-        sessionLocales,
-        screens,
-        panoramicFrameCount,
-        panoramicBackground,
-        panoramicElements,
-      });
-
-      if (result.variantId) {
-        recordVariantArtifactForVariant(result.variantId, result.artifact);
-      }
-
-      setStatus(`Approved artifact exported to ${result.outputDir}`);
-      setToast(`Exported approved artifact for ${result.variantName}`);
-    } catch (err) {
-      setStatus(`Approved artifact export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -437,25 +325,13 @@ export function ExportTab() {
         />
 
         {isPanoramic ? (
-          <>
-            <button
-              className="btn-primary w-full text-xs mt-2"
-              onClick={handlePanoramicExportAll}
-              disabled={exporting}
-            >
-              {exporting ? 'Downloading...' : `Download all ${panoramicFrameCount} frames`}
-            </button>
-            {isClientExportEnabled() && (
-              <button
-                className="btn-secondary w-full text-xs mt-1 text-indigo-200 hover:text-white"
-                onClick={handlePanoramicExportAllClientSide}
-                disabled={exporting}
-                title="Client-side panoramic export. Single rasterization sliced into N frame PNGs."
-              >
-                {exporting ? 'Rendering...' : `Download all ${panoramicFrameCount} frames (client)`}
-              </button>
-            )}
-          </>
+          <button
+            className="btn-primary w-full text-xs mt-2"
+            onClick={handlePanoramicExportAll}
+            disabled={exporting}
+          >
+            {exporting ? 'Rendering...' : `Download all ${panoramicFrameCount} frames`}
+          </button>
         ) : (
           <>
             <button
@@ -463,46 +339,16 @@ export function ExportTab() {
               onClick={handleExportCurrent}
               disabled={exporting || !screens[selectedScreen]}
             >
-              {exporting ? 'Downloading...' : `Download screen ${selectedScreen + 1}`}
+              {exporting ? 'Rendering...' : `Download screen ${selectedScreen + 1}`}
             </button>
-            {isClientExportEnabled() && (
-              <button
-                className="btn-secondary w-full text-xs mt-1 text-indigo-200 hover:text-white"
-                onClick={handleExportCurrentClientSide}
-                disabled={exporting || !screens[selectedScreen]}
-                title="Client-side export (modern-screenshot). Flag-gated via localStorage 'appframe.clientExport'."
-              >
-                {exporting ? 'Rendering...' : `Download screen ${selectedScreen + 1} (client)`}
-              </button>
-            )}
             <button
               className="btn-secondary w-full text-xs mt-1"
               onClick={handleExportAll}
               disabled={exporting}
             >
-              {exporting ? 'Downloading...' : `Download all ${screens.length} screens`}
+              {exporting ? 'Rendering...' : `Download all ${screens.length} screens`}
             </button>
-            {isClientExportEnabled() && (
-              <button
-                className="btn-secondary w-full text-xs mt-1 text-indigo-200 hover:text-white"
-                onClick={handleExportAllClientSide}
-                disabled={exporting}
-                title="Client-side batch export. Loops the client-side renderer across all screens."
-              >
-                {exporting ? 'Rendering...' : `Download all ${screens.length} screens (client)`}
-              </button>
-            )}
           </>
-        )}
-
-        {sessionBacked && (
-          <button
-            className="btn-secondary w-full text-xs mt-1 text-emerald-300 hover:text-emerald-100"
-            onClick={handleApprovedArtifactExport}
-            disabled={exporting || !approvedVariant}
-          >
-            {approvedVariant ? `Export Approved Artifact (${approvedVariant.name})` : 'Export Approved Artifact'}
-          </button>
         )}
 
         <button

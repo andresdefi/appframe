@@ -1,8 +1,23 @@
 # Save / auto-save — planning context for a fresh session
 
-Status: open. JuanIsOnline reported it as part of issue #3 (2026-05-15):
+Status: Phases 1-4 shipped on 2026-05-15. Phase 5 (file watcher) is intentionally deferred until CLI/MCP returns. JuanIsOnline reported the original bug as part of issue #3:
 
 > I accidentally hit the back button, and when I went forward, I lost all my work. Is there a way to save a project somewhere and have it auto-save whenever something changes?
+
+What landed:
+
+| Phase | Commit | What shipped |
+|-------|--------|-------------|
+| 1 | `a581378` | Screenshot extraction: uploads now go through `POST /api/screenshots/upload` and live on disk under `~/Documents/appframe/projects/<project>/screenshots/<name>.png`. The Zustand store only carries the URL, so saves stay small. 25 new tests. |
+| 2 | `7cf7cdd` | Single-project autosave: 500ms debounced `PUT /api/projects/<project>` writes the snapshot to `appframe.json` atomically (tmp + rename). `beforeunload` + `visibilitychange→hidden` flush via fetch `keepalive`. Schema-versioned envelope, corrupt/future-schema surfaces as page-level error rather than overwriting the file. +23 tests. |
+| 3 | `6ef030f` | Multi-project + picker UI: `meta.json` next to `appframe.json` carries `displayName`, `createdAt`, `lastOpenedAt`. List / Create / Rename / Duplicate / Delete / Touch endpoints. Project chip in HeaderBar opens a picker modal. Human-readable display names ("Impostor Party Game") auto-slugify to filesystem-safe directory names; collisions auto-suffix. Boot auto-resumes the most-recently-opened project. +20 tests. |
+| 4 | `c684046` | Legacy retire: `/api/save`, `/api/session`, `/api/session/save`, `/api/session-asset` endpoints deleted. `sessionPersistence.ts` gone (the one survivor, `buildConfigFromEditorState`, moved to `editorState.ts`). `--session` CLI flag removed. Client side: `hydrateSession`, `saveSession`, `sessionBacked`, etc. — all gone. Variants now persist as part of the project snapshot (`projectSnapshotFromState`) instead of via the dead session pipeline, so the Variants tab keeps working. Net -559 lines. |
+
+Status at the end of Phase 4: 234 tests passing, typecheck + lint clean, manual verification across the picker, switch-no-bleed, restart-and-resume, and Variants tab flows.
+
+The sections below are kept as-is for historical context — they're the brief the implementing session worked from, plus the testing checklist that informed each phase's coverage. Edit when picking up Phase 5 or revisiting any design decision.
+
+---
 
 This doc is the brief for a future Claude Code session picking up that work. Start a new session and tell Claude: "read `docs/save-feature-plan.md` and implement it."
 

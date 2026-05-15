@@ -15,8 +15,20 @@ import { PanoramicEffectsTab } from './components/Sidebar/PanoramicEffectsTab';
 import { PreviewArea } from './components/Preview/PreviewArea';
 import { PanoramicPreview } from './components/Preview/PanoramicPreview';
 import { getDefaultExportSizeKey, getPlatformPreviewSize } from './utils/platformSelection';
+import { ExportBakeoff } from './poc/ExportBakeoff';
 
 export function App() {
+  // Dev-only POC route. Picked up directly from the URL rather than a router
+  // since the app has none and this page is throwaway. Returns before the
+  // main store wiring runs so the bake-off doesn't pay the cost of the
+  // session/project boot.
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/poc/export-bakeoff')) {
+    return <ExportBakeoff />;
+  }
+  return <AppInner />;
+}
+
+function AppInner() {
   const config = usePreviewStore((s) => s.config);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
   const initScreens = usePreviewStore((s) => s.initScreens);

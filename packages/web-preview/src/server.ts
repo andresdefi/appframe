@@ -198,6 +198,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     '/preview-fonts',
     express.static(fontsDir, { maxAge: '1d', etag: true, immutable: true }),
   );
+  // POC-only: serve a bundled reference screenshot so the client-side export
+  // bake-off can rasterize a real image (not just the placeholder SVG).
+  // Delete once the client-side export migration ships and the POC route is
+  // removed.
+  const referenceScreenshotsDir = join(__dirname, '..', '..', '..', 'reference-screenshots');
+  app.use(
+    '/poc/test-screenshot',
+    express.static(referenceScreenshotsDir, { maxAge: '1h', etag: true }),
+  );
   app.use((_req, res, next) => {
     res.set('Cache-Control', 'no-store');
     next();

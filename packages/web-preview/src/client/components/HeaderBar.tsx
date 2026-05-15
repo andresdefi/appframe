@@ -24,6 +24,8 @@ export function HeaderBar({
   const config = usePreviewStore((s) => s.config);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
   const togglePanoramic = usePreviewStore((s) => s.togglePanoramic);
+  const undo = usePreviewStore((s) => s.undo);
+  const redo = usePreviewStore((s) => s.redo);
   const activeTab = usePreviewStore((s) => s.activeTab);
   const setActiveTab = usePreviewStore((s) => s.setActiveTab);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
@@ -92,6 +94,52 @@ export function HeaderBar({
       </div>
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
+        <button
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-surface text-text-dim hover:text-text hover:bg-surface-2 transition duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          onClick={undo}
+          title="Undo (⌘Z)"
+          aria-label="Undo last change"
+        >
+          <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5" aria-hidden="true">
+            <path
+              d="M3.5 7.5h6.5a3.5 3.5 0 0 1 0 7H7"
+              stroke="currentColor"
+              strokeWidth="1.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M6 4.5 3 7.5l3 3"
+              stroke="currentColor"
+              strokeWidth="1.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <button
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-surface text-text-dim hover:text-text hover:bg-surface-2 transition duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          onClick={redo}
+          title="Redo (⌘⇧Z)"
+          aria-label="Redo last undone change"
+        >
+          <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5" aria-hidden="true">
+            <path
+              d="M12.5 7.5H6a3.5 3.5 0 0 0 0 7H9"
+              stroke="currentColor"
+              strokeWidth="1.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="m10 4.5 3 3-3 3"
+              stroke="currentColor"
+              strokeWidth="1.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
         <button
           className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-surface text-text-dim hover:text-text hover:bg-surface-2 transition duration-150 active:scale-[0.95] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={() => setTheme(nextTheme)}

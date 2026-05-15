@@ -348,7 +348,7 @@ export function VariantsTab() {
           <button
             type="button"
             onClick={() => createVariant()}
-            className="flex-1 text-[11px] py-1.5 rounded-md bg-surface-2 border border-border text-text-dim hover:text-text hover:border-accent/30"
+            className="btn-secondary flex-1 text-[11px]"
           >
             New variant
           </button>
@@ -356,7 +356,7 @@ export function VariantsTab() {
             type="button"
             onClick={duplicateActiveVariant}
             disabled={!activeVariantId}
-            className="flex-1 text-[11px] py-1.5 rounded-md bg-surface-2 border border-border text-text-dim hover:text-text hover:border-accent/30 disabled:opacity-40"
+            className="btn-secondary flex-1 text-[11px]"
           >
             Duplicate current
           </button>
@@ -365,7 +365,7 @@ export function VariantsTab() {
         <button
           type="button"
           onClick={() => setActiveTab('export')}
-          className="w-full mt-2 text-[11px] py-1.5 rounded-md bg-accent text-accent-fg hover:bg-accent-hover"
+          className="btn-primary w-full mt-2 text-[11px]"
         >
           Go to Download
         </button>

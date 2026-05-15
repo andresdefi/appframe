@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { usePreviewStore } from '../../store';
 import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
@@ -163,10 +162,14 @@ export function PreviewArea() {
           style={{ justifyContent: 'safe center' }}
         >
           {screens.map((screen, i) => (
-            <motion.div
+            // Plain div, not motion.div. The framer-motion layout
+            // animation was nice for reorder / add / remove, but it
+            // also fired on every zoom slider tick because neighboring
+            // cards shifted x as the dragged card's width changed.
+            // Five springs overlapping per tick produced visible lag.
+            // Zoom is used far more than reordering; bias for that.
+            <div
               key={screen.id}
-              layout
-              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
               className="shrink-0"
             >
             <ScreenCard
@@ -207,7 +210,7 @@ export function PreviewArea() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             />
-            </motion.div>
+            </div>
           ))}
           <button
             className="shrink-0 flex items-center justify-center border-2 border-dashed border-border rounded-lg text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -636,7 +639,7 @@ function ScreenCard({
     {dialog}
     <div
       ref={cardRef}
-      className={`shrink-0 cursor-pointer rounded-lg overflow-hidden bg-surface transition-all relative ring-1 ${
+      className={`shrink-0 cursor-pointer rounded-lg overflow-hidden bg-surface relative ring-1 transition-[box-shadow,border-color,opacity] duration-150 ${
         selected ? 'ring-2 ring-accent shadow-lg' : 'ring-border hover:ring-text-dim'
       } ${dragFromIdx === index ? 'opacity-40' : ''} ${
         fileDropActive ? 'ring-2 ring-accent' : ''

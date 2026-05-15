@@ -679,6 +679,10 @@ function ScreenCard({
       onDrop={(e) => {
         if (dataTransferHasFiles(e.dataTransfer)) {
           e.preventDefault();
+          // Stop the event from bubbling to PreviewArea's onDrop, which
+          // also handles file drops and would fire a second upload to
+          // `selectedScreen` — replacing two cards from one drop.
+          e.stopPropagation();
           const files = Array.from(e.dataTransfer.files);
           onFileDrop(index, files);
           return;

@@ -27,7 +27,6 @@ vi.mock('@appframe/core', () => ({
   getDeviceFamilies: vi.fn().mockReturnValue([
     { id: 'iphone-16', name: 'iPhone 16', category: 'iphone', year: 2024, colors: [{ name: 'Black', koubouId: 'iPhone 16 - Black' }] },
   ]),
-  Renderer: vi.fn(),
   TemplateEngine: vi.fn(),
   getFrame: vi.fn(),
   getDefaultFrame: vi.fn(),

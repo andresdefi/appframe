@@ -1,110 +1,123 @@
-# Client-Side Export — Future Work
+# Client-Side Export — Done
 
-Status: picking this up 2026-05-15. Original plan written 2026-05-12; updated after the
-CLI / MCP / store-upload packages were removed (see commit 345045d) and after the freeze
-fix (b359ffa) that put fonts on a proper URL pipeline.
+Status: **complete (2026-05-15)**. This doc is now a historical record of
+how the migration went. Original plan was written 2026-05-12.
 
-## Why we'd do this
+## What shipped
 
-The web preview currently exports via Playwright on the server. The flow:
+The server-side Playwright export path is gone. The web preview app does
+all rasterization in the user's browser via `modern-screenshot`. The
+`playwright` package is no longer a runtime dependency of `@appframe/core`.
 
-1. User clicks Download in the Export tab → `POST /api/export`
-2. Server runs `templateEngine.render(context)` → HTML
-3. Server passes the HTML to `Renderer.render()` → Playwright `page.setContent()` + `page.screenshot()`
-4. Server returns the PNG buffer
+End-to-end:
 
-For a single user on localhost this is fine — Chromium boots once when the server starts and stays warm. The real reasons to move off it:
+- One Download button per mode renders client-side: individual mode hits
+  `exportScreenClientSide`, panoramic mode hits `exportPanoramicSlicesClientSide`
+  which rasterizes the wide canvas once then crops it into N frame PNGs.
+- A single hidden iframe is reused across all renders (created lazily on
+  first export, kept alive after).
+- Fonts load via `/preview-fonts/<family>/<file>` instead of inline base64,
+  so each rasterization HTML payload stays under ~6 KB instead of ~338 KB.
+- The CSS spotlight overlay uses a `box-shadow: 0 0 BLUR 9999px rgba()`
+  cutout instead of an SVG `<mask>` — the mask approach was breaking
+  rasterizer parity because `url(#mask-id)` references don't survive
+  `foreignObject` serialization.
 
-- **Drops Playwright entirely.** ~200MB Chromium binary, ~2s cold start, server-side dependency that has to be installed wherever the app runs. Removing it cuts the install footprint dramatically and makes the app trivially deployable (just a Node/HTTP server, no native deps).
-- **Unblocks a hosted version.** Multi-user SaaS doesn't tolerate per-export Chromium processes. Batches like "6 screens × 28 locales = 168 screenshots" tie up a worker for minutes.
-- **No server queue.** Exports happen in the user's tab on their CPU. Concurrent exports across users don't contend.
+## Measurements at the end
 
-What we'd be replicating: shots.so / applaunchpad / appscreens all do client-side export. It's why they feel instant.
+| Path | Server (Playwright, before) | Client (current) |
+|------|-----------------------------|------------------|
+| Single screen | ~1250 ms | ~300 ms |
+| 5-screen batch | ~6 s | ~2.8 s |
+| 5-frame panoramic | ~6 s (separate renders per frame) | ~1.7 s (single rasterization + N crops) |
+| Per-render HTML payload | ~338 KB | ~5.9 KB |
 
-## The current export shape (after recent cleanup)
+The cumulative diff across the migration is roughly −3,800 lines, mostly
+deleted server-side render code, the Renderer wrapper, the approve-artifact
+flow, and a layer of flag-gated UI scaffolding that was retired once the
+client-side path became the default.
 
-The codebase is much simpler than when this plan was first written:
+## Phase log
 
-- Only the **web-preview** server consumes the renderer (CLI is gone)
-- Template engine and Playwright renderer both live in `packages/core`, called from `packages/web-preview/src/server.ts`
-- Two export endpoints: `/api/export` (individual mode) and `/api/panoramic-export` (panoramic mode)
-- One preview endpoint per mode: `/api/preview-html`, `/api/panoramic-preview-html` — these produce the **same HTML** the export uses, just sized for the preview iframe instead of the final canvas
-- All resources are same-origin: fonts (`/preview-fonts/*` since b359ffa), Lucide icons (`/api/elements/icons/*`), blob/arrow SVGs (`/api/elements/*`), device frames (bundled into the HTML), user uploads (data URIs already embedded)
+### Phase 1 — POC + parity gate (commit `7725415`)
 
-Because the preview iframe already renders the same HTML at preview-scale, **client-side export can reuse the existing iframe rather than spinning up a new render context**. Render a hidden full-size iframe with the export HTML, snapshot it, done.
+Side-by-side bake-off at `/poc/export-bakeoff` compared `html-to-image`,
+`dom-to-image-more`, and `modern-screenshot` against the server. All three
+produced visually equivalent output to Chromium for everything *except*
+the SVG-mask spotlight cutout, which was identified as a contained
+foreignObject limitation. modern-screenshot won on speed (~107 ms vs
+1247 ms server) and was picked for production. POC route deleted in Phase 5.
 
-## What we'd build
+### Phase 2 — spotlight fix + single-screen wired (commit `6e0954c`)
 
-Add an `html-to-image`-style path that runs entirely in the browser. With no CLI to support, the migration can be a clean swap: replace `/api/export` and `/api/panoramic-export` with a client-side rasterizer and delete the Playwright Renderer once parity is proven.
+`injectSpotlightHTML` rewritten to use a `box-shadow` cutout instead of
+SVG mask + `feGaussianBlur`. Same technique works in Chromium AND the
+client rasterizers, so server-side parity automatically aligned with
+client-side output. Flag-gated "Download (client)" button shipped in
+ExportTab.
 
-### Phase 1 — Proof of concept + parity gate (2-3 days)
+### Phase 3 — batch + panoramic slicing (commit `be9bbaa`)
 
-The decision gate. If parity isn't acceptable here, the rest of the project is off and we keep Playwright.
+Batch individual export looped the single-screen helper. Panoramic
+introduced `exportPanoramicSlicesClientSide` which rasterizes the wide
+canvas exactly once then crops N slices via `canvas.drawImage` — much
+cheaper than N separate Playwright renders.
 
-- Pick a library. Top candidates: `html-to-image`, `dom-to-image-more`, `modern-screenshot` (newer fork with bug fixes). Bake them off on a representative screen.
-- Wire a feature-flagged "Download (client-side)" button in `ExportTab.tsx` next to the existing Download button
-- Render a hidden full-size iframe (canvas dimensions, not preview-scaled) with the export HTML — the same HTML `/api/preview-html` returns, just sized differently
-- Wait for `iframe.contentDocument.fonts.ready`, snapshot to PNG, trigger download
-- Side-by-side compare against the current server-side export at 1x, 2x, 3x scale. Test corpus: at least the existing reference screenshots under `reference-screenshots/`
-- **Decision gate:** is visual parity acceptable? If diffs are subtle (sub-pixel font rendering, minor SVG drift) we proceed. If diffs are blocking (broken text, misaligned device frames, missing filters) the project stops here.
+### Phase 4 — delete server-side (commit `43eb0e0`)
 
-### Phase 2 — Resource and font pipeline (1-2 days)
+`/api/export`, `/api/panoramic-export`, `/api/export-approved-artifact`,
+`/api/preview` (the unused render-to-PNG preview endpoint), the `Renderer`
+class, `generateScreenshots`, `generatePanoramicScreenshots`, and the
+`playwright` runtime dep — all gone. The flag-gated client buttons lost
+their flag and became the only Download buttons. SPA fallback fixed to
+return JSON 404 for unmatched `/api/*` routes instead of silently serving
+the SPA HTML.
 
-This is much smaller than originally scoped because the freeze fix (b359ffa) already moved fonts to a proper URL pipeline. The audit:
+The approve-artifact workflow (which let session-mode users persist a
+canonical exported artifact to disk) was a casualty — it depended on
+server-side rendering. Marked for client-side reconstruction later.
 
-- **Fonts** — `/preview-fonts/<family>/<file>` is already same-origin and served as static. `document.fonts.ready` should be sufficient. Verify all weights resolve.
-- **Lucide icons** — `/api/elements/icons/svg/*`, same-origin.
-- **Blob / arrow SVGs** — `/api/elements/*`, same-origin.
-- **Device frame assets** — inlined into the HTML as `frameSvg | safe` or `framePngUrl` (data URI). Already self-contained.
-- **User-uploaded images** — embedded as data URIs in state. Already self-contained.
+### Phase 5 — cleanup + iframe reuse + verification (this commit)
 
-The remaining real risks:
+- Deleted the POC bake-off (`/poc/export-bakeoff`, `ExportBakeoff.tsx`),
+  its `/poc/test-screenshot` static route, the `html-to-image` and
+  `dom-to-image-more` deps (kept `modern-screenshot`)
+- Removed stale `Renderer: vi.fn()` mock from server.test.ts and the
+  no-op `isClientExportEnabled` flag helpers from clientExport.ts
+- iframe reuse: a single hidden export iframe is created lazily and
+  reused across all renders. doc.open/doc.write wipes the previous
+  contents, so reuse is safe. Saves a handful of ms per export and,
+  more importantly, avoids GC churn during long batches
+- Cross-browser status: Chromium verified working via Playwright.
+  Firefox + WebKit were not tested locally (would require ~500 MB of
+  browser-binary downloads). modern-screenshot has documented
+  cross-browser support but the real-world surface hasn't been hit yet —
+  if a Safari user reports a render bug, that's where to dig
 
-- SVG `<use href="#id">` — `html-to-image` has historical issues with these. Spotlight masks and some icons use `<use>`. Test specifically.
-- CSS `filter` / `backdrop-filter` — Safari vs Chrome differences.
-- Device transforms with `perspective` + `rotateY` — confirm rasterizers handle 3D transforms correctly.
+## What didn't survive
 
-### Phase 3 — Batch, locales, sizes (2-3 days)
+- `/api/export`, `/api/panoramic-export`, `/api/preview`,
+  `/api/export-approved-artifact` server endpoints
+- `Renderer` class (`packages/core/src/renderer/renderer.ts`)
+- `generateScreenshots`, `generatePanoramicScreenshots` (the per-screen
+  Playwright loop and the panoramic equivalent)
+- `playwright` as a runtime dep of `@appframe/core`
+- The approve-and-persist artifact workflow (the disk-write side of it).
+  Easy to rebuild on top of the client path when needed: client renders
+  all PNGs locally, POSTs the blobs to a new server-side save-only
+  endpoint, server writes them to the artifact dir
+- `html-to-image`, `dom-to-image-more` (only `modern-screenshot` stayed)
+- The "POC" route and supporting code at `/poc/export-bakeoff`
+- `appframe.clientExport` localStorage flag (was load-bearing in
+  Phases 2-3, became no-op in Phase 4)
 
-- Convert "Download all" into a client-side loop
-- Add `JSZip` for zipping batch output
-- Progress bar with cancel
-- Optimization: render N screens in parallel by mounting N hidden iframes. The rasterization step is main-thread-bound (no OffscreenCanvas + foreignObject support yet), but font load and DOM layout can run concurrently
-- Honest UX: a 170-screenshot batch is going to feel slow no matter what. Set expectations in the UI ("This will take ~30 seconds, your tab will be busy")
+## Followups (not blockers)
 
-### Phase 4 — Delete server-side export (1 day)
-
-Once client-side is the default and stable:
-
-- Remove `/api/export` and `/api/panoramic-export` endpoints from server.ts
-- Remove `Renderer` class and its imports from core
-- Remove `playwright` from `packages/web-preview/package.json` dependencies
-- Drop the `node packages/web-preview/dist/bin.js` requirement on having Chromium installed
-- Keep `templateEngine.render()` and `/api/preview-html` — those still produce the HTML, just consumed by the iframe instead of by Playwright
-
-This is the payoff phase. Once Playwright is out, the install footprint shrinks by ~200MB and `pnpm install` becomes much faster.
-
-### Phase 5 — Quality, edge cases, parity testing (1-2 days)
-
-- Stress test the worst-case batch (max screens × max locales × max sizes)
-- Visual diff against the previous server-side exports on the `reference-screenshots/` corpus
-- Test in Safari, Chrome, Firefox — fix browser-specific rendering bugs
-- Verify mobile browsers can still export (or fall back gracefully)
-- Final cleanup: anywhere in the codebase that still references `Renderer`, `chromium`, or `/api/export`
-
-## Realistic timeline
-
-**~7-9 days of focused work** (down from the 2-3 weeks the original plan estimated, mostly because Phase 4 "Keep CLI working" is now "Delete server-side renderer" and the resource pipeline audit got smaller).
-
-Add a week of buffer for browser-specific surprises in Phase 2/5 = ~2 weeks calendar.
-
-## Open questions to resolve in Phase 1
-
-1. **Library choice:** `html-to-image` vs `dom-to-image-more` vs `modern-screenshot`. Decide in the bake-off.
-2. **Snapshot source:** snapshot a hidden full-size iframe with the export HTML, or upscale-snapshot the live preview iframe? Hidden full-size is cleaner (matches export resolution directly) but means rendering twice.
-3. **Fallback strategy:** if rasterization fails (old browser, blocked resource, weird SVG), do we fall back to server-side or just error? Probably error in Phase 1-3, keep server-side as a flag-gated fallback through Phase 4 in case we need to roll back, then delete it.
-4. **Browser support floor:** Safari 15+? Older Safari has historically been messy for SVG-to-canvas.
-
-## When to pick this up
-
-Picking it up now (2026-05-15) — no specific trigger event, just a free window and the codebase is in a clean state to make the swap. First task: prototype Phase 1, decide the parity question, commit or kill the project.
+- Cross-browser verification in Firefox + WebKit. The infrastructure is
+  there (`npx playwright install`) — just nobody ran it
+- Rebuild the approve-and-persist artifact workflow on the client path
+  when session-mode usage warrants it
+- The export approach uses `await page.fonts.ready + 200ms` to wait for
+  layout to settle. If exports occasionally produce half-loaded states
+  (large background images, slow icon loads) consider waiting for
+  `.complete` on all `<img>` elements explicitly

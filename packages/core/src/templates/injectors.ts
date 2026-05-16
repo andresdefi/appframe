@@ -9,6 +9,8 @@ export interface SpotlightParams {
   shape: 'circle' | 'rectangle';
   dimOpacity: number;
   blur: number;
+  /** Corner radius (px) for the rectangle shape. Ignored when shape is circle. */
+  borderRadius?: number;
 }
 
 export interface AnnotationParams {
@@ -24,7 +26,7 @@ export interface AnnotationParams {
 }
 
 export function injectSpotlightHTML(html: string, spotlight: SpotlightParams): string {
-  const { x, y, w, h, shape, dimOpacity, blur } = spotlight;
+  const { x, y, w, h, shape, dimOpacity, blur, borderRadius } = spotlight;
 
   // Box-shadow cutout approach: a transparent rectangle (or circle, via
   // border-radius: 50%) positioned where the spotlight should land, with a
@@ -39,7 +41,10 @@ export function injectSpotlightHTML(html: string, spotlight: SpotlightParams): s
   // visible. .spotlight-overlay matches the canvas extent exactly.
   const left = x - w / 2;
   const top = y - h / 2;
-  const radius = shape === 'circle' ? '50%' : '0';
+  const radius =
+    shape === 'circle'
+      ? '50%'
+      : `${borderRadius && borderRadius > 0 ? borderRadius : 0}px`;
 
   const style = `<style>
 .spotlight-overlay { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }

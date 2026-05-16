@@ -116,6 +116,16 @@ export function PanoramicEffectsTab() {
             <RangeSlider label="Height" value={effects.spotlight.h} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, h: v } })} />
             <RangeSlider label="Dim Opacity" value={Math.round(effects.spotlight.dimOpacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, dimOpacity: v / 100 } })} />
             <RangeSlider label="Background Blur" value={effects.spotlight.blur} min={0} max={30} formatValue={(v) => `${v}px`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, blur: v } })} />
+            {effects.spotlight.shape === 'rectangle' && (
+              <RangeSlider
+                label="Corner Radius"
+                value={effects.spotlight.borderRadius ?? 0}
+                min={0}
+                max={200}
+                formatValue={(v) => `${v}px`}
+                onChange={(v) => update({ spotlight: { ...effects.spotlight!, borderRadius: v } })}
+              />
+            )}
           </>
         )}
       </Section>

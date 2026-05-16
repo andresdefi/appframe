@@ -837,6 +837,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       shape: 'circle' | 'rectangle';
       dimOpacity: number;
       blur: number;
+      borderRadius?: number;
     };
     annotations?: Array<{
       id: string;

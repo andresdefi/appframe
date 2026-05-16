@@ -143,6 +143,17 @@ export function EffectsTab() {
             <RangeSlider label="Width" value={screen.spotlight.w} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, w: v } })} onInstant={(v) => instantSpotlight({ w: v })} />
             <RangeSlider label="Height" value={screen.spotlight.h} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, h: v } })} onInstant={(v) => instantSpotlight({ h: v })} />
             <RangeSlider label="Dim Opacity" value={Math.round(screen.spotlight.dimOpacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...screen.spotlight!, dimOpacity: v / 100 } })} onInstant={(v) => instantSpotlight({ dimOpacity: v / 100 })} />
+            {screen.spotlight.shape === 'rectangle' && (
+              <RangeSlider
+                label="Corner Radius"
+                value={screen.spotlight.borderRadius ?? 0}
+                min={0}
+                max={200}
+                formatValue={(v) => `${v}px`}
+                onChange={(v) => update({ spotlight: { ...screen.spotlight!, borderRadius: v } })}
+                onInstant={(v) => instantSpotlight({ borderRadius: v })}
+              />
+            )}
           </>
         )}
       </Section>

@@ -299,6 +299,7 @@ export function useInstantPatch() {
       shape: 'rectangle' | 'circle';
       dimOpacity: number;
       blur: number;
+      borderRadius?: number;
     }) => {
       const doc = getDoc();
       if (!doc) return;
@@ -308,7 +309,10 @@ export function useInstantPatch() {
       cutout.style.top = `${spotlight.y - spotlight.h / 2}%`;
       cutout.style.width = `${spotlight.w}%`;
       cutout.style.height = `${spotlight.h}%`;
-      cutout.style.borderRadius = spotlight.shape === 'circle' ? '50%' : '0';
+      cutout.style.borderRadius =
+        spotlight.shape === 'circle'
+          ? '50%'
+          : `${spotlight.borderRadius && spotlight.borderRadius > 0 ? spotlight.borderRadius : 0}px`;
       cutout.style.boxShadow = `0 0 ${spotlight.blur > 0 ? spotlight.blur : 0}px 9999px rgba(0,0,0,${spotlight.dimOpacity})`;
     },
     [getDoc],

@@ -336,6 +336,9 @@ export const spotlightConfigSchema = z.object({
   shape: z.enum(['circle', 'rectangle']).default('rectangle'),
   dimOpacity: z.number().min(0).max(1).default(0.6),
   blur: z.number().min(0).max(30).default(0),
+  // Corner radius in pixels for the rectangle shape. Ignored when shape is
+  // 'circle' (the cutout already uses border-radius: 50%).
+  borderRadius: z.number().min(0).max(200).default(0),
 });
 export type SpotlightConfig = z.infer<typeof spotlightConfigSchema>;
 

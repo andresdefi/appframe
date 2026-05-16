@@ -1,22 +1,57 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
 import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, putLiveConfig, loadProject, fetchProjects, touchProject } from './utils/api';
 import { useProjectAutosave } from './hooks/useProjectAutosave';
-import { ProjectPicker } from './components/ProjectPicker';
 import { HeaderBar } from './components/HeaderBar';
+// Eager imports: tabs that the user sees first and most often.
 import { DesignTab } from './components/Sidebar/DesignTab';
 import { DeviceTab } from './components/Sidebar/DeviceTab';
 import { TextTab } from './components/Sidebar/TextTab';
 import { EffectsTab } from './components/Sidebar/EffectsTab';
-import { ElementsTab } from './components/Sidebar/ElementsTab';
 import { ExportTab } from './components/Sidebar/ExportTab';
-import { VariantsTab } from './components/Sidebar/VariantsTab';
-import { PanoramicBackgroundContent, PanoramicDeviceContent, PanoramicTextContent } from './components/Sidebar/PanoramicTab';
-import { PanoramicEffectsTab } from './components/Sidebar/PanoramicEffectsTab';
 import { PreviewArea } from './components/Preview/PreviewArea';
-import { PanoramicPreview } from './components/Preview/PanoramicPreview';
 import { getDefaultExportSizeKey, getPlatformPreviewSize } from './utils/platformSelection';
+
+// Lazy imports: heavy / sometimes-used components that don't need to ship
+// in the initial bundle. Each becomes its own JS chunk fetched on demand.
+// Cuts main bundle size; first open of these tabs incurs a small fetch.
+const ElementsTab = lazy(() =>
+  import('./components/Sidebar/ElementsTab').then((m) => ({ default: m.ElementsTab })),
+);
+const VariantsTab = lazy(() =>
+  import('./components/Sidebar/VariantsTab').then((m) => ({ default: m.VariantsTab })),
+);
+const ProjectPicker = lazy(() =>
+  import('./components/ProjectPicker').then((m) => ({ default: m.ProjectPicker })),
+);
+const PanoramicBackgroundContent = lazy(() =>
+  import('./components/Sidebar/PanoramicTab').then((m) => ({ default: m.PanoramicBackgroundContent })),
+);
+const PanoramicDeviceContent = lazy(() =>
+  import('./components/Sidebar/PanoramicTab').then((m) => ({ default: m.PanoramicDeviceContent })),
+);
+const PanoramicTextContent = lazy(() =>
+  import('./components/Sidebar/PanoramicTab').then((m) => ({ default: m.PanoramicTextContent })),
+);
+const PanoramicEffectsTab = lazy(() =>
+  import('./components/Sidebar/PanoramicEffectsTab').then((m) => ({ default: m.PanoramicEffectsTab })),
+);
+const PanoramicPreview = lazy(() =>
+  import('./components/Preview/PanoramicPreview').then((m) => ({ default: m.PanoramicPreview })),
+);
+
+function LazyFallback() {
+  return (
+    <div className="flex items-center justify-center h-full text-text-dim text-xs">
+      <svg className="animate-spin h-3 w-3 mr-2 text-accent" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      </svg>
+      Loading…
+    </div>
+  );
+}
 
 export function App() {
   const config = usePreviewStore((s) => s.config);
@@ -266,7 +301,7 @@ export function App() {
   }
 
   const sidebarContent = isPanoramic ? (
-    <>
+    <Suspense fallback={<LazyFallback />}>
       {activeTab === 'variants' && <VariantsTab />}
       {activeTab === 'background' && <PanoramicBackgroundContent />}
       {activeTab === 'device' && <PanoramicDeviceContent />}
@@ -274,9 +309,9 @@ export function App() {
       {activeTab === 'extras' && <PanoramicEffectsTab />}
       {activeTab === 'elements' && <ElementsTab />}
       {activeTab === 'export' && <ExportTab />}
-    </>
+    </Suspense>
   ) : (
-    <>
+    <Suspense fallback={<LazyFallback />}>
       {activeTab === 'variants' && <VariantsTab />}
       {activeTab === 'background' && <DesignTab />}
       {activeTab === 'device' && <DeviceTab />}
@@ -284,7 +319,7 @@ export function App() {
       {activeTab === 'extras' && <EffectsTab />}
       {activeTab === 'elements' && <ElementsTab />}
       {activeTab === 'export' && <ExportTab />}
-    </>
+    </Suspense>
   );
 
   return (
@@ -311,16 +346,24 @@ export function App() {
           showSidebarToggle={isNarrow}
           onOpenProjectPicker={() => setPickerOpen(true)}
         />
-        {isPanoramic ? <PanoramicPreview /> : <PreviewArea />}
+        {isPanoramic ? (
+          <Suspense fallback={<LazyFallback />}>
+            <PanoramicPreview />
+          </Suspense>
+        ) : (
+          <PreviewArea />
+        )}
       </div>
       {pickerOpen && (
-        <ProjectPicker
-          activeProject={activeProject}
-          onSelect={(name) => {
-            void switchToProject(name);
-          }}
-          onDismiss={() => setPickerOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <ProjectPicker
+            activeProject={activeProject}
+            onSelect={(name) => {
+              void switchToProject(name);
+            }}
+            onDismiss={() => setPickerOpen(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

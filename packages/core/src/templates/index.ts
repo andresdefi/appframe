@@ -7,5 +7,5 @@ export type {
   PanoramicRenderedBackgroundLayer,
   PanoramicRenderedElement,
 } from './engine.js';
-export { injectSpotlightHTML, injectAnnotationsHTML, injectOverlaysHTML } from './injectors.js';
+export { injectSpotlightHTML, injectAnnotationsHTML, injectOverlaysHTML, injectEffectsHTML } from './injectors.js';
 export type { SpotlightParams, AnnotationParams, OverlayParams } from './injectors.js';

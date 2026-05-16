@@ -68,7 +68,7 @@ export type {
   PanoramicRenderedBackgroundLayer,
   PanoramicRenderedElement,
 } from './templates/index.js';
-export { injectSpotlightHTML, injectAnnotationsHTML, injectOverlaysHTML } from './templates/index.js';
+export { injectSpotlightHTML, injectAnnotationsHTML, injectOverlaysHTML, injectEffectsHTML } from './templates/index.js';
 
 export { loadFontFaces, loadFontFacesUrl, loadAllFontFaces, getFontName, FONT_CATALOG } from './fonts/index.js';
 export type { FontInfo } from './fonts/index.js';

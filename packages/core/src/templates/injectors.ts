@@ -1,5 +1,10 @@
 // HTML injection functions for overlay features (spotlight, annotations, zoom callouts).
 // Called after templateEngine.render() to inject <style> before </head> and overlay <div>s before </body>.
+//
+// Each effect is built as a pair of strings (style + body) via build*Pieces helpers
+// so the per-effect inject*HTML functions and the batched injectEffectsHTML can
+// share the same generators. The batched form does a single </head> + </body>
+// replace pass — important when all three effects are active on the same render.
 
 export interface SpotlightParams {
   x: number;
@@ -30,7 +35,25 @@ export interface AnnotationParams {
   borderRadius?: number;
 }
 
-export function injectSpotlightHTML(html: string, spotlight: SpotlightParams): string {
+export interface OverlayParams {
+  type: string;
+  x: number;
+  y: number;
+  size: number;
+  rotation: number;
+  opacity: number;
+  shapeType?: string;
+  shapeColor?: string;
+  shapeOpacity?: number;
+  shapeBlur?: number;
+}
+
+interface EffectPieces {
+  style: string;
+  body: string;
+}
+
+function buildSpotlightPieces(spotlight: SpotlightParams): EffectPieces {
   const { x, y, w, h, shape, dimOpacity, blur, borderRadius } = spotlight;
 
   // Box-shadow cutout approach: a transparent rectangle (or circle, via
@@ -64,71 +87,11 @@ export function injectSpotlightHTML(html: string, spotlight: SpotlightParams): s
 }
 </style>`;
 
-  const overlay = `<div class="spotlight-overlay"><div class="spotlight-cutout"></div></div>`;
-
-  html = html.replace('</head>', `${style}\n</head>`);
-  html = html.replace('</body>', `${overlay}\n</body>`);
-  return html;
+  const body = `<div class="spotlight-overlay"><div class="spotlight-cutout"></div></div>`;
+  return { style, body };
 }
 
-export interface OverlayParams {
-  type: string;
-  x: number;
-  y: number;
-  size: number;
-  rotation: number;
-  opacity: number;
-  shapeType?: string;
-  shapeColor?: string;
-  shapeOpacity?: number;
-  shapeBlur?: number;
-}
-
-export function injectOverlaysHTML(html: string, overlays: OverlayParams[], canvasWidth: number, canvasHeight: number): string {
-  if (overlays.length === 0) return html;
-
-  const style = `<style>
-.overlay-item { position: absolute; z-index: 10; pointer-events: none; }
-</style>`;
-
-  const items = overlays.map((ov) => {
-    const ovX = Math.round(canvasWidth * ov.x / 100);
-    const ovY = Math.round(canvasHeight * ov.y / 100);
-    const ovSize = Math.round(canvasWidth * ov.size / 100);
-
-    let inner = '';
-    if (ov.type === 'shape') {
-      const color = ov.shapeColor ?? '#6366f1';
-      const shapeOpacity = ov.shapeOpacity ?? 0.5;
-      const blur = ov.shapeBlur ? `filter: blur(${ov.shapeBlur}px);` : '';
-      if (ov.shapeType === 'circle') {
-        inner = `<div style="width:100%;height:100%;border-radius:50%;background:${color};opacity:${shapeOpacity};${blur}"></div>`;
-      } else if (ov.shapeType === 'rectangle') {
-        inner = `<div style="width:100%;height:100%;border-radius:8px;background:${color};opacity:${shapeOpacity};${blur}"></div>`;
-      } else if (ov.shapeType === 'line') {
-        inner = `<div style="width:100%;height:4px;margin-top:${Math.round(ovSize / 2 - 2)}px;background:${color};opacity:${shapeOpacity};border-radius:2px;"></div>`;
-      }
-    } else if (ov.type === 'star-rating') {
-      const color = ov.shapeColor ?? '#f59e0b';
-      const stars = Array.from({ length: 5 }, (_, i) =>
-        `<polygon points="${i * 24 + 12},2 ${i * 24 + 15},9 ${i * 24 + 22},9 ${i * 24 + 16},14 ${i * 24 + 18},22 ${i * 24 + 12},17 ${i * 24 + 6},22 ${i * 24 + 8},14 ${i * 24 + 2},9 ${i * 24 + 9},9"/>`
-      ).join('');
-      inner = `<svg viewBox="0 0 120 24" fill="${color}" style="width:100%;height:auto;">${stars}</svg>`;
-    }
-
-    return `<div class="overlay-item" style="left:${ovX}px;top:${ovY}px;width:${ovSize}px;height:${ovSize}px;transform:rotate(${ov.rotation}deg);opacity:${ov.opacity};">${inner}</div>`;
-  }).join('\n');
-
-  const overlay = `<div style="position:absolute;inset:0;z-index:10;pointer-events:none;">${items}</div>`;
-
-  html = html.replace('</head>', `${style}\n</head>`);
-  html = html.replace('</body>', `${overlay}\n</body>`);
-  return html;
-}
-
-export function injectAnnotationsHTML(html: string, annotations: AnnotationParams[], canvasWidth: number): string {
-  if (annotations.length === 0) return html;
-
+function buildAnnotationsPieces(annotations: AnnotationParams[], canvasWidth: number): EffectPieces {
   const scale = canvasWidth / 1290;
   const roundedRadius = Math.round(canvasWidth * 0.02);
 
@@ -168,9 +131,110 @@ export function injectAnnotationsHTML(html: string, annotations: AnnotationParam
     "></div>`;
   }).join('\n');
 
-  const overlay = `<div class="annotation-overlay">${shapes}</div>`;
+  const body = `<div class="annotation-overlay">${shapes}</div>`;
+  return { style, body };
+}
 
-  html = html.replace('</head>', `${style}\n</head>`);
-  html = html.replace('</body>', `${overlay}\n</body>`);
-  return html;
+function buildOverlaysPieces(overlays: OverlayParams[], canvasWidth: number, canvasHeight: number): EffectPieces {
+  const style = `<style>
+.overlay-item { position: absolute; z-index: 10; pointer-events: none; }
+</style>`;
+
+  const items = overlays.map((ov) => {
+    const ovX = Math.round(canvasWidth * ov.x / 100);
+    const ovY = Math.round(canvasHeight * ov.y / 100);
+    const ovSize = Math.round(canvasWidth * ov.size / 100);
+
+    let inner = '';
+    if (ov.type === 'shape') {
+      const color = ov.shapeColor ?? '#6366f1';
+      const shapeOpacity = ov.shapeOpacity ?? 0.5;
+      const blur = ov.shapeBlur ? `filter: blur(${ov.shapeBlur}px);` : '';
+      if (ov.shapeType === 'circle') {
+        inner = `<div style="width:100%;height:100%;border-radius:50%;background:${color};opacity:${shapeOpacity};${blur}"></div>`;
+      } else if (ov.shapeType === 'rectangle') {
+        inner = `<div style="width:100%;height:100%;border-radius:8px;background:${color};opacity:${shapeOpacity};${blur}"></div>`;
+      } else if (ov.shapeType === 'line') {
+        inner = `<div style="width:100%;height:4px;margin-top:${Math.round(ovSize / 2 - 2)}px;background:${color};opacity:${shapeOpacity};border-radius:2px;"></div>`;
+      }
+    } else if (ov.type === 'star-rating') {
+      const color = ov.shapeColor ?? '#f59e0b';
+      const stars = Array.from({ length: 5 }, (_, i) =>
+        `<polygon points="${i * 24 + 12},2 ${i * 24 + 15},9 ${i * 24 + 22},9 ${i * 24 + 16},14 ${i * 24 + 18},22 ${i * 24 + 12},17 ${i * 24 + 6},22 ${i * 24 + 8},14 ${i * 24 + 2},9 ${i * 24 + 9},9"/>`
+      ).join('');
+      inner = `<svg viewBox="0 0 120 24" fill="${color}" style="width:100%;height:auto;">${stars}</svg>`;
+    }
+
+    return `<div class="overlay-item" style="left:${ovX}px;top:${ovY}px;width:${ovSize}px;height:${ovSize}px;transform:rotate(${ov.rotation}deg);opacity:${ov.opacity};">${inner}</div>`;
+  }).join('\n');
+
+  const body = `<div style="position:absolute;inset:0;z-index:10;pointer-events:none;">${items}</div>`;
+  return { style, body };
+}
+
+/**
+ * Inject one or more effects in a single pass. With all three active this
+ * runs one `</head>` replace and one `</body>` replace, instead of six
+ * (two per effect when the per-effect injectors are called in sequence).
+ */
+export function injectEffectsHTML(
+  html: string,
+  effects: {
+    spotlight?: SpotlightParams;
+    annotations?: AnnotationParams[];
+    overlays?: OverlayParams[];
+  },
+  canvasWidth: number,
+  canvasHeight: number,
+): string {
+  const styles: string[] = [];
+  const bodies: string[] = [];
+
+  if (effects.spotlight) {
+    const p = buildSpotlightPieces(effects.spotlight);
+    styles.push(p.style);
+    bodies.push(p.body);
+  }
+  if (effects.annotations && effects.annotations.length > 0) {
+    const p = buildAnnotationsPieces(effects.annotations, canvasWidth);
+    styles.push(p.style);
+    bodies.push(p.body);
+  }
+  if (effects.overlays && effects.overlays.length > 0) {
+    const p = buildOverlaysPieces(effects.overlays, canvasWidth, canvasHeight);
+    styles.push(p.style);
+    bodies.push(p.body);
+  }
+
+  if (styles.length === 0 && bodies.length === 0) return html;
+
+  return html
+    .replace('</head>', `${styles.join('\n')}\n</head>`)
+    .replace('</body>', `${bodies.join('\n')}\n</body>`);
+}
+
+// Per-effect API kept for callers that have only one effect — same
+// behavior as before, share the same builders.
+
+export function injectSpotlightHTML(html: string, spotlight: SpotlightParams): string {
+  const { style, body } = buildSpotlightPieces(spotlight);
+  return html
+    .replace('</head>', `${style}\n</head>`)
+    .replace('</body>', `${body}\n</body>`);
+}
+
+export function injectOverlaysHTML(html: string, overlays: OverlayParams[], canvasWidth: number, canvasHeight: number): string {
+  if (overlays.length === 0) return html;
+  const { style, body } = buildOverlaysPieces(overlays, canvasWidth, canvasHeight);
+  return html
+    .replace('</head>', `${style}\n</head>`)
+    .replace('</body>', `${body}\n</body>`);
+}
+
+export function injectAnnotationsHTML(html: string, annotations: AnnotationParams[], canvasWidth: number): string {
+  if (annotations.length === 0) return html;
+  const { style, body } = buildAnnotationsPieces(annotations, canvasWidth);
+  return html
+    .replace('</head>', `${style}\n</head>`)
+    .replace('</body>', `${body}\n</body>`);
 }

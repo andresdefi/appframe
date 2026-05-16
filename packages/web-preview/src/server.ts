@@ -17,9 +17,7 @@ import {
   getDeviceFamily,
   getDeviceId,
   getDeviceFramePath,
-  injectSpotlightHTML,
-  injectAnnotationsHTML,
-  injectOverlaysHTML,
+  injectEffectsHTML,
   resolveLocalizedAsset,
 } from '@appframe/core';
 import type {
@@ -1439,9 +1437,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         freeTextWidth: p.freeTextWidth,
         freeTextRotation: p.freeTextRotation,
       });
-      if (p.spotlight) html = injectSpotlightHTML(html, p.spotlight);
-      if (p.annotations && p.annotations.length > 0)
-        html = injectAnnotationsHTML(html, p.annotations, p.width);
+      // Single pass — one </head> + </body> replace for all effects,
+      // instead of two per effect. Matters when multiple effects are
+      // active on the same screen.
+      html = injectEffectsHTML(
+        html,
+        { spotlight: p.spotlight, annotations: p.annotations },
+        p.width,
+        p.height,
+      );
       res.set('Content-Type', 'text/html');
       res.send(html);
     } catch (err) {
@@ -1529,32 +1533,21 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
       let html = await templateEngine.renderPanoramic(panoramicContext);
 
-      // Inject effects (spotlight, annotations, overlays)
+      // Single pass — one </head> + </body> replace for all effects.
       const effects = body.effects as
         | { spotlight?: unknown; annotations?: unknown[]; overlays?: unknown[] }
         | undefined;
       if (effects) {
-        if (effects.spotlight) {
-          html = injectSpotlightHTML(
-            html,
-            effects.spotlight as Parameters<typeof injectSpotlightHTML>[1],
-          );
-        }
-        if (effects.annotations && effects.annotations.length > 0) {
-          html = injectAnnotationsHTML(
-            html,
-            effects.annotations as Parameters<typeof injectAnnotationsHTML>[1],
-            totalWidth,
-          );
-        }
-        if (effects.overlays && effects.overlays.length > 0) {
-          html = injectOverlaysHTML(
-            html,
-            effects.overlays as Parameters<typeof injectOverlaysHTML>[1],
-            totalWidth,
-            frameHeight,
-          );
-        }
+        html = injectEffectsHTML(
+          html,
+          {
+            spotlight: effects.spotlight as Parameters<typeof injectEffectsHTML>[1]['spotlight'],
+            annotations: effects.annotations as Parameters<typeof injectEffectsHTML>[1]['annotations'],
+            overlays: effects.overlays as Parameters<typeof injectEffectsHTML>[1]['overlays'],
+          },
+          totalWidth,
+          frameHeight,
+        );
       }
 
       res.set('Content-Type', 'text/html');

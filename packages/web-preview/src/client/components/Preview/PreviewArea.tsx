@@ -132,8 +132,15 @@ export function PreviewArea() {
     return () => window.removeEventListener('resize', computeScale);
   }, [computeScale]);
 
-  const [manualZoom, setManualZoom] = useState<number | null>(null);
-  const effectiveScale = manualZoom ?? scale;
+  // The slider stores its own position (0–100), not an absolute scale.
+  // 0% always means "fit"; the effective scale recomputes when fit
+  // recomputes (resize, add/remove screens) so cards re-snap to fit
+  // automatically without the user touching the slider again. The Fit
+  // button is now equivalent to setSliderPosition(0).
+  const ZOOM_MAX = 1.5;
+  const [sliderPosition, setSliderPosition] = useState(0);
+  const zoomRange = Math.max(0, ZOOM_MAX - scale);
+  const effectiveScale = scale + (sliderPosition / 100) * zoomRange;
 
   return (
     <div
@@ -263,22 +270,22 @@ export function PreviewArea() {
           <span className="text-[10px] text-text-dim shrink-0">Zoom</span>
           <input
             type="range"
-            min={5}
-            max={150}
-            value={Math.round((manualZoom ?? scale) * 100)}
-            onChange={(e) => setManualZoom(parseInt(e.target.value, 10) / 100)}
+            min={0}
+            max={100}
+            value={sliderPosition}
+            onChange={(e) => setSliderPosition(parseInt(e.target.value, 10))}
             className="flex-1 h-1 accent-accent"
             aria-label="Zoom level"
-            aria-valuemin={5}
-            aria-valuemax={150}
-            aria-valuenow={Math.round((manualZoom ?? scale) * 100)}
-            aria-valuetext={`${Math.round((manualZoom ?? scale) * 100)}%`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={sliderPosition}
+            aria-valuetext={`${sliderPosition}% (${Math.round(effectiveScale * 100)}% scale)`}
           />
-          <span className="text-[10px] text-text-dim w-9 text-right shrink-0 tabular-nums">{Math.round((manualZoom ?? scale) * 100)}%</span>
+          <span className="text-[10px] text-text-dim w-9 text-right shrink-0 tabular-nums">{sliderPosition}%</span>
           <button
-            className={`text-[10px] transition-opacity shrink-0 ${manualZoom !== null ? 'text-text-dim hover:text-text' : 'text-text-dim/50 cursor-default'}`}
-            onClick={() => setManualZoom(null)}
-            disabled={manualZoom === null}
+            className={`text-[10px] transition-opacity shrink-0 ${sliderPosition !== 0 ? 'text-text-dim hover:text-text' : 'text-text-dim/50 cursor-default'}`}
+            onClick={() => setSliderPosition(0)}
+            disabled={sliderPosition === 0}
             aria-label="Reset zoom to fit"
           >
             Fit

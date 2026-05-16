@@ -358,13 +358,20 @@ describe('annotationSchema', () => {
     const result = annotationSchema.safeParse({});
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.shape).toBe('rounded-rect');
+      expect(result.data.shape).toBe('rectangle');
       expect(result.data.strokeColor).toBe('#FF3B30');
+      expect(result.data.borderRadius).toBe(0);
     }
   });
 
   it('rejects strokeWidth outside range', () => {
     expect(annotationSchema.safeParse({ strokeWidth: 25 }).success).toBe(false);
+  });
+
+  it('still accepts legacy shape="rounded-rect"', () => {
+    const result = annotationSchema.safeParse({ shape: 'rounded-rect' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.shape).toBe('rounded-rect');
   });
 });
 

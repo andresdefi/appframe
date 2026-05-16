@@ -335,6 +335,7 @@ export function useInstantPatch() {
         h?: number;
         strokeWidth?: number;
         strokeColor?: string;
+        borderRadius?: number;
       },
     ) => {
       const doc = getDoc();
@@ -342,10 +343,30 @@ export function useInstantPatch() {
       const shapes = doc.querySelectorAll('.annotation-overlay .annotation-shape');
       const el = shapes[index] as HTMLElement | undefined;
       if (!el) return;
-      if (partial.x !== undefined) el.style.left = `${partial.x}%`;
-      if (partial.y !== undefined) el.style.top = `${partial.y}%`;
-      if (partial.w !== undefined) el.style.width = `${partial.w}%`;
-      if (partial.h !== undefined) el.style.height = `${partial.h}%`;
+      // x / y are center coords. We need the current w / h to position
+      // left / top via `center - size/2`. Read them from the DOM since
+      // the partial may not include them, then override with whatever's
+      // in the partial.
+      const currentW = parseFloat(el.style.width) || 0;
+      const currentH = parseFloat(el.style.height) || 0;
+      const w = partial.w ?? currentW;
+      const h = partial.h ?? currentH;
+      if (partial.w !== undefined) el.style.width = `${w}%`;
+      if (partial.h !== undefined) el.style.height = `${h}%`;
+      if (partial.x !== undefined || partial.w !== undefined) {
+        // Recompute left when either the center x or the width changes
+        // (because left depends on both).
+        const currentLeft = parseFloat(el.style.left) || 0;
+        const currentCenterX = currentLeft + currentW / 2;
+        const x = partial.x ?? currentCenterX;
+        el.style.left = `${x - w / 2}%`;
+      }
+      if (partial.y !== undefined || partial.h !== undefined) {
+        const currentTop = parseFloat(el.style.top) || 0;
+        const currentCenterY = currentTop + currentH / 2;
+        const y = partial.y ?? currentCenterY;
+        el.style.top = `${y - h / 2}%`;
+      }
       if (partial.strokeWidth !== undefined || partial.strokeColor !== undefined) {
         // Server uses scale = canvasWidth / 1290 (1290 is the reference
         // canvas width). Read the iframe-CSS width so the patched stroke
@@ -359,6 +380,13 @@ export function useInstantPatch() {
             : parseFloat(el.style.borderWidth) || 0;
         const color = partial.strokeColor ?? (el.style.borderColor || '#FF3B30');
         el.style.border = `${sw}px solid ${color}`;
+      }
+      if (partial.borderRadius !== undefined) {
+        // Only applies when the existing element isn't a circle. We can't
+        // know the shape from here without an extra DOM lookup, so just
+        // set it; the value is ignored visually if the element is already
+        // border-radius: 50%.
+        el.style.borderRadius = `${partial.borderRadius}px`;
       }
     },
     [getDoc],

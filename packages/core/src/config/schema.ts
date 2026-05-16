@@ -349,7 +349,12 @@ export type SpotlightConfig = z.infer<typeof spotlightConfigSchema>;
 
 export const annotationSchema = z.object({
   id: z.string().default(''),
-  shape: z.enum(['circle', 'rounded-rect', 'rectangle']).default('rounded-rect'),
+  // 'rounded-rect' is kept in the enum for backward compatibility with
+  // older project files. New annotations only use 'circle' or 'rectangle'
+  // — corner radius is controlled by `borderRadius` instead of a separate
+  // shape value. Hydration normalizes 'rounded-rect' into 'rectangle' +
+  // a sensible default radius.
+  shape: z.enum(['circle', 'rounded-rect', 'rectangle']).default('rectangle'),
   x: z.number().min(0).max(100).default(40),
   y: z.number().min(0).max(100).default(40),
   w: z.number().min(1).max(100).default(20),
@@ -357,6 +362,9 @@ export const annotationSchema = z.object({
   strokeColor: hexColor.default('#FF3B30'),
   strokeWidth: z.number().min(1).max(20).default(4),
   fillColor: hexColor.optional(),
+  /** Corner radius in pixels for the rectangle shape. Ignored when shape
+   *  is 'circle' (the shape uses border-radius: 50%). */
+  borderRadius: z.number().min(0).max(200).default(0),
 });
 export type Annotation = z.infer<typeof annotationSchema>;
 

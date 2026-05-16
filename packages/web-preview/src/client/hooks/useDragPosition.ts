@@ -334,8 +334,12 @@ export function useDragPosition(
           const dy = (ev.clientY - drag.startY) / drag.scale;
           const newX = Math.max(0, Math.min(100, (drag.startAnnX ?? 0) + (dx / canvasW) * 100));
           const newY = Math.max(0, Math.min(100, (drag.startAnnY ?? 0) + (dy / canvasH) * 100));
-          drag.el.style.left = newX + '%';
-          drag.el.style.top = newY + '%';
+          // x / y are center coords. Render with left = x - w/2, top = y - h/2
+          // so the visual center tracks the cursor.
+          const w = parseFloat(drag.el.style.width) || 0;
+          const h = parseFloat(drag.el.style.height) || 0;
+          drag.el.style.left = (newX - w / 2) + '%';
+          drag.el.style.top = (newY - h / 2) + '%';
         };
 
         const onUp = (ev: MouseEvent) => {

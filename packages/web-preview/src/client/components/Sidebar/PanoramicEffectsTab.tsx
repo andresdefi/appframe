@@ -37,13 +37,14 @@ export function PanoramicEffectsTab() {
         ...effects.annotations,
         {
           id: nextId('ann'),
-          shape: 'rounded-rect' as const,
-          x: 40,
-          y: 40,
+          shape: 'rectangle' as const,
+          x: 50,
+          y: 50,
           w: 20,
           h: 20,
           strokeColor: '#FF3B30',
           strokeWidth: 4,
+          borderRadius: 12,
         },
       ],
     });
@@ -151,10 +152,9 @@ export function PanoramicEffectsTab() {
           >
             <Select
               label="Shape"
-              value={ann.shape}
-              onChange={(v) => updateAnnotation(idx, { shape: v as 'rounded-rect' | 'rectangle' | 'circle' })}
+              value={ann.shape === 'rounded-rect' ? 'rectangle' : ann.shape}
+              onChange={(v) => updateAnnotation(idx, { shape: v as 'rectangle' | 'circle' })}
               options={[
-                { value: 'rounded-rect', label: 'Rounded Rect' },
                 { value: 'rectangle', label: 'Rectangle' },
                 { value: 'circle', label: 'Circle' },
               ]}
@@ -165,6 +165,16 @@ export function PanoramicEffectsTab() {
             <RangeSlider label="Width" value={ann.w} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { w: v })} />
             <RangeSlider label="Height" value={ann.h} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { h: v })} />
             <RangeSlider label="Stroke" value={ann.strokeWidth} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => updateAnnotation(idx, { strokeWidth: v })} />
+            {ann.shape !== 'circle' && (
+              <RangeSlider
+                label="Corner Radius"
+                value={ann.borderRadius ?? 0}
+                min={0}
+                max={200}
+                formatValue={(v) => `${v}px`}
+                onChange={(v) => updateAnnotation(idx, { borderRadius: v })}
+              />
+            )}
           </CollapsiblePanel>
         ))}
       </Section>

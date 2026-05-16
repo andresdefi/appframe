@@ -23,6 +23,11 @@ export interface AnnotationParams {
   strokeColor: string;
   strokeWidth: number;
   fillColor?: string;
+  /** Corner radius in pixels for the rectangle shape. Ignored when shape
+   *  is 'circle'. Legacy `shape: 'rounded-rect'` is treated as
+   *  `shape: 'rectangle'` with a sensible default when this is missing
+   *  or 0. */
+  borderRadius?: number;
 }
 
 export function injectSpotlightHTML(html: string, spotlight: SpotlightParams): string {
@@ -135,13 +140,27 @@ export function injectAnnotationsHTML(html: string, annotations: AnnotationParam
   const shapes = annotations.map((a, idx) => {
     const sw = Math.round(a.strokeWidth * scale);
     let borderRadius = '0';
-    if (a.shape === 'circle') borderRadius = '50%';
-    else if (a.shape === 'rounded-rect') borderRadius = `${roundedRadius}px`;
+    if (a.shape === 'circle') {
+      borderRadius = '50%';
+    } else if (a.shape === 'rounded-rect') {
+      // Legacy alias: explicit borderRadius wins, otherwise fall back to
+      // the historical roundedRadius constant so existing projects keep
+      // looking the same until they're re-saved.
+      const px = a.borderRadius && a.borderRadius > 0 ? a.borderRadius : roundedRadius;
+      borderRadius = `${px}px`;
+    } else if (a.borderRadius && a.borderRadius > 0) {
+      borderRadius = `${a.borderRadius}px`;
+    }
 
     const fill = a.fillColor ? `background: ${a.fillColor};` : '';
 
+    // x / y are the CENTER coordinates (consistent with spotlight). Render
+    // with left = x - w/2, top = y - h/2 so the visual center stays put
+    // when the user resizes via the Width / Height sliders.
+    const left = a.x - a.w / 2;
+    const top = a.y - a.h / 2;
     return `<div class="annotation-shape" data-idx="${idx}" style="
-      left: ${a.x}%; top: ${a.y}%;
+      left: ${left}%; top: ${top}%;
       width: ${a.w}%; height: ${a.h}%;
       border: ${sw}px solid ${a.strokeColor};
       border-radius: ${borderRadius};

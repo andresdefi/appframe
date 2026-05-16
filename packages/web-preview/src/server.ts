@@ -849,6 +849,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       strokeColor: string;
       strokeWidth: number;
       fillColor?: string;
+      borderRadius?: number;
     }>;
     headlineLineHeight?: number;
     headlineLetterSpacing?: string;

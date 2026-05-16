@@ -8,6 +8,7 @@ import { Checkbox } from '../Controls/Checkbox';
 import { Select } from '../Controls/Select';
 import { BackgroundCategory } from '../Controls/BackgroundCategory';
 import { SOLID_PRESETS, GRADIENT_PRESETS } from '../../utils/presets';
+import { uploadImageFile } from '../../utils/uploadImageFile';
 import type { GradientPreset } from '../../utils/presets';
 
 const RADIAL_POSITIONS = [
@@ -75,22 +76,20 @@ export function DesignTab() {
   const currentColor = screen.backgroundColor;
   const isCurrentSolid = uiMode === 'solid';
 
-  const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBgImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      const { selectedScreen, updateScreen } = usePreviewStore.getState();
-      // Switch type to 'image' so the renderer actually uses the upload
-      // instead of keeping the previous solid/gradient.
-      updateScreen(selectedScreen, {
-        backgroundType: 'image',
-        backgroundImageDataUrl: dataUrl,
-      });
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    if (!file) return;
+    // Upload to the server and store the returned URL — same pattern as
+    // screenshot uploads. Keeps in-memory state small and prevents
+    // browser-side memory pressure when multiple backgrounds are used
+    // across screens.
+    const uploaded = await uploadImageFile(file);
+    const { selectedScreen, updateScreen } = usePreviewStore.getState();
+    updateScreen(selectedScreen, {
+      backgroundType: 'image',
+      backgroundImageDataUrl: uploaded.url,
+    });
   };
 
   const applySolidPreset = (hex: string) => {

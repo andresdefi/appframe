@@ -9,6 +9,7 @@ import { ColorPicker } from '../Controls/ColorPicker';
 import { CollapsiblePanel } from '../Controls/CollapsiblePanel';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
 import type { Overlay } from '../../types';
+import { uploadImageFile } from '../../utils/uploadImageFile';
 
 function nextId(prefix: string) {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -74,29 +75,21 @@ export function ElementsTab() {
     patchOverlay(idx, { ...ov, ...partial });
   };
 
-  const handleCustomUpload = (idx: number, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      updateOverlay(idx, { imageDataUrl: dataUrl });
-    };
-    reader.readAsDataURL(file);
+  const handleCustomUpload = async (idx: number, file: File) => {
+    const uploaded = await uploadImageFile(file);
+    updateOverlay(idx, { imageDataUrl: uploaded.url });
   };
 
-  const handleRootImageUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      const overlay: Overlay = {
-        id: nextId('overlay'),
-        type: 'custom',
-        imageDataUrl: dataUrl,
-        ...OVERLAY_BASE,
-        size: 100,
-      } as Overlay;
-      update({ overlays: [...screen.overlays, overlay] });
-    };
-    reader.readAsDataURL(file);
+  const handleRootImageUpload = async (file: File) => {
+    const uploaded = await uploadImageFile(file);
+    const overlay: Overlay = {
+      id: nextId('overlay'),
+      type: 'custom',
+      imageDataUrl: uploaded.url,
+      ...OVERLAY_BASE,
+      size: 100,
+    } as Overlay;
+    update({ overlays: [...screen.overlays, overlay] });
   };
 
   return (

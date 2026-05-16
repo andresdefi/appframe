@@ -22,7 +22,7 @@ import type {
 import { PLATFORM_DEVICE_DEFAULTS } from '../../types';
 import { COMPOSITION_PRESETS } from '../../utils/compositionPresets';
 import { uploadScreenshot } from '../../utils/api';
-import { uploadImageFileToScreen } from '../../utils/uploadImageFile';
+import { uploadImageFile, uploadImageFileToScreen } from '../../utils/uploadImageFile';
 
 const LAYOUT_OPTIONS = [
   { value: 'center', label: 'Center' },
@@ -670,16 +670,12 @@ interface ExtraDeviceSlotEditorProps {
 function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: ExtraDeviceSlotEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      onChange({ dataUrl, name: file.name });
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    if (!file) return;
+    const uploaded = await uploadImageFile(file);
+    onChange({ dataUrl: uploaded.url, name: uploaded.filename });
   };
 
   return (

@@ -68,3 +68,27 @@ export async function uploadImageFileToScreen(file: File): Promise<ScreenshotIma
     };
   }
 }
+
+export interface UploadedImage {
+  /** Browser-facing URL (e.g. /api/screenshots/<project>/<filename>) or the
+   *  original data URL when the server upload failed. */
+  url: string;
+  filename: string;
+}
+
+/**
+ * Upload any image file to the project's screenshots directory and return
+ * its URL. Used for backgrounds and overlays — anywhere we previously
+ * stored a base64 data URL in state. Falls back to the data URL if the
+ * server is unavailable so the user doesn't lose the upload mid-flow.
+ */
+export async function uploadImageFile(file: File): Promise<UploadedImage> {
+  const dataUrl = await readFileAsDataUrl(file);
+  try {
+    const uploaded = await uploadScreenshot({ filename: file.name, dataUrl });
+    return { url: uploaded.url, filename: uploaded.filename };
+  } catch (err) {
+    console.error('Image upload failed, falling back to in-memory data URL', err);
+    return { url: dataUrl, filename: file.name };
+  }
+}

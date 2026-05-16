@@ -13,6 +13,7 @@ import { getDefaultFrameForPlatform } from '../../utils/deviceFrames';
 import { buildFontGroups } from '../../utils/fontGroups';
 import { getDefaultExportSizeKey, getPlatformPreviewSize } from '../../utils/platformSelection';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
+import { uploadImageFile } from '../../utils/uploadImageFile';
 
 const ELEMENT_TYPE_LABELS: Record<string, string> = {
   device: 'Device',
@@ -218,26 +219,20 @@ function ElementInspector({ index }: { index: number }) {
 
   const fontGroups = useMemo(() => buildFontGroups(fonts), [fonts]);
 
-  const handleScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      update({ screenshot: ev.target?.result as string });
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    if (!file) return;
+    const uploaded = await uploadImageFile(file);
+    update({ screenshot: uploaded.url });
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      update({ src: ev.target?.result as string } as Partial<PanoramicElement>);
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    if (!file) return;
+    const uploaded = await uploadImageFile(file);
+    update({ src: uploaded.url } as Partial<PanoramicElement>);
   };
 
   return (
@@ -1791,13 +1786,12 @@ function PanoramicBgImage({
   alt?: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => onUpload(ev.target?.result as string);
-    reader.readAsDataURL(file);
     e.target.value = '';
+    if (!file) return;
+    const uploaded = await uploadImageFile(file);
+    onUpload(uploaded.url);
   };
   return (
     <>
@@ -1857,42 +1851,39 @@ function ScreenshotUploader() {
     .map((el, i) => ({ el, i }))
     .filter(({ el }) => el.type === 'device');
 
-  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
     if (files.length === 0) return;
 
-    files.forEach((file, fileIdx) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        if (fileIdx < deviceElements.length) {
-          // Assign to existing device element
-          updateElement(deviceElements[fileIdx]!.i, { screenshot: dataUrl });
-        } else {
-          // Create a new device element for this screenshot
-          const deviceCount = deviceElements.length + (fileIdx - deviceElements.length);
-          addElement({
-            type: 'device',
-            screenshot: dataUrl,
-            frameStyle: 'flat',
-            x: 10 + deviceCount * 20,
-            y: 15,
-            width: 12,
-            rotation: 0,
-            deviceScale: 92,
-            deviceTop: 15,
-            deviceOffsetX: 0,
-            deviceAngle: 8,
-            deviceTilt: 0,
-            cornerRadius: 0,
-            fullscreenScreenshot: false,
-            z: 5,
-          });
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-    e.target.value = '';
+    // Upload sequentially so the server isn't fan-out hammered and the
+    // user sees devices populate in order. uploadImageFile falls back
+    // to the in-memory data URL if the server is down.
+    for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+      const uploaded = await uploadImageFile(files[fileIdx]!);
+      if (fileIdx < deviceElements.length) {
+        updateElement(deviceElements[fileIdx]!.i, { screenshot: uploaded.url });
+      } else {
+        const deviceCount = deviceElements.length + (fileIdx - deviceElements.length);
+        addElement({
+          type: 'device',
+          screenshot: uploaded.url,
+          frameStyle: 'flat',
+          x: 10 + deviceCount * 20,
+          y: 15,
+          width: 12,
+          rotation: 0,
+          deviceScale: 92,
+          deviceTop: 15,
+          deviceOffsetX: 0,
+          deviceAngle: 8,
+          deviceTilt: 0,
+          cornerRadius: 0,
+          fullscreenScreenshot: false,
+          z: 5,
+        });
+      }
+    }
   };
 
   return (

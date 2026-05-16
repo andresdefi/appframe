@@ -193,6 +193,33 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   registerScreenshotRoutes(app, screenshotStorage);
   registerProjectRoutes(app, projectStorage);
 
+  // Device-frame PNGs are large (~600KB) and previously embedded as base64
+  // inside every iframe preview, producing ~3MB of duplicated data per
+  // render cycle. Serving via URL lets the browser cache one copy across
+  // all iframes and re-renders.
+  app.get('/api/device-frame', async (req, res) => {
+    const id = typeof req.query.id === 'string' ? req.query.id : '';
+    if (!id) {
+      res.status(400).json({ error: 'missing id' });
+      return;
+    }
+    try {
+      const pngPath = await getDeviceFramePath(id);
+      if (!pngPath) {
+        res.status(404).json({ error: 'device frame not found' });
+        return;
+      }
+      res.set('Content-Type', 'image/png');
+      // Device frames are content-addressed by ID and never mutate, so
+      // they're safe to cache aggressively.
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      res.sendFile(pngPath);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
   // API: Health check
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -1122,8 +1149,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
     let screenshotDataUrl: string;
     if (p.clientScreenshot) {
-      const resolved = await resolveScreenshotUrlToDataUrl(screenshotStorage, p.clientScreenshot);
-      screenshotDataUrl = resolved ?? p.clientScreenshot;
+      // Pass upload URLs through unchanged so the iframe loads the image
+      // as a normal HTTP resource and the browser caches one copy across
+      // all iframes / re-renders. Used to be resolved to a base64 data
+      // URL here for legacy Playwright export, but that path is gone.
+      screenshotDataUrl = p.clientScreenshot;
     } else {
       const screenshotPath = screen
         ? getLocalizedScreenshotPath(
@@ -1159,9 +1189,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         const deviceColor = p.deviceColor ?? config.frames.deviceColor;
         const koubouId = getDeviceId(koubouFamily.id, deviceColor || undefined);
         const pngExists = koubouId ? await getDeviceFramePath(koubouId) : null;
-        if (pngExists) {
-          const pngBuffer = await readFile(pngExists);
-          framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+        if (pngExists && koubouId) {
+          // Serve via URL so the browser caches one copy across all iframes.
+          // Was inlined as base64 — ~600KB per iframe × 5 iframes blew up
+          // browser memory on edit cycles.
+          framePngUrl = `/api/device-frame?id=${encodeURIComponent(koubouId)}`;
           frame = buildKoubouPreviewFrame(koubouFamily);
         }
       }
@@ -1304,11 +1336,10 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
         } else {
           const extra = p.extraScreenshots?.[i - 1];
           if (extra?.screenshotDataUrl) {
-            const resolvedExtra = await resolveScreenshotUrlToDataUrl(
-              screenshotStorage,
-              extra.screenshotDataUrl,
-            );
-            slotScreenshotDataUrl = resolvedExtra ?? extra.screenshotDataUrl;
+            // Pass through as URL — the iframe loads it as a normal
+            // resource. (Used to inline as base64 here; not needed since
+            // the Playwright export path was removed.)
+            slotScreenshotDataUrl = extra.screenshotDataUrl;
           } else {
             slotScreenshotDataUrl = screenshotDataUrl;
           }
@@ -1334,9 +1365,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
                 const extraPngExists = extraKoubouId
                   ? await getDeviceFramePath(extraKoubouId)
                   : null;
-                if (extraPngExists) {
-                  const extraPngBuffer = await readFile(extraPngExists);
-                  slotFramePngUrl = `data:image/png;base64,${extraPngBuffer.toString('base64')}`;
+                if (extraPngExists && extraKoubouId) {
+                  // Same URL-not-base64 treatment as the primary device.
+                  slotFramePngUrl = `/api/device-frame?id=${encodeURIComponent(extraKoubouId)}`;
                   slotFrame = {
                     id: extraKoubou.id,
                     name: extraKoubou.name,
@@ -2057,9 +2088,9 @@ async function buildPanoramicRenderedElement(args: {
             const deviceColor = element.deviceColor ?? config.frames.deviceColor;
               const koubouId = getDeviceId(koubouFamily.id, deviceColor || undefined);
               const pngPath = koubouId ? await getDeviceFramePath(koubouId) : null;
-              if (pngPath) {
-                const pngBuffer = await readFile(pngPath);
-                framePngUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+              if (pngPath && koubouId) {
+                // Same URL-not-base64 treatment as the individual mode.
+                framePngUrl = `/api/device-frame?id=${encodeURIComponent(koubouId)}`;
                 frame = buildPanoramicKoubouPreviewFrame(koubouFamily);
               }
             }

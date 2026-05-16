@@ -374,7 +374,11 @@ interface HistoryEntry {
   selectedElementIndex: number | null;
 }
 
-const MAX_HISTORY = 50;
+// Cap on the undo stack. Each entry is a deep-copy of the screen state;
+// at 25 entries the retained memory is small now that images are URLs
+// (not inline base64), and users almost never hit beyond ~10 undos in
+// practice. Was 50 — halved as a low-risk memory trim.
+const MAX_HISTORY = 25;
 const _undoStack: HistoryEntry[] = [];
 let _redoStack: HistoryEntry[] = [];
 let _skipSnapshot = false;

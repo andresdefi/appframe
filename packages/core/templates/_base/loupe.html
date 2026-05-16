@@ -25,7 +25,10 @@
 {% set imgLeft = (sx * magW - loupeW / 2) | round %}
 {% set imgTop = (sy * magH - loupeH / 2) | round %}
 
-{% set borderRadius = loupe.cornerRadius or 0 %}
+{# cornerRadius is in pixels, matching the spotlight + annotation sliders.
+   CSS naturally clamps border-radius to half the short side, so values
+   beyond that produce a pill at max. #}
+{% set borderRadiusPx = (loupe.cornerRadius or 0) | round %}
 {% set shadowCss = '' %}
 {% if loupe.shadow %}
   {% set shadowCss = 'box-shadow: ' + (loupe.shadowOffsetX or 0) + 'px ' + (loupe.shadowOffsetY or 0) + 'px ' + (loupe.shadowRadius or 30) + 'px ' + (loupe.shadowColor or '#000000') + ';' %}
@@ -37,7 +40,7 @@
   height: {{ loupeH }}px;
   left: {{ (loupePosX - loupeW / 2) | round }}px;
   top: {{ (loupePosY - loupeH / 2) | round }}px;
-  border-radius: {{ borderRadius }}%;
+  border-radius: {{ borderRadiusPx }}px;
   overflow: hidden;
   background: #000;
   {% if loupe.borderWidth > 0 %}border: {{ loupe.borderWidth }}px solid {{ loupe.borderColor }};{% endif %}

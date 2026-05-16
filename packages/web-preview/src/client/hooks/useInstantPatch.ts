@@ -433,7 +433,10 @@ export function useInstantPatch() {
       wrapper.style.height = `${loupeH}px`;
       wrapper.style.left = `${Math.round(loupePosX - loupeW / 2)}px`;
       wrapper.style.top = `${Math.round(loupePosY - loupeH / 2)}px`;
-      wrapper.style.borderRadius = `${loupe.cornerRadius ?? 0}%`;
+      // cornerRadius is in pixels, matching the spotlight + annotation
+      // sliders. CSS clamps border-radius to half the short side, so
+      // values beyond that produce a pill at max.
+      wrapper.style.borderRadius = `${loupe.cornerRadius ?? 0}px`;
 
       if ((loupe.borderWidth ?? 0) > 0) {
         wrapper.style.border = `${loupe.borderWidth}px solid ${loupe.borderColor ?? '#ffffff'}`;

@@ -103,7 +103,10 @@ export const loupeSchema = z.object({
   size: z.number().min(5).max(50).optional(),
   zoom: z.number().min(1).max(5).default(2.5),
   scale: z.number().min(1).max(3).optional(),
-  cornerRadius: z.number().min(0).max(100).default(0),
+  // Corner radius in PIXELS for the loupe wrapper. Matches the spotlight
+  // and annotation sliders — consistent units across all the extras.
+  // Capped at 200 px which is enough to fully pill any practical loupe size.
+  cornerRadius: z.number().min(0).max(200).default(0),
   borderWidth: z.number().min(0).max(10).default(0),
   borderColor: hexColor.default('#ffffff'),
   shadow: z.boolean().default(false),

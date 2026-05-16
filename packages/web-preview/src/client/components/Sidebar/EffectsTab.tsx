@@ -221,7 +221,7 @@ export function EffectsTab() {
               <RangeSlider label="Position X" value={l.displayX ?? 50} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => upd({ displayX: v })} onInstant={(v) => instantLoupe({ displayX: v })} />
               <RangeSlider label="Position Y" value={l.displayY ?? 50} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => upd({ displayY: v })} onInstant={(v) => instantLoupe({ displayY: v })} />
               <RangeSlider label="Zoom" value={l.zoom ?? 2.5} min={1} max={5} step={0.1} formatValue={(v) => `${v.toFixed(1)}x`} onChange={(v) => upd({ zoom: v })} onInstant={(v) => instantLoupe({ zoom: v })} />
-              <RangeSlider label="Corner Radius" value={Math.min(l.cornerRadius ?? 0, 50)} min={0} max={50} formatValue={(v) => `${v}%`} onChange={(v) => upd({ cornerRadius: v })} onInstant={(v) => instantLoupe({ cornerRadius: v })} />
+              <RangeSlider label="Corner Radius" value={l.cornerRadius ?? 0} min={0} max={200} formatValue={(v) => `${v}px`} onChange={(v) => upd({ cornerRadius: v })} onInstant={(v) => instantLoupe({ cornerRadius: v })} />
               <Checkbox
                 label="Border"
                 checked={(l.borderWidth ?? 0) > 0}

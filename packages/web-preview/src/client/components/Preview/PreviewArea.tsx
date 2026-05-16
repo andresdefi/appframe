@@ -802,7 +802,24 @@ function ScreenCard({
             </div>
           </>
         ) : (
-          <span className="text-text-dim font-medium truncate min-w-0 w-full text-center">{index + 1}</span>
+          <>
+            <span className="w-3 shrink-0" />
+            <span className="text-text-dim font-medium truncate min-w-0 text-center flex-1">{index + 1}</span>
+            {canRemove ? (
+              <button
+                className="text-text-dim hover:text-red-400 px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded shrink-0"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  const ok = await confirm({ title: 'Remove Screen', message: `Remove Screen ${index + 1}? This cannot be undone.` });
+                  if (ok) onRemove();
+                }}
+                title="Remove screen"
+                aria-label={`Remove screen ${index + 1}`}
+              >
+                &times;
+              </button>
+            ) : <span className="w-3 shrink-0" />}
+          </>
         )}
       </div>
 

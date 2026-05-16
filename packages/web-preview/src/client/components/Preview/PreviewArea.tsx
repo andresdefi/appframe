@@ -7,6 +7,7 @@ import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { registerIframe } from '../../utils/iframeRegistry';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
 import { isSupportedImageFile, uploadImageFileToScreen } from '../../utils/uploadImageFile';
+import { MAX_SCREENS_PER_PROJECT } from '../../utils/platformSelection';
 import type { TextPosition } from '../../types';
 
 function dataTransferHasFiles(dt: DataTransfer | null): boolean {
@@ -212,17 +213,38 @@ export function PreviewArea() {
             />
             </div>
           ))}
-          <button
-            className="shrink-0 flex items-center justify-center border-2 border-dashed border-border rounded-lg text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            style={{
-              width: Math.round(previewW * effectiveScale * 0.5),
-              height: Math.round(previewH * effectiveScale),
-            }}
-            onClick={addScreen}
-            aria-label="Add a new screen"
-          >
-            + Add Screen
-          </button>
+          {screens.length < MAX_SCREENS_PER_PROJECT ? (
+            <button
+              className="shrink-0 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-border rounded-lg text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              style={{
+                width: Math.round(previewW * effectiveScale * 0.5),
+                height: Math.round(previewH * effectiveScale),
+              }}
+              onClick={addScreen}
+              aria-label={`Add a new screen (${screens.length} of ${MAX_SCREENS_PER_PROJECT})`}
+              title={`${screens.length} of ${MAX_SCREENS_PER_PROJECT} screens used`}
+            >
+              <span>+ Add Screen</span>
+              <span className="text-[10px] text-text-dim/70 tabular-nums">
+                {screens.length}/{MAX_SCREENS_PER_PROJECT}
+              </span>
+            </button>
+          ) : (
+            <div
+              className="shrink-0 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-border/50 rounded-lg text-text-dim/50 text-xs cursor-not-allowed select-none"
+              style={{
+                width: Math.round(previewW * effectiveScale * 0.5),
+                height: Math.round(previewH * effectiveScale),
+              }}
+              title={`Maximum of ${MAX_SCREENS_PER_PROJECT} screens reached. Apple's App Store allows up to ${MAX_SCREENS_PER_PROJECT}; Google Play allows up to 8.`}
+              aria-label={`Screen limit reached: ${MAX_SCREENS_PER_PROJECT} of ${MAX_SCREENS_PER_PROJECT}`}
+            >
+              <span>Max reached</span>
+              <span className="text-[10px] text-text-dim/40 tabular-nums">
+                {MAX_SCREENS_PER_PROJECT}/{MAX_SCREENS_PER_PROJECT}
+              </span>
+            </div>
+          )}
         </div>
       </div>
       {/* Floating zoom pill — absolutely positioned at the bottom of

@@ -10,6 +10,7 @@ import type {
 } from './types';
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
+import { MAX_SCREENS_PER_PROJECT } from './utils/platformSelection';
 
 function getConfiguredLocaleText(
   locales: Record<string, LocaleConfig>,
@@ -1077,6 +1078,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     set((state) => {
       const { screens, config, platform } = state;
       if (!config) return state;
+      // Defense-in-depth: the UI also disables the Add Screen button at
+      // the cap, but the action refuses too so it can't be bypassed via
+      // keyboard shortcuts, agent calls, or future entry points.
+      if (screens.length >= MAX_SCREENS_PER_PROJECT) return state;
       pushSnapshot(state);
 
       const last = screens[screens.length - 1];

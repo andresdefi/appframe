@@ -1,6 +1,13 @@
 import type { SizeEntry } from '../store';
 import { PLATFORM_PREVIEW_SIZES } from '../types';
 
+/**
+ * Maximum number of screens per project. Matches Apple's App Store limit
+ * of 10 screenshots per device family. Google Play allows 8 per device
+ * type, so capping at 10 covers both stores without splitting by platform.
+ */
+export const MAX_SCREENS_PER_PROJECT = 10;
+
 export function getPlatformPreviewSize(platform: string) {
   return PLATFORM_PREVIEW_SIZES[platform] ?? PLATFORM_PREVIEW_SIZES.iphone!;
 }

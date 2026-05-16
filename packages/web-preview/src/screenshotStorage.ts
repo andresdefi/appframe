@@ -225,7 +225,12 @@ export function registerScreenshotRoutes(app: Express, options: ScreenshotStorag
       return;
     }
     res.set('Content-Type', read.contentType);
-    res.set('Cache-Control', 'no-store');
+    // Filenames are content-addressed (collision auto-suffixes to
+    // foo-2.png / foo-3.png), so a URL → content mapping is stable
+    // for the lifetime of the file. Cache aggressively so the browser
+    // reuses the image across page refreshes too, not just across iframes
+    // within one session.
+    res.set('Cache-Control', 'public, max-age=3600, immutable');
     res.send(read.buffer);
   });
 }

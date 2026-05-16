@@ -188,11 +188,11 @@ export function EffectsTab() {
               ]}
             />
             <ColorPicker label="Color" value={ann.strokeColor} onChange={(v) => updateAnnotation(idx, { strokeColor: v })} />
-            <RangeSlider label="X" value={ann.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { x: v })} onInstant={(v) => instantAnnotation(idx, { x: v })} />
-            <RangeSlider label="Y" value={ann.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { y: v })} onInstant={(v) => instantAnnotation(idx, { y: v })} />
+            <RangeSlider label="Position X" value={ann.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { x: v })} onInstant={(v) => instantAnnotation(idx, { x: v })} />
+            <RangeSlider label="Position Y" value={ann.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { y: v })} onInstant={(v) => instantAnnotation(idx, { y: v })} />
             <RangeSlider label="Width" value={ann.w} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { w: v })} onInstant={(v) => instantAnnotation(idx, { w: v })} />
             <RangeSlider label="Height" value={ann.h} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { h: v })} onInstant={(v) => instantAnnotation(idx, { h: v })} />
-            <RangeSlider label="Stroke" value={ann.strokeWidth} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => updateAnnotation(idx, { strokeWidth: v })} onInstant={(v) => instantAnnotation(idx, { strokeWidth: v })} />
+            <RangeSlider label="Stroke Width" value={ann.strokeWidth} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => updateAnnotation(idx, { strokeWidth: v })} onInstant={(v) => instantAnnotation(idx, { strokeWidth: v })} />
             {ann.shape !== 'circle' && (
               <RangeSlider
                 label="Corner Radius"
@@ -227,10 +227,10 @@ export function EffectsTab() {
           const upd = (partial: Record<string, unknown>) => update({ loupe: { ...l, ...partial } });
           return (
             <div className={!screen.loupe ? 'opacity-40 pointer-events-none' : ''}>
-              <RangeSlider label="Width" value={l.width} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ width: v })} onInstant={(v) => instantLoupe({ width: v })} />
-              <RangeSlider label="Height" value={l.height} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ height: v })} onInstant={(v) => instantLoupe({ height: v })} />
               <RangeSlider label="Position X" value={l.displayX ?? 50} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => upd({ displayX: v })} onInstant={(v) => instantLoupe({ displayX: v })} />
               <RangeSlider label="Position Y" value={l.displayY ?? 50} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => upd({ displayY: v })} onInstant={(v) => instantLoupe({ displayY: v })} />
+              <RangeSlider label="Width" value={l.width} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ width: v })} onInstant={(v) => instantLoupe({ width: v })} />
+              <RangeSlider label="Height" value={l.height} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ height: v })} onInstant={(v) => instantLoupe({ height: v })} />
               <RangeSlider label="Zoom" value={l.zoom ?? 2.5} min={1} max={5} step={0.1} formatValue={(v) => `${v.toFixed(1)}x`} onChange={(v) => upd({ zoom: v })} onInstant={(v) => instantLoupe({ zoom: v })} />
               <RangeSlider label="Corner Radius" value={l.cornerRadius ?? 0} min={0} max={200} formatValue={(v) => `${v}px`} onChange={(v) => upd({ cornerRadius: v })} onInstant={(v) => instantLoupe({ cornerRadius: v })} />
               <Checkbox
@@ -281,15 +281,15 @@ export function EffectsTab() {
             title={`Callout ${idx + 1}`}
             onRemove={() => removeCallout(idx)}
           >
-            <RangeSlider label="Callout Width" value={co.sourceW} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceW: v })} onInstant={(v) => instantCallout(idx, { sourceW: v })} />
-            <RangeSlider label="Vertical Size" value={co.sourceH} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceH: v })} onInstant={(v) => instantCallout(idx, { sourceH: v })} />
-            <RangeSlider label="Horizontal Placement" value={co.displayX} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayX: v })} onInstant={(v) => instantCallout(idx, { displayX: v })} />
-            <RangeSlider label="Vertical Placement" value={co.displayY} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayY: v })} onInstant={(v) => instantCallout(idx, { displayY: v })} />
+            <RangeSlider label="Position X" value={co.displayX} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayX: v })} onInstant={(v) => instantCallout(idx, { displayX: v })} />
+            <RangeSlider label="Position Y" value={co.displayY} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayY: v })} onInstant={(v) => instantCallout(idx, { displayY: v })} />
+            <RangeSlider label="Width" value={co.sourceW} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceW: v })} onInstant={(v) => instantCallout(idx, { sourceW: v })} />
+            <RangeSlider label="Height" value={co.sourceH} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceH: v })} onInstant={(v) => instantCallout(idx, { sourceH: v })} />
             <RangeSlider label="Zoom" value={Math.round(co.displayScale * 100)} min={50} max={300} step={1} formatValue={(v) => `${(v / 100).toFixed(2)}x`} onChange={(v) => updateCallout(idx, { displayScale: v / 100 })} onInstant={(v) => instantCallout(idx, { displayScale: v / 100 })} />
             <RangeSlider label="Card Popout" value={Math.round((co.cardScale ?? 1) * 100)} min={50} max={300} step={1} formatValue={(v) => `${(v / 100).toFixed(2)}x`} onChange={(v) => updateCallout(idx, { cardScale: v / 100 })} onInstant={(v) => instantCallout(idx, { cardScale: v / 100 })} />
             <RangeSlider label="Rotation" value={co.rotation} min={-45} max={45} formatValue={(v) => `${v}\u00B0`} onChange={(v) => updateCallout(idx, { rotation: v })} onInstant={(v) => instantCallout(idx, { rotation: v })} />
-            <RangeSlider label="Corner Radius" value={co.borderRadius} min={0} max={30} formatValue={(v) => `${v}px`} onChange={(v) => updateCallout(idx, { borderRadius: v })} onInstant={(v) => instantCallout(idx, { borderRadius: v })} />
             <RangeSlider label="Card Padding" value={co.padding ?? 0} min={0} max={10} step={0.5} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { padding: v })} onInstant={(v) => instantCallout(idx, { padding: v })} />
+            <RangeSlider label="Corner Radius" value={co.borderRadius} min={0} max={30} formatValue={(v) => `${v}px`} onChange={(v) => updateCallout(idx, { borderRadius: v })} onInstant={(v) => instantCallout(idx, { borderRadius: v })} />
             <Checkbox
               label="Card Background"
               checked={!!co.background}

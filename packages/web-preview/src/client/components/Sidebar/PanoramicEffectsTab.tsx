@@ -160,11 +160,11 @@ export function PanoramicEffectsTab() {
               ]}
             />
             <ColorPicker label="Color" value={ann.strokeColor} onChange={(v) => updateAnnotation(idx, { strokeColor: v })} />
-            <RangeSlider label="X" value={ann.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { x: v })} />
-            <RangeSlider label="Y" value={ann.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { y: v })} />
+            <RangeSlider label="Position X" value={ann.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { x: v })} />
+            <RangeSlider label="Position Y" value={ann.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { y: v })} />
             <RangeSlider label="Width" value={ann.w} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { w: v })} />
             <RangeSlider label="Height" value={ann.h} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { h: v })} />
-            <RangeSlider label="Stroke" value={ann.strokeWidth} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => updateAnnotation(idx, { strokeWidth: v })} />
+            <RangeSlider label="Stroke Width" value={ann.strokeWidth} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => updateAnnotation(idx, { strokeWidth: v })} />
             {ann.shape !== 'circle' && (
               <RangeSlider
                 label="Corner Radius"
@@ -210,8 +210,8 @@ export function PanoramicEffectsTab() {
                 { value: 'custom', label: 'Custom' },
               ]}
             />
-            <RangeSlider label="X" value={ov.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { x: v })} />
-            <RangeSlider label="Y" value={ov.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { y: v })} />
+            <RangeSlider label="Position X" value={ov.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { x: v })} />
+            <RangeSlider label="Position Y" value={ov.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { y: v })} />
             <RangeSlider label="Size" value={ov.size} min={1} max={50} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { size: v })} />
             <RangeSlider label="Rotation" value={ov.rotation} min={-180} max={180} formatValue={(v) => `${v}\u00B0`} onChange={(v) => updateOverlay(idx, { rotation: v })} />
             <RangeSlider label="Opacity" value={Math.round(ov.opacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { opacity: v / 100 })} />

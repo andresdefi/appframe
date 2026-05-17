@@ -4,10 +4,9 @@ Open-source tool for generating professional App Store & Play Store promotional 
 
 ## Tech Stack
 - TypeScript (strict mode) with Node.js
-- pnpm monorepo with 5 packages: core, cli, mcp-server, web-preview, store-upload
-- Playwright for HTML-to-PNG rendering
+- pnpm monorepo with 2 packages: core, web-preview
+- Client-side `modern-screenshot` for the export render pipeline; Playwright is dev-only (E2E tests)
 - Nunjucks + Tailwind CSS for templates
-- Commander.js for CLI
 - YAML for per-app config files
 
 ## Code Conventions
@@ -19,10 +18,7 @@ Open-source tool for generating professional App Store & Play Store promotional 
 
 ## Project Structure
 - `packages/core/` — Config loading, template engine, rendering pipeline, frame management
-- `packages/cli/` — Commander.js CLI, depends on core
-- `packages/mcp-server/` — MCP server for AI agent integration, depends on core
-- `packages/web-preview/` — Vite-based local preview UI, depends on core
-- `packages/store-upload/` — App Store Connect + Google Play API upload, depends on core
+- `packages/web-preview/` — Vite-based local preview UI + Express server, depends on core
 - `frames/` — Device frame SVG/PNG assets with manifest.json
 - `fonts/` — Bundled open-source fonts
 
@@ -48,16 +44,13 @@ The Background tab ships with a curated catalog (50 solid colors + 66 gradients 
 
 What IS open for the catalog: **bundled high-quality image / texture / photo presets** added directly to the repo as static assets (license-cleared, hand-curated, no runtime API). New categories like "Photo", "Texture", "Abstract" can be added the same way the existing Solid/Gradient categories work — sourced upstream, organized by category, rendered as preset tiles in the catalog. The Image preset type can store either a data URL (current user-upload path) or a bundled asset URL.
 
-### Client-side export (deferred)
-The web UI currently exports via Playwright on the server. For a future hosted version of appframe, the export should move client-side (html-to-image style) to avoid per-export Chromium boots and server queue pressure. Full plan + phasing + open questions in `docs/client-side-export-plan.md`. Trigger to pick this up: hosted-version decision, or export speed becomes a top complaint.
-
 ### Multi-locale screenshot sets (deferred)
-The current locale model is text-overlay only (one shared `screens` array, headlines swapped per locale) and relies on an OpenAI translation backend. The desired model: independent screen sets per locale, each with its own device screenshots and copy. The Locale dropdown in the Export tab has been hidden until this lands. Full plan + data-model change + phased rollout in `docs/multi-locale-screenshot-sets.md`. Couples naturally with the client-side-export work since both touch the rendering pipeline.
+The current locale model is text-overlay only (one shared `screens` array, headlines swapped per locale) and relies on an OpenAI translation backend. The desired model: independent screen sets per locale, each with its own device screenshots and copy. The Locale dropdown in the Export tab has been hidden until this lands. Full plan + data-model change + phased rollout in `docs/multi-locale-screenshot-sets.md`.
 
-### before.click gap list → editing primitives (task #16)
+### before.click gap list → editing primitives
 Captured earlier: layer system, rich-text headlines, split / banded backgrounds, device bleed-off-canvas, multi-device collage, text-pattern backgrounds, z-order control. Pick the top 3–5 and scope a plan.
 
-### Agent skill (task #17)
+### Agent skill
 Rewrite `skills/appframe-screenshots/SKILL.md` from scratch using before.click vocabulary. The old one was deleted alongside autopilot — the new one should describe the agent-drives-design-appframe-renders flow and the editing primitives the agent should reach for.
 
 ### Device frames — quality pass needed

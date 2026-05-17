@@ -392,8 +392,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // What a brand-new project looks like client-side. Mirrors the server's
-// createDefaultConfig (server.ts) — minimal shell with no screens. The
-// user can hit "+ Add Screen" to start building.
+// createDefaultConfig (server.ts) but trimmed to 3 placeholder screens
+// — a totally empty canvas is too intimidating to start from, and 5
+// placeholders is overkill for a fresh project.
 function createFreshProjectConfig(): AppframeConfig {
   return {
     mode: 'individual',
@@ -415,7 +416,32 @@ function createFreshProjectConfig(): AppframeConfig {
       fontWeight: 600,
     },
     frames: { style: 'flat' },
-    screens: [],
+    screens: [
+      {
+        screenshot: '__placeholder__',
+        headline: 'Your headline here',
+        subtitle: 'Add a subtitle for extra context',
+        layout: 'center',
+        composition: 'single',
+        annotations: [],
+      },
+      {
+        screenshot: '__placeholder__',
+        headline: 'Highlight a key feature',
+        subtitle: 'Describe what makes it special',
+        layout: 'angled-right',
+        composition: 'single',
+        annotations: [],
+      },
+      {
+        screenshot: '__placeholder__',
+        headline: 'Show your app in action',
+        subtitle: '',
+        layout: 'center',
+        composition: 'single',
+        annotations: [],
+      },
+    ],
     output: {
       platforms: ['ios'],
       directory: './output',

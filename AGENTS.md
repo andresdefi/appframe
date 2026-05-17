@@ -25,7 +25,6 @@ Open-source tool for generating professional App Store & Play Store promotional 
 - `packages/store-upload/` — App Store Connect + Google Play API upload, depends on core
 - `frames/` — Device frame SVG/PNG assets with manifest.json
 - `fonts/` — Bundled open-source fonts
-- `examples/` — Example app configs and screenshots
 
 ## Build
 - `pnpm build` — Build all packages
@@ -60,9 +59,6 @@ Captured earlier: layer system, rich-text headlines, split / banded backgrounds,
 
 ### Agent skill (task #17)
 Rewrite `skills/appframe-screenshots/SKILL.md` from scratch using before.click vocabulary. The old one was deleted alongside autopilot — the new one should describe the agent-drives-design-appframe-renders flow and the editing primitives the agent should reach for.
-
-### Remove remaining `style` field (Phase B.2)
-`STYLE_PRESETS` was flattened to a single BASELINE; the enum `style: TemplateStyle` still carries 47 call sites through schema / engine / client. Removing it cleans up dead surface area. Not urgent since everything resolves to BASELINE, but it's lingering debt.
 
 ### Device frames — quality pass needed
 Current frames are not up to standard. 3D frame style was removed in the 2026-05-14 hygiene pass (templates, schema value, store shim, engine branch, frameBorderRadius field, manifest entries — all gone). The replacement plan for visible-edge / depth / metallic-bezel devices is open. When picked up: design the approach first, do not resurrect the old `frameStyle == '3d'` path — it had a structural problem (CSS `filter` + `transform-style: preserve-3d` on the same element flattens 3D; the inner-face wrapper workaround rendered correctly in CSS but still looked flat in Playwright). Anything new should ship as part of the frame definitions / SVGs, not as a runtime style flag.

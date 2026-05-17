@@ -25,7 +25,6 @@ Open-source tool for generating professional App Store & Play Store promotional 
 - `packages/store-upload/` — App Store Connect + Google Play API upload, depends on core
 - `frames/` — Device frame SVG/PNG assets with manifest.json
 - `fonts/` — Bundled open-source fonts
-- `examples/` — Example app configs and screenshots
 
 ## Build
 - `pnpm build` — Build all packages

@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "appframe": {
-      "command": "node",
-      "args": ["/Users/bastianvidela/appframe/packages/mcp-server/dist/index.js"]
-    }
-  }
-}

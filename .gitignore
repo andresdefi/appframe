@@ -14,8 +14,6 @@ Thumbs.db
 !.vscode/settings.json
 .idea/
 .playwright-cli/
-.serena/project.yml
-.serena/memories/
 
 # Environment
 .env
@@ -35,6 +33,3 @@ test-results/
 
 # Build artifacts
 *.tgz
-
-# Local-only reference / test screenshots
-reference-screenshots/Jobee Pro/

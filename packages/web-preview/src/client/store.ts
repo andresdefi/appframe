@@ -391,6 +391,38 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+// What a brand-new project looks like client-side. Mirrors the server's
+// createDefaultConfig (server.ts) — minimal shell with no screens. The
+// user can hit "+ Add Screen" to start building.
+function createFreshProjectConfig(): AppframeConfig {
+  return {
+    mode: 'individual',
+    app: {
+      name: 'My App',
+      description: 'App Store screenshot preview',
+      platforms: ['ios'],
+      features: [],
+    },
+    theme: {
+      colors: {
+        primary: '#2563EB',
+        secondary: '#7C3AED',
+        background: '#F8FAFC',
+        text: '#0F172A',
+        subtitle: '#64748B',
+      },
+      font: 'inter',
+      fontWeight: 600,
+    },
+    frames: { style: 'flat' },
+    screens: [],
+    output: {
+      platforms: ['ios'],
+      directory: './output',
+    },
+  } as AppframeConfig;
+}
+
 function makeId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -1059,6 +1091,28 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
 
   hydrateProjectSnapshot: (snapshot) => {
     const state = get();
+    // Brand-new projects are persisted as literal `{}` on the server
+    // (see projectStorage.ts:createProject). Treat empty/incomplete
+    // snapshots as a fresh-project signal: reset to canonical defaults
+    // and seed a default Concept A variant. Without this, falling back
+    // to current state would leak the previous project's screens /
+    // panoramic / variants / etc. into the new project.
+    const isFresh =
+      !isRecord(snapshot) ||
+      (!('screens' in snapshot) &&
+        !('panoramicElements' in snapshot) &&
+        !('variants' in snapshot));
+
+    if (isFresh) {
+      // Reuse initScreens — it already handles the full reset (screens
+      // from the synthetic config, panoramic defaults, a fresh Concept A
+      // variant, locale, etc.). Default the platform to iphone for a
+      // fresh project so the user starts from a canonical setup
+      // regardless of what platform the previous project used.
+      get().initScreens(createFreshProjectConfig(), 'iphone');
+      return;
+    }
+
     const fallback = variantSnapshotFromState(state);
     const coerced = coerceVariantSnapshot(snapshot, fallback);
     const candidate = isRecord(snapshot) ? snapshot : {};

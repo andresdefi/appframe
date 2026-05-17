@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { flushSync } from 'react-dom';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
 import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, putLiveConfig, loadProject, fetchProjects, touchProject } from './utils/api';
@@ -69,9 +70,14 @@ export function App() {
       setPickerOpen(false);
       return;
     }
-    // Temporarily disable autosave so the upcoming hydration doesn't echo
-    // straight back to disk for the new project. Re-enable after the swap.
-    setAutosaveEnabled(false);
+    // flushSync forces the autosave effect's cleanup to run synchronously
+    // here. The cleanup flushes any pending save with the CURRENT
+    // (pre-hydrate) state to the OLD project's URL. Without flushSync,
+    // the cleanup would defer to the next React commit and end up
+    // running AFTER hydrate — at which point it would read post-hydrate
+    // state and write it to the OLD project URL, corrupting the OLD
+    // project on every switch.
+    flushSync(() => setAutosaveEnabled(false));
     try {
       const result = await loadProject(name);
       if (result.kind === 'corrupt' || result.kind === 'futureSchema') {

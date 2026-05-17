@@ -122,6 +122,28 @@ function projectFilePath(root: string, project: string): string {
 }
 
 /**
+ * Write a file atomically: serialize to `<path>.tmp`, then rename
+ * over the destination. A crash between write and rename leaves the
+ * previous good file (or no file) in place — never a half-written
+ * partial file. Used for both appframe.json and meta.json so a power
+ * cut mid-save can't corrupt either one.
+ */
+async function writeFileAtomically(path: string, contents: string): Promise<void> {
+  const tmpPath = `${path}.tmp`;
+  await writeFile(tmpPath, contents, 'utf-8');
+  try {
+    await rename(tmpPath, path);
+  } catch (err) {
+    try {
+      await unlink(tmpPath);
+    } catch {
+      // ignore — best-effort cleanup
+    }
+    throw err;
+  }
+}
+
+/**
  * Writes the project JSON atomically: write to `.tmp` then rename. A crash
  * between write and rename leaves the previous good file (or no file) on
  * disk — never a half-written `appframe.json`.
@@ -136,25 +158,12 @@ export async function writeProject(
   const dir = projectDir(options.projectsRoot, safeProject);
   await mkdir(dir, { recursive: true });
   const absPath = projectFilePath(options.projectsRoot, safeProject);
-  const tmpPath = `${absPath}.tmp`;
   const envelope: ProjectEnvelope = {
     schemaVersion: PROJECT_SCHEMA_VERSION,
     savedAt: now().toISOString(),
     data,
   };
-  const serialized = JSON.stringify(envelope, null, 2);
-  await writeFile(tmpPath, serialized, 'utf-8');
-  try {
-    await rename(tmpPath, absPath);
-  } catch (err) {
-    // If rename fails, try to clean up the tmp file so it doesn't linger.
-    try {
-      await unlink(tmpPath);
-    } catch {
-      // ignore
-    }
-    throw err;
-  }
+  await writeFileAtomically(absPath, JSON.stringify(envelope, null, 2));
   // Stamp the same savedAt onto meta.json so listProjects can sort the
   // picker without parsing every appframe.json. Preserve the existing
   // displayName / createdAt / lastOpenedAt when the meta already exists;
@@ -282,7 +291,9 @@ async function readMetaSafe(root: string, project: string): Promise<Partial<Proj
 async function writeMeta(root: string, project: string, meta: ProjectMeta): Promise<void> {
   const dir = projectDir(root, project);
   await mkdir(dir, { recursive: true });
-  await writeFile(metaPath(root, project), JSON.stringify(meta, null, 2), 'utf-8');
+  // Atomic write so a crash mid-save can't leave a zero-byte meta.json
+  // (which would silently lose the project's display name on next list).
+  await writeFileAtomically(metaPath(root, project), JSON.stringify(meta, null, 2));
 }
 
 export async function touchProject(

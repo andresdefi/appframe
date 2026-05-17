@@ -340,6 +340,25 @@ describe('savedAt in meta.json', () => {
     expect(meta.savedAt).toBeTruthy();
   });
 
+  it('writeMeta is atomic: a stale .tmp file does not corrupt the readable meta', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha', () => new Date('2026-01-01T00:00:00Z'));
+    const metaPath = join(options.projectsRoot, 'alpha', 'meta.json');
+    // Simulate a crashed prior write — a stale .tmp file sitting next
+    // to the real meta. The next writeMeta (triggered by touchProject)
+    // should still produce a valid meta.json, and the stale .tmp
+    // should not survive in a way that breaks listProjects.
+    await writeFile(`${metaPath}.tmp`, '{not json', 'utf-8');
+    await touchProject(options, 'alpha', () => new Date('2026-06-01T12:00:00Z'));
+    const meta = JSON.parse(await readFile(metaPath, 'utf-8')) as { lastOpenedAt: string };
+    expect(meta.lastOpenedAt).toBe('2026-06-01T12:00:00.000Z');
+    // listProjects should walk past the .tmp leftover without crashing
+    // and report the real project.
+    const projects = await listProjects(options);
+    expect(projects).toHaveLength(1);
+    expect(projects[0]!.name).toBe('alpha');
+  });
+
   it('renameProject (same-slug, display-name-only) preserves the previous savedAt', async () => {
     const options = await makeRoot();
     await createProject(options, 'my-app');

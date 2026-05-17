@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { usePreviewStore, projectSnapshotFromState, type ProjectSnapshot } from '../store';
 import { saveProject } from '../utils/api';
 import { createSaveScheduler } from '../utils/saveScheduler';
+import { slimProjectSnapshot } from '../utils/screenSerialization';
 
 const DEBOUNCE_MS = 500;
 
@@ -41,20 +42,26 @@ export function useProjectAutosave({
     const scheduler = createSaveScheduler<ProjectSnapshot>({
       debounceMs,
       save: (snapshot, mode) => {
+        // Slim screen fields at the JSON-boundary: fields that still
+        // match STATIC_SCREEN_DEFAULTS are stripped, shrinking the
+        // persisted file by roughly 3-5x without changing in-memory
+        // behaviour. fattenScreen in applyVariantSnapshot re-injects
+        // the defaults on load.
+        const slimmed = slimProjectSnapshot(snapshot);
         if (mode === 'sync') {
           // keepalive lets the request outlive a page unload (Chrome,
           // Firefox, Safari all support it for fetch in modern versions).
           fetch(`/api/projects/${encodeURIComponent(project)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(snapshot),
+            body: JSON.stringify(slimmed),
             keepalive: true,
           }).catch(() => {
             // best effort — nothing we can do once the page is gone
           });
           return;
         }
-        saveProject(snapshot, project).catch((err: unknown) => {
+        saveProject(slimmed, project).catch((err: unknown) => {
           console.warn('Project autosave failed', err);
         });
       },

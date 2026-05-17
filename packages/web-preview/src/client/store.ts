@@ -11,6 +11,7 @@ import type {
 import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
 import { MAX_SCREENS_PER_PROJECT } from './utils/platformSelection';
+import { fattenScreen } from './utils/screenSerialization';
 
 function getConfiguredLocaleText(
   locales: Record<string, LocaleConfig>,
@@ -549,10 +550,14 @@ function applyVariantSnapshot(
     // Backfill stable id for older snapshots that pre-date the field.
     // Also backfill the freeText fields for snapshots saved before that
     // feature shipped — defaults match createScreenState.
-    screens: deepCopy(snapshot.screens).map((s) => {
-      // Backfill per-element font/weight: older snapshots persisted these
-      // as null (meaning "inherit from screen.font"). The cascade is gone,
-      // so concrete defaults are required.
+    //
+    // Slimming at save time strips fields that match STATIC_SCREEN_DEFAULTS
+    // (see utils/screenSerialization). fattenScreen re-injects those
+    // defaults here so consumers downstream still see a full ScreenState.
+    // The ad-hoc backfills below remain for theme-derived fields that
+    // aren't part of the static-defaults set.
+    screens: deepCopy(snapshot.screens).map((rawScreen) => {
+      const s = fattenScreen(rawScreen) as ScreenState;
       const fallbackFont = s.font ?? 'inter';
       const next: ScreenState = {
         ...s,

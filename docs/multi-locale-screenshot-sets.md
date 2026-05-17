@@ -2,6 +2,10 @@
 
 Status: in progress. Original doc captured 2026-05-13; revised 2026-05-17
 after analyzing against the current codebase and locking the UX shape.
+Revised again 2026-05-18 after the Download tab cleanup landed the
+export infrastructure (ZIP bundling, folder layout, per-project slug
+naming) ahead of Phase 5 — see the Phase 5 row for what that leaves
+to do.
 
 ## Why we're doing this
 
@@ -89,17 +93,23 @@ locale set.
 ## Format / file naming
 
 YAML vs JSON is a non-issue here: the web preview persists each project
-as `appframe.json`. `loadConfig()` still parses YAML for CLI use, but
-the CLI package was deleted in an earlier cleanup pass. Schema (Zod) is
-format-agnostic.
+as `appframe.json`. `loadConfig()` still parses YAML, but only for the
+preview server's `--config` flag (see `packages/web-preview/src/bin.ts`);
+no other consumer remains since the CLI package was deleted. Schema
+(Zod) is format-agnostic — the in-memory shape is what matters.
 
 Per-locale screenshot files live at
 `locales[code].screens[i].screenshot` — an explicit path per locale per
 screen. No path-template convention; the user uploads through the UI
 and the server writes it.
 
-Export naming: `<locale>/screen-N.png` (or, in the panoramic case,
-`<locale>/frame-N.png`).
+Export layout (inside the ZIP, at the archive root): `<locale>/screen-N.png`
+(or in panoramic mode, `<locale>/frame-N.png`). macOS Archive Utility
+wraps the multi-entry ZIP in a folder named after the archive
+(`<project-slug>-screens/`), so the extracted shape is
+`<project-slug>-screens/<locale>/screen-N.png`. The pre-multi-locale
+shape (already shipped) is the same minus the `<locale>/` layer:
+`<project-slug>-screens/screen-N.png`.
 
 ## What gets removed
 
@@ -119,14 +129,15 @@ Export naming: `<locale>/screen-N.png` (or, in the panoramic case,
 
 | Phase | Work | Effort |
 |-------|------|--------|
-| 1 | Add `label?: string` to `LocaleConfig`; "Add Locale" / "Remove Locale" store actions; "Reuse default screenshots?" prompt; locale-picker UI (built-in ~80 ISO codes + display names) in a temp tab so the data flow is testable | 1 session |
+| 1 | Add `label?: string` to `LocaleConfig`; "Add Locale" / "Remove Locale" store actions; "Reuse default screenshots?" prompt; locale-picker UI (built-in ~80 ISO codes + display names). Temporary placement (e.g. a button at the bottom of the canvas or under the Download tab) just to exercise the data layer — Phase 2 replaces it with the canvas-row-header UX, so don't invest in styling | 1 session |
 | 2 | Stacked-rows preview canvas (active = live iframes, inactive = cached PNGs captured via `modern-screenshot`, refresh gated by intersection observer + data-change subscription) | 2 sessions |
 | 3 | Sidebar scoping + edit routing: (a) disable structural tabs when active row is non-default with inline hint; (b) route headline / subtitle / free-text edits to `sessionLocales[locale].screens[i]` instead of `screens[i]` whenever the active locale isn't default. Today those edits write straight to the default `screens` array; the store already has `upsertLocaleConfig` for the override path — Phase 3 wires the Text tab through it. | 1 session |
 | 4 | Per-locale screenshot upload affordance on non-default rows; falls back to default when not set | 1 session |
-| 5 | Export iteration: locale multi-select in the Download tab; `<locale>/screen-N.png` naming; manifest captures all locales | 1 session |
+| 5 | Export iteration. Infrastructure is **already built** as of commit 8121361 (ZIP bundling via `bundleAsZip`, per-project slug naming, folder-from-relPath layout). What's left: (a) add a locale multi-select control to the Download tab so the user picks which locales to include, defaulting to all; (b) change the relPath builder from `screen-N.png` to `${locale}/screen-N.png`; (c) iterate the render loop over selected locales × screens. No manifest — the `manifestName` field was dropped from `VariantArtifact` in the same cleanup, and nothing was reading it anyway | 0.5 session |
 | 6 | Drop `translation.ts`, `/api/translate-locale`, the `localization` xcstrings schema, and dead branches in `previewShared.ts` / `devices/assets.ts` | 1 session |
 
-~6–8 focused sessions.
+~5.5–7.5 focused sessions (down from the previous estimate now that
+Phase 5 is mostly pre-built).
 
 ## Scale ceiling
 

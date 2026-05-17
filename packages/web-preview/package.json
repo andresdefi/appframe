@@ -37,6 +37,7 @@
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "framer-motion": "^12.38.0",
+    "jszip": "^3.10.1",
     "lucide-static": "^1.14.0",
     "modern-screenshot": "^4.7.0",
     "react": "^18.3.1",

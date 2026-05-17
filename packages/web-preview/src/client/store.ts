@@ -171,7 +171,6 @@ export interface VariantArtifact {
   sizeKey: string;
   renderer: string;
   fileNames: string[];
-  manifestName: string;
   outputDir?: string;
   filePaths?: string[];
   configPath?: string;

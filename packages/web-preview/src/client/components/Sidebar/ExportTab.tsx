@@ -6,6 +6,7 @@ import { reloadProject } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
 import { exportScreenClientSide, exportPanoramicSlicesClientSide } from '../../utils/clientExport';
+import { bundleAsZip, type ZipEntry } from '../../utils/zipExport';
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -126,7 +127,9 @@ export function ExportTab() {
 
   // Panoramic batch export. Rasterizes the wide canvas once and slices it
   // into N per-frame PNGs — one render plus N cheap canvas crops, no
-  // per-frame server round-trips.
+  // per-frame server round-trips. Slices are bundled into one ZIP so
+  // the user gets a single download with the right folder structure
+  // (forward-compatible with multi-locale's output/<locale>/ layout).
   const handlePanoramicExportAll = async () => {
     if (!config) return;
     const sizeSpec = platformSizes.find((s) => s.key === resolvedExportSize);
@@ -144,23 +147,24 @@ export function ExportTab() {
         sizeSpec.width,
         sizeSpec.height,
       );
+      const entries: ZipEntry[] = [];
       const fileNames: string[] = [];
       for (let i = 0; i < slices.length; i++) {
-        const fileName = `${exportSlug}-frame-${i + 1}.png`;
-        downloadBlob(slices[i]!, fileName);
+        const fileName = `frame-${i + 1}.png`;
+        entries.push({ relPath: fileName, blob: slices[i]! });
         fileNames.push(fileName);
-        // Brief pause between Save dialogs / writes.
-        await new Promise((r) => setTimeout(r, 250));
       }
-      if (slices.length > 0) {
+      if (entries.length > 0) {
+        setStatus(`Bundling ${entries.length} frames...`);
+        const zipBlob = await bundleAsZip(entries);
+        downloadBlob(zipBlob, `${exportSlug}-frames.zip`);
         recordVariantArtifact({
           kind: 'frames',
           locale,
           mode: 'panoramic',
-          renderer: 'playwright',
+          renderer: 'modern-screenshot',
           sizeKey: resolvedExportSize,
           fileNames,
-          manifestName: `${exportSlug}-manifest.json`,
         });
       }
       const ms = Math.round(performance.now() - t0);
@@ -217,9 +221,13 @@ export function ExportTab() {
       return;
     }
     setExporting(true);
-    let exported = 0;
+    const entries: ZipEntry[] = [];
     const fileNames: string[] = [];
     const t0 = performance.now();
+    // Render all screens into in-memory blobs first, then bundle once.
+    // Avoids the previous N-individual-downloads UX which Chrome / Safari
+    // throttle behind a confirm dialog after ~2-3 files from the same
+    // origin and which can't produce any folder structure.
     for (let i = 0; i < screens.length; i++) {
       const screen = screens[i];
       if (!screen) continue;
@@ -237,31 +245,36 @@ export function ExportTab() {
           sizeSpec.width,
           sizeSpec.height,
         );
-        const fileName = `${exportSlug}-screen-${i + 1}.png`;
-        downloadBlob(blob, fileName);
+        const fileName = `screen-${i + 1}.png`;
+        // Files live at the ZIP root. macOS's Archive Utility wraps a
+        // multi-entry ZIP in a folder named after the archive itself
+        // (impostor-party-game-screens/) so we get a clean per-project
+        // extract directory for free. Forward-compatible with
+        // multi-locale: relPath becomes `<locale>/screen-N.png` once
+        // that lands, still at the ZIP root.
+        entries.push({ relPath: fileName, blob });
         fileNames.push(fileName);
-        exported++;
-        // Brief pause between Save File dialogs / disk writes.
-        await new Promise((resolve) => setTimeout(resolve, 250));
       } catch (err) {
         setStatus(`Error on screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
       }
     }
-    if (exported > 0) {
+    if (entries.length > 0) {
+      setStatus(`Bundling ${entries.length} screens...`);
+      const zipBlob = await bundleAsZip(entries);
+      downloadBlob(zipBlob, `${exportSlug}-screens.zip`);
       recordVariantArtifact({
         kind: 'screens',
         locale,
         mode: 'individual',
-        renderer: 'playwright',
+        renderer: 'modern-screenshot',
         sizeKey: resolvedExportSize,
         fileNames,
-        manifestName: `${exportSlug}-manifest.json`,
       });
     }
     const ms = Math.round(performance.now() - t0);
     setExporting(false);
-    setStatus(`Downloaded ${exported} of ${screens.length} screens in ${ms}ms`);
-    setToast(`Downloaded ${exported} screenshots`);
+    setStatus(`Downloaded ${entries.length} of ${screens.length} screens in ${ms}ms`);
+    setToast(`Downloaded ${entries.length} screenshots`);
   };
 
   const handleReload = async () => {

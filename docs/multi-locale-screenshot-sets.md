@@ -121,7 +121,7 @@ Export naming: `<locale>/screen-N.png` (or, in the panoramic case,
 |-------|------|--------|
 | 1 | Add `label?: string` to `LocaleConfig`; "Add Locale" / "Remove Locale" store actions; "Reuse default screenshots?" prompt; locale-picker UI (built-in ~80 ISO codes + display names) in a temp tab so the data flow is testable | 1 session |
 | 2 | Stacked-rows preview canvas (active = live iframes, inactive = cached PNGs captured via `modern-screenshot`, refresh gated by intersection observer + data-change subscription) | 2 sessions |
-| 3 | Sidebar scoping: disable structural tabs when active row is non-default, show inline hint | 1 session |
+| 3 | Sidebar scoping + edit routing: (a) disable structural tabs when active row is non-default with inline hint; (b) route headline / subtitle / free-text edits to `sessionLocales[locale].screens[i]` instead of `screens[i]` whenever the active locale isn't default. Today those edits write straight to the default `screens` array; the store already has `upsertLocaleConfig` for the override path — Phase 3 wires the Text tab through it. | 1 session |
 | 4 | Per-locale screenshot upload affordance on non-default rows; falls back to default when not set | 1 session |
 | 5 | Export iteration: locale multi-select in the Download tab; `<locale>/screen-N.png` naming; manifest captures all locales | 1 session |
 | 6 | Drop `translation.ts`, `/api/translate-locale`, the `localization` xcstrings schema, and dead branches in `previewShared.ts` / `devices/assets.ts` | 1 session |

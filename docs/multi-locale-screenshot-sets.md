@@ -1,153 +1,167 @@
-# Multi-Locale Screenshot Sets — Future Work
+# Multi-Locale Screenshot Sets — Plan
 
-Status: deferred. Captured 2026-05-13.
+Status: in progress. Original doc captured 2026-05-13; revised 2026-05-17
+after analyzing against the current codebase and locking the UX shape.
 
 ## Why we're doing this
 
-Apple and Google's stores accept distinct screenshot sets per locale, and the difference is meaningful — the device screenshots themselves usually show the localized in-app UI, not just translated overlay text. A Spanish set wants Spanish in-app screens; a Japanese set wants Japanese in-app screens. Headlines and subtitles change too, but they're the smaller part.
+Apple and Google's stores accept distinct screenshot sets per locale, and
+the difference is meaningful — the device screenshots themselves usually
+show the localized in-app UI, not just translated overlay text. A Spanish
+set wants Spanish in-app screens; a Japanese set wants Japanese in-app
+screens. Headlines and subtitles change too, but they're the smaller
+part.
 
-The current appframe locale model can't represent this. It treats "locale" as a text-overlay toggle on top of a single shared `screens` array. Device screenshots are fixed across locales, headlines/subtitles are swapped via a `sessionLocales` map, and the only path to populating a new locale is an OpenAI auto-translate call that fails silently when `OPENAI_API_KEY` isn't set.
+The current locale flow can't represent this cleanly. It exposes a hidden
+OpenAI auto-translate path that swaps overlay text only; device
+screenshots are fixed across locales. We're replacing it with a
+fork-from-default model: the user finishes the default set, then adds
+locales as forks that can diverge in text and/or screenshots.
 
-The goal: a user builds one screenshot set (say, Norwegian), then clicks "Add Spanish" / "Add English" / etc. to spin off independent copies. Each copy has its own screens, its own device-screenshot uploads, its own copy. Exports iterate over every locale set × every screen × every output size.
+## Mental model
 
-## What we're building
+**Default is canonical.** Structural fields — frame, layout, background,
+effects, composition, device position — live on the default `screens[i]`
+and apply to every locale. A change to the default device frame shows up
+in Spanish, French, and Japanese automatically.
 
-### Data model
+**Locales only carry text + optional screenshot.** A `locales[code]`
+entry holds, per screen, the overridden headline, subtitle, free text,
+and optionally a localized screenshot path. Everything else cascades from
+default.
 
-Today:
+**Locales are added after the default is finished.** Editing a non-default
+locale in the sidebar is scoped to Text + Screenshot only; structural
+tabs are disabled with a "switch to Default to edit structural settings"
+hint. This is a UI affordance, not a data-model constraint — the model
+inherently can't store structural overrides per locale.
+
+## Why the original doc's data-model refactor isn't needed
+
+The 2026-05-13 doc proposed introducing a `localeSets[]` array as a major
+schema refactor. Re-reading the schema today
+(`packages/core/src/config/schema.ts:438-441`):
 
 ```ts
-{
-  screens: Screen[],
-  locale: 'es',
-  sessionLocales: { es: { headlines: ['...'], subtitles: ['...'] } },
-}
+locales: Record<string, LocaleConfig>
+LocaleConfig = { screens?: { headline, subtitle, screenshot? }[], panoramic? }
 ```
 
-Target:
+This already models exactly what we want: default `screens` + sparse
+per-locale overrides. The "add a `localeSets[]` array" refactor was
+proposing a more aggressive restructuring that doesn't match the actual
+edit shape. We're keeping the existing schema and adding `label?:
+string` to `LocaleConfig` for the display name.
 
-```ts
-{
-  localeSets: [
-    { locale: 'no', label: 'Norwegian', screens: Screen[] },
-    { locale: 'es', label: 'Spanish', screens: Screen[] },
-    { locale: 'en', label: 'English', screens: Screen[] },
-  ],
-  activeLocaleSetIndex: 0,
-}
-```
+## UI shape
 
-Each `Screen` keeps its existing shape (headline, subtitle, device screenshot, frame, layout, effects, overlays). The set is the new container.
-
-### UI shape
-
-The preview area today shows a single horizontal strip of screens. The new model shows N stacked strips:
+The preview canvas renders one row per locale, stacked vertically:
 
 ```
-┌─ Norwegian ───────────────────────────────────────┐
+┌─ Default ─────────────────────────────────────────┐
 │ [screen 1] [screen 2] [screen 3] [+ Add Screen]   │
 └───────────────────────────────────────────────────┘
 ┌─ Spanish ─────────────────────────────────────────┐
-│ [screen 1] [screen 2] [screen 3] [+ Add Screen]   │
+│ [screen 1] [screen 2] [screen 3]                  │
 └───────────────────────────────────────────────────┘
-┌─ English ─────────────────────────────────────────┐
-│ [screen 1] [screen 2] [screen 3] [+ Add Screen]   │
+┌─ Portuguese ──────────────────────────────────────┐
+│ [screen 1] [screen 2] [screen 3]                  │
 └───────────────────────────────────────────────────┘
 
 [+ Add Locale]
 ```
 
-Per-row controls: rename label, set active, delete, optionally collapse. The active row uses live iframes for editing; inactive rows show cached static images that re-render lazily when activated.
+- **Active row** uses live iframes for editing (same `ScreenCard` shape
+  as today).
+- **Inactive rows** show cached static PNGs captured via
+  `modern-screenshot`, refreshed lazily when the underlying data changes
+  (intersection-observer-gated so off-screen rows don't recapture on
+  every edit).
+- **Row header** shows the locale label, set-active button, and remove.
+- **+ Add Locale** opens a picker (search a built-in list of ~80 ISO
+  codes + display names matching Apple's storefronts). On select: copy
+  the default screens' text into `locales[code]`, prompt "Reuse default
+  screenshots, or upload new ones?", and create the new row.
 
-### Editing model
+The current Variants axis stays orthogonal — every variant has its own
+locale set.
 
-Most existing editor actions affect "the current screen." The new model adds the question "in which locale row?" — and the answer is usually "just this row." But there's a class of edits where the user probably wants to mirror the change across all rows:
+## Format / file naming
 
-- Changing the device frame (Pro Max → 17 Pro)
-- Changing the layout
-- Changing background/effects
-- Adding/removing a screen position (a new screen added in Norwegian needs a corresponding slot in Spanish and English)
+YAML vs JSON is a non-issue here: the web preview persists each project
+as `appframe.json`. `loadConfig()` still parses YAML for CLI use, but
+the CLI package was deleted in an earlier cleanup pass. Schema (Zod) is
+format-agnostic.
 
-So edit operations need a `scope: 'this-row' | 'all-rows' | 'ask-me'` choice. Default depends on the edit type — text edits default to this-row, structural edits default to all-rows.
+Per-locale screenshot files live at
+`locales[code].screens[i].screenshot` — an explicit path per locale per
+screen. No path-template convention; the user uploads through the UI
+and the server writes it.
 
-### Export iteration
+Export naming: `<locale>/screen-N.png` (or, in the panoramic case,
+`<locale>/frame-N.png`).
 
-Today's "Download all N screens" loops N screens × 1 size × 1 locale. New model loops N screens × R locale sets × S sizes. File naming changes from `screen-1.png` to `<locale>/screen-1.png` or `screen-1-<locale>.png`. Export-tab UI gets a "locales to include" multi-select (defaults to all rows that exist).
+## What gets removed
 
-## Scale targets
-
-Apple supports ~40 storefront locales globally; Google Play supports ~75. A power user with all of them and 10 screens each would have 400-750 preview tiles in the workspace. Realistic working set is more like 5-15 locales for most apps.
-
-**Rendering ceilings:**
-
-- ~100-200 small DOM tiles renders fine in any modern browser
-- Live iframes are heavy (~10-30MB each) — only the active row should use them
-- Inactive rows use cached static images that lazily refresh when activated or when the data model changes
-
-**The Nunjucks+Playwright render path bottlenecks at ~5-8 locales.** Each tile costs hundreds of ms to render server-side. This is one of the reasons the client-side-export work matters — once rendering moves to React components in the browser, the per-tile cost drops to tens of ms and scaling to 30+ locales becomes feasible. The two refactors are coupled.
+- **`packages/web-preview/src/translation.ts`** — the OpenAI auto-translate
+  call. Manual fork-and-edit replaces it; agents can be asked to
+  translate a locale row directly.
+- **`packages/web-preview/src/routes/translate.ts`** and the
+  `/api/translate-locale` endpoint.
+- **`localization` schema block** in `packages/core/src/config/schema.ts`
+  (the xcstrings mode). It has zero UI, zero docs, exists as a parallel
+  code path through `previewShared.ts` and `devices/assets.ts`, and the
+  schema enforces it's mutually exclusive with `locales`. With the
+  fork-from-default model we don't need a second path.
+- Any client API helpers that called the translation endpoint.
 
 ## Phased rollout
 
-### Phase 1 — Data model migration (3-5 days)
+| Phase | Work | Effort |
+|-------|------|--------|
+| 1 | Add `label?: string` to `LocaleConfig`; "Add Locale" / "Remove Locale" store actions; "Reuse default screenshots?" prompt; locale-picker UI (built-in ~80 ISO codes + display names) in a temp tab so the data flow is testable | 1 session |
+| 2 | Stacked-rows preview canvas (active = live iframes, inactive = cached PNGs captured via `modern-screenshot`, refresh gated by intersection observer + data-change subscription) | 2 sessions |
+| 3 | Sidebar scoping: disable structural tabs when active row is non-default, show inline hint | 1 session |
+| 4 | Per-locale screenshot upload affordance on non-default rows; falls back to default when not set | 1 session |
+| 5 | Export iteration: locale multi-select in the Download tab; `<locale>/screen-N.png` naming; manifest captures all locales | 1 session |
+| 6 | Drop `translation.ts`, `/api/translate-locale`, the `localization` xcstrings schema, and dead branches in `previewShared.ts` / `devices/assets.ts` | 1 session |
 
-- Add `localeSets[]` to the Zustand store
-- Migrate the existing `screens` array into `localeSets[0].screens`
-- Update every selector and action that touches `screens` to go through `localeSets[activeLocaleSetIndex].screens`
-- YAML schema: add a `locales: [{ locale: 'no', screens: [...] }, ...]` shape. Older single-set YAMLs auto-migrate to one set on load.
-- Backwards compat: existing project YAMLs keep working. The current single-set CLI users see no change.
-- **Don't change the UI yet.** Internal refactor only.
+~6–8 focused sessions.
 
-### Phase 2 — UI for multiple rows (3-5 days)
+## Scale ceiling
 
-- Preview canvas renders N stacked rows
-- "+ Add Locale" button creates a new row by duplicating the active row
-- Per-row header with label, rename, set-active, delete
-- Inactive rows render as static image strips
-- Sidebar tabs operate on the active row (current behavior, just scoped)
+With client-side export shipped, the rendering pipeline is React +
+`modern-screenshot`, not the Nunjucks + server-Playwright path the
+original doc was sized against. The old "5–8 locales" ceiling no longer
+applies.
 
-### Phase 3 — Edit scoping (2-3 days)
+Practical ceilings on a typical laptop (13" MacBook Air, Safari):
 
-- Add the `scope` choice to structural edits (device frame, layout, background, screen add/remove)
-- "Apply to all locales" checkbox in the relevant tabs, or a per-edit confirmation modal
-- Sensible defaults per edit type
+- **Up to ~15 locales × 10 screens** → comfortable. ~150 cached <img>
+  tiles, sub-second row switching, snappy refresh on structural edits
+  even with the visible-rows-only optimization off.
+- **15–30 locales** → workable. Need intersection-observer-gated refresh
+  (only re-capture rows visible or about to scroll into view) and edit
+  debouncing on the default row so a slider drag doesn't trigger a full
+  refresh cascade.
+- **30–40+ locales (Apple's full storefront set)** → requires a visible
+  "regenerating…" indicator after structural edits + lazy off-screen
+  refresh. Achievable but the UI needs to communicate the cost.
 
-### Phase 4 — Export iteration (1-2 days)
+Real numbers depend on screen complexity (more effects/overlays = bigger
+captured PNGs); we'll know firmer ceilings once Phase 2 ships and we can
+profile on real projects.
 
-- Export tab gets a locale multi-select
-- "Download all" iterates locales × screens × sizes
-- File naming convention: `<variant>/<locale>/<n>-<headline-slug>.png`
-- For "Export Approved Artifact" in session-backed mode, the manifest captures all locales
+## Open decisions (locked)
 
-### Phase 5 — Drop the OpenAI translation feature entirely (1 hour)
-
-- Remove `packages/web-preview/src/translation.ts`
-- Remove `/api/translate-locale` endpoint
-- Remove `fetchAutoTranslateLocale` client API
-- Update CLAUDE.md to note translation is no longer auto-magic; users translate by hand or by asking their AI agent to translate the active row
-
-AI assistance for translation becomes an agent-driven flow ("ask Claude to translate this row into Spanish") rather than a hardcoded backend dependency.
-
-**Realistic total: 2-3 weeks of focused work.**
-
-## Open questions before starting
-
-1. **YAML schema migration.** Should the YAML format change to put screens inside locales, or keep the current flat shape with a sibling `localized:` map? The flat shape is more backwards-compatible; the nested shape models the actual data better.
-2. **Device-screenshot files on disk.** Today each screen has one `screenshot:` path. Per-locale screenshots need either per-locale paths or a path-template (`screens/<n>-<locale>.png`). Path templates are cleaner but require the user to organize files predictably.
-3. **What happens when the user adds a 7th screen to the Norwegian row but the Spanish row only has 6?** Auto-create a placeholder in Spanish, or leave Spanish at 6 and warn at export? The "structural edits default to all rows" rule says auto-create.
-4. **Variants × locales.** Variants (Concept A / Concept B) already exist as another axis. Are locales orthogonal — every variant has its own locale set — or does a locale's screens carry across all variants? Probably orthogonal, but needs deciding.
-
-## Why we deferred this
-
-- The current text-overlay locale flow technically "works" for the OpenAI happy path, even though it's not what most users actually need
-- The data-model refactor in Phase 1 touches central editor state and needs careful testing
-- It pairs naturally with the client-side-export plan since both refactors hit the rendering pipeline — better to do them together or sequence them carefully
-- Higher-priority items right now: finishing the Download tab audit, more sidebar polish, the before.click feature gaps
-
-## When to pick this up
-
-Pre-conditions:
-- Decision made on whether to ship the hosted version (most localization scaling pain shows up in a SaaS context, not local CLI)
-- Or: a user complaint about being unable to ship per-locale screenshots
-- Or: the client-side-export work lands first, opening the door to cheap multi-tile rendering
-
-The first task on day one: lock the YAML schema (open question 1), since every subsequent decision depends on it.
+- **Schema reshape:** none. Keep `locales: Record<string, LocaleConfig>`;
+  add `label?: string`.
+- **Structural edits on non-default rows:** disallowed at the UI level
+  (sidebar scoping), enforced by the data model (locales can't store
+  structural fields).
+- **Locale labels:** ISO code as the key, optional display name as the UI
+  label. Built-in catalog of ~80 codes shipped with the picker.
+- **`localization` (xcstrings) mode:** dropped.
+- **OpenAI auto-translate:** dropped.
+- **Variants × locales:** orthogonal — every variant has its own
+  `locales` map.

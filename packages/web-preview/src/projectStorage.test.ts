@@ -340,6 +340,48 @@ describe('savedAt in meta.json', () => {
     expect(meta.savedAt).toBeTruthy();
   });
 
+  it('touchProject re-derives meta with the current META_SCHEMA_VERSION', async () => {
+    // Document the silent-rewrite behaviour: a meta written with an
+    // older or future schemaVersion gets overwritten with the current
+    // version on the next touch. Acceptable for now (meta is auxiliary
+    // — losing future fields here doesn't destroy user content), but
+    // worth pinning so we notice if someone changes it.
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    const metaPath = join(options.projectsRoot, 'alpha', 'meta.json');
+    const original = JSON.parse(await readFile(metaPath, 'utf-8')) as Record<string, unknown>;
+    // Inject a future schemaVersion + an unknown field.
+    await writeFile(
+      metaPath,
+      JSON.stringify({ ...original, schemaVersion: 99, futureField: 'preserved?' }),
+      'utf-8',
+    );
+    await touchProject(options, 'alpha', () => new Date('2026-06-01T12:00:00Z'));
+    const after = JSON.parse(await readFile(metaPath, 'utf-8')) as Record<string, unknown>;
+    // schemaVersion gets downgraded to the current version we know.
+    expect(after.schemaVersion).toBe(1);
+    // Unknown fields don't survive the round-trip.
+    expect(after.futureField).toBeUndefined();
+    // Known fields still update / persist normally.
+    expect(after.lastOpenedAt).toBe('2026-06-01T12:00:00.000Z');
+  });
+
+  it('listProjects reads a legacy meta.json that has no schemaVersion', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    await writeProject(options, 'alpha', { headline: 'hi' });
+    const metaPath = join(options.projectsRoot, 'alpha', 'meta.json');
+    // Strip schemaVersion to simulate a meta written before the field
+    // existed (or hand-edited).
+    const meta = JSON.parse(await readFile(metaPath, 'utf-8')) as Record<string, unknown>;
+    delete meta.schemaVersion;
+    await writeFile(metaPath, JSON.stringify(meta), 'utf-8');
+    const projects = await listProjects(options);
+    expect(projects).toHaveLength(1);
+    expect(projects[0]!.name).toBe('alpha');
+    expect(projects[0]!.displayName).toBe('alpha');
+  });
+
   it('writeMeta is atomic: a stale .tmp file does not corrupt the readable meta', async () => {
     const options = await makeRoot();
     await createProject(options, 'alpha', () => new Date('2026-01-01T00:00:00Z'));

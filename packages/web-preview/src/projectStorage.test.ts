@@ -263,6 +263,101 @@ describe('createProject / listProjects / touchProject', () => {
   });
 });
 
+describe('savedAt in meta.json', () => {
+  it('writeProject stamps savedAt into meta.json', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    await writeProject(options, 'alpha', { headline: 'hi' }, () => new Date('2026-06-01T12:00:00Z'));
+    const metaRaw = await readFile(join(options.projectsRoot, 'alpha', 'meta.json'), 'utf-8');
+    const meta = JSON.parse(metaRaw) as { savedAt?: string };
+    expect(meta.savedAt).toBe('2026-06-01T12:00:00.000Z');
+  });
+
+  it('writeProject preserves displayName / createdAt / lastOpenedAt when updating meta', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha', () => new Date('2026-01-01T00:00:00Z'));
+    await touchProject(options, 'alpha', () => new Date('2026-02-01T00:00:00Z'));
+    await writeProject(options, 'alpha', { headline: 'edit' }, () => new Date('2026-03-01T00:00:00Z'));
+    const meta = JSON.parse(
+      await readFile(join(options.projectsRoot, 'alpha', 'meta.json'), 'utf-8'),
+    ) as { displayName: string; createdAt: string; lastOpenedAt: string; savedAt: string };
+    expect(meta.displayName).toBe('alpha');
+    expect(meta.createdAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(meta.lastOpenedAt).toBe('2026-02-01T00:00:00.000Z');
+    expect(meta.savedAt).toBe('2026-03-01T00:00:00.000Z');
+  });
+
+  it('listProjects reports savedAt from meta.json (no need to parse appframe.json)', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    await writeProject(options, 'alpha', { headline: 'hi' }, () => new Date('2026-06-01T12:00:00Z'));
+    const projects = await listProjects(options);
+    expect(projects).toHaveLength(1);
+    expect(projects[0]!.savedAt).toBe('2026-06-01T12:00:00.000Z');
+  });
+
+  it('listProjects falls back to the appframe.json mtime when meta lacks savedAt', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    await writeProject(options, 'alpha', { headline: 'hi' });
+    // Simulate a meta.json from before savedAt was added — strip the
+    // savedAt field while preserving everything else.
+    const metaPath = join(options.projectsRoot, 'alpha', 'meta.json');
+    const meta = JSON.parse(await readFile(metaPath, 'utf-8')) as Record<string, unknown>;
+    delete meta.savedAt;
+    await writeFile(metaPath, JSON.stringify(meta), 'utf-8');
+    const projects = await listProjects(options);
+    expect(projects[0]!.savedAt).toBeTruthy();
+    // Should be the appframe.json file mtime, which is roughly "now".
+    const ageMs = Date.now() - new Date(projects[0]!.savedAt).getTime();
+    expect(ageMs).toBeGreaterThanOrEqual(0);
+    expect(ageMs).toBeLessThan(60_000);
+  });
+
+  it('touchProject does not clobber savedAt', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    await writeProject(options, 'alpha', { headline: 'hi' }, () => new Date('2026-01-01T00:00:00Z'));
+    await touchProject(options, 'alpha', () => new Date('2026-06-01T12:00:00Z'));
+    const meta = JSON.parse(
+      await readFile(join(options.projectsRoot, 'alpha', 'meta.json'), 'utf-8'),
+    ) as { savedAt?: string; lastOpenedAt: string };
+    expect(meta.savedAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(meta.lastOpenedAt).toBe('2026-06-01T12:00:00.000Z');
+  });
+
+  it('renameProject (cross-slug) preserves savedAt in the new meta', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    await writeProject(options, 'alpha', { headline: 'hi' }, () => new Date('2026-01-01T00:00:00Z'));
+    await renameProject(options, 'alpha', 'beta');
+    const meta = JSON.parse(
+      await readFile(join(options.projectsRoot, 'beta', 'meta.json'), 'utf-8'),
+    ) as { savedAt?: string };
+    // The rewrite-URLs step inside renameProject calls writeProject,
+    // which restamps savedAt. The point is that the meta has a savedAt
+    // and listProjects can use it without parsing appframe.json.
+    expect(meta.savedAt).toBeTruthy();
+  });
+
+  it('renameProject (same-slug, display-name-only) preserves the previous savedAt', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'my-app');
+    await writeProject(
+      options,
+      'my-app',
+      { headline: 'hi' },
+      () => new Date('2026-01-01T00:00:00Z'),
+    );
+    // Slug stays 'my-app' — only the display name changes.
+    await renameProject(options, 'my-app', 'My App!');
+    const meta = JSON.parse(
+      await readFile(join(options.projectsRoot, 'my-app', 'meta.json'), 'utf-8'),
+    ) as { savedAt?: string };
+    expect(meta.savedAt).toBe('2026-01-01T00:00:00.000Z');
+  });
+});
+
 describe('renameProject / duplicateProject / deleteProject', () => {
   it('renameProject moves the directory and rewrites meta', async () => {
     const options = await makeRoot();

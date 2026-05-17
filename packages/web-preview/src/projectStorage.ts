@@ -155,6 +155,30 @@ export async function writeProject(
     }
     throw err;
   }
+  // Stamp the same savedAt onto meta.json so listProjects can sort the
+  // picker without parsing every appframe.json. Preserve the existing
+  // displayName / createdAt / lastOpenedAt when the meta already exists;
+  // synthesize sensible defaults when it doesn't (e.g. for a project
+  // created by hand outside the UI).
+  const existingMeta = await readMetaSafe(options.projectsRoot, safeProject);
+  const meta: ProjectMeta = {
+    schemaVersion: META_SCHEMA_VERSION,
+    name: safeProject,
+    displayName:
+      typeof existingMeta?.displayName === 'string' && existingMeta.displayName.length > 0
+        ? existingMeta.displayName
+        : safeProject,
+    createdAt:
+      typeof existingMeta?.createdAt === 'string' && existingMeta.createdAt.length > 0
+        ? existingMeta.createdAt
+        : envelope.savedAt,
+    lastOpenedAt:
+      typeof existingMeta?.lastOpenedAt === 'string' && existingMeta.lastOpenedAt.length > 0
+        ? existingMeta.lastOpenedAt
+        : envelope.savedAt,
+    savedAt: envelope.savedAt,
+  };
+  await writeMeta(options.projectsRoot, safeProject, meta);
   return { absPath, savedAt: envelope.savedAt };
 }
 
@@ -219,6 +243,14 @@ export interface ProjectMeta {
   displayName: string;
   createdAt: string;
   lastOpenedAt: string;
+  /**
+   * ISO timestamp of the most recent appframe.json write. Duplicated
+   * here so listProjects can sort the picker by recency without having
+   * to open and parse every project's content file. Older meta files
+   * may lack this field; listProjects falls back to the appframe.json
+   * mtime in that case.
+   */
+  savedAt?: string;
 }
 
 export interface ProjectSummary {
@@ -275,6 +307,12 @@ export async function touchProject(
         ? existing.createdAt
         : isoNow,
     lastOpenedAt: isoNow,
+    // touchProject only bumps lastOpenedAt — preserve the previous
+    // savedAt so opening a project doesn't make it appear "more recently
+    // saved" than it actually is.
+    ...(typeof existing?.savedAt === 'string' && existing.savedAt.length > 0
+      ? { savedAt: existing.savedAt }
+      : {}),
   };
   await writeMeta(options.projectsRoot, safeProject, meta);
   return meta;
@@ -313,21 +351,11 @@ export async function listProjects(options: ProjectStorageOptions): Promise<Proj
 
     const projectFile = join(projectPath, PROJECT_FILE);
     let hasProjectFile = false;
-    let savedAt = '';
+    let projectFileMtime: Date | null = null;
     try {
       const s = await stat(projectFile);
       hasProjectFile = s.isFile();
-      // Read savedAt from the file content if available, falling back to
-      // the file's mtime so the picker still has a useful sort key when an
-      // older file lacks the field.
-      if (hasProjectFile) {
-        try {
-          const env = await readProject(options, name);
-          savedAt = env?.savedAt ?? s.mtime.toISOString();
-        } catch {
-          savedAt = s.mtime.toISOString();
-        }
-      }
+      projectFileMtime = s.mtime;
     } catch {
       // No project file — skip.
       continue;
@@ -335,7 +363,16 @@ export async function listProjects(options: ProjectStorageOptions): Promise<Proj
 
     if (!hasProjectFile) continue;
 
+    // Read meta.json once. Both displayName + savedAt + timestamps come
+    // from here so we don't have to parse the (much larger)
+    // appframe.json just to populate the picker row. Falls back to the
+    // appframe.json mtime for savedAt when meta lacks the field (older
+    // files created before savedAt moved into meta).
     const meta = await readMetaSafe(root, name);
+    const savedAt =
+      (typeof meta?.savedAt === 'string' && meta.savedAt.length > 0
+        ? meta.savedAt
+        : projectFileMtime?.toISOString()) ?? '';
     summaries.push({
       name,
       displayName:
@@ -426,6 +463,9 @@ export async function renameProject(
       displayName: trimmed,
       createdAt: typeof existing?.createdAt === 'string' ? existing.createdAt : '',
       lastOpenedAt: typeof existing?.lastOpenedAt === 'string' ? existing.lastOpenedAt : '',
+      ...(typeof existing?.savedAt === 'string' && existing.savedAt.length > 0
+        ? { savedAt: existing.savedAt }
+        : {}),
     };
     await writeMeta(options.projectsRoot, safeFrom, meta);
     return meta;
@@ -454,6 +494,12 @@ export async function renameProject(
     displayName: trimmed,
     createdAt: typeof existing?.createdAt === 'string' ? existing.createdAt : '',
     lastOpenedAt: typeof existing?.lastOpenedAt === 'string' ? existing.lastOpenedAt : '',
+    // Renaming doesn't change content; preserve the savedAt that
+    // writeProject (via the rewrite step above, if it fired) already
+    // wrote, otherwise inherit from the source meta.
+    ...(typeof existing?.savedAt === 'string' && existing.savedAt.length > 0
+      ? { savedAt: existing.savedAt }
+      : {}),
   };
   await writeMeta(options.projectsRoot, baseSlug, meta);
   return meta;

@@ -758,8 +758,11 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   variants: [],
   activeVariantId: null,
   recommendedVariantId: null,
-  activeProject: 'default',
-  activeProjectDisplayName: 'default',
+  // Empty until App.tsx's init() resumes the most-recent project or
+  // auto-creates the first one. Reading this before init completes is
+  // a bug — autosave + uploads both require a real project name.
+  activeProject: '',
+  activeProjectDisplayName: '',
   platform: 'iphone',
   previewW: 400,
   previewH: 868,

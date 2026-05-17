@@ -7,7 +7,8 @@ const DEBOUNCE_MS = 500;
 
 export interface UseProjectAutosaveOptions {
   enabled: boolean;
-  project?: string;
+  /** Active project slug. Required; the hook becomes a no-op if empty. */
+  project: string;
   debounceMs?: number;
 }
 
@@ -19,16 +20,22 @@ export interface UseProjectAutosaveOptions {
  *
  * The first store change after `enabled` flips true is skipped — it lets
  * the boot hydration settle without triggering an immediate echo save.
+ *
+ * Becomes a no-op if `project` is empty (e.g. during boot before
+ * App.tsx has resumed or auto-created a project) — without this guard
+ * we'd PUT /api/projects/ which 404s and corrupts the autosave loop.
  */
 export function useProjectAutosave({
   enabled,
-  project = 'default',
+  project,
   debounceMs = DEBOUNCE_MS,
 }: UseProjectAutosaveOptions): void {
   const skipNextRef = useRef(true);
 
   useEffect(() => {
     if (!enabled) return;
+    // Empty project = not booted yet. Don't subscribe — see header comment.
+    if (!project) return;
     skipNextRef.current = true;
 
     const scheduler = createSaveScheduler<ProjectSnapshot>({

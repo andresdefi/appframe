@@ -112,7 +112,8 @@ export type LoadProjectResult<T = unknown> =
   | { kind: 'corrupt'; message: string }
   | { kind: 'futureSchema'; message: string; schemaVersion: number };
 
-export async function loadProject<T = unknown>(project = 'default'): Promise<LoadProjectResult<T>> {
+export async function loadProject<T = unknown>(project: string): Promise<LoadProjectResult<T>> {
+  if (!project) throw new Error('loadProject: project name is required');
   const res = await fetch(`${API}/api/projects/${encodeURIComponent(project)}`);
   if (res.status === 404) return { kind: 'missing' };
   if (res.status === 422) {
@@ -134,9 +135,10 @@ export async function loadProject<T = unknown>(project = 'default'): Promise<Loa
 
 export async function saveProject(
   data: unknown,
-  project = 'default',
+  project: string,
   signal?: AbortSignal,
 ): Promise<{ savedAt: string }> {
+  if (!project) throw new Error('saveProject: project name is required');
   const res = await fetch(`${API}/api/projects/${encodeURIComponent(project)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

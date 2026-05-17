@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
-import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, putLiveConfig, loadProject, fetchProjects, touchProject } from './utils/api';
+import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, putLiveConfig, loadProject, fetchProjects, touchProject, createProject as createProjectApi } from './utils/api';
 import { useProjectAutosave } from './hooks/useProjectAutosave';
 import { HeaderBar } from './components/HeaderBar';
 // Eager imports: tabs that the user sees first and most often.
@@ -177,40 +177,49 @@ export function App() {
         initScreens(cfg, platform);
 
         // Phase 3: auto-resume the most-recently-opened project on boot.
-        // The picker (HeaderBar button) lets the user switch / create /
-        // rename / delete later. The store has valid defaults from
-        // initScreens above, so a hydration that's missing fields still
-        // produces a usable view.
-        let resumeProject = 'default';
-        let resumeDisplayName = 'default';
+        // First-launch (zero projects exist): auto-create one named
+        // "Untitled 1" so the user lands in a real, named project from
+        // the start instead of a magic 'default' slug. Subsequent boots
+        // resume whatever was most recently opened.
+        let resumeProject = '';
+        let resumeDisplayName = '';
         try {
           const projects = await fetchProjects();
           if (projects.length > 0) {
             resumeProject = projects[0]!.name; // sorted by lastOpenedAt desc
             resumeDisplayName = projects[0]!.displayName;
+          } else {
+            // No projects yet — first launch. The server's createProject
+            // handles collision-avoidance (Untitled 1 → Untitled 1-2 if
+            // already taken) so we can ask for the same name confidently.
+            const meta = await createProjectApi('Untitled 1');
+            resumeProject = meta.name;
+            resumeDisplayName = meta.displayName;
           }
         } catch (err) {
-          console.warn('Project listing failed', err);
+          console.warn('Project listing / first-launch creation failed', err);
         }
 
-        try {
-          const result = await loadProject(resumeProject);
-          if (result.kind === 'loaded') {
-            hydrateProjectSnapshot(result.envelope.data);
-            setActiveProject(resumeProject, resumeDisplayName);
-            // Best-effort: bump lastOpenedAt so subsequent boots resume
-            // this project. Failing here shouldn't block the UI.
-            touchProject(resumeProject).catch(() => {});
-          } else if (result.kind === 'corrupt' || result.kind === 'futureSchema') {
-            // Don't silently destroy the file — surface so the user can decide.
-            setError(`Could not restore the saved project: ${result.message}`);
-            return;
-          } else {
-            // No saved project on disk — keep activeProject='default'.
-            // The autosave hook will create the file on first edit.
+        if (resumeProject) {
+          try {
+            const result = await loadProject(resumeProject);
+            if (result.kind === 'loaded') {
+              hydrateProjectSnapshot(result.envelope.data);
+              setActiveProject(resumeProject, resumeDisplayName);
+              // Best-effort: bump lastOpenedAt so subsequent boots resume
+              // this project. Failing here shouldn't block the UI.
+              touchProject(resumeProject).catch(() => {});
+            } else if (result.kind === 'corrupt' || result.kind === 'futureSchema') {
+              // Don't silently destroy the file — surface so the user can decide.
+              setError(`Could not restore the saved project: ${result.message}`);
+              return;
+            } else {
+              // Missing — autosave will create the file on first edit.
+              setActiveProject(resumeProject, resumeDisplayName);
+            }
+          } catch (err) {
+            console.warn('Project restore failed', err);
           }
-        } catch (err) {
-          console.warn('Project restore failed', err);
         }
         setAutosaveEnabled(true);
 

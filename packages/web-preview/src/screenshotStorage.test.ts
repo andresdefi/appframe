@@ -68,13 +68,14 @@ describe('writeScreenshotFromDataUrl', () => {
   it('round-trips a PNG: bytes on disk match the decoded data URL', async () => {
     const options = await makeRoot();
     const written = await writeScreenshotFromDataUrl(options, {
+      project: 'alpha',
       filename: 'home.png',
       dataUrl: TINY_PNG_DATA_URL,
     });
-    expect(written.project).toBe('default');
+    expect(written.project).toBe('alpha');
     expect(written.filename).toBe('home.png');
     expect(written.relPath).toBe('screenshots/home.png');
-    expect(written.url).toBe('/api/screenshots/default/home.png');
+    expect(written.url).toBe('/api/screenshots/alpha/home.png');
     const onDisk = await readFile(written.absPath);
     const expected = Buffer.from(TINY_PNG_BASE64, 'base64');
     expect(onDisk.equals(expected)).toBe(true);
@@ -84,10 +85,12 @@ describe('writeScreenshotFromDataUrl', () => {
   it('disambiguates collisions instead of clobbering', async () => {
     const options = await makeRoot();
     const a = await writeScreenshotFromDataUrl(options, {
+      project: 'alpha',
       filename: 'home.png',
       dataUrl: TINY_PNG_DATA_URL,
     });
     const b = await writeScreenshotFromDataUrl(options, {
+      project: 'alpha',
       filename: 'home.png',
       dataUrl: TINY_PNG_DATA_URL,
     });
@@ -99,6 +102,7 @@ describe('writeScreenshotFromDataUrl', () => {
   it('slugifies risky stems', async () => {
     const options = await makeRoot();
     const written = await writeScreenshotFromDataUrl(options, {
+      project: 'alpha',
       filename: 'My Screen 1!!.png',
       dataUrl: TINY_PNG_DATA_URL,
     });
@@ -108,7 +112,11 @@ describe('writeScreenshotFromDataUrl', () => {
   it('refuses unsupported extensions', async () => {
     const options = await makeRoot();
     await expect(
-      writeScreenshotFromDataUrl(options, { filename: 'a.exe', dataUrl: TINY_PNG_DATA_URL }),
+      writeScreenshotFromDataUrl(options, {
+        project: 'alpha',
+        filename: 'a.exe',
+        dataUrl: TINY_PNG_DATA_URL,
+      }),
     ).rejects.toThrow(/unsupported file extension/);
   });
 
@@ -117,7 +125,7 @@ describe('writeScreenshotFromDataUrl', () => {
     await expect(
       writeScreenshotFromDataUrl(
         { ...options, maxBytes: 8 },
-        { filename: 'big.png', dataUrl: TINY_PNG_DATA_URL },
+        { project: 'alpha', filename: 'big.png', dataUrl: TINY_PNG_DATA_URL },
       ),
     ).rejects.toThrow(/exceeds/);
   });
@@ -126,6 +134,7 @@ describe('writeScreenshotFromDataUrl', () => {
     const options = await makeRoot();
     await expect(
       writeScreenshotFromDataUrl(options, {
+        project: 'alpha',
         filename: 'a.png',
         dataUrl: 'https://evil.example.com/x.png',
       }),
@@ -142,16 +151,38 @@ describe('writeScreenshotFromDataUrl', () => {
       }),
     ).rejects.toThrow();
   });
+
+  it('throws when project is missing (no silent default-slug fallback)', async () => {
+    const options = await makeRoot();
+    await expect(
+      writeScreenshotFromDataUrl(options, {
+        filename: 'a.png',
+        dataUrl: TINY_PNG_DATA_URL,
+      }),
+    ).rejects.toThrow(/project name is required/);
+  });
+
+  it('throws when project is an empty string', async () => {
+    const options = await makeRoot();
+    await expect(
+      writeScreenshotFromDataUrl(options, {
+        project: '',
+        filename: 'a.png',
+        dataUrl: TINY_PNG_DATA_URL,
+      }),
+    ).rejects.toThrow(/project name is required/);
+  });
 });
 
 describe('readScreenshotAsBuffer / resolveScreenshotUrlToDataUrl', () => {
   it('reads a written PNG back with correct content type', async () => {
     const options = await makeRoot();
     const written = await writeScreenshotFromDataUrl(options, {
+      project: 'alpha',
       filename: 'a.png',
       dataUrl: TINY_PNG_DATA_URL,
     });
-    const read = await readScreenshotAsBuffer(options, 'default', written.filename);
+    const read = await readScreenshotAsBuffer(options, 'alpha', written.filename);
     expect(read).not.toBeNull();
     expect(read!.contentType).toBe('image/png');
     expect(read!.buffer.equals(Buffer.from(TINY_PNG_BASE64, 'base64'))).toBe(true);
@@ -159,18 +190,19 @@ describe('readScreenshotAsBuffer / resolveScreenshotUrlToDataUrl', () => {
 
   it('returns null for unknown filenames without throwing', async () => {
     const options = await makeRoot();
-    expect(await readScreenshotAsBuffer(options, 'default', 'missing.png')).toBeNull();
+    expect(await readScreenshotAsBuffer(options, 'alpha', 'missing.png')).toBeNull();
   });
 
   it('returns null for traversal attempts without throwing', async () => {
     const options = await makeRoot();
     expect(await readScreenshotAsBuffer(options, '../escape', 'a.png')).toBeNull();
-    expect(await readScreenshotAsBuffer(options, 'default', '../../etc/passwd')).toBeNull();
+    expect(await readScreenshotAsBuffer(options, 'alpha', '../../etc/passwd')).toBeNull();
   });
 
   it('resolveScreenshotUrlToDataUrl round-trips a written screenshot', async () => {
     const options = await makeRoot();
     const written = await writeScreenshotFromDataUrl(options, {
+      project: 'alpha',
       filename: 'a.png',
       dataUrl: TINY_PNG_DATA_URL,
     });
@@ -197,9 +229,9 @@ describe('POST /api/screenshots/upload', () => {
   it('writes a PNG and returns its URL', async () => {
     const res = await request(app)
       .post('/api/screenshots/upload')
-      .send({ filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
+      .send({ project: 'alpha', filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
     expect(res.status).toBe(200);
-    expect(res.body.url).toBe('/api/screenshots/default/home.png');
+    expect(res.body.url).toBe('/api/screenshots/alpha/home.png');
     expect(res.body.relPath).toBe('screenshots/home.png');
     const onDisk = await readFile(res.body.absPath);
     expect(onDisk.equals(Buffer.from(TINY_PNG_BASE64, 'base64'))).toBe(true);
@@ -208,7 +240,7 @@ describe('POST /api/screenshots/upload', () => {
   it('rejects path-traversal in filename with 400', async () => {
     const res = await request(app)
       .post('/api/screenshots/upload')
-      .send({ filename: '../../etc/passwd', dataUrl: TINY_PNG_DATA_URL });
+      .send({ project: 'alpha', filename: '../../etc/passwd', dataUrl: TINY_PNG_DATA_URL });
     expect(res.status).toBe(400);
     expect(res.body.error).toBeTruthy();
   });
@@ -216,27 +248,47 @@ describe('POST /api/screenshots/upload', () => {
   it('rejects unsupported extensions with 400', async () => {
     const res = await request(app)
       .post('/api/screenshots/upload')
-      .send({ filename: 'malware.exe', dataUrl: TINY_PNG_DATA_URL });
+      .send({ project: 'alpha', filename: 'malware.exe', dataUrl: TINY_PNG_DATA_URL });
     expect(res.status).toBe(400);
   });
 
   it('rejects missing dataUrl with 400', async () => {
     const res = await request(app)
       .post('/api/screenshots/upload')
-      .send({ filename: 'home.png' });
+      .send({ project: 'alpha', filename: 'home.png' });
     expect(res.status).toBe(400);
+  });
+
+  it('rejects missing project with 400 (no silent default-slug fallback)', async () => {
+    const res = await request(app)
+      .post('/api/screenshots/upload')
+      .send({ filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/project name is required/);
   });
 
   it('does not clobber an existing file', async () => {
     const a = await request(app)
       .post('/api/screenshots/upload')
-      .send({ filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
+      .send({ project: 'alpha', filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
     const b = await request(app)
       .post('/api/screenshots/upload')
-      .send({ filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
+      .send({ project: 'alpha', filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
     expect(a.body.filename).toBe('home.png');
     expect(b.body.filename).toBe('home-2.png');
     expect(b.body.absPath).not.toBe(a.body.absPath);
+  });
+
+  it('isolates uploads by project — same filename in two projects coexists', async () => {
+    const a = await request(app)
+      .post('/api/screenshots/upload')
+      .send({ project: 'alpha', filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
+    const b = await request(app)
+      .post('/api/screenshots/upload')
+      .send({ project: 'beta', filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
+    expect(a.body.url).toBe('/api/screenshots/alpha/home.png');
+    expect(b.body.url).toBe('/api/screenshots/beta/home.png');
+    expect(a.body.absPath).not.toBe(b.body.absPath);
   });
 });
 
@@ -252,7 +304,7 @@ describe('GET /api/screenshots/:project/:filename', () => {
   it('serves a written PNG with image/png', async () => {
     const upload = await request(app)
       .post('/api/screenshots/upload')
-      .send({ filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
+      .send({ project: 'alpha', filename: 'home.png', dataUrl: TINY_PNG_DATA_URL });
     const res = await request(app).get(upload.body.url);
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('image/png');
@@ -262,7 +314,7 @@ describe('GET /api/screenshots/:project/:filename', () => {
   });
 
   it('returns 404 for unknown files', async () => {
-    const res = await request(app).get('/api/screenshots/default/nope.png');
+    const res = await request(app).get('/api/screenshots/alpha/nope.png');
     expect(res.status).toBe(404);
   });
 

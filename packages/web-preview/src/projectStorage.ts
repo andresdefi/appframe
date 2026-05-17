@@ -38,7 +38,14 @@ export class ProjectFutureSchemaError extends Error {
 }
 
 export function sanitizeProject(value: unknown): string {
-  if (typeof value !== 'string' || value.length === 0) return 'default';
+  // Throw on missing/empty rather than silently falling back to a magic
+  // 'default' slug. The fallback was the root cause of a bug where
+  // screenshot uploads landed in the wrong project folder when the
+  // caller forgot to pass an active project — fail loudly so future
+  // callers can't repeat that mistake.
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error('project name is required');
+  }
   if (!PROJECT_SLUG_RE.test(value)) {
     throw new Error('project name must match /^[a-zA-Z0-9_-]+$/');
   }
@@ -59,6 +66,40 @@ export function slugifyProjectName(displayName: string): string | null {
     .replace(/^-+|-+$/g, '')
     .slice(0, 64);
   return slug.length > 0 ? slug : null;
+}
+
+/**
+ * Walks any JSON-shaped value and rewrites strings of the form
+ * `/api/screenshots/<oldSlug>/...` to `/api/screenshots/<newSlug>/...`.
+ * Returns a new value; the input is left unchanged. URLs that don't
+ * start with `/api/screenshots/<oldSlug>/` (data URLs, URLs for a
+ * different project, etc.) pass through untouched.
+ */
+export function rewriteScreenshotProjectInJson(
+  value: unknown,
+  oldSlug: string,
+  newSlug: string,
+): unknown {
+  if (oldSlug === newSlug) return value;
+  const oldPrefix = `/api/screenshots/${oldSlug}/`;
+  const newPrefix = `/api/screenshots/${newSlug}/`;
+  function walk(node: unknown): unknown {
+    if (typeof node === 'string') {
+      return node.startsWith(oldPrefix) ? newPrefix + node.slice(oldPrefix.length) : node;
+    }
+    if (Array.isArray(node)) {
+      return node.map(walk);
+    }
+    if (node && typeof node === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+        out[k] = walk(v);
+      }
+      return out;
+    }
+    return node;
+  }
+  return walk(value);
 }
 
 async function pickUniqueProjectSlug(root: string, baseSlug: string): Promise<string> {
@@ -397,6 +438,16 @@ export async function renameProject(
     projectDir(options.projectsRoot, safeFrom),
     projectDir(options.projectsRoot, baseSlug),
   );
+  // The directory move leaves screenshot files in place under the new
+  // path on disk, but the URLs persisted inside appframe.json still
+  // reference the old slug — every <img src="/api/screenshots/<old>/...">
+  // would 404 after the rename. Rewrite those URLs to the new slug so
+  // the project's own references stay valid.
+  const envelope = await readProject(options, baseSlug);
+  if (envelope) {
+    const rewritten = rewriteScreenshotProjectInJson(envelope.data, safeFrom, baseSlug);
+    await writeProject(options, baseSlug, rewritten);
+  }
   const meta: ProjectMeta = {
     schemaVersion: META_SCHEMA_VERSION,
     name: baseSlug,
@@ -531,7 +582,7 @@ export function registerProjectRoutes(app: Express, options: ProjectStorageOptio
 
   app.put('/api/projects/:project', async (req: Request, res: Response) => {
     try {
-      const project = typeof req.params.project === 'string' ? req.params.project : 'default';
+      const project = typeof req.params.project === 'string' ? req.params.project : '';
       const body = req.body;
       if (body === null || typeof body !== 'object' || Array.isArray(body)) {
         res.status(400).json({ error: 'request body must be a JSON object' });
@@ -547,7 +598,7 @@ export function registerProjectRoutes(app: Express, options: ProjectStorageOptio
 
   app.get('/api/projects/:project', async (req: Request, res: Response) => {
     try {
-      const project = typeof req.params.project === 'string' ? req.params.project : 'default';
+      const project = typeof req.params.project === 'string' ? req.params.project : '';
       const envelope = await readProject(options, project);
       if (!envelope) {
         res.status(404).json({ error: 'project not found' });

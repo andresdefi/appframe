@@ -2,11 +2,18 @@ import { uploadScreenshot } from './api';
 import { usePreviewStore } from '../store';
 
 // Resolve the project the upload should land under. Reads from the live
-// store so every caller picks up the active project automatically; if
-// the store hasn't booted yet (very early calls), fall back to 'default'
-// — same behaviour as the server-side sanitizeProject() fallback.
+// store so every caller picks up the active project automatically. The
+// server's sanitizeProject no longer falls back to a magic slug, so an
+// empty activeProject is a real bug — surface it loudly rather than
+// silently routing the upload to the wrong place.
 function activeProjectName(): string {
-  return usePreviewStore.getState().activeProject || 'default';
+  const name = usePreviewStore.getState().activeProject;
+  if (!name) {
+    throw new Error(
+      'cannot upload before a project is active (App.tsx boot has not completed yet)',
+    );
+  }
+  return name;
 }
 
 const SUPPORTED_MIME_PREFIXES = ['image/'];

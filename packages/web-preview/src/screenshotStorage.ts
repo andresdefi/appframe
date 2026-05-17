@@ -37,7 +37,13 @@ export function getDefaultProjectsRoot(): string {
 }
 
 function sanitizeProject(value: unknown): string {
-  if (typeof value !== 'string' || value.length === 0) return 'default';
+  // Throw on missing/empty rather than silently falling back to a magic
+  // 'default' slug. The fallback was the root cause of a bug where
+  // every upload landed in projects/default/screenshots/ when the
+  // client forgot to pass an active project.
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error('project name is required');
+  }
   if (!PROJECT_SLUG_RE.test(value)) {
     throw new Error('project name must match /^[a-zA-Z0-9_-]+$/');
   }

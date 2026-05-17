@@ -13,7 +13,6 @@ import { registerProjectRoutes, type ProjectStorageOptions } from './projectStor
 import type { RouteContext } from './routes/context.js';
 import { registerDeviceFrameRoutes } from './routes/deviceFrame.js';
 import { registerConfigRoutes } from './routes/config.js';
-import { registerExportConfigRoutes } from './routes/exportConfig.js';
 import { registerCatalogRoutes } from './routes/catalog.js';
 import { registerTranslateRoutes } from './routes/translate.js';
 import { registerElementsRoutes } from './routes/elements.js';
@@ -163,7 +162,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   registerProjectRoutes(app, projectStorage);
   registerDeviceFrameRoutes(app);
   registerConfigRoutes(app, ctx);
-  registerExportConfigRoutes(app, ctx);
   registerCatalogRoutes(app);
   registerTranslateRoutes(app, ctx);
   registerElementsRoutes(app);

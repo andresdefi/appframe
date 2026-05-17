@@ -17,7 +17,8 @@ export function registerConfigRoutes(app: Express, ctx: RouteContext): void {
   // API: Replace the in-memory live config. Browser debounces edits here so that
   // agents querying GET /api/config see the user's latest state in real time.
   // If the body carries `__editorState: true` it is treated as the editor-state
-  // shape used by /api/export-config; otherwise it is taken as a full AppframeConfig.
+  // shape (translated via buildConfigFromEditorState); otherwise it is taken as
+  // a full AppframeConfig.
   app.put('/api/config', (req, res) => {
     const body = req.body;
     if (!isRecord(body)) {

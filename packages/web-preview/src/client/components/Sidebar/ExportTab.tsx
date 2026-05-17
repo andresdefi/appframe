@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePreviewStore } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
-import { fetchExportConfig, reloadProject } from '../../utils/api';
+import { reloadProject } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
 import { exportScreenClientSide, exportPanoramicSlicesClientSide } from '../../utils/clientExport';
@@ -97,7 +97,15 @@ export function ExportTab() {
 
   const activeLocaleConfig = locale === 'default' ? undefined : sessionLocales[locale];
   const activeVariant = variants.find((variant) => variant.id === activeVariantId) ?? null;
-  const variantSlug = slugifyVariantName(activeVariant?.name ?? 'variant');
+  const activeProjectDisplayName = usePreviewStore((s) => s.activeProjectDisplayName);
+  // Filename prefix. Use the variant name when there's an active variant
+  // (so concept-a vs concept-b don't collide); otherwise fall back to the
+  // project display name. The previous fallback of the literal string
+  // 'variant' produced filenames like `variant-screen-1.png` for every
+  // project without variants (i.e. most of them).
+  const exportSlug = activeVariant
+    ? slugifyVariantName(activeVariant.name)
+    : slugifyVariantName(activeProjectDisplayName || 'project');
 
   // --- Panoramic export helpers ---
   const buildPanoramicBody = (frameIndex?: number) => ({
@@ -138,7 +146,7 @@ export function ExportTab() {
       );
       const fileNames: string[] = [];
       for (let i = 0; i < slices.length; i++) {
-        const fileName = `${variantSlug}-frame-${i + 1}.png`;
+        const fileName = `${exportSlug}-frame-${i + 1}.png`;
         downloadBlob(slices[i]!, fileName);
         fileNames.push(fileName);
         // Brief pause between Save dialogs / writes.
@@ -152,7 +160,7 @@ export function ExportTab() {
           renderer: 'playwright',
           sizeKey: resolvedExportSize,
           fileNames,
-          manifestName: `${variantSlug}-manifest.json`,
+          manifestName: `${exportSlug}-manifest.json`,
         });
       }
       const ms = Math.round(performance.now() - t0);
@@ -189,7 +197,7 @@ export function ExportTab() {
         sizeSpec.width,
         sizeSpec.height,
       );
-      const fileName = `${variantSlug}-screen-${selectedScreen + 1}.png`;
+      const fileName = `${exportSlug}-screen-${selectedScreen + 1}.png`;
       downloadBlob(blob, fileName);
       const ms = Math.round(performance.now() - t0);
       setStatus(`Downloaded screen ${selectedScreen + 1} in ${ms}ms`);
@@ -229,7 +237,7 @@ export function ExportTab() {
           sizeSpec.width,
           sizeSpec.height,
         );
-        const fileName = `${variantSlug}-screen-${i + 1}.png`;
+        const fileName = `${exportSlug}-screen-${i + 1}.png`;
         downloadBlob(blob, fileName);
         fileNames.push(fileName);
         exported++;
@@ -247,7 +255,7 @@ export function ExportTab() {
         renderer: 'playwright',
         sizeKey: resolvedExportSize,
         fileNames,
-        manifestName: `${variantSlug}-manifest.json`,
+        manifestName: `${exportSlug}-manifest.json`,
       });
     }
     const ms = Math.round(performance.now() - t0);
@@ -264,27 +272,6 @@ export function ExportTab() {
       setStatus('Project reloaded from disk');
     } catch (err) {
       setStatus(`Reload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  };
-
-  const handleConfigExport = async () => {
-    try {
-      setStatus('Building standalone config...');
-      const blob = await fetchExportConfig({
-        variantName: activeVariant?.name ?? 'Variant',
-        mode: isPanoramic ? 'panoramic' : 'individual',
-        sessionLocales,
-        screens,
-        panoramicFrameCount,
-        panoramicBackground,
-        panoramicElements,
-      });
-      const fileName = `${variantSlug}.config.yaml`;
-      downloadBlob(blob, fileName);
-      setStatus(`Downloaded config for ${activeVariant?.name ?? 'current variant'}`);
-      setToast(`Downloaded ${fileName}`);
-    } catch (err) {
-      setStatus(`Config export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -332,30 +319,26 @@ export function ExportTab() {
           </button>
         ) : (
           <>
+            {/* "Download all" is the primary action — it's what users
+                actually want once their project is finalized. The
+                single-screen download stays as a secondary affordance
+                for quick spot-checks. */}
             <button
               className="btn-primary w-full text-xs mt-2"
-              onClick={handleExportCurrent}
-              disabled={exporting || !screens[selectedScreen]}
-            >
-              {exporting ? 'Rendering...' : `Download screen ${selectedScreen + 1}`}
-            </button>
-            <button
-              className="btn-secondary w-full text-xs mt-1"
               onClick={handleExportAll}
               disabled={exporting}
             >
               {exporting ? 'Rendering...' : `Download all ${screens.length} screens`}
             </button>
+            <button
+              className="btn-secondary w-full text-xs mt-1"
+              onClick={handleExportCurrent}
+              disabled={exporting || !screens[selectedScreen]}
+            >
+              {exporting ? 'Rendering...' : `Download screen ${selectedScreen + 1}`}
+            </button>
           </>
         )}
-
-        <button
-          className="btn-secondary w-full text-xs mt-1"
-          onClick={handleConfigExport}
-          disabled={exporting}
-        >
-          Download Current Config
-        </button>
       </Section>
 
       <Section title="Actions" tooltip="Refresh previews or reload the project from disk. Reloading resets unsaved session-only locale changes.">

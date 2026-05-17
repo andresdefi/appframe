@@ -81,25 +81,6 @@ export async function fetchPanoramicPreviewHtml(body: Record<string, unknown>, s
   return res.text();
 }
 
-export async function fetchExportConfig(body: Record<string, unknown>): Promise<Blob> {
-  const res = await fetch(`${API}/api/export-config`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    let message = `Config export failed: ${res.statusText}`;
-    try {
-      const data = await res.json() as { error?: string };
-      if (data.error) message = data.error;
-    } catch {
-      // Keep default status text.
-    }
-    throw new Error(message);
-  }
-  return res.blob();
-}
-
 export interface ProjectEnvelope<T = unknown> {
   schemaVersion: number;
   savedAt: string;

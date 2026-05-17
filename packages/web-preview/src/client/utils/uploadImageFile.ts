@@ -1,4 +1,13 @@
 import { uploadScreenshot } from './api';
+import { usePreviewStore } from '../store';
+
+// Resolve the project the upload should land under. Reads from the live
+// store so every caller picks up the active project automatically; if
+// the store hasn't booted yet (very early calls), fall back to 'default'
+// — same behaviour as the server-side sanitizeProject() fallback.
+function activeProjectName(): string {
+  return usePreviewStore.getState().activeProject || 'default';
+}
 
 const SUPPORTED_MIME_PREFIXES = ['image/'];
 const SUPPORTED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg'];
@@ -53,7 +62,11 @@ export async function uploadImageFileToScreen(file: File): Promise<ScreenshotIma
   const dataUrl = await readFileAsDataUrl(file);
   const dims = await measureImage(dataUrl);
   try {
-    const uploaded = await uploadScreenshot({ filename: file.name, dataUrl });
+    const uploaded = await uploadScreenshot({
+      filename: file.name,
+      dataUrl,
+      project: activeProjectName(),
+    });
     return {
       screenshotDataUrl: uploaded.url,
       screenshotName: uploaded.filename,
@@ -85,7 +98,11 @@ export interface UploadedImage {
 export async function uploadImageFile(file: File): Promise<UploadedImage> {
   const dataUrl = await readFileAsDataUrl(file);
   try {
-    const uploaded = await uploadScreenshot({ filename: file.name, dataUrl });
+    const uploaded = await uploadScreenshot({
+      filename: file.name,
+      dataUrl,
+      project: activeProjectName(),
+    });
     return { url: uploaded.url, filename: uploaded.filename };
   } catch (err) {
     console.error('Image upload failed, falling back to in-memory data URL', err);

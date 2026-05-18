@@ -97,4 +97,7 @@ export type {
   DeviceColorVariant,
 } from './devices/index.js';
 
+export { LOCALE_CATALOG, LOCALE_CATALOG_BY_CODE, getLocaleLabel } from './locales/catalog.js';
+export type { LocaleCatalogEntry } from './locales/catalog.js';
+
 export const VERSION = '0.1.0';

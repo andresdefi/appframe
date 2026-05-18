@@ -14,6 +14,7 @@ const TABS = [
   { id: 'text', label: 'Text' },
   { id: 'extras', label: 'Extras' },
   { id: 'elements', label: 'Elements' },
+  { id: 'locales', label: 'Locales' },
   { id: 'export', label: 'Download' },
 ] as const;
 

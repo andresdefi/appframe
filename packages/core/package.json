@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./locales": {
+      "types": "./dist/locales/catalog.d.ts",
+      "import": "./dist/locales/catalog.js"
     }
   },
   "scripts": {

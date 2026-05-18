@@ -436,6 +436,7 @@ export const localePanoramicConfigSchema = z.object({
 });
 
 export const localeConfigSchema = z.object({
+  label: z.string().min(1).optional(),
   screens: z.array(localeScreenConfigSchema).optional(),
   panoramic: localePanoramicConfigSchema.optional(),
 });

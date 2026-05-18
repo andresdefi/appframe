@@ -20,6 +20,9 @@ import { getDefaultExportSizeKey, getPlatformPreviewSize } from './utils/platfor
 const ElementsTab = lazy(() =>
   import('./components/Sidebar/ElementsTab').then((m) => ({ default: m.ElementsTab })),
 );
+const LocalesTab = lazy(() =>
+  import('./components/Sidebar/LocalesTab').then((m) => ({ default: m.LocalesTab })),
+);
 const VariantsTab = lazy(() =>
   import('./components/Sidebar/VariantsTab').then((m) => ({ default: m.VariantsTab })),
 );
@@ -323,6 +326,7 @@ export function App() {
       {activeTab === 'text' && <PanoramicTextContent />}
       {activeTab === 'extras' && <PanoramicEffectsTab />}
       {activeTab === 'elements' && <ElementsTab />}
+      {activeTab === 'locales' && <LocalesTab />}
       {activeTab === 'export' && <ExportTab />}
     </Suspense>
   ) : (
@@ -333,6 +337,7 @@ export function App() {
       {activeTab === 'text' && <TextTab />}
       {activeTab === 'extras' && <EffectsTab />}
       {activeTab === 'elements' && <ElementsTab />}
+      {activeTab === 'locales' && <LocalesTab />}
       {activeTab === 'export' && <ExportTab />}
     </Suspense>
   );

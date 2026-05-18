@@ -323,6 +323,8 @@ export interface PreviewStore {
   setActiveProject: (project: string, displayName?: string) => void;
   setLocale: (locale: string) => void;
   upsertLocaleConfig: (locale: string, localeConfig: LocaleConfig) => void;
+  addLocale: (code: string, opts: { label?: string; copyImages: boolean }) => void;
+  removeLocale: (code: string) => void;
   createVariant: (name?: string) => void;
   duplicateActiveVariant: () => void;
   createVariantSet: () => void;
@@ -818,6 +820,36 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         [locale]: localeConfig,
       },
     })),
+  addLocale: (code, { label, copyImages }) =>
+    set((state) => {
+      if (code === 'default' || state.sessionLocales[code]) return {};
+      const configScreens = state.config?.screens ?? [];
+      const screens = state.screens.map((screen, i) => {
+        const entry: { headline: string; subtitle?: string; screenshot?: string } = {
+          headline: screen.headline || 'Frame',
+        };
+        if (screen.subtitle) entry.subtitle = screen.subtitle;
+        const sourcePath = configScreens[i]?.screenshot;
+        if (copyImages && sourcePath) entry.screenshot = sourcePath;
+        return entry;
+      });
+      const localeConfig: LocaleConfig = { screens };
+      if (label) localeConfig.label = label;
+      return {
+        sessionLocales: { ...state.sessionLocales, [code]: localeConfig },
+        locale: code,
+      };
+    }),
+  removeLocale: (code) =>
+    set((state) => {
+      if (code === 'default' || !state.sessionLocales[code]) return {};
+      const next = { ...state.sessionLocales };
+      delete next[code];
+      return {
+        sessionLocales: next,
+        locale: state.locale === code ? 'default' : state.locale,
+      };
+    }),
   createVariant: (name) =>
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);

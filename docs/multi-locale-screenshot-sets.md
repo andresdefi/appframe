@@ -1,12 +1,25 @@
 # Multi-Locale Screenshot Sets — Plan
 
-Status: in progress. Original doc captured 2026-05-13; revised 2026-05-17
-after analyzing against the current codebase and locking the UX shape.
-Revised 2026-05-18 after the Download tab cleanup landed the export
-infrastructure (ZIP bundling, folder layout, per-project slug naming)
-ahead of Phase 5. Revised again **2026-05-18** during Phase 3 work
-after the cascade model was rejected in favor of a **snapshot-at-add-time**
-model — see the "Mental model" section, which has been rewritten.
+Status: **shipped 2026-05-19**. All six phases plus a canvas-rows polish
+pass landed across commits `c73287e` (Phase 1), `b158c6d` (ScreenCard
+extraction), `b187aca` (Phase 2a — Individual stacked rows), `e0745a6`
+(Phase 2b — Panoramic + mode-aware locales), `b1f2259` (Phase 3 —
+snapshot model + sidebar scoping + structural-tab lock + a couple of
+preexisting bug fixes), `cb97fd9` (Phase 4 — per-locale screenshot
+upload, which the snapshot model made nearly free), `fe2d823` (canvas
+two-row cap + drag lock + LocaleRowHeader polish), `6d0c387` (Phase 5
+— export multi-locale selection with per-locale folders), and
+`bf0466a` (Phase 6 — drop dead translation + xcstrings paths).
+This document is preserved as a reference for *why* the feature is
+shaped the way it is; the design history below is intact.
+
+Original doc captured 2026-05-13; revised 2026-05-17 after analyzing
+against the codebase and locking the UX shape. Revised 2026-05-18
+after the Download tab cleanup landed the export infrastructure
+(ZIP bundling, folder layout, per-project slug naming) ahead of
+Phase 5. Revised again during Phase 3 work after the cascade model
+was rejected in favor of a **snapshot-at-add-time** model — the
+"Mental model" section was rewritten then.
 
 ## Why we're doing this
 

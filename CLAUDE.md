@@ -48,7 +48,10 @@ Each user project lives at `~/Documents/appframe/projects/<slug>/` and contains 
 No magic `default` slug anywhere. First-launch auto-creates an `Untitled 1` project with 3 placeholder screens.
 
 ## Export
-"Download all N screens" produces a single ZIP via `bundleAsZip` (no per-file browser downloads — Chrome / Safari throttle those after ~3 from the same origin and they can't carry folder structure). ZIP layout puts files at the archive root; macOS Archive Utility auto-wraps in a folder named after the ZIP. Multi-locale will prefix `relPath` with `${locale}/` (no other code change needed). "Download screen X" stays on the single-file browser-download path.
+"Download all N screens" produces a single ZIP via `bundleAsZip` (no per-file browser downloads — Chrome / Safari throttle those after ~3 from the same origin and they can't carry folder structure). Single-locale export puts files at the archive root; multi-locale export (Download tab's "Locales to export" section, all checked by default) puts each locale in its own folder (`default/screen-N.png`, `es-MX/screen-N.png`, ...). macOS Archive Utility auto-wraps in a folder named after the ZIP, so the extracted layout reads `<project>-screens/<locale>/screen-N.png`. "Download screen X" stays on the single-file browser-download path and uses the currently-active locale.
+
+## Locales (multi-locale screenshot sets)
+Snapshot-at-add-time model: `Add Locale` deep-clones the active mode's full state (`state.screens` or `state.panoramicElements`) into `state.localeScreens[code]` or `state.localePanoramicElements[code]`. Each locale is then independent — Default's edits never propagate. The Text sidebar tab is fully editable per locale (text, typography, colors, position, gradients, per-locale screenshots); Variants / Background / Device / Extras / Elements tabs are disabled when a non-default locale is active, and Add/Remove/Reorder Screen is blocked too. Canvas-level drag is filtered to text-kind only on non-default rows (`useDragPosition`'s `allowedKinds`). Canvas shows max two rows (Default + active locale); the Locales sidebar tab has a "Compare all" toggle that opts into the legacy stacked view. Each mode has its own locale list (Individual ↔ Panoramic don't share). Plan doc at `docs/multi-locale-screenshot-sets.md`.
 
 ## TODO
 
@@ -61,9 +64,6 @@ The 2026-04-20 pass reviewed Platform / Screenshot / Device Frame / Device Layou
 The Background tab ships with a curated catalog (50 solid colors + 66 gradients across Sunset / Ocean / Cosmic / Aurora / Vivid / Pastel / Glow / Mesh categories). Plus user image upload. **No live API integrations are planned** — no Unsplash search, no AI-generated backgrounds. Those would balloon the scope (API keys, licensing complexity, asset hosting, backend dependencies) without changing the core value-add.
 
 What IS open: **bundled high-quality image / texture / photo presets** added directly to the repo as static assets (license-cleared, hand-curated, no runtime API). New categories like "Photo", "Texture", "Abstract" can be added the same way the existing Solid/Gradient categories work.
-
-### Multi-locale screenshot sets
-Plan in `docs/multi-locale-screenshot-sets.md` (revised 2026-05-18). Phase 5 export infrastructure (ZIP bundling, folder layout, per-project slug naming) already shipped ahead of time — see commit `8121361`. Phases 1–4 + 6 still open: data layer + locale-picker UI, stacked-rows canvas, sidebar scoping + text-edit routing, per-locale screenshot upload, OpenAI auto-translate + xcstrings removal. ~5.5–7.5 sessions total.
 
 ### before.click gap list → editing primitives
 Captured earlier: layer system, rich-text headlines, split / banded backgrounds, device bleed-off-canvas, multi-device collage, text-pattern backgrounds, z-order control. Pick the top 3–5 and scope a plan.

@@ -9,10 +9,22 @@ export function LocalesTab() {
   const setLocale = usePreviewStore((s) => s.setLocale);
   const addLocale = usePreviewStore((s) => s.addLocale);
   const removeLocale = usePreviewStore((s) => s.removeLocale);
+  const isPanoramic = usePreviewStore((s) => s.isPanoramic);
 
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const addedCodes = useMemo(() => Object.keys(sessionLocales), [sessionLocales]);
+  // Each mode (Individual / Panoramic) has its own locale list, derived from
+  // which section of LocaleConfig is populated. A locale added in Individual
+  // mode populates `.screens`; one added in Panoramic mode populates
+  // `.panoramic`. Showing all locales regardless of mode would falsely
+  // suggest mode-specific edits carry over, which they don't.
+  const addedCodes = useMemo(
+    () =>
+      Object.entries(sessionLocales)
+        .filter(([, cfg]) => (isPanoramic ? cfg.panoramic !== undefined : cfg.screens !== undefined))
+        .map(([code]) => code),
+    [sessionLocales, isPanoramic],
+  );
   const totalCount = addedCodes.length + 1; // Default + added
 
   return (

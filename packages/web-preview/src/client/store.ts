@@ -292,6 +292,7 @@ export interface PreviewStore {
   selectedScreen: number;
   activeTab: string;
   locale: string;
+  localeOtherMode: string;
   theme: 'dark' | 'light';
   renderVersion: number;
 
@@ -778,6 +779,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     return window.localStorage.getItem('appframe.activeTab') ?? 'background';
   })(),
   locale: 'default',
+  // Stash for the OTHER mode's active locale so toggling between Individual
+  // and Panoramic restores each mode's last selection. Session-only — not
+  // persisted in the project snapshot (the persisted `locale` field already
+  // covers "what was active when I saved"; the stash is just within-session
+  // continuity).
+  localeOtherMode: 'default',
   theme: (() => {
     if (typeof window === 'undefined') return 'dark';
     const stored = window.localStorage.getItem('appframe.theme');
@@ -822,7 +829,38 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     })),
   addLocale: (code, { label, copyImages }) =>
     set((state) => {
-      if (code === 'default' || state.sessionLocales[code]) return {};
+      if (code === 'default') return {};
+      const existing = state.sessionLocales[code];
+      if (state.isPanoramic) {
+        // Don't re-add when this locale already has panoramic data —
+        // would clobber the user's edits. Adding the same locale in
+        // Individual mode (which writes to `.screens`) is a separate flow.
+        if (existing?.panoramic) return {};
+        const sourceElements = state.panoramicElements;
+        const elements = sourceElements.map((el) => {
+          const entry: { content?: string; screenshot?: string } = {};
+          if ('content' in el && typeof el.content === 'string' && el.content) {
+            entry.content = el.content;
+          }
+          if (
+            copyImages &&
+            'screenshot' in el &&
+            typeof el.screenshot === 'string' &&
+            el.screenshot
+          ) {
+            entry.screenshot = el.screenshot;
+          }
+          return entry;
+        });
+        const updated: LocaleConfig = { ...(existing ?? {}), panoramic: { elements } };
+        if (label && !updated.label) updated.label = label;
+        return {
+          sessionLocales: { ...state.sessionLocales, [code]: updated },
+          locale: code,
+        };
+      }
+      // Individual mode
+      if (existing?.screens) return {};
       const configScreens = state.config?.screens ?? [];
       const screens = state.screens.map((screen, i) => {
         const entry: { headline: string; subtitle?: string; screenshot?: string } = {
@@ -833,21 +871,38 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         if (copyImages && sourcePath) entry.screenshot = sourcePath;
         return entry;
       });
-      const localeConfig: LocaleConfig = { screens };
-      if (label) localeConfig.label = label;
+      const updated: LocaleConfig = { ...(existing ?? {}), screens };
+      if (label && !updated.label) updated.label = label;
       return {
-        sessionLocales: { ...state.sessionLocales, [code]: localeConfig },
+        sessionLocales: { ...state.sessionLocales, [code]: updated },
         locale: code,
       };
     }),
   removeLocale: (code) =>
     set((state) => {
-      if (code === 'default' || !state.sessionLocales[code]) return {};
+      if (code === 'default') return {};
+      const existing = state.sessionLocales[code];
+      if (!existing) return {};
+      const updated: LocaleConfig = { ...existing };
+      // Remove only the mode-specific section. If the locale carries data
+      // for the OTHER mode it stays in the map (and stays visible in that
+      // mode's UI). Only delete the entry entirely when both modes are gone.
+      if (state.isPanoramic) {
+        delete updated.panoramic;
+      } else {
+        delete updated.screens;
+      }
       const next = { ...state.sessionLocales };
-      delete next[code];
+      const stillHasData = updated.screens !== undefined || updated.panoramic !== undefined;
+      if (stillHasData) {
+        next[code] = updated;
+      } else {
+        delete next[code];
+      }
+      const shouldResetActive = state.locale === code && !stillHasData;
       return {
         sessionLocales: next,
-        locale: state.locale === code ? 'default' : state.locale,
+        locale: shouldResetActive ? 'default' : state.locale,
       };
     }),
   createVariant: (name) =>
@@ -1266,6 +1321,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   // Panoramic actions
   togglePanoramic: () =>
     set((state) => {
+      // Swap active locale with the other mode's stash so each mode
+      // restores its last-selected locale when re-entered.
+      const localeSwap = {
+        locale: state.localeOtherMode,
+        localeOtherMode: state.locale,
+      };
       if (state.isPanoramic) {
         // Switching to individual — ensure screens exist
         if (state.screens.length === 0 && state.config) {
@@ -1278,17 +1339,24 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
                 createScreenState(i, state.config!, platform),
               ),
               selectedScreen: 0,
+              ...localeSwap,
             };
           }
           const defaultScreen = createScreenState(0, state.config, platform);
-          return { isPanoramic: false, screens: [defaultScreen], selectedScreen: 0 };
+          return {
+            isPanoramic: false,
+            screens: [defaultScreen],
+            selectedScreen: 0,
+            ...localeSwap,
+          };
         }
-        return { isPanoramic: false };
+        return { isPanoramic: false, ...localeSwap };
       }
       // Switching to panoramic — auto-populate from individual screens if empty
       const updates: Partial<PreviewStore> = {
         isPanoramic: true,
         selectedElementIndex: null,
+        ...localeSwap,
       };
 
       if (state.panoramicElements.length === 0 && state.config && state.screens.length > 0) {

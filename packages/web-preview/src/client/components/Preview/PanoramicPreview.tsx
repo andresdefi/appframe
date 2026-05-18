@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePreviewStore } from '../../store';
 import { fetchPanoramicPreviewHtml } from '../../utils/api';
 import { setPanoramicIframe } from '../../utils/panoramicIframeRef';
+import { getLocaleLabel } from '@appframe/core/locales';
+import { InactivePanoramicRow } from './InactivePanoramicRow';
+import { LocaleRowHeader } from './LocaleRowHeader';
 
 export function PanoramicPreview() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -13,7 +16,11 @@ export function PanoramicPreview() {
   const config = usePreviewStore((s) => s.config);
   const previewW = usePreviewStore((s) => s.previewW);
   const previewH = usePreviewStore((s) => s.previewH);
-  const locale = usePreviewStore((s) => s.locale);
+  const sessionLocales = usePreviewStore((s) => s.sessionLocales);
+  const activeLocale = usePreviewStore((s) => s.locale);
+  const setLocale = usePreviewStore((s) => s.setLocale);
+  const removeLocale = usePreviewStore((s) => s.removeLocale);
+  const activeVariantId = usePreviewStore((s) => s.activeVariantId);
   const localeConfig = usePreviewStore((s) => s.sessionLocales[s.locale]);
   const renderVersion = usePreviewStore((s) => s.renderVersion);
   const frameCount = usePreviewStore((s) => s.panoramicFrameCount);
@@ -23,6 +30,27 @@ export function PanoramicPreview() {
   const selectedElementIndex = usePreviewStore((s) => s.selectedElementIndex);
   const setSelectedElement = usePreviewStore((s) => s.setSelectedElement);
   const updateElement = usePreviewStore((s) => s.updatePanoramicElement);
+
+  // Default first, then locales in insertion order — but only those that
+  // have panoramic data. Individual-mode locales (carry `.screens`) live
+  // in PreviewArea and don't show up here.
+  const localeOrder = useMemo(
+    () => [
+      'default',
+      ...Object.keys(sessionLocales).filter((code) => sessionLocales[code]?.panoramic !== undefined),
+    ],
+    [sessionLocales],
+  );
+  const variantKey = activeVariantId ?? 'no-variant';
+
+  // Guard against an active locale that isn't represented in this mode
+  // (e.g. user added Spanish in Individual then switched here). Reset to
+  // default so the live preview body doesn't reference a missing locale.
+  useEffect(() => {
+    if (activeLocale !== 'default' && !localeOrder.includes(activeLocale)) {
+      setLocale('default');
+    }
+  }, [activeLocale, localeOrder, setLocale]);
 
   const [scale, setScale] = useState(0.3);
   const [loading, setLoading] = useState(true);
@@ -45,19 +73,33 @@ export function PanoramicPreview() {
 
   const totalCanvasWidth = previewW * frameCount;
 
-  // Compute scale to fit the panoramic canvas in the available area
+  // Compute scale so all locale rows fit both horizontally and vertically.
+  // Each panoramic row has a frame-labels strip above the canvas; rows
+  // stack vertically with a small gap so the user can see every locale
+  // at the default zoom.
+  const localeCount = localeOrder.length;
   const computeScale = useCallback(() => {
     const area = areaRef.current;
     if (!area) return;
-    const areaW = area.clientWidth - 48;
-    const areaH = area.clientHeight - 120;
+    const padding = 48;
+    const zoomBarHeight = 120;
+    const rowHeaderH = 36; // LocaleRowHeader + gap
+    const frameLabelsH = 16; // "Frame N" strip + mb-1
+    const rowGap = 8;
+    const areaW = area.clientWidth - padding;
+    const areaH = area.clientHeight - zoomBarHeight;
+
     const scaleForW = areaW / totalCanvasWidth;
-    const scaleForH = areaH / previewH;
+
+    const N = Math.max(1, localeCount);
+    const verticalOverhead = N * (rowHeaderH + frameLabelsH) + (N - 1) * rowGap;
+    const scaleForH = (areaH - verticalOverhead) / (N * previewH);
+
     let s = Math.min(scaleForW, scaleForH);
     s = Math.min(s, 1);
     s = Math.max(s, 0.05);
     setScale(s);
-  }, [totalCanvasWidth, previewH]);
+  }, [totalCanvasWidth, previewH, localeCount]);
 
   useEffect(() => {
     computeScale();
@@ -78,7 +120,7 @@ export function PanoramicPreview() {
         abortRef.current = controller;
 
         const body = {
-          locale,
+          locale: activeLocale,
           localeConfig,
           frameCount,
           frameWidth: previewW,
@@ -119,7 +161,7 @@ export function PanoramicPreview() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     config,
-    locale,
+    activeLocale,
     localeConfig,
     frameCount,
     previewW,
@@ -320,55 +362,98 @@ export function PanoramicPreview() {
     [isDragging, findElementAtPoint],
   );
 
+  const renderActiveCanvas = () => (
+    <div className="relative w-fit">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center z-20">
+          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {/* Frame boundary labels */}
+      <div className="flex mb-1" style={{ width: totalCanvasWidth * scale }}>
+        {Array.from({ length: frameCount }, (_, i) => (
+          <div
+            key={i}
+            className="text-[9px] text-text-dim text-center border-x border-border/30"
+            style={{ width: previewW * scale }}
+          >
+            Frame {i + 1}
+          </div>
+        ))}
+      </div>
+
+      <div
+        ref={canvasRef}
+        className="relative overflow-hidden rounded border border-border/30"
+        style={{ width: totalCanvasWidth * scale, height: previewH * scale }}
+      >
+        <iframe
+          ref={iframeRef}
+          className="border-none block origin-top-left"
+          style={{
+            width: totalCanvasWidth,
+            height: previewH,
+            transform: `scale(${scale})`,
+          }}
+          title="Panoramic Preview"
+        />
+        {/* Drag overlay — captures mouse events above the iframe */}
+        <div
+          className="absolute inset-0 z-10"
+          style={{ cursor: isDragging ? 'grabbing' : hoverCursor }}
+          onMouseDown={handleOverlayMouseDown}
+          onMouseMove={handleOverlayMouseMove}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg relative">
-      {/* Canvas */}
+      {/* Canvas — stacks one row per locale */}
       <div className="flex-1 overflow-auto">
-        <div className="flex items-center justify-center p-6 min-h-full min-w-min">
-          <div className="relative w-fit">
-            {loading && (
-              <div className="absolute inset-0 flex items-center justify-center z-20">
-                <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col gap-2 p-6 min-h-full min-w-min">
+          {localeOrder.map((loc) => {
+            const active = loc === activeLocale;
+            const label = loc === 'default' ? 'Default' : (sessionLocales[loc]?.label ?? getLocaleLabel(loc));
+            return (
+              <div key={loc} className="flex flex-col gap-1 items-center">
+                <LocaleRowHeader
+                  locale={loc}
+                  label={label}
+                  active={active}
+                  onActivate={() => setLocale(loc)}
+                  onRemove={loc !== 'default' ? () => {
+                    if (window.confirm(`Remove locale "${label}"? Its text and uploaded screenshots will be discarded.`)) {
+                      removeLocale(loc);
+                    }
+                  } : undefined}
+                />
+                {active ? (
+                  renderActiveCanvas()
+                ) : (
+                  <InactivePanoramicRow
+                    locale={loc}
+                    localeConfig={sessionLocales[loc]}
+                    frameCount={frameCount}
+                    previewW={previewW}
+                    previewH={previewH}
+                    scale={scale}
+                    background={background}
+                    elements={elements}
+                    effects={panoramicEffects}
+                    font={config?.theme.font ?? 'inter'}
+                    fontWeight={config?.theme.fontWeight ?? 600}
+                    frameStyle={config?.frames.style ?? 'modern'}
+                    renderVersion={renderVersion}
+                    variantKey={variantKey}
+                    onActivate={() => setLocale(loc)}
+                  />
+                )}
               </div>
-            )}
-
-            {/* Frame boundary labels */}
-            <div className="flex mb-1" style={{ width: totalCanvasWidth * scale }}>
-              {Array.from({ length: frameCount }, (_, i) => (
-                <div
-                  key={i}
-                  className="text-[9px] text-text-dim text-center border-x border-border/30"
-                  style={{ width: previewW * scale }}
-                >
-                  Frame {i + 1}
-                </div>
-              ))}
-            </div>
-
-            <div
-              ref={canvasRef}
-              className="relative overflow-hidden rounded border border-border/30"
-              style={{ width: totalCanvasWidth * scale, height: previewH * scale }}
-            >
-              <iframe
-                ref={iframeRef}
-                className="border-none block origin-top-left"
-                style={{
-                  width: totalCanvasWidth,
-                  height: previewH,
-                  transform: `scale(${scale})`,
-                }}
-                title="Panoramic Preview"
-              />
-              {/* Drag overlay — captures mouse events above the iframe */}
-              <div
-                className="absolute inset-0 z-10"
-                style={{ cursor: isDragging ? 'grabbing' : hoverCursor }}
-                onMouseDown={handleOverlayMouseDown}
-                onMouseMove={handleOverlayMouseMove}
-              />
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
       {/* Floating zoom pill — matches individual mode. Element-select

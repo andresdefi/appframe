@@ -109,12 +109,22 @@ export function PreviewArea() {
       if (images.length === 0) return;
       // Upload sequentially so a slow connection doesn't fan out to N
       // concurrent requests, and so the user sees screens populate in order.
-      const total = usePreviewStore.getState().screens.length;
+      // Use the ACTIVE locale's screen count — snapshot-model locales each
+      // keep their own array and could diverge in length from Default if
+      // we later allow per-locale screen adds (we don't today, but the
+      // active-array read is the correct shape regardless).
+      const state = usePreviewStore.getState();
+      const activeScreens = selectScreensForLocale(state, state.locale);
+      const total = activeScreens.length;
       for (let i = 0; i < images.length; i++) {
         const targetIdx = startIdx + i;
         if (targetIdx >= total) break; // ignore overflow files for v1
         try {
           const patch = await uploadImageFileToScreen(images[i]!);
+          // updateScreen is locale-aware (Phase 3): writes route to
+          // localeScreens[locale] when active locale != default, so
+          // dropping a file on a non-default row updates only that
+          // locale's screenshot without touching Default.
           updateScreen(targetIdx, patch);
         } catch (err) {
           console.error('Drop upload failed for screen', targetIdx, err);

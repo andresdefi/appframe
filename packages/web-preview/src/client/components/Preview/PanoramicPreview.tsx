@@ -33,14 +33,17 @@ export function PanoramicPreview() {
   const setSelectedElement = usePreviewStore((s) => s.setSelectedElement);
   const updateElement = usePreviewStore((s) => s.updatePanoramicElement);
 
-  // Default first, then locales with their own panoramic snapshot in
-  // insertion order. Individual-mode locales (snapshot in `localeScreens`)
-  // live in PreviewArea and don't appear here.
+  // Canvas shows at most two rows by default: Default plus the
+  // currently-active locale (if non-default). `canvasCompareAll` opts
+  // into the full stacked view across all locales. Toggle lives in
+  // PreviewArea's bottom pill (same store field — shared preference).
   const localePanoramicMap = usePreviewStore((s) => s.localePanoramicElements);
-  const localeOrder = useMemo(
-    () => ['default', ...Object.keys(localePanoramicMap)],
-    [localePanoramicMap],
-  );
+  const canvasCompareAll = usePreviewStore((s) => s.canvasCompareAll);
+  const localeOrder = useMemo(() => {
+    if (canvasCompareAll) return ['default', ...Object.keys(localePanoramicMap)];
+    if (activeLocale === 'default') return ['default'];
+    return ['default', activeLocale];
+  }, [canvasCompareAll, activeLocale, localePanoramicMap]);
   const variantKey = activeVariantId ?? 'no-variant';
 
   // Guard against an active locale that isn't represented in this mode
@@ -413,7 +416,11 @@ export function PanoramicPreview() {
     <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg relative">
       {/* Canvas — stacks one row per locale */}
       <div className="flex-1 overflow-auto">
-        <div className="flex flex-col gap-2 p-6 min-h-full min-w-min">
+        <div
+          className={`flex flex-col gap-2 p-6 min-h-full min-w-min ${
+            localeOrder.length <= 1 ? 'justify-center' : ''
+          }`}
+        >
           {localeOrder.map((loc) => {
             const active = loc === activeLocale;
             const label = loc === 'default' ? 'Default' : (sessionLocales[loc]?.label ?? getLocaleLabel(loc));

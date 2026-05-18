@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePreviewStore, selectScreensForLocale } from '../../store';
 import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
@@ -132,6 +132,14 @@ export function ScreenCard({
     [index, screen, updateScreen],
   );
 
+  // Non-default locales are frozen for structural data — device frame,
+  // annotations, overlays. Text positions stay editable per locale
+  // since translations frequently need different placement to fit
+  // longer / shorter copy. Pass the allowed-kinds filter accordingly.
+  const allowedDragKinds = useMemo<ReadonlyArray<'device' | 'text' | 'annotation' | 'overlay'>>(
+    () => (locale === 'default' ? ['device', 'text', 'annotation', 'overlay'] : ['text']),
+    [locale],
+  );
   const { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget } = useDragPosition(
     iframeRef,
     containerRef,
@@ -143,6 +151,7 @@ export function ScreenCard({
     handleTextDrop,
     handleAnnotationDrop,
     handleOverlayDrop,
+    allowedDragKinds,
   );
 
   const { patchLoupe } = useInstantPatch();
@@ -586,7 +595,10 @@ export function ScreenCard({
             aria-hidden="true"
           />
         )}
-        {/* Drag overlay — sits above iframe to capture pointer events */}
+        {/* Drag overlay — sits above iframe to capture pointer events.
+            useDragPosition is configured per-locale to only allow text
+            drags on non-default locales, so device / annotation /
+            overlay drags are filtered at the hit-test layer. */}
         <div
           className="absolute inset-0 z-10"
           style={{ cursor: cursorStyle }}

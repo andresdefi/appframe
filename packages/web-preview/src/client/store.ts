@@ -324,6 +324,11 @@ export interface PreviewStore {
   activeTab: string;
   locale: string;
   localeOtherMode: string;
+  /** When true, the canvas shows every locale row stacked (legacy view).
+   *  When false (default), shows at most two: Default plus the currently
+   *  active non-default locale. Persisted in localStorage so the user's
+   *  choice survives reloads. */
+  canvasCompareAll: boolean;
   theme: 'dark' | 'light';
   renderVersion: number;
   // Fine-grained invalidation for the inactive-row capture cache.
@@ -370,6 +375,7 @@ export interface PreviewStore {
   setActiveTab: (tab: string) => void;
   setActiveProject: (project: string, displayName?: string) => void;
   setLocale: (locale: string) => void;
+  setCanvasCompareAll: (value: boolean) => void;
   upsertLocaleConfig: (locale: string, localeConfig: LocaleConfig) => void;
   addLocale: (code: string, opts: { label?: string; copyImages: boolean }) => void;
   removeLocale: (code: string) => void;
@@ -853,6 +859,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   // covers "what was active when I saved"; the stash is just within-session
   // continuity).
   localeOtherMode: 'default',
+  canvasCompareAll: (() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('appframe.canvasCompareAll') === 'true';
+  })(),
   theme: (() => {
     if (typeof window === 'undefined') return 'dark';
     const stored = window.localStorage.getItem('appframe.theme');
@@ -892,6 +902,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   setActiveProject: (project, displayName) =>
     set({ activeProject: project, activeProjectDisplayName: displayName ?? project }),
   setLocale: (locale) => set({ locale }),
+  setCanvasCompareAll: (value) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('appframe.canvasCompareAll', value ? 'true' : 'false');
+    }
+    set({ canvasCompareAll: value });
+  },
   upsertLocaleConfig: (locale, localeConfig) =>
     set((state) => ({
       sessionLocales: {

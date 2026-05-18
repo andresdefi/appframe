@@ -16,6 +16,7 @@ export function PreviewArea() {
   const removeLocale = usePreviewStore((s) => s.removeLocale);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
   const localeScreensMap = usePreviewStore((s) => s.localeScreens);
+  const canvasCompareAll = usePreviewStore((s) => s.canvasCompareAll);
   // Default's screens — used for the Default row even when a non-default
   // locale is active. Each locale's row reads from its own snapshot.
   const defaultScreens = usePreviewStore((s) => s.screens);
@@ -30,13 +31,17 @@ export function PreviewArea() {
   const removeScreen = usePreviewStore((s) => s.removeScreen);
   const moveScreen = usePreviewStore((s) => s.moveScreen);
 
-  // Only Individual-mode locales surface here. A locale is "in this mode"
-  // when it has its own `localeScreens` snapshot. Panoramic locales live
-  // in PanoramicPreview.
-  const localeOrder = useMemo(
-    () => ['default', ...Object.keys(localeScreensMap)],
-    [localeScreensMap],
-  );
+  // Canvas shows at most TWO rows by default: Default plus the
+  // currently-active locale (if non-default). The Locales sidebar tab
+  // still lists every locale; this just caps the visible canvas rows.
+  // `canvasCompareAll` opts into the full stacked view (legacy behavior)
+  // — useful for visual comparison across all locales, expensive on
+  // memory and capture work at high locale counts.
+  const localeOrder = useMemo(() => {
+    if (canvasCompareAll) return ['default', ...Object.keys(localeScreensMap)];
+    if (activeLocale === 'default') return ['default'];
+    return ['default', activeLocale];
+  }, [canvasCompareAll, activeLocale, localeScreensMap]);
 
   // Structural mutations (Add Screen / Remove / Reorder) are Default-only.
   // Locales are frozen snapshots; we don't let the user diverge from the
@@ -306,7 +311,11 @@ export function PreviewArea() {
       }}
     >
       <div className="flex-1 overflow-auto">
-        <div className="flex flex-col gap-1 p-6 min-h-full min-w-min">
+        <div
+          className={`flex flex-col gap-1 p-6 min-h-full min-w-min ${
+            localeOrder.length <= 1 ? 'justify-center' : ''
+          }`}
+        >
           {localeOrder.map((loc) => {
             const active = loc === activeLocale;
             const label = loc === 'default' ? 'Default' : (sessionLocales[loc]?.label ?? getLocaleLabel(loc));
@@ -351,7 +360,7 @@ export function PreviewArea() {
           control prevents global drag handlers from interpreting the
           interaction as a canvas drag. z-30 sits above the screen
           card's internal spinner (z-20). */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 pointer-events-none z-30">
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 pointer-events-none z-30 flex items-center gap-2">
         <div
           className="flex items-center gap-3 px-4 py-2 rounded-full bg-surface-2 surface-card w-full max-w-md pointer-events-auto"
           onMouseDown={(e) => e.stopPropagation()}

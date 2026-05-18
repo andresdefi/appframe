@@ -12,6 +12,8 @@ export function LocalesTab() {
   const addLocale = usePreviewStore((s) => s.addLocale);
   const removeLocale = usePreviewStore((s) => s.removeLocale);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
+  const canvasCompareAll = usePreviewStore((s) => s.canvasCompareAll);
+  const setCanvasCompareAll = usePreviewStore((s) => s.setCanvasCompareAll);
 
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -61,6 +63,29 @@ export function LocalesTab() {
             </svg>
             Add Locale
           </button>
+          {addedCodes.length > 0 && (
+            <button
+              className={`mt-1.5 inline-flex items-center justify-center gap-1.5 text-[11px] px-3 py-1.5 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                canvasCompareAll
+                  ? 'bg-accent/15 text-text'
+                  : 'bg-surface-2/60 hover:bg-surface-2 text-text-dim hover:text-text'
+              }`}
+              onClick={() => setCanvasCompareAll(!canvasCompareAll)}
+              aria-pressed={canvasCompareAll}
+              title={
+                canvasCompareAll
+                  ? 'Compare-all view active: every locale row renders in the canvas. Click to return to the two-row default.'
+                  : 'Compare all locales: stack every locale row in the canvas at once. Heavier on memory at many locales; ideal for a final visual cross-check.'
+              }
+            >
+              <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" aria-hidden="true">
+                <rect x="1.5" y="2" width="9" height="2.5" rx="0.5" stroke="currentColor" strokeWidth="1" />
+                <rect x="1.5" y="5.5" width="9" height="2.5" rx="0.5" stroke="currentColor" strokeWidth="1" />
+                <rect x="1.5" y="9" width="9" height="1" rx="0.5" stroke="currentColor" strokeWidth="1" />
+              </svg>
+              {canvasCompareAll ? 'Compare all: on' : 'Compare all'}
+            </button>
+          )}
         </div>
       </Section>
 

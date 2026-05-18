@@ -68,6 +68,17 @@ export function useDragPosition(
   onTextDrop: (cls: 'headline' | 'subtitle' | 'freeText', pos: TextPosition) => void,
   onAnnotationDrop: (idx: number, partial: { x: number; y: number }) => void,
   onOverlayDrop: (idx: number, partial: { x: number; y: number }) => void,
+  /** Restricts which kinds of drags can initiate. Defaults to all
+   *  kinds. Non-default locales pass `['text']` so text can still be
+   *  repositioned per locale (translations need different placement to
+   *  fit longer / shorter text) while the device, annotation, and
+   *  overlay drags stay locked to Default. */
+  allowedKinds: ReadonlyArray<'device' | 'text' | 'annotation' | 'overlay'> = [
+    'device',
+    'text',
+    'annotation',
+    'overlay',
+  ],
 ) {
   const dragRef = useRef<DragState | null>(null);
   // Exposes what's actively being dragged so consumers (e.g. center guides)
@@ -183,6 +194,11 @@ export function useDragPosition(
       const pos = toIframe(e.clientX, e.clientY);
       const hit = hitTest(pos.x, pos.y);
       if (!hit) return;
+      // Filter by the kinds the caller has allowed. For non-default
+      // locales the caller passes ['text'] only — clicks on the device
+      // or annotations should not start a drag, matching the structural
+      // lock applied in the sidebar tabs.
+      if (!allowedKinds.includes(hit.kind)) return;
 
       e.preventDefault();
 
@@ -419,7 +435,7 @@ export function useDragPosition(
         document.addEventListener('mouseup', onUp);
       }
     },
-    [screen, scale, toIframe, hitTest, onDeviceDrop, onTextDrop, onAnnotationDrop, onOverlayDrop, canvasW, canvasH],
+    [screen, scale, toIframe, hitTest, onDeviceDrop, onTextDrop, onAnnotationDrop, onOverlayDrop, canvasW, canvasH, allowedKinds],
   );
 
   const getCursorForPosition = useCallback(
@@ -427,10 +443,11 @@ export function useDragPosition(
       const pos = toIframe(clientX, clientY);
       const hit = hitTest(pos.x, pos.y);
       if (!hit) return 'default';
+      if (!allowedKinds.includes(hit.kind)) return 'default';
       if (hit.kind === 'device' || hit.kind === 'annotation' || hit.kind === 'overlay') return 'move';
       return 'grab';
     },
-    [toIframe, hitTest],
+    [toIframe, hitTest, allowedKinds],
   );
 
   return { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget };

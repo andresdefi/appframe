@@ -64,6 +64,11 @@
         height: 100%;
         object-fit: cover;
         display: block;
+        /* See universal/base.html — pin to a GPU layer so Safari
+           doesn't purge the decoded bitmap on the ~30s timer. */
+        will-change: transform;
+        transform: translate3d(0, 0, 0);
+        backface-visibility: hidden;
       }
 
       {# Text elements #}

@@ -575,7 +575,13 @@ export function ScreenCard({
           style={{
             width: previewW,
             height: previewH,
-            transform: `scale(${scale})`,
+            // `translateZ(0)` forces a composited GPU layer; willChange
+            // tells the engine the layer is long-lived. Together they
+            // discourage Safari from purging the iframe's decoded image
+            // content during the ~30s inactivity window (the visible
+            // "reload" the user observed in Safari but not Chromium).
+            transform: `scale(${scale}) translateZ(0)`,
+            willChange: 'transform',
           }}
           title={`Screen ${index + 1}`}
         />

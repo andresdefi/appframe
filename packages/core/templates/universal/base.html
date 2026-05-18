@@ -280,6 +280,19 @@
     .device-wrapper svg, .device-wrapper > img { width: 100%; height: auto; display: block; }
     .screenshot-clip { position: absolute; overflow: hidden; }
     .screenshot-clip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* Keep the screenshot's decoded bitmap on its own GPU layer so
+       Safari doesn't purge it during the ~30s inactive-iframe window
+       and re-decode on next paint (the "reload" flash users saw in
+       Safari only — Chromium wasn't affected). `translate3d(0,0,0)`
+       triggers a composited layer; will-change/backface-visibility
+       are the supporting hints. Applied to both the device frame
+       image and the screenshot itself. */
+    .device-wrapper > img,
+    .screenshot-clip img {
+      will-change: transform;
+      transform: translate3d(0, 0, 0);
+      backface-visibility: hidden;
+    }
 
     {% include "_base/text-gradient.html" %}
   </style>

@@ -255,24 +255,3 @@ export async function uploadScreenshot(input: {
   return res.json() as Promise<UploadedScreenshot>;
 }
 
-export async function fetchAutoTranslateLocale(
-  locale: string,
-  body: Record<string, unknown> = {},
-): Promise<{ locale: string; localeConfig: unknown }> {
-  const res = await fetch(`${API}/api/translate-locale`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ locale, ...body }),
-  });
-  if (!res.ok) {
-    let message = `Automatic translation failed: ${res.statusText}`;
-    try {
-      const data = await res.json() as { error?: string };
-      if (data.error) message = data.error;
-    } catch {
-      // Keep the default status text.
-    }
-    throw new Error(message);
-  }
-  return res.json() as Promise<{ locale: string; localeConfig: unknown }>;
-}

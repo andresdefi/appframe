@@ -11,7 +11,6 @@ export type {
   ScreenConfig,
   LocaleConfig,
   LocaleScreenConfig,
-  LocalizationConfig,
   OutputConfig,
   IOSOutputConfig,
   AndroidOutputConfig,

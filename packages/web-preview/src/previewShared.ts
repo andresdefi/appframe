@@ -6,7 +6,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Buffer } from 'node:buffer';
-import { resolveLocalizedAsset } from '@appframe/core';
 import type { AppframeConfig, LocaleConfig, PanoramicElement } from '@appframe/core';
 import {
   resolveScreenshotUrlToDataUrl,
@@ -55,15 +54,6 @@ export function getLocalizedScreenshotPath(
 
     const localeScreen = config.locales?.[locale]?.screens?.[index];
     if (localeScreen?.screenshot) return resolve(configDir, localeScreen.screenshot);
-  }
-
-  if (locale !== 'default' && config.localization) {
-    return resolveLocalizedAsset(
-      defaultScreenshot,
-      locale,
-      config.localization.baseLanguage,
-      configDir,
-    );
   }
 
   return resolve(configDir, defaultScreenshot);

@@ -1,4 +1,3 @@
-export { resolveLocalizedAsset } from './assets.js';
 export {
   getDeviceFamilies,
   getDeviceFamily,

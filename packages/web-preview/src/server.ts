@@ -14,7 +14,6 @@ import type { RouteContext } from './routes/context.js';
 import { registerDeviceFrameRoutes } from './routes/deviceFrame.js';
 import { registerConfigRoutes } from './routes/config.js';
 import { registerCatalogRoutes } from './routes/catalog.js';
-import { registerTranslateRoutes } from './routes/translate.js';
 import { registerElementsRoutes } from './routes/elements.js';
 import { registerPreviewRoutes } from './routes/preview.js';
 
@@ -163,7 +162,6 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   registerDeviceFrameRoutes(app);
   registerConfigRoutes(app, ctx);
   registerCatalogRoutes(app);
-  registerTranslateRoutes(app, ctx);
   registerElementsRoutes(app);
   registerPreviewRoutes(app, ctx);
 

@@ -14,7 +14,6 @@ export type {
   ScreenConfig,
   LocaleConfig,
   LocaleScreenConfig,
-  LocalizationConfig,
   OutputConfig,
   IOSOutputConfig,
   AndroidOutputConfig,
@@ -80,7 +79,6 @@ export { COMPOSITION_PRESETS } from './composer/presets.js';
 export type { CompositionDefinition, DeviceSlotPreset } from './composer/presets.js';
 
 export {
-  resolveLocalizedAsset,
   getDeviceFamilies,
   getDeviceFamily,
   getDeviceId,

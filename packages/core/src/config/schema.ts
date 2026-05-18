@@ -442,14 +442,6 @@ export const localeConfigSchema = z.object({
   panoramic: localePanoramicConfigSchema.optional(),
 });
 
-// --- Localization section (xcstrings mode) ---
-
-export const localizationConfigSchema = z.object({
-  baseLanguage: z.string().min(1),
-  languages: z.array(z.string().min(1)).min(1),
-  xcstringsPath: z.string().default('Localizable.xcstrings'),
-});
-
 // --- Output section ---
 
 export const iosOutputConfigSchema = z.object({
@@ -758,7 +750,6 @@ export const appframeConfigSchema = z
     frameCount: z.number().int().min(2).max(10).optional(),
     panoramic: panoramicConfigSchema.optional(),
     locales: z.record(z.string(), localeConfigSchema).optional(),
-    localization: localizationConfigSchema.optional(),
     output: outputConfigSchema,
   })
   .refine(
@@ -819,21 +810,7 @@ export const appframeConfigSchema = z
       path: ['locales'],
     },
   )
-  .refine((config) => !(config.locales && config.localization), {
-    message:
-      'Cannot use both "locales" (inline mode) and "localization" (xcstrings mode) — choose one',
-    path: ['localization'],
-  })
-  .refine(
-    (config) => {
-      if (!config.localization) return true;
-      return config.localization.languages.includes(config.localization.baseLanguage);
-    },
-    {
-      message: '"baseLanguage" must be included in the "languages" array',
-      path: ['localization', 'baseLanguage'],
-    },
-  );
+  ;
 
 // --- Inferred types ---
 
@@ -848,7 +825,6 @@ export type CompositionPreset = z.infer<typeof compositionPresetSchema>;
 export type ScreenConfig = z.infer<typeof screenConfigSchema>;
 export type LocaleScreenConfig = z.infer<typeof localeScreenConfigSchema>;
 export type LocaleConfig = z.infer<typeof localeConfigSchema>;
-export type LocalizationConfig = z.infer<typeof localizationConfigSchema>;
 export type IOSOutputConfig = z.infer<typeof iosOutputConfigSchema>;
 export type AndroidOutputConfig = z.infer<typeof androidOutputConfigSchema>;
 export type MacOutputConfig = z.infer<typeof macOutputConfigSchema>;

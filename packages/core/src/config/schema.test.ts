@@ -7,7 +7,6 @@ import {
   screenConfigSchema,
   spotlightConfigSchema,
   annotationSchema,
-  localizationConfigSchema,
   outputConfigSchema,
   platformSchema,
   frameStyleSchema,
@@ -375,23 +374,6 @@ describe('annotationSchema', () => {
   });
 });
 
-describe('localizationConfigSchema', () => {
-  it('accepts valid input', () => {
-    const result = localizationConfigSchema.safeParse({
-      baseLanguage: 'en',
-      languages: ['en', 'es'],
-    });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.xcstringsPath).toBe('Localizable.xcstrings');
-  });
-
-  it('rejects empty languages', () => {
-    expect(localizationConfigSchema.safeParse({ baseLanguage: 'en', languages: [] }).success).toBe(
-      false,
-    );
-  });
-});
-
 describe('outputConfigSchema', () => {
   it('fills defaults', () => {
     const result = outputConfigSchema.safeParse({ platforms: ['ios'] });
@@ -476,31 +458,6 @@ describe('appframeConfigSchema refinements', () => {
       },
     });
     expect(result.success).toBe(false);
-  });
-
-  it('rejects both locales and localization', () => {
-    const result = appframeConfigSchema.safeParse({
-      ...validBase,
-      locales: { es: { screens: [{ headline: 'Hola' }] } },
-      localization: { baseLanguage: 'en', languages: ['en', 'es'] },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects baseLanguage not in languages array', () => {
-    const result = appframeConfigSchema.safeParse({
-      ...validBase,
-      localization: { baseLanguage: 'fr', languages: ['en', 'es'] },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('accepts valid localization config', () => {
-    const result = appframeConfigSchema.safeParse({
-      ...validBase,
-      localization: { baseLanguage: 'en', languages: ['en', 'es'] },
-    });
-    expect(result.success).toBe(true);
   });
 
   it('accepts panoramic image elements', () => {

@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePreviewStore } from '../../store';
 import { isSupportedImageFile, uploadImageFileToScreen } from '../../utils/uploadImageFile';
 import { MAX_SCREENS_PER_PROJECT } from '../../utils/platformSelection';
 import { dataTransferHasFiles } from '../../utils/dragUtils';
+import { getLocaleLabel } from '@appframe/core/locales';
 import { ScreenCard } from './ScreenCard';
+import { InactiveLocaleRow } from './InactiveLocaleRow';
 
 export function PreviewArea() {
   const screens = usePreviewStore((s) => s.screens);
@@ -12,6 +14,27 @@ export function PreviewArea() {
   const addScreen = usePreviewStore((s) => s.addScreen);
   const removeScreen = usePreviewStore((s) => s.removeScreen);
   const moveScreen = usePreviewStore((s) => s.moveScreen);
+
+  // --- Locale axis state ---
+  const sessionLocales = usePreviewStore((s) => s.sessionLocales);
+  const activeLocale = usePreviewStore((s) => s.locale);
+  const setLocale = usePreviewStore((s) => s.setLocale);
+  const removeLocale = usePreviewStore((s) => s.removeLocale);
+  const activeVariantId = usePreviewStore((s) => s.activeVariantId);
+
+  // Default first, additional locales in insertion order. Object.keys
+  // preserves insertion order for string keys (per ES2015+), so locales
+  // appear in the order they were added — which matches the "chronological"
+  // ordering decision from the plan.
+  const localeOrder = useMemo(
+    () => ['default', ...Object.keys(sessionLocales)] as const,
+    [sessionLocales],
+  );
+
+  // Capture cache key namespace. variants are orthogonal to locales: each
+  // variant has its own locale captures, so prefix with variant id (or a
+  // sentinel for "no variant") to keep them isolated.
+  const variantKey = activeVariantId ?? 'no-variant';
 
   // --- Drag-and-drop reorder state ---
   const [dragFromIdx, setDragFromIdx] = useState<number | null>(null);
@@ -83,35 +106,45 @@ export function PreviewArea() {
   const previewH = usePreviewStore((s) => s.previewH);
   const renderVersion = usePreviewStore((s) => s.renderVersion);
   const platform = usePreviewStore((s) => s.platform);
-  const locale = usePreviewStore((s) => s.locale);
   const deviceFamilies = usePreviewStore((s) => s.deviceFamilies);
   const areaRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
 
-  // Compute scale to fit all screens + Add button in the available area
+  // Compute scale so all locale rows fit both horizontally and vertically.
+  // Horizontal fit: one row's screen cards + Add button must fit areaW.
+  // Vertical fit: N rows × cards + N row headers + (N-1) gaps must fit
+  // areaH so the user can see every locale row at once at the default
+  // zoom. Zooming in past that pushes content below the fold (vertical
+  // scroll handles it).
+  const localeCount = localeOrder.length;
   const computeScale = useCallback(() => {
     const area = areaRef.current;
     if (!area) return;
     const padding = 48; // p-6 on both sides
-    const gap = 16; // gap-4
-    const headerHeight = 56; // zoom bar + some padding
+    const gap = 16; // gap-4 between screens in a row
+    const zoomBarHeight = 56;
+    const rowHeaderH = 36; // LocaleRowHeader + flex gap-1 between header and row
+    const rowGap = 4; // gap-1 between locale sections (header + row pair)
     const areaW = area.clientWidth - padding;
-    const areaH = area.clientHeight - headerHeight - padding;
+    const areaH = area.clientHeight - zoomBarHeight - padding;
 
-    // Total items: N screen cards + 1 add-screen button (half-width)
+    // Total items per row: N screen cards + 1 add-screen button (half-width).
+    // Even inactive rows have no add button, but using the active row's
+    // width budget keeps every row visually consistent.
     const itemCount = screens.length + 0.5;
     const totalGaps = screens.length * gap;
-
-    // Scale to fit width: all cards + gaps must fit in areaW
     const scaleForW = (areaW - totalGaps) / (itemCount * previewW);
-    // Scale to fit height: tallest card must fit in areaH
-    const scaleForH = areaH / previewH;
+
+    // Total vertical budget across N locale rows.
+    const N = Math.max(1, localeCount);
+    const verticalOverhead = N * rowHeaderH + (N - 1) * rowGap;
+    const scaleForH = (areaH - verticalOverhead) / (N * previewH);
 
     let s = Math.min(scaleForW, scaleForH);
     s = Math.min(s, 1.3);
     s = Math.max(s, 0.05);
     setScale(s);
-  }, [previewH, previewW, screens.length]);
+  }, [previewH, previewW, screens.length, localeCount]);
 
   useEffect(() => {
     computeScale();
@@ -128,6 +161,94 @@ export function PreviewArea() {
   const [sliderPosition, setSliderPosition] = useState(0);
   const zoomRange = Math.max(0, ZOOM_MAX - scale);
   const effectiveScale = scale + (sliderPosition / 100) * zoomRange;
+
+  const renderActiveRow = () => (
+    <div
+      className="flex items-center gap-4 min-w-min"
+      style={{ justifyContent: 'safe center' }}
+    >
+      {screens.map((screen, i) => (
+        // Plain div, not motion.div. The framer-motion layout
+        // animation was nice for reorder / add / remove, but it
+        // also fired on every zoom slider tick because neighboring
+        // cards shifted x as the dragged card's width changed.
+        // Five springs overlapping per tick produced visible lag.
+        // Zoom is used far more than reordering; bias for that.
+        <div key={screen.id} className="shrink-0">
+          <ScreenCard
+            key={`screen-${screen.id}`}
+            index={i}
+            selected={i === selectedScreen}
+            previewW={previewW}
+            previewH={previewH}
+            scale={effectiveScale}
+            headline={screen.headline}
+            canRemove={screens.length > 1}
+            canMoveLeft={i > 0}
+            canMoveRight={i < screens.length - 1}
+            onSelect={() => setSelectedScreen(i)}
+            onRemove={() => removeScreen(i)}
+            onMoveLeft={() => moveScreen(i, i - 1)}
+            onMoveRight={() => moveScreen(i, i + 1)}
+            renderVersion={renderVersion}
+            platform={platform}
+            locale={activeLocale}
+            deviceFamilies={deviceFamilies}
+            fileDropActive={fileDropTargetIdx === i}
+            onFileDragEnter={(idx) => setFileDropTargetIdx(idx)}
+            onFileDragLeave={(idx) => setFileDropTargetIdx((cur) => (cur === idx ? null : cur))}
+            onFileDrop={(idx, files) => {
+              setFileDropTargetIdx(null);
+              void distributeFilesToScreens(files, idx);
+            }}
+            dragFromIdx={dragFromIdx}
+            dropIndicator={
+              dragOverIdx === i && dragFromIdx !== null && dragFromIdx !== i
+                ? dragSide
+                : null
+            }
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          />
+        </div>
+      ))}
+      {screens.length < MAX_SCREENS_PER_PROJECT ? (
+        <button
+          className="shrink-0 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-border rounded-lg text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          style={{
+            width: Math.round(previewW * effectiveScale * 0.5),
+            height: Math.round(previewH * effectiveScale),
+          }}
+          onClick={addScreen}
+          aria-label={`Add a new screen (${screens.length} of ${MAX_SCREENS_PER_PROJECT})`}
+          title={`${screens.length} of ${MAX_SCREENS_PER_PROJECT} screens used`}
+        >
+          <span>+ Add Screen</span>
+          <span className="text-[10px] text-text-dim/70 tabular-nums">
+            {screens.length}/{MAX_SCREENS_PER_PROJECT}
+          </span>
+        </button>
+      ) : (
+        <div
+          className="shrink-0 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-border/50 rounded-lg text-text-dim/50 text-xs cursor-not-allowed select-none"
+          style={{
+            width: Math.round(previewW * effectiveScale * 0.5),
+            height: Math.round(previewH * effectiveScale),
+          }}
+          title={`Maximum of ${MAX_SCREENS_PER_PROJECT} screens reached. Apple's App Store allows up to ${MAX_SCREENS_PER_PROJECT}; Google Play allows up to 8.`}
+          aria-label={`Screen limit reached: ${MAX_SCREENS_PER_PROJECT} of ${MAX_SCREENS_PER_PROJECT}`}
+        >
+          <span>Max reached</span>
+          <span className="text-[10px] text-text-dim/40 tabular-nums">
+            {MAX_SCREENS_PER_PROJECT}/{MAX_SCREENS_PER_PROJECT}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -152,93 +273,42 @@ export function PreviewArea() {
       }}
     >
       <div className="flex-1 overflow-auto">
-        <div
-          className="flex items-center gap-4 p-6 min-w-min min-h-full"
-          style={{ justifyContent: 'safe center' }}
-        >
-          {screens.map((screen, i) => (
-            // Plain div, not motion.div. The framer-motion layout
-            // animation was nice for reorder / add / remove, but it
-            // also fired on every zoom slider tick because neighboring
-            // cards shifted x as the dragged card's width changed.
-            // Five springs overlapping per tick produced visible lag.
-            // Zoom is used far more than reordering; bias for that.
-            <div
-              key={screen.id}
-              className="shrink-0"
-            >
-            <ScreenCard
-              key={`screen-${screen.id}`}
-              index={i}
-              selected={i === selectedScreen}
-              previewW={previewW}
-              previewH={previewH}
-              scale={effectiveScale}
-              headline={screen.headline}
-              canRemove={screens.length > 1}
-              canMoveLeft={i > 0}
-              canMoveRight={i < screens.length - 1}
-              onSelect={() => setSelectedScreen(i)}
-              onRemove={() => removeScreen(i)}
-              onMoveLeft={() => moveScreen(i, i - 1)}
-              onMoveRight={() => moveScreen(i, i + 1)}
-              renderVersion={renderVersion}
-              platform={platform}
-              locale={locale}
-              deviceFamilies={deviceFamilies}
-              fileDropActive={fileDropTargetIdx === i}
-              onFileDragEnter={(idx) => setFileDropTargetIdx(idx)}
-              onFileDragLeave={(idx) => setFileDropTargetIdx((cur) => (cur === idx ? null : cur))}
-              onFileDrop={(idx, files) => {
-                setFileDropTargetIdx(null);
-                void distributeFilesToScreens(files, idx);
-              }}
-              dragFromIdx={dragFromIdx}
-              dropIndicator={
-                dragOverIdx === i && dragFromIdx !== null && dragFromIdx !== i
-                  ? dragSide
-                  : null
-              }
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            />
-            </div>
-          ))}
-          {screens.length < MAX_SCREENS_PER_PROJECT ? (
-            <button
-              className="shrink-0 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-border rounded-lg text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              style={{
-                width: Math.round(previewW * effectiveScale * 0.5),
-                height: Math.round(previewH * effectiveScale),
-              }}
-              onClick={addScreen}
-              aria-label={`Add a new screen (${screens.length} of ${MAX_SCREENS_PER_PROJECT})`}
-              title={`${screens.length} of ${MAX_SCREENS_PER_PROJECT} screens used`}
-            >
-              <span>+ Add Screen</span>
-              <span className="text-[10px] text-text-dim/70 tabular-nums">
-                {screens.length}/{MAX_SCREENS_PER_PROJECT}
-              </span>
-            </button>
-          ) : (
-            <div
-              className="shrink-0 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-border/50 rounded-lg text-text-dim/50 text-xs cursor-not-allowed select-none"
-              style={{
-                width: Math.round(previewW * effectiveScale * 0.5),
-                height: Math.round(previewH * effectiveScale),
-              }}
-              title={`Maximum of ${MAX_SCREENS_PER_PROJECT} screens reached. Apple's App Store allows up to ${MAX_SCREENS_PER_PROJECT}; Google Play allows up to 8.`}
-              aria-label={`Screen limit reached: ${MAX_SCREENS_PER_PROJECT} of ${MAX_SCREENS_PER_PROJECT}`}
-            >
-              <span>Max reached</span>
-              <span className="text-[10px] text-text-dim/40 tabular-nums">
-                {MAX_SCREENS_PER_PROJECT}/{MAX_SCREENS_PER_PROJECT}
-              </span>
-            </div>
-          )}
+        <div className="flex flex-col gap-1 p-6 min-h-full min-w-min">
+          {localeOrder.map((loc) => {
+            const active = loc === activeLocale;
+            const label = loc === 'default' ? 'Default' : (sessionLocales[loc]?.label ?? getLocaleLabel(loc));
+            return (
+              <div key={loc} className="flex flex-col gap-1">
+                <LocaleRowHeader
+                  locale={loc}
+                  label={label}
+                  active={active}
+                  onActivate={() => setLocale(loc)}
+                  onRemove={loc !== 'default' ? () => {
+                    if (window.confirm(`Remove locale "${label}"? Its text and uploaded screenshots will be discarded.`)) {
+                      removeLocale(loc);
+                    }
+                  } : undefined}
+                />
+                {active ? (
+                  renderActiveRow()
+                ) : (
+                  <InactiveLocaleRow
+                    locale={loc}
+                    localeConfig={sessionLocales[loc]}
+                    screens={screens}
+                    platform={platform}
+                    previewW={previewW}
+                    previewH={previewH}
+                    scale={effectiveScale}
+                    renderVersion={renderVersion}
+                    variantKey={variantKey}
+                    onActivate={() => setLocale(loc)}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
       {/* Floating zoom pill — absolutely positioned at the bottom of
@@ -283,3 +353,60 @@ export function PreviewArea() {
   );
 }
 
+interface LocaleRowHeaderProps {
+  locale: string;
+  label: string;
+  active: boolean;
+  onActivate: () => void;
+  onRemove?: () => void;
+}
+
+function LocaleRowHeader({ locale, label, active, onActivate, onRemove }: LocaleRowHeaderProps) {
+  return (
+    <div
+      className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] cursor-pointer transition-colors ${
+        active
+          ? 'bg-surface-2/80 surface-card text-text font-medium'
+          : 'hover:bg-surface-2/40 text-text-dim hover:text-text'
+      }`}
+      onClick={onActivate}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onActivate();
+        }
+      }}
+      aria-pressed={active}
+    >
+      <span
+        className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+          active ? 'bg-accent' : 'bg-text-dim/40'
+        }`}
+        aria-hidden="true"
+      />
+      <span className="truncate">{label}</span>
+      {locale !== 'default' && (
+        <span className="text-[9px] uppercase tracking-wider text-text-dim/70 font-normal">
+          {locale}
+        </span>
+      )}
+      {onRemove && (
+        <button
+          className="ml-auto opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-text-dim hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded p-0.5"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          title={`Remove ${label}`}
+          aria-label={`Remove ${label}`}
+        >
+          <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" aria-hidden="true">
+            <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}

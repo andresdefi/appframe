@@ -9,6 +9,7 @@ import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
 import { RichTextEditor, richTextToPlain } from '../Controls/RichTextEditor';
 import { buildFontGroups } from '../../utils/fontGroups';
+import { getLocaleLabel } from '@appframe/core/locales';
 
 const TEXT_TRANSFORM_OPTIONS = [
   { value: '', label: 'Auto' },
@@ -26,6 +27,8 @@ const FONT_STYLE_OPTIONS = [
 
 export function TextTab() {
   const { screen, update } = useCurrentScreen();
+  const activeLocale = usePreviewStore((s) => s.locale);
+  const isDefault = activeLocale === 'default';
   const fonts = usePreviewStore((s) => s.fonts);
   const { patchText } = useInstantPatch();
   const instantText = useCallback(
@@ -37,10 +40,20 @@ export function TextTab() {
 
   if (!screen) return null;
 
+  // Snapshot model: every TextTab control writes to the active locale's
+  // own ScreenState via `update` (locale-aware routing in the store).
+  // Everything is editable per locale — text content, typography, colors,
+  // position, gradients. No locking inside the Text tab.
   const hasSubtitle = richTextToPlain(screen.subtitle).length > 0;
 
   return (
     <>
+      {!isDefault && (
+        <div className="mx-3 mt-3 p-2.5 rounded-md bg-surface-2/60 text-[11px] text-text-dim leading-snug">
+          Editing <span className="text-text font-medium">{getLocaleLabel(activeLocale)}</span>.
+          This locale is an independent copy — changes here don't affect Default or other locales.
+        </div>
+      )}
       {/* Headline */}
       <Section
         title="Headline"
@@ -56,71 +69,73 @@ export function TextTab() {
           onBaseColor={(v) => update({ colors: { ...screen.colors, text: v } })}
           onBaseColorInstant={(v) => patchText({ headlineColor: v })}
         />
-        <Select
-          label="Font"
-          value={screen.headlineFont}
-          onChange={(v) => update({ headlineFont: v })}
-          groups={fontGroups}
-        />
-        <RangeSlider
-          label="Weight"
-          value={screen.headlineFontWeight}
-          min={100}
-          max={900}
-          step={100}
-          formatValue={(v) => String(v)}
-          onChange={(v) => update({ headlineFontWeight: v })}
-        />
-        <RangeSlider
-          label="Size"
-          value={screen.headlineSize < 40 ? 40 : screen.headlineSize}
-          min={40}
-          max={200}
-          formatValue={(v) => `${v}px`}
-          onChange={(v) => update({ headlineSize: v })}
-          onInstant={(v) => instantText('headlineSize', v)}
-        />
-        <RangeSlider
-          label="Rotation"
-          value={screen.headlineRotation}
-          min={-30}
-          max={30}
-          formatValue={(v) => `${v}°`}
-          onChange={(v) => update({ headlineRotation: v })}
-          onInstant={(v) => instantText('headlineRotation', v)}
-        />
-        <RangeSlider
-          label="Line Height"
-          value={screen.headlineLineHeight}
-          min={80}
-          max={180}
-          formatValue={(v) => (v === 0 ? 'Auto' : (v / 100).toFixed(2))}
-          onChange={(v) => update({ headlineLineHeight: v })}
-        />
-        <RangeSlider
-          label="Letter Spacing"
-          value={screen.headlineLetterSpacing}
-          min={-5}
-          max={10}
-          formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
-          onChange={(v) => update({ headlineLetterSpacing: v })}
-        />
-        <div className="flex gap-2 mb-2">
-          <div className="flex-1">
-            <Select
-              label="Case"
-              value={screen.headlineTextTransform}
-              onChange={(v) => update({ headlineTextTransform: v })}
-              options={TEXT_TRANSFORM_OPTIONS}
-            />
-          </div>
-          <div className="flex-1">
-            <Select
-              label="Style"
-              value={screen.headlineFontStyle}
-              onChange={(v) => update({ headlineFontStyle: v })}
-              options={FONT_STYLE_OPTIONS}
-            />
+        <div>
+          <Select
+            label="Font"
+            value={screen.headlineFont}
+            onChange={(v) => update({ headlineFont: v })}
+            groups={fontGroups}
+          />
+          <RangeSlider
+            label="Weight"
+            value={screen.headlineFontWeight}
+            min={100}
+            max={900}
+            step={100}
+            formatValue={(v) => String(v)}
+            onChange={(v) => update({ headlineFontWeight: v })}
+          />
+          <RangeSlider
+            label="Size"
+            value={screen.headlineSize < 40 ? 40 : screen.headlineSize}
+            min={40}
+            max={200}
+            formatValue={(v) => `${v}px`}
+            onChange={(v) => update({ headlineSize: v })}
+            onInstant={(v) => instantText('headlineSize', v)}
+          />
+          <RangeSlider
+            label="Rotation"
+            value={screen.headlineRotation}
+            min={-30}
+            max={30}
+            formatValue={(v) => `${v}°`}
+            onChange={(v) => update({ headlineRotation: v })}
+            onInstant={(v) => instantText('headlineRotation', v)}
+          />
+          <RangeSlider
+            label="Line Height"
+            value={screen.headlineLineHeight}
+            min={80}
+            max={180}
+            formatValue={(v) => (v === 0 ? 'Auto' : (v / 100).toFixed(2))}
+            onChange={(v) => update({ headlineLineHeight: v })}
+          />
+          <RangeSlider
+            label="Letter Spacing"
+            value={screen.headlineLetterSpacing}
+            min={-5}
+            max={10}
+            formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
+            onChange={(v) => update({ headlineLetterSpacing: v })}
+          />
+          <div className="flex gap-2 mb-2">
+            <div className="flex-1">
+              <Select
+                label="Case"
+                value={screen.headlineTextTransform}
+                onChange={(v) => update({ headlineTextTransform: v })}
+                options={TEXT_TRANSFORM_OPTIONS}
+              />
+            </div>
+            <div className="flex-1">
+              <Select
+                label="Style"
+                value={screen.headlineFontStyle}
+                onChange={(v) => update({ headlineFontStyle: v })}
+                options={FONT_STYLE_OPTIONS}
+              />
+            </div>
           </div>
         </div>
       </Section>
@@ -142,7 +157,7 @@ export function TextTab() {
           minHeight={48}
         />
         {hasSubtitle && (
-          <>
+          <div>
             <Select
               label="Font"
               value={screen.subtitleFont}
@@ -198,7 +213,7 @@ export function TextTab() {
               onChange={(v) => update({ subtitleTextTransform: v })}
               options={TEXT_TRANSFORM_OPTIONS}
             />
-          </>
+          </div>
         )}
       </Section>
 
@@ -227,53 +242,55 @@ export function TextTab() {
               onBaseColorInstant={(v) => patchText({ freeTextColor: v })}
               minHeight={48}
             />
-            <Select
-              label="Font"
-              value={screen.freeTextFont}
-              onChange={(v) => update({ freeTextFont: v })}
-              groups={fontGroups}
-            />
-            <RangeSlider
-              label="Weight"
-              value={screen.freeTextFontWeight}
-              min={100}
-              max={900}
-              step={100}
-              formatValue={(v) => String(v)}
-              onChange={(v) => update({ freeTextFontWeight: v })}
-            />
-            <RangeSlider
-              label="Size"
-              value={screen.freeTextSize < 20 ? 20 : screen.freeTextSize}
-              min={20}
-              max={120}
-              formatValue={(v) => `${v}px`}
-              onChange={(v) => update({ freeTextSize: v })}
-              onInstant={(v) => instantText('freeTextSize', v)}
-            />
-            <RangeSlider
-              label="Rotation"
-              value={screen.freeTextRotation}
-              min={-30}
-              max={30}
-              formatValue={(v) => `${v}°`}
-              onChange={(v) => update({ freeTextRotation: v })}
-              onInstant={(v) => instantText('freeTextRotation', v)}
-            />
-            <RangeSlider
-              label="Letter Spacing"
-              value={screen.freeTextLetterSpacing}
-              min={-5}
-              max={10}
-              formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
-              onChange={(v) => update({ freeTextLetterSpacing: v })}
-            />
-            <Select
-              label="Case"
-              value={screen.freeTextTextTransform}
-              onChange={(v) => update({ freeTextTextTransform: v })}
-              options={TEXT_TRANSFORM_OPTIONS}
-            />
+            <div>
+              <Select
+                label="Font"
+                value={screen.freeTextFont}
+                onChange={(v) => update({ freeTextFont: v })}
+                groups={fontGroups}
+              />
+              <RangeSlider
+                label="Weight"
+                value={screen.freeTextFontWeight}
+                min={100}
+                max={900}
+                step={100}
+                formatValue={(v) => String(v)}
+                onChange={(v) => update({ freeTextFontWeight: v })}
+              />
+              <RangeSlider
+                label="Size"
+                value={screen.freeTextSize < 20 ? 20 : screen.freeTextSize}
+                min={20}
+                max={120}
+                formatValue={(v) => `${v}px`}
+                onChange={(v) => update({ freeTextSize: v })}
+                onInstant={(v) => instantText('freeTextSize', v)}
+              />
+              <RangeSlider
+                label="Rotation"
+                value={screen.freeTextRotation}
+                min={-30}
+                max={30}
+                formatValue={(v) => `${v}°`}
+                onChange={(v) => update({ freeTextRotation: v })}
+                onInstant={(v) => instantText('freeTextRotation', v)}
+              />
+              <RangeSlider
+                label="Letter Spacing"
+                value={screen.freeTextLetterSpacing}
+                min={-5}
+                max={10}
+                formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
+                onChange={(v) => update({ freeTextLetterSpacing: v })}
+              />
+              <Select
+                label="Case"
+                value={screen.freeTextTextTransform}
+                onChange={(v) => update({ freeTextTextTransform: v })}
+                options={TEXT_TRANSFORM_OPTIONS}
+              />
+            </div>
           </>
         )}
       </Section>
@@ -295,6 +312,7 @@ export function TextTab() {
 
       {/* Text Gradient */}
       <Section title="Text Gradient" tooltip="Apply a gradient color effect to headline or subtitle text." defaultCollapsed>
+        <div>
         <Checkbox
           label="Enable Headline Gradient"
           checked={!!screen.headlineGradient}
@@ -402,6 +420,7 @@ export function TextTab() {
             />
           </>
         )}
+        </div>
       </Section>
     </>
   );

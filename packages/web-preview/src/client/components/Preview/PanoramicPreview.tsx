@@ -23,6 +23,8 @@ export function PanoramicPreview() {
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
   const localeConfig = usePreviewStore((s) => s.sessionLocales[s.locale]);
   const renderVersion = usePreviewStore((s) => s.renderVersion);
+  const screensVersion = usePreviewStore((s) => s.screensVersion);
+  const localeVersions = usePreviewStore((s) => s.localeVersions);
   const frameCount = usePreviewStore((s) => s.panoramicFrameCount);
   const background = usePreviewStore((s) => s.panoramicBackground);
   const elements = usePreviewStore((s) => s.panoramicElements);
@@ -31,15 +33,13 @@ export function PanoramicPreview() {
   const setSelectedElement = usePreviewStore((s) => s.setSelectedElement);
   const updateElement = usePreviewStore((s) => s.updatePanoramicElement);
 
-  // Default first, then locales in insertion order — but only those that
-  // have panoramic data. Individual-mode locales (carry `.screens`) live
-  // in PreviewArea and don't show up here.
+  // Default first, then locales with their own panoramic snapshot in
+  // insertion order. Individual-mode locales (snapshot in `localeScreens`)
+  // live in PreviewArea and don't appear here.
+  const localePanoramicMap = usePreviewStore((s) => s.localePanoramicElements);
   const localeOrder = useMemo(
-    () => [
-      'default',
-      ...Object.keys(sessionLocales).filter((code) => sessionLocales[code]?.panoramic !== undefined),
-    ],
-    [sessionLocales],
+    () => ['default', ...Object.keys(localePanoramicMap)],
+    [localePanoramicMap],
   );
   const variantKey = activeVariantId ?? 'no-variant';
 
@@ -446,7 +446,8 @@ export function PanoramicPreview() {
                     font={config?.theme.font ?? 'inter'}
                     fontWeight={config?.theme.fontWeight ?? 600}
                     frameStyle={config?.frames.style ?? 'modern'}
-                    renderVersion={renderVersion}
+                    screensVersion={screensVersion}
+                    localeVersion={localeVersions[loc] ?? 0}
                     variantKey={variantKey}
                     onActivate={() => setLocale(loc)}
                   />

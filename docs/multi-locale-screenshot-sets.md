@@ -2,10 +2,11 @@
 
 Status: in progress. Original doc captured 2026-05-13; revised 2026-05-17
 after analyzing against the current codebase and locking the UX shape.
-Revised again 2026-05-18 after the Download tab cleanup landed the
-export infrastructure (ZIP bundling, folder layout, per-project slug
-naming) ahead of Phase 5 — see the Phase 5 row for what that leaves
-to do.
+Revised 2026-05-18 after the Download tab cleanup landed the export
+infrastructure (ZIP bundling, folder layout, per-project slug naming)
+ahead of Phase 5. Revised again **2026-05-18** during Phase 3 work
+after the cascade model was rejected in favor of a **snapshot-at-add-time**
+model — see the "Mental model" section, which has been rewritten.
 
 ## Why we're doing this
 
@@ -24,38 +25,56 @@ locales as forks that can diverge in text and/or screenshots.
 
 ## Mental model
 
-**Default is canonical.** Structural fields — frame, layout, background,
-effects, composition, device position — live on the default `screens[i]`
-and apply to every locale. A change to the default device frame shows up
-in Spanish, French, and Japanese automatically.
+**Snapshot-at-add-time.** `Add Locale` takes a deep copy of every field
+on every default screen — text, font, weight, size, color, rotation,
+position, frame, background, effects, composition, device transform,
+screenshot path, everything — and stores that copy under
+`localeScreens[code]`. After the add, the locale is a fully independent
+record. Default's edits never propagate to it.
 
-**Locales only carry text + optional screenshot.** A `locales[code]`
-entry holds, per screen, the overridden headline, subtitle, free text,
-and optionally a localized screenshot path. Everything else cascades from
-default.
+**Why not cascade?** At 30 locales × 10 screens, a single Default font
+tweak in a cascade model would invalidate 300 captures and re-render
+the whole canvas. Worse, the user's mental contract with the feature is
+"locales are text variants of a finished default" — they don't want
+each Default tweak silently rewriting their localized rows. The snapshot
+model makes the boundary explicit: once Spanish is in, it's frozen.
 
-**Locales are added after the default is finished.** Editing a non-default
-locale in the sidebar is scoped to Text + Screenshot only; structural
-tabs are disabled with a "switch to Default to edit structural settings"
-hint. This is a UI affordance, not a data-model constraint — the model
-inherently can't store structural overrides per locale.
+**Editable per locale.** When a non-default locale is active, the
+sidebar Text tab is fully editable — text content (headline / subtitle /
+free text) plus typography (font, weight, size, color, rotation, line
+height, letter spacing, case, style), gradients, and position. Per-locale
+screenshots come in Phase 4. Everything else (Background, Device frame,
+Extras, Elements) stays read-only — structural changes are a default-only
+concern. Add Screen / Remove Screen / Reorder is also disabled per
+locale (those are structural).
 
-## Why the original doc's data-model refactor isn't needed
+**Re-sync from default (future):** since locales drift from Default
+intentionally, we'll add an opt-in "Re-sync from Default" action per
+locale that re-clones from the current Default state. Out of scope for
+the initial phases.
 
-The 2026-05-13 doc proposed introducing a `localeSets[]` array as a major
-schema refactor. Re-reading the schema today
-(`packages/core/src/config/schema.ts:438-441`):
+## Data model — full per-locale ScreenState
+
+The snapshot model means `localeScreens[code]` carries the full
+`ScreenState[]` for that locale, not just text overrides. In-memory:
 
 ```ts
-locales: Record<string, LocaleConfig>
-LocaleConfig = { screens?: { headline, subtitle, screenshot? }[], panoramic? }
+state.localeScreens: Record<string, ScreenState[]>
 ```
 
-This already models exactly what we want: default `screens` + sparse
-per-locale overrides. The "add a `localeSets[]` array" refactor was
-proposing a more aggressive restructuring that doesn't match the actual
-edit shape. We're keeping the existing schema and adding `label?:
-string` to `LocaleConfig` for the display name.
+For persistence, the existing `LocaleConfig` schema (text + screenshot
+only) is insufficient. We extend it so each `locales[code].screens[i]`
+can carry the same shape as a slimmed `ScreenConfig` (everything that
+would persist for a default screen). The Zod schema gains optional
+structural fields per locale screen; the slim/fatten pass at save/load
+time treats locale screens the same way it treats default screens.
+
+The cascade-era helpers (`getLocaleText`, `resolveLocalizedScreenText`,
+`getLocalizedScreenshotPath` in `previewShared.ts`) are simplified:
+when locale ≠ default, read every field directly from the locale's
+ScreenState; no fallback to default. Default cascade only applies for
+fields that are genuinely absent from the locale's data (which is rare
+since add-time clones everything).
 
 ## UI shape
 
@@ -132,7 +151,7 @@ shape (already shipped) is the same minus the `<locale>/` layer:
 | 1 | Add `label?: string` to `LocaleConfig`; "Add Locale" / "Remove Locale" store actions; built-in locale catalog (~80 ISO codes + display names) in `packages/core/src/locales/catalog.ts`. New `Locales` pill in the header tab strip between Elements and Download, with a `LocalesTab` sidebar that shows the locale list (Default + added) and a "+ Add Locale" picker with a "Reuse default screenshots?" prompt. Canvas stays single-row this phase; clicking a locale in the sidebar just switches `state.locale` so the existing read path renders that locale's text | 1 session |
 | 2 | Stacked-rows preview canvas (active = live iframes, inactive = cached PNGs captured via `modern-screenshot`, refresh gated by intersection observer + data-change subscription) | 2 sessions |
 | 3 | Sidebar scoping + edit routing: (a) disable structural tabs when active row is non-default with inline hint; (b) route headline / subtitle / free-text edits to `sessionLocales[locale].screens[i]` instead of `screens[i]` whenever the active locale isn't default. Today those edits write straight to the default `screens` array; the store already has `upsertLocaleConfig` for the override path — Phase 3 wires the Text tab through it. | 1 session |
-| 4 | Per-locale screenshot upload affordance on non-default rows; falls back to default when not set | 1 session |
+| 4 | Per-locale screenshot upload affordance on non-default rows; falls back to default when not set. Also wire the "Reuse default screenshots" toggle in the Add Locale modal to a real effect: when unchecked, the locale's screen entries get an explicit-absence marker so the canvas shows a blank slot rather than cascading. Schema gains a sentinel for this (e.g. `screenshot: z.string().optional()` without `.min(1)`, where empty string = explicit-blank) | 1 session |
 | 5 | Export iteration. Infrastructure is **already built** as of commit 8121361 (ZIP bundling via `bundleAsZip`, per-project slug naming, folder-from-relPath layout). What's left: (a) add a locale multi-select control to the Download tab so the user picks which locales to include, defaulting to all; (b) change the relPath builder from `screen-N.png` to `${locale}/screen-N.png`; (c) iterate the render loop over selected locales × screens. No manifest — the `manifestName` field was dropped from `VariantArtifact` in the same cleanup, and nothing was reading it anyway | 0.5 session |
 | 6 | Drop `translation.ts`, `/api/translate-locale`, the `localization` xcstrings schema, and dead branches in `previewShared.ts` / `devices/assets.ts` | 1 session |
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { usePreviewStore } from '../store';
 
 interface HeaderBarProps {
@@ -8,14 +9,14 @@ interface HeaderBarProps {
 }
 
 const TABS = [
-  { id: 'variants', label: 'Variants' },
-  { id: 'background', label: 'Background' },
-  { id: 'device', label: 'Device' },
-  { id: 'text', label: 'Text' },
-  { id: 'extras', label: 'Extras' },
-  { id: 'elements', label: 'Elements' },
-  { id: 'locales', label: 'Locales' },
-  { id: 'export', label: 'Download' },
+  { id: 'variants', label: 'Variants', structural: true },
+  { id: 'background', label: 'Background', structural: true },
+  { id: 'device', label: 'Device', structural: true },
+  { id: 'text', label: 'Text', structural: false },
+  { id: 'extras', label: 'Extras', structural: true },
+  { id: 'elements', label: 'Elements', structural: true },
+  { id: 'locales', label: 'Locales', structural: false },
+  { id: 'export', label: 'Download', structural: false },
 ] as const;
 
 export function HeaderBar({
@@ -33,6 +34,20 @@ export function HeaderBar({
   const redo = usePreviewStore((s) => s.redo);
   const activeTab = usePreviewStore((s) => s.activeTab);
   const setActiveTab = usePreviewStore((s) => s.setActiveTab);
+  const activeLocale = usePreviewStore((s) => s.locale);
+  const structuralLocked = activeLocale !== 'default';
+
+  // If the user switches to a non-default locale while on a structural
+  // tab, bounce them to Text — that's the only relevant editable surface
+  // for non-default locales. Without this they'd see a tab they can't
+  // interact with after switching locale via the canvas row.
+  useEffect(() => {
+    if (!structuralLocked) return;
+    const tab = TABS.find((t) => t.id === activeTab);
+    if (tab?.structural) {
+      setActiveTab('text');
+    }
+  }, [structuralLocked, activeTab, setActiveTab]);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
   const variants = usePreviewStore((s) => s.variants);
   const selectedScreen = usePreviewStore((s) => s.selectedScreen);
@@ -93,19 +108,33 @@ export function HeaderBar({
       {/* Center: segmented pill tabs */}
       <div className="order-3 md:order-none basis-full md:basis-auto md:mx-auto overflow-x-auto">
         <div className="inline-flex items-center gap-0.5 bg-surface rounded-full p-1">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              className={`text-[11px] px-3 py-1.5 rounded-full whitespace-nowrap transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                activeTab === tab.id
-                  ? 'bg-surface-2 text-text font-medium surface-card'
-                  : 'text-text-dim hover:text-text'
-              }`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {TABS.map((tab) => {
+            const disabled = structuralLocked && tab.structural;
+            return (
+              <button
+                key={tab.id}
+                disabled={disabled}
+                title={
+                  disabled
+                    ? 'Switch to the Default locale to edit structural settings'
+                    : undefined
+                }
+                className={`text-[11px] px-3 py-1.5 rounded-full whitespace-nowrap transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  activeTab === tab.id
+                    ? 'bg-surface-2 text-text font-medium surface-card'
+                    : disabled
+                      ? 'text-text-dim/40 cursor-not-allowed'
+                      : 'text-text-dim hover:text-text'
+                }`}
+                onClick={() => {
+                  if (disabled) return;
+                  setActiveTab(tab.id);
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

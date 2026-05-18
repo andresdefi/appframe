@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import { loadConfig } from '@appframe/core';
+import { loadConfig, validateConfig } from '@appframe/core';
 import type { AppframeConfig } from '@appframe/core';
 import { buildConfigFromEditorState } from '../editorState.js';
 import { isRecord } from './utils.js';
@@ -26,10 +26,29 @@ export function registerConfigRoutes(app: Express, ctx: RouteContext): void {
       return;
     }
     try {
-      const next =
-        body.__editorState === true
-          ? buildConfigFromEditorState(ctx.getConfig(), body)
-          : (body as AppframeConfig);
+      let next: AppframeConfig;
+      if (body.__editorState === true) {
+        next = buildConfigFromEditorState(ctx.getConfig(), body);
+      } else {
+        // Defense-in-depth: a bare PUT body (no __editorState flag) must
+        // be a full AppframeConfig. Without validation, a partial-shape
+        // body would silently overwrite the in-memory config and leave
+        // fields like config.app.platforms missing for the next GET —
+        // breaking the next client load. validateConfig enforces the
+        // required-fields contract before we accept the swap.
+        const validation = validateConfig(body);
+        if (!validation.success) {
+          const detail = validation.errors
+            .map((e) => `${e.path || '<root>'}: ${e.message}`)
+            .join('; ');
+          res.status(400).json({
+            error: `Invalid AppframeConfig${detail ? `: ${detail}` : ''}. ` +
+              'Pass `__editorState: true` to send an editor-state diff instead.',
+          });
+          return;
+        }
+        next = validation.config;
+      }
       ctx.setConfig(next);
       res.json({ success: true });
     } catch (err) {

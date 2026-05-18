@@ -420,11 +420,12 @@ export const screenConfigSchema = z.object({
 
 // --- Locale section ---
 
-export const localeScreenConfigSchema = z.object({
-  headline: z.string().min(1),
-  subtitle: z.string().optional(),
-  screenshot: z.string().min(1).optional(),
-});
+// Each locale screen carries the same fields as the default screen
+// config, all optional. The snapshot-at-add-time model persists the
+// locale's full ScreenState here; older projects (pre-snapshot) may have
+// only the text fields populated. Downstream consumers read whichever
+// fields are present.
+export const localeScreenConfigSchema = screenConfigSchema.partial();
 
 export const localePanoramicElementConfigSchema = z.object({
   content: z.string().min(1).optional(),

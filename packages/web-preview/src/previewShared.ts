@@ -18,7 +18,7 @@ export function getLocaleText(
   index: number,
   locale: string,
   localeConfig: LocaleConfig | undefined,
-  field: 'headline' | 'subtitle',
+  field: 'headline' | 'subtitle' | 'freeText',
 ): string | undefined {
   if (locale === 'default') return undefined;
   const sessionValue = localeConfig?.screens?.[index]?.[field];
@@ -31,7 +31,7 @@ export function resolveLocalizedScreenText(
   index: number,
   locale: string,
   localeConfig: LocaleConfig | undefined,
-  field: 'headline' | 'subtitle',
+  field: 'headline' | 'subtitle' | 'freeText',
   requestedValue: string | undefined,
   fallbackValue: string | undefined,
   preferLocaleText: boolean,

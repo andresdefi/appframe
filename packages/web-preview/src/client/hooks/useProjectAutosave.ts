@@ -74,6 +74,8 @@ export function useProjectAutosave({
         'previewH',
         'locale',
         'sessionLocales',
+        'localeScreens',
+        'localePanoramicElements',
         'isPanoramic',
         'screens',
         'selectedScreen',

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { usePreviewStore } from '../../store';
+import { usePreviewStore, selectScreensForLocale } from '../../store';
 import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
 import { useDragPosition } from '../../hooks/useDragPosition';
@@ -79,7 +79,10 @@ export function ScreenCard({
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const screen = usePreviewStore((s) => s.screens[index]);
+  // Snapshot model: read the active locale's own screen, not Default's
+  // overlaid with locale text. When locale === 'default' this returns
+  // state.screens[index] as before.
+  const screen = usePreviewStore((s) => selectScreensForLocale(s, s.locale)[index]);
   const localeConfig = usePreviewStore((s) => s.sessionLocales[s.locale]);
   const updateScreen = usePreviewStore((s) => s.updateScreen);
 

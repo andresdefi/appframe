@@ -5,6 +5,8 @@ import { Section } from '../Controls/Section';
 
 export function LocalesTab() {
   const sessionLocales = usePreviewStore((s) => s.sessionLocales);
+  const localeScreensMap = usePreviewStore((s) => s.localeScreens);
+  const localePanoramicMap = usePreviewStore((s) => s.localePanoramicElements);
   const activeLocale = usePreviewStore((s) => s.locale);
   const setLocale = usePreviewStore((s) => s.setLocale);
   const addLocale = usePreviewStore((s) => s.addLocale);
@@ -13,17 +15,12 @@ export function LocalesTab() {
 
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Each mode (Individual / Panoramic) has its own locale list, derived from
-  // which section of LocaleConfig is populated. A locale added in Individual
-  // mode populates `.screens`; one added in Panoramic mode populates
-  // `.panoramic`. Showing all locales regardless of mode would falsely
-  // suggest mode-specific edits carry over, which they don't.
+  // A locale appears in this mode's list when it has its own snapshot
+  // for this mode. Snapshot model: `localeScreens[code]` = Individual,
+  // `localePanoramicElements[code]` = Panoramic. Independent per mode.
   const addedCodes = useMemo(
-    () =>
-      Object.entries(sessionLocales)
-        .filter(([, cfg]) => (isPanoramic ? cfg.panoramic !== undefined : cfg.screens !== undefined))
-        .map(([code]) => code),
-    [sessionLocales, isPanoramic],
+    () => Object.keys(isPanoramic ? localePanoramicMap : localeScreensMap),
+    [isPanoramic, localePanoramicMap, localeScreensMap],
   );
   const totalCount = addedCodes.length + 1; // Default + added
 

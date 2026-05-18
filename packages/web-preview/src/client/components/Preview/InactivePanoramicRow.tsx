@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LocaleConfig, PanoramicBackground, PanoramicElement } from '../../types';
 import type { PanoramicEffects } from '../../types';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import {
   getCapture,
   isCapturing,
@@ -21,7 +22,13 @@ interface InactivePanoramicRowProps {
   font: string;
   fontWeight: number;
   frameStyle: string;
-  renderVersion: number;
+  /**
+   * Capture cache invalidation knobs — same model as InactiveLocaleRow.
+   * `screensVersion` cascades from default panoramic data changes;
+   * `localeVersion` is per-locale.
+   */
+  screensVersion: number;
+  localeVersion: number;
   variantKey: string;
   onActivate: () => void;
 }
@@ -39,11 +46,16 @@ export function InactivePanoramicRow({
   font,
   fontWeight,
   frameStyle,
-  renderVersion,
+  screensVersion,
+  localeVersion,
   variantKey,
   onActivate,
 }: InactivePanoramicRowProps) {
   const [, forceUpdate] = useState(0);
+  // Stale-show buffer: keep the previous PNG visible while a fresh capture
+  // is in flight. Same rationale as InactiveLocaleRow — avoids flashing
+  // back to a placeholder while the user types on Default.
+  const lastUrlRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     return subscribeCaptures(() => forceUpdate((n) => n + 1));
@@ -51,11 +63,17 @@ export function InactivePanoramicRow({
 
   const totalCanvasWidth = previewW * frameCount;
 
+  // Debounced versions so slider drags and rapid edits don't churn the
+  // capture queue.
+  const debouncedScreensVersion = useDebouncedValue(screensVersion, 400);
+  const debouncedLocaleVersion = useDebouncedValue(localeVersion, 400);
+
   // One capture per locale — the panoramic canvas is a single wide image,
   // not a row of separate screens.
   const captureKey = useMemo(
-    () => `${variantKey}|${locale}|panoramic|rv-${renderVersion}`,
-    [variantKey, locale, renderVersion],
+    () =>
+      `${variantKey}|${locale}|panoramic|sv-${debouncedScreensVersion}|lv-${debouncedLocaleVersion}`,
+    [variantKey, locale, debouncedScreensVersion, debouncedLocaleVersion],
   );
 
   useEffect(() => {
@@ -98,8 +116,10 @@ export function InactivePanoramicRow({
     frameStyle,
   ]);
 
-  const url = getCapture(captureKey);
+  const freshUrl = getCapture(captureKey);
   const busy = isCapturing(captureKey);
+  if (freshUrl) lastUrlRef.current = freshUrl;
+  const displayUrl = freshUrl ?? lastUrlRef.current;
 
   return (
     <div
@@ -125,9 +145,9 @@ export function InactivePanoramicRow({
             className="relative overflow-hidden rounded border border-border/30 group-hover:border-text-dim/50 transition-colors bg-bg"
             style={{ width: totalCanvasWidth * scale, height: previewH * scale }}
           >
-            {url ? (
+            {displayUrl ? (
               <img
-                src={url}
+                src={displayUrl}
                 alt={`Panoramic preview (${locale})`}
                 className="block"
                 style={{ width: totalCanvasWidth * scale, height: previewH * scale }}

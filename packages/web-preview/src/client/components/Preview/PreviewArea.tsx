@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { usePreviewStore } from '../../store';
+import { usePreviewStore, selectScreensForLocale } from '../../store';
 import { isSupportedImageFile, uploadImageFileToScreen } from '../../utils/uploadImageFile';
 import { MAX_SCREENS_PER_PROJECT } from '../../utils/platformSelection';
 import { dataTransferHasFiles } from '../../utils/dragUtils';
@@ -9,33 +9,39 @@ import { InactiveLocaleRow } from './InactiveLocaleRow';
 import { LocaleRowHeader } from './LocaleRowHeader';
 
 export function PreviewArea() {
-  const screens = usePreviewStore((s) => s.screens);
-  const selectedScreen = usePreviewStore((s) => s.selectedScreen);
-  const setSelectedScreen = usePreviewStore((s) => s.setSelectedScreen);
-  const addScreen = usePreviewStore((s) => s.addScreen);
-  const removeScreen = usePreviewStore((s) => s.removeScreen);
-  const moveScreen = usePreviewStore((s) => s.moveScreen);
-
   // --- Locale axis state ---
   const sessionLocales = usePreviewStore((s) => s.sessionLocales);
   const activeLocale = usePreviewStore((s) => s.locale);
   const setLocale = usePreviewStore((s) => s.setLocale);
   const removeLocale = usePreviewStore((s) => s.removeLocale);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
+  const localeScreensMap = usePreviewStore((s) => s.localeScreens);
+  // Default's screens — used for the Default row even when a non-default
+  // locale is active. Each locale's row reads from its own snapshot.
+  const defaultScreens = usePreviewStore((s) => s.screens);
 
-  // Default first, additional locales in insertion order. Object.keys
-  // preserves insertion order for string keys (per ES2015+), so locales
-  // appear in the order they were added — which matches the "chronological"
-  // ordering decision from the plan. Only locales with `.screens` data show
-  // here; Panoramic mode's locales (which carry `.panoramic` data instead)
-  // live in PanoramicPreview.
+  // Active locale's screens — Default's or the locale's frozen snapshot.
+  // This is what the live ScreenCard iframes and structural state read.
+  const screens = usePreviewStore((s) => selectScreensForLocale(s, s.locale));
+
+  const selectedScreen = usePreviewStore((s) => s.selectedScreen);
+  const setSelectedScreen = usePreviewStore((s) => s.setSelectedScreen);
+  const addScreen = usePreviewStore((s) => s.addScreen);
+  const removeScreen = usePreviewStore((s) => s.removeScreen);
+  const moveScreen = usePreviewStore((s) => s.moveScreen);
+
+  // Only Individual-mode locales surface here. A locale is "in this mode"
+  // when it has its own `localeScreens` snapshot. Panoramic locales live
+  // in PanoramicPreview.
   const localeOrder = useMemo(
-    () => [
-      'default',
-      ...Object.keys(sessionLocales).filter((code) => sessionLocales[code]?.screens !== undefined),
-    ],
-    [sessionLocales],
+    () => ['default', ...Object.keys(localeScreensMap)],
+    [localeScreensMap],
   );
+
+  // Structural mutations (Add Screen / Remove / Reorder) are Default-only.
+  // Locales are frozen snapshots; we don't let the user diverge from the
+  // count Default had at add-time without an explicit re-sync path.
+  const structuralLocked = activeLocale !== 'default';
 
   // If the active locale isn't valid for this mode (e.g. user added Spanish
   // in Panoramic mode then switched here), fall back to default so the
@@ -120,6 +126,8 @@ export function PreviewArea() {
   const previewW = usePreviewStore((s) => s.previewW);
   const previewH = usePreviewStore((s) => s.previewH);
   const renderVersion = usePreviewStore((s) => s.renderVersion);
+  const screensVersion = usePreviewStore((s) => s.screensVersion);
+  const localeVersions = usePreviewStore((s) => s.localeVersions);
   const platform = usePreviewStore((s) => s.platform);
   const deviceFamilies = usePreviewStore((s) => s.deviceFamilies);
   const areaRef = useRef<HTMLDivElement>(null);
@@ -198,9 +206,9 @@ export function PreviewArea() {
             previewH={previewH}
             scale={effectiveScale}
             headline={screen.headline}
-            canRemove={screens.length > 1}
-            canMoveLeft={i > 0}
-            canMoveRight={i < screens.length - 1}
+            canRemove={!structuralLocked && screens.length > 1}
+            canMoveLeft={!structuralLocked && i > 0}
+            canMoveRight={!structuralLocked && i < screens.length - 1}
             onSelect={() => setSelectedScreen(i)}
             onRemove={() => removeScreen(i)}
             onMoveLeft={() => moveScreen(i, i - 1)}
@@ -230,7 +238,7 @@ export function PreviewArea() {
           />
         </div>
       ))}
-      {screens.length < MAX_SCREENS_PER_PROJECT ? (
+      {structuralLocked ? null : screens.length < MAX_SCREENS_PER_PROJECT ? (
         <button
           className="shrink-0 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-border rounded-lg text-text-dim text-xs hover:border-accent hover:text-accent transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           style={{
@@ -311,12 +319,13 @@ export function PreviewArea() {
                   <InactiveLocaleRow
                     locale={loc}
                     localeConfig={sessionLocales[loc]}
-                    screens={screens}
+                    screens={loc === 'default' ? defaultScreens : (localeScreensMap[loc] ?? defaultScreens)}
                     platform={platform}
                     previewW={previewW}
                     previewH={previewH}
                     scale={effectiveScale}
-                    renderVersion={renderVersion}
+                    screensVersion={screensVersion}
+                    localeVersion={localeVersions[loc] ?? 0}
                     variantKey={variantKey}
                     onActivate={() => setLocale(loc)}
                   />

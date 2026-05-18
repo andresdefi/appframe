@@ -277,6 +277,11 @@ export function App() {
     const handle = window.setTimeout(() => {
       putLiveConfig(
         {
+          // Tell the server this is an editor-state diff, not a full
+          // AppframeConfig. Without the flag the server overwrites its
+          // in-memory config with the partial shape below, leaving fields
+          // like config.app.platforms undefined for the next GET.
+          __editorState: true,
           mode: isPanoramic ? 'panoramic' : 'individual',
           sessionLocales,
           screens,

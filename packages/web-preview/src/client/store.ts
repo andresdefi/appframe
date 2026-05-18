@@ -23,6 +23,32 @@ function getConfiguredLocaleText(
   return locales[locale]?.screens?.[index]?.[field];
 }
 
+/**
+ * Returns the ScreenState array for the given locale, or Default's
+ * `screens` when locale is 'default'. Falls back to default's array if
+ * the locale somehow lacks its own snapshot (shouldn't happen post-Phase 3
+ * but defensive against partial migrations).
+ */
+export function selectScreensForLocale(
+  state: Pick<PreviewStore, 'screens' | 'localeScreens'>,
+  locale: string,
+): ScreenState[] {
+  if (locale === 'default') return state.screens;
+  return state.localeScreens[locale] ?? state.screens;
+}
+
+/**
+ * Returns the panoramic elements array for the given locale, snapshot-model
+ * style. Same fallback as selectScreensForLocale.
+ */
+export function selectPanoramicElementsForLocale(
+  state: Pick<PreviewStore, 'panoramicElements' | 'localePanoramicElements'>,
+  locale: string,
+): PanoramicElement[] {
+  if (locale === 'default') return state.panoramicElements;
+  return state.localePanoramicElements[locale] ?? state.panoramicElements;
+}
+
 export function createScreenState(
   index: number,
   config: AppframeConfig,
@@ -236,6 +262,11 @@ export interface VariantSnapshot {
   previewH: number;
   locale: string;
   sessionLocales: Record<string, LocaleConfig>;
+  // Per-locale full snapshots — frozen at addLocale time, edited
+  // independently from Default thereafter. See snapshot-at-add-time
+  // mental model in docs/multi-locale-screenshot-sets.md.
+  localeScreens: Record<string, ScreenState[]>;
+  localePanoramicElements: Record<string, PanoramicElement[]>;
   isPanoramic: boolean;
   screens: ScreenState[];
   selectedScreen: number;
@@ -295,6 +326,14 @@ export interface PreviewStore {
   localeOtherMode: string;
   theme: 'dark' | 'light';
   renderVersion: number;
+  // Fine-grained invalidation for the inactive-row capture cache.
+  // screensVersion bumps on any change to the default `screens` array
+  // (cascades to every locale, so every locale's cache invalidates).
+  // localeVersions[code] bumps only when that locale's overrides change,
+  // so editing Spanish text doesn't trigger a re-capture cascade across
+  // dozens of other locale rows.
+  screensVersion: number;
+  localeVersions: Record<string, number>;
 
   // Panoramic mode state
   isPanoramic: boolean;
@@ -312,8 +351,16 @@ export interface PreviewStore {
   sizes: Record<string, SizeEntry[]>;
   exportSize: string;
 
-  // Per-screen state
+  // Per-screen state — Default's screens.
   screens: ScreenState[];
+  // Per-locale full ScreenState snapshots. Each entry is a deep clone of
+  // `screens` captured at add-time; once added, the locale is fully
+  // independent. Default's edits do NOT propagate. Snapshot model is
+  // intentional — see docs/multi-locale-screenshot-sets.md.
+  localeScreens: Record<string, ScreenState[]>;
+  // Per-locale full PanoramicElement[] snapshots. Same model as
+  // localeScreens but for Panoramic mode.
+  localePanoramicElements: Record<string, PanoramicElement[]>;
 
   // Actions
   setConfig: (config: AppframeConfig) => void;
@@ -478,6 +525,8 @@ export function variantSnapshotFromState(
     | 'previewH'
     | 'locale'
     | 'sessionLocales'
+    | 'localeScreens'
+    | 'localePanoramicElements'
     | 'isPanoramic'
     | 'screens'
     | 'selectedScreen'
@@ -495,6 +544,8 @@ export function variantSnapshotFromState(
     previewH: state.previewH,
     locale: state.locale,
     sessionLocales: deepCopy(state.sessionLocales),
+    localeScreens: deepCopy(state.localeScreens ?? {}),
+    localePanoramicElements: deepCopy(state.localePanoramicElements ?? {}),
     isPanoramic: state.isPanoramic,
     screens: deepCopy(state.screens),
     selectedScreen: state.selectedScreen,
@@ -532,6 +583,8 @@ function applyVariantSnapshot(
   | 'previewH'
   | 'locale'
   | 'sessionLocales'
+  | 'localeScreens'
+  | 'localePanoramicElements'
   | 'isPanoramic'
   | 'screens'
   | 'selectedScreen'
@@ -548,6 +601,8 @@ function applyVariantSnapshot(
     previewH: snapshot.previewH,
     locale: snapshot.locale,
     sessionLocales: deepCopy(snapshot.sessionLocales),
+    localeScreens: deepCopy(snapshot.localeScreens ?? {}),
+    localePanoramicElements: deepCopy(snapshot.localePanoramicElements ?? {}),
     isPanoramic: snapshot.isPanoramic,
     // Backfill stable id for older snapshots that pre-date the field.
     // Also backfill the freeText fields for snapshots saved before that
@@ -616,6 +671,17 @@ function coerceVariantSnapshot(
       snapshot.sessionLocales && typeof snapshot.sessionLocales === 'object'
         ? deepCopy(snapshot.sessionLocales as Record<string, LocaleConfig>)
         : fallback.sessionLocales,
+    localeScreens:
+      snapshot.localeScreens && typeof snapshot.localeScreens === 'object'
+        ? deepCopy(snapshot.localeScreens as Record<string, ScreenState[]>)
+        : {},
+    localePanoramicElements:
+      snapshot.localePanoramicElements &&
+      typeof snapshot.localePanoramicElements === 'object'
+        ? deepCopy(
+            snapshot.localePanoramicElements as Record<string, PanoramicElement[]>,
+          )
+        : {},
     screens: deepCopy(snapshot.screens as ScreenState[]),
     panoramicBackground: deepCopy(
       (snapshot.panoramicBackground ?? fallback.panoramicBackground) as PanoramicBackground,
@@ -638,6 +704,8 @@ function syncActiveVariantRecord(
     | 'previewH'
     | 'locale'
     | 'sessionLocales'
+    | 'localeScreens'
+    | 'localePanoramicElements'
     | 'isPanoramic'
     | 'screens'
     | 'selectedScreen'
@@ -792,6 +860,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   })(),
   renderVersion: 0,
+  screensVersion: 0,
+  localeVersions: {} as Record<string, number>,
   isPanoramic: false,
   panoramicFrameCount: 5,
   panoramicBackground: { type: 'solid', color: '#ffffff', layers: [] } as PanoramicBackground,
@@ -805,6 +875,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   sizes: {},
   exportSize: '',
   screens: [],
+  localeScreens: {} as Record<string, ScreenState[]>,
+  localePanoramicElements: {} as Record<string, PanoramicElement[]>,
   sessionLocales: {},
 
   setConfig: (config) => set({ config }),
@@ -826,82 +898,97 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         ...state.sessionLocales,
         [locale]: localeConfig,
       },
+      localeVersions: {
+        ...state.localeVersions,
+        [locale]: (state.localeVersions[locale] ?? 0) + 1,
+      },
     })),
   addLocale: (code, { label, copyImages }) =>
     set((state) => {
       if (code === 'default') return {};
-      const existing = state.sessionLocales[code];
+      const existingSession = state.sessionLocales[code];
+      // Build the sessionLocales[code] entry: in the snapshot model
+      // sessionLocales only carries `label`. The legacy `screens` /
+      // `panoramic` text-override fields are now redundant (the locale's
+      // full data lives in localeScreens / localePanoramicElements), and
+      // if we kept them around, the server's resolveLocalizedScreenText
+      // would prefer the stale override and ignore the body's headline.
+      // Strip them on add.
+      const sessionEntry: LocaleConfig = {};
+      const inheritedLabel = existingSession?.label;
+      if (inheritedLabel) sessionEntry.label = inheritedLabel;
+      if (label && !sessionEntry.label) sessionEntry.label = label;
       if (state.isPanoramic) {
-        // Don't re-add when this locale already has panoramic data —
-        // would clobber the user's edits. Adding the same locale in
-        // Individual mode (which writes to `.screens`) is a separate flow.
-        if (existing?.panoramic) return {};
-        const sourceElements = state.panoramicElements;
-        const elements = sourceElements.map((el) => {
-          const entry: { content?: string; screenshot?: string } = {};
-          if ('content' in el && typeof el.content === 'string' && el.content) {
-            entry.content = el.content;
+        if (state.localePanoramicElements[code]) return {};
+        const snapshot = state.panoramicElements.map((el) => {
+          const cloned = deepCopy(el) as PanoramicElement;
+          if (!copyImages && 'screenshot' in cloned) {
+            (cloned as { screenshot?: string }).screenshot = undefined;
           }
-          if (
-            copyImages &&
-            'screenshot' in el &&
-            typeof el.screenshot === 'string' &&
-            el.screenshot
-          ) {
-            entry.screenshot = el.screenshot;
-          }
-          return entry;
+          return cloned;
         });
-        const updated: LocaleConfig = { ...(existing ?? {}), panoramic: { elements } };
-        if (label && !updated.label) updated.label = label;
         return {
-          sessionLocales: { ...state.sessionLocales, [code]: updated },
+          localePanoramicElements: {
+            ...state.localePanoramicElements,
+            [code]: snapshot,
+          },
+          sessionLocales: { ...state.sessionLocales, [code]: sessionEntry },
           locale: code,
+          localeVersions: {
+            ...state.localeVersions,
+            [code]: (state.localeVersions[code] ?? 0) + 1,
+          },
         };
       }
-      // Individual mode
-      if (existing?.screens) return {};
-      const configScreens = state.config?.screens ?? [];
-      const screens = state.screens.map((screen, i) => {
-        const entry: { headline: string; subtitle?: string; screenshot?: string } = {
-          headline: screen.headline || 'Frame',
-        };
-        if (screen.subtitle) entry.subtitle = screen.subtitle;
-        const sourcePath = configScreens[i]?.screenshot;
-        if (copyImages && sourcePath) entry.screenshot = sourcePath;
-        return entry;
+      // Individual mode: deep-clone state.screens into a frozen snapshot.
+      // The locale becomes independent from here on — Default's edits
+      // don't propagate. See docs/multi-locale-screenshot-sets.md.
+      if (state.localeScreens[code]) return {};
+      const snapshot = state.screens.map((screen) => {
+        const cloned = deepCopy(screen);
+        if (!copyImages) {
+          cloned.screenshotDataUrl = null;
+          cloned.screenshotName = null;
+          cloned.screenshotDims = null;
+        }
+        return cloned;
       });
-      const updated: LocaleConfig = { ...(existing ?? {}), screens };
-      if (label && !updated.label) updated.label = label;
       return {
-        sessionLocales: { ...state.sessionLocales, [code]: updated },
+        localeScreens: { ...state.localeScreens, [code]: snapshot },
+        sessionLocales: { ...state.sessionLocales, [code]: sessionEntry },
         locale: code,
+        localeVersions: {
+          ...state.localeVersions,
+          [code]: (state.localeVersions[code] ?? 0) + 1,
+        },
       };
     }),
   removeLocale: (code) =>
     set((state) => {
       if (code === 'default') return {};
-      const existing = state.sessionLocales[code];
-      if (!existing) return {};
-      const updated: LocaleConfig = { ...existing };
-      // Remove only the mode-specific section. If the locale carries data
-      // for the OTHER mode it stays in the map (and stays visible in that
-      // mode's UI). Only delete the entry entirely when both modes are gone.
-      if (state.isPanoramic) {
-        delete updated.panoramic;
+      const isPanoramic = state.isPanoramic;
+      let localeScreens = state.localeScreens;
+      let localePanoramicElements = state.localePanoramicElements;
+      if (isPanoramic) {
+        if (!localePanoramicElements[code]) return {};
+        localePanoramicElements = { ...localePanoramicElements };
+        delete localePanoramicElements[code];
       } else {
-        delete updated.screens;
+        if (!localeScreens[code]) return {};
+        localeScreens = { ...localeScreens };
+        delete localeScreens[code];
       }
-      const next = { ...state.sessionLocales };
-      const stillHasData = updated.screens !== undefined || updated.panoramic !== undefined;
-      if (stillHasData) {
-        next[code] = updated;
-      } else {
-        delete next[code];
+      const stillHasData =
+        !!localeScreens[code] || !!localePanoramicElements[code];
+      const sessionLocales = { ...state.sessionLocales };
+      if (!stillHasData) {
+        delete sessionLocales[code];
       }
       const shouldResetActive = state.locale === code && !stillHasData;
       return {
-        sessionLocales: next,
+        localeScreens,
+        localePanoramicElements,
+        sessionLocales,
         locale: shouldResetActive ? 'default' : state.locale,
       };
     }),
@@ -1137,12 +1224,40 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
 
   updateScreen: (index, partial) =>
     set((state) => {
+      // Locale-aware routing: when a non-default locale is active, writes
+      // go to that locale's snapshot (state.localeScreens[locale]) and
+      // only that locale's cache invalidates. Default never sees them.
+      // No more cross-locale cascade — snapshot model.
+      if (state.locale !== 'default') {
+        const source = state.localeScreens[state.locale];
+        if (!source) return state;
+        const screens = [...source];
+        const current = screens[index];
+        if (!current) return state;
+        pushSnapshot(state);
+        screens[index] = { ...current, ...partial };
+        return {
+          localeScreens: { ...state.localeScreens, [state.locale]: screens },
+          localeVersions: {
+            ...state.localeVersions,
+            [state.locale]: (state.localeVersions[state.locale] ?? 0) + 1,
+          },
+        };
+      }
+      // Default-locale edit: writes to state.screens. Locales are
+      // independent copies and aren't affected.
       const screens = [...state.screens];
       const current = screens[index];
       if (!current) return state;
       pushSnapshot(state);
       screens[index] = { ...current, ...partial };
-      return { screens };
+      return {
+        screens,
+        localeVersions: {
+          ...state.localeVersions,
+          default: (state.localeVersions.default ?? 0) + 1,
+        },
+      };
     }),
 
   triggerRender: () => set((state) => ({ renderVersion: state.renderVersion + 1 })),
@@ -1254,6 +1369,11 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
 
   addScreen: () =>
     set((state) => {
+      // Structural-only — only Default may add/remove/reorder screens.
+      // Locales are frozen snapshots; their screen count is locked to
+      // whatever Default had at addLocale time. A future "Re-sync from
+      // Default" action will be the explicit way to update locale counts.
+      if (state.locale !== 'default') return state;
       const { screens, config, platform } = state;
       if (!config) return state;
       // Defense-in-depth: the UI also disables the Add Screen button at
@@ -1290,6 +1410,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
 
   removeScreen: (index) =>
     set((state) => {
+      if (state.locale !== 'default') return state;
       if (state.screens.length <= 1) return state;
       pushSnapshot(state);
       const screens = state.screens
@@ -1306,6 +1427,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
 
   moveScreen: (from, to) =>
     set((state) => {
+      if (state.locale !== 'default') return state;
       if (to < 0 || to >= state.screens.length) return state;
       pushSnapshot(state);
       const screens = [...state.screens];
@@ -1440,6 +1562,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       pushSnapshot(state);
       return {
         panoramicBackground: { ...state.panoramicBackground, ...partial } as PanoramicBackground,
+        screensVersion: state.screensVersion + 1,
       };
     }),
 
@@ -1450,7 +1573,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       if (!current) return state;
       pushSnapshot(state);
       elements[index] = { ...current, ...partial } as PanoramicElement;
-      return { panoramicElements: elements };
+      return { panoramicElements: elements, screensVersion: state.screensVersion + 1 };
     }),
 
   syncPanoramicDevicesForPlatform: (platform) =>
@@ -1477,6 +1600,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       return {
         panoramicElements: [...state.panoramicElements, element],
         selectedElementIndex: state.panoramicElements.length,
+        screensVersion: state.screensVersion + 1,
       };
     }),
 
@@ -1489,7 +1613,11 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         if (selectedElementIndex === index) selectedElementIndex = null;
         else if (selectedElementIndex > index) selectedElementIndex--;
       }
-      return { panoramicElements: elements, selectedElementIndex };
+      return {
+        panoramicElements: elements,
+        selectedElementIndex,
+        screensVersion: state.screensVersion + 1,
+      };
     }),
 
   setPanoramicFrameCount: (count) =>
@@ -1525,7 +1653,11 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         }
         return base;
       }) as typeof state.panoramicElements;
-      return { panoramicFrameCount: count, panoramicElements: elements };
+      return {
+        panoramicFrameCount: count,
+        panoramicElements: elements,
+        screensVersion: state.screensVersion + 1,
+      };
     }),
 
   updatePanoramicEffects: (partial) =>
@@ -1533,6 +1665,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       pushSnapshot(state);
       return {
         panoramicEffects: { ...state.panoramicEffects, ...partial },
+        screensVersion: state.screensVersion + 1,
       };
     }),
 

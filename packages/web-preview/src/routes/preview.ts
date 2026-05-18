@@ -351,6 +351,16 @@ async function resolveContext(
     screen?.subtitle,
     p.preferLocaleText ?? false,
   );
+  const resolvedFreeText = resolveLocalizedScreenText(
+    config,
+    p.screenIndex,
+    p.locale,
+    p.localeConfig,
+    'freeText',
+    p.freeText,
+    undefined,
+    p.preferLocaleText ?? false,
+  );
 
   let screenshotDataUrl: string;
   if (p.clientScreenshot) {
@@ -487,7 +497,7 @@ async function resolveContext(
       screen?.subtitleFontWeight ??
       config.theme.subtitleFontWeight ??
       400,
-    freeText: p.freeText,
+    freeText: resolvedFreeText,
     freeTextEnabled: p.freeTextEnabled,
     freeTextSize: p.freeTextSize,
     freeTextFont:

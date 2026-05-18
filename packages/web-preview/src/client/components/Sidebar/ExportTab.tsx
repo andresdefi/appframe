@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePreviewStore } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
+import { Checkbox } from '../Controls/Checkbox';
 import { reloadProject } from '../../utils/api';
 import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
 import { exportScreenClientSide, exportPanoramicSlicesClientSide } from '../../utils/clientExport';
 import { bundleAsZip, type ZipEntry } from '../../utils/zipExport';
+import { getLocaleLabel } from '@appframe/core/locales';
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => {
@@ -60,6 +62,8 @@ export function ExportTab() {
   const setExportSize = usePreviewStore((s) => s.setExportSize);
   const locale = usePreviewStore((s) => s.locale);
   const sessionLocales = usePreviewStore((s) => s.sessionLocales);
+  const localeScreensMap = usePreviewStore((s) => s.localeScreens);
+  const localePanoramicMap = usePreviewStore((s) => s.localePanoramicElements);
   const config = usePreviewStore((s) => s.config);
   const variants = usePreviewStore((s) => s.variants);
   const activeVariantId = usePreviewStore((s) => s.activeVariantId);
@@ -81,6 +85,40 @@ export function ExportTab() {
   const [status, setStatus] = useState('Ready');
   const [toast, setToast] = useState<string | null>(null);
   const clearToast = useCallback(() => setToast(null), []);
+
+  // List of locales available for export in the current mode. Default is
+  // always first; added locales follow in insertion order. Snapshot
+  // model: `localeScreens` carries Individual data, `localePanoramicElements`
+  // carries Panoramic data — each mode has its own list.
+  const availableLocales = useMemo<string[]>(
+    () =>
+      isPanoramic
+        ? ['default', ...Object.keys(localePanoramicMap)]
+        : ['default', ...Object.keys(localeScreensMap)],
+    [isPanoramic, localeScreensMap, localePanoramicMap],
+  );
+
+  // Selected-for-export set, keyed by locale code. Defaults to every
+  // available locale checked; resyncs when locales are added/removed
+  // (rare while the Download tab is open). User toggles persist within
+  // the tab session; resetting back to "all on" when the locale list
+  // changes is acceptable since edits to the list happen in the
+  // Locales tab, not here.
+  const [selectedLocales, setSelectedLocales] = useState<Set<string>>(
+    () => new Set(availableLocales),
+  );
+  useEffect(() => {
+    setSelectedLocales(new Set(availableLocales));
+  }, [availableLocales]);
+
+  const toggleLocaleForExport = useCallback((code: string) => {
+    setSelectedLocales((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }, []);
 
   const platformSizes = sizes[platform] ?? [];
   const sizeOptions = platformSizes.map((s) => ({
@@ -109,21 +147,33 @@ export function ExportTab() {
     : slugifyVariantName(activeProjectDisplayName || 'project');
 
   // --- Panoramic export helpers ---
-  const buildPanoramicBody = (frameIndex?: number) => ({
-    locale,
-    localeConfig: activeLocaleConfig,
-    frameCount: panoramicFrameCount,
-    frameWidth: previewW,
-    frameHeight: previewH,
-    background: panoramicBackground,
-    elements: panoramicElements,
-    effects: panoramicEffects,
-    font: config?.theme.font,
-    fontWeight: config?.theme.fontWeight,
-    frameStyle: config?.frames.style,
-    sizeKey: resolvedExportSize,
-    frameIndex,
-  });
+  // Panoramic body for a specific locale. Default uses state.panoramicElements;
+  // other locales use their own snapshot from localePanoramicElements.
+  const buildPanoramicBodyForLocale = (localeCode: string, frameIndex?: number) => {
+    const elementsForLocale =
+      localeCode === 'default'
+        ? panoramicElements
+        : localePanoramicMap[localeCode] ?? panoramicElements;
+    const cfg = localeCode === 'default' ? undefined : sessionLocales[localeCode];
+    return {
+      locale: localeCode,
+      localeConfig: cfg,
+      frameCount: panoramicFrameCount,
+      frameWidth: previewW,
+      frameHeight: previewH,
+      background: panoramicBackground,
+      elements: elementsForLocale,
+      effects: panoramicEffects,
+      font: config?.theme.font,
+      fontWeight: config?.theme.fontWeight,
+      frameStyle: config?.frames.style,
+      sizeKey: resolvedExportSize,
+      frameIndex,
+    };
+  };
+  // Kept for the single-screen download path which uses the active locale only.
+  const buildPanoramicBody = (frameIndex?: number) =>
+    buildPanoramicBodyForLocale(locale, frameIndex);
 
   // Panoramic batch export. Rasterizes the wide canvas once and slices it
   // into N per-frame PNGs — one render plus N cheap canvas crops, no
@@ -137,22 +187,33 @@ export function ExportTab() {
       setStatus(`Export failed: unknown size key ${resolvedExportSize}`);
       return;
     }
+    const localesToExport = availableLocales.filter((code) => selectedLocales.has(code));
+    if (localesToExport.length === 0) {
+      setStatus('Select at least one locale to export');
+      return;
+    }
+    const useFolders = localesToExport.length > 1;
     setExporting(true);
-    setStatus(`Rendering ${panoramicFrameCount} frames...`);
+    setStatus(`Rendering ${panoramicFrameCount} frames × ${localesToExport.length} locale${localesToExport.length === 1 ? '' : 's'}...`);
     const t0 = performance.now();
     try {
-      const slices = await exportPanoramicSlicesClientSide(
-        buildPanoramicBody() as unknown as Record<string, unknown>,
-        panoramicFrameCount,
-        sizeSpec.width,
-        sizeSpec.height,
-      );
       const entries: ZipEntry[] = [];
       const fileNames: string[] = [];
-      for (let i = 0; i < slices.length; i++) {
-        const fileName = `frame-${i + 1}.png`;
-        entries.push({ relPath: fileName, blob: slices[i]! });
-        fileNames.push(fileName);
+      for (const localeCode of localesToExport) {
+        const localeLabel = localeCode === 'default' ? 'Default' : getLocaleLabel(localeCode);
+        setStatus(`Rendering ${localeLabel} panoramic...`);
+        const slices = await exportPanoramicSlicesClientSide(
+          buildPanoramicBodyForLocale(localeCode) as unknown as Record<string, unknown>,
+          panoramicFrameCount,
+          sizeSpec.width,
+          sizeSpec.height,
+        );
+        for (let i = 0; i < slices.length; i++) {
+          const fileName = `frame-${i + 1}.png`;
+          const relPath = useFolders ? `${localeCode}/${fileName}` : fileName;
+          entries.push({ relPath, blob: slices[i]! });
+          fileNames.push(relPath);
+        }
       }
       if (entries.length > 0) {
         setStatus(`Bundling ${entries.length} frames...`);
@@ -168,8 +229,8 @@ export function ExportTab() {
         });
       }
       const ms = Math.round(performance.now() - t0);
-      setStatus(`Downloaded ${slices.length} frames in ${ms}ms`);
-      setToast(`Downloaded ${slices.length} frames`);
+      setStatus(`Downloaded ${entries.length} frames in ${ms}ms`);
+      setToast(`Downloaded ${entries.length} frames across ${localesToExport.length} locale${localesToExport.length === 1 ? '' : 's'}`);
     } catch (err) {
       setStatus(`Export failed: ${err instanceof Error ? err.message : 'Unknown'}`);
     } finally {
@@ -220,48 +281,71 @@ export function ExportTab() {
       setStatus(`Export failed: unknown size key ${resolvedExportSize}`);
       return;
     }
+    // Locale list to render. Iterate in availableLocales order (Default
+    // first) but filter to the user's checked set.
+    const localesToExport = availableLocales.filter((code) => selectedLocales.has(code));
+    if (localesToExport.length === 0) {
+      setStatus('Select at least one locale to export');
+      return;
+    }
+    // Multiple locales → put each in its own folder. Single locale →
+    // keep files at the ZIP root for backward-compatibility with the
+    // pre-multi-locale flat layout.
+    const useFolders = localesToExport.length > 1;
+
     setExporting(true);
     const entries: ZipEntry[] = [];
     const fileNames: string[] = [];
     const t0 = performance.now();
-    // Render all screens into in-memory blobs first, then bundle once.
-    // Avoids the previous N-individual-downloads UX which Chrome / Safari
-    // throttle behind a confirm dialog after ~2-3 files from the same
-    // origin and which can't produce any folder structure.
-    for (let i = 0; i < screens.length; i++) {
-      const screen = screens[i];
-      if (!screen) continue;
-      setStatus(`Rendering screen ${i + 1} of ${screens.length}...`);
-      try {
-        const body = buildExportBody(screen, {
-          previewW,
-          previewH,
-          locale,
-          localeConfig: activeLocaleConfig,
-          sizeKey: resolvedExportSize,
-        });
-        const blob = await exportScreenClientSide(
-          body as unknown as Record<string, unknown>,
-          sizeSpec.width,
-          sizeSpec.height,
-        );
-        const fileName = `screen-${i + 1}.png`;
-        // Files live at the ZIP root. macOS's Archive Utility wraps a
-        // multi-entry ZIP in a folder named after the archive itself
-        // (impostor-party-game-screens/) so we get a clean per-project
-        // extract directory for free. Forward-compatible with
-        // multi-locale: relPath becomes `<locale>/screen-N.png` once
-        // that lands, still at the ZIP root.
-        entries.push({ relPath: fileName, blob });
-        fileNames.push(fileName);
-      } catch (err) {
-        setStatus(`Error on screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
+    let totalRendered = 0;
+    let totalExpected = 0;
+    // Each locale carries its own screen snapshot in localeScreens[code]
+    // (Default uses state.screens). Iterate locale × screens, rendering
+    // each via the locale's own ScreenState so per-locale text, position,
+    // and screenshots all flow through buildExportBody unchanged.
+    for (const localeCode of localesToExport) {
+      const localeScreens = localeCode === 'default' ? screens : localeScreensMap[localeCode];
+      if (!localeScreens || localeScreens.length === 0) continue;
+      totalExpected += localeScreens.length;
+      const localeLabel = localeCode === 'default' ? 'Default' : getLocaleLabel(localeCode);
+      const localeCfg = localeCode === 'default' ? undefined : sessionLocales[localeCode];
+      for (let i = 0; i < localeScreens.length; i++) {
+        const screen = localeScreens[i];
+        if (!screen) continue;
+        setStatus(`Rendering ${localeLabel} screen ${i + 1} of ${localeScreens.length}...`);
+        try {
+          const body = buildExportBody(screen, {
+            previewW,
+            previewH,
+            locale: localeCode,
+            localeConfig: localeCfg,
+            sizeKey: resolvedExportSize,
+          });
+          const blob = await exportScreenClientSide(
+            body as unknown as Record<string, unknown>,
+            sizeSpec.width,
+            sizeSpec.height,
+          );
+          const fileName = `screen-${i + 1}.png`;
+          const relPath = useFolders ? `${localeCode}/${fileName}` : fileName;
+          entries.push({ relPath, blob });
+          fileNames.push(relPath);
+          totalRendered++;
+        } catch (err) {
+          setStatus(
+            `Error on ${localeLabel} screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`,
+          );
+        }
       }
     }
     if (entries.length > 0) {
       setStatus(`Bundling ${entries.length} screens...`);
       const zipBlob = await bundleAsZip(entries);
       downloadBlob(zipBlob, `${exportSlug}-screens.zip`);
+      // For variant-history bookkeeping. Record the active locale at
+      // export time (closest single value for a multi-locale export);
+      // could grow to a list later if a variant should remember which
+      // locales it shipped with.
       recordVariantArtifact({
         kind: 'screens',
         locale,
@@ -273,8 +357,8 @@ export function ExportTab() {
     }
     const ms = Math.round(performance.now() - t0);
     setExporting(false);
-    setStatus(`Downloaded ${entries.length} of ${screens.length} screens in ${ms}ms`);
-    setToast(`Downloaded ${entries.length} screenshots`);
+    setStatus(`Downloaded ${totalRendered} of ${totalExpected} screens in ${ms}ms`);
+    setToast(`Downloaded ${totalRendered} screenshots across ${localesToExport.length} locale${localesToExport.length === 1 ? '' : 's'}`);
   };
 
   const handleReload = async () => {
@@ -322,13 +406,71 @@ export function ExportTab() {
           options={sizeOptions}
         />
 
+        {availableLocales.length > 1 && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-text-dim">
+                Locales to export
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  className="text-[10px] text-text-dim hover:text-text underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                  onClick={() => setSelectedLocales(new Set(availableLocales))}
+                  disabled={selectedLocales.size === availableLocales.length}
+                >
+                  All
+                </button>
+                <span className="text-text-dim/40 text-[10px]">/</span>
+                <button
+                  type="button"
+                  className="text-[10px] text-text-dim hover:text-text underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                  onClick={() => setSelectedLocales(new Set())}
+                  disabled={selectedLocales.size === 0}
+                >
+                  None
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {availableLocales.map((code) => {
+                const label = code === 'default' ? 'Default' : (sessionLocales[code]?.label ?? getLocaleLabel(code));
+                return (
+                  <label
+                    key={code}
+                    className="flex items-center gap-2 px-2 py-1 rounded-md text-[11px] hover:bg-surface-2/60 cursor-pointer"
+                  >
+                    <Checkbox
+                      label=""
+                      checked={selectedLocales.has(code)}
+                      onChange={() => toggleLocaleForExport(code)}
+                    />
+                    <span className="flex-1 text-text truncate">{label}</span>
+                    {code !== 'default' && (
+                      <span className="text-[9px] uppercase tracking-wider text-text-dim/70 font-normal">
+                        {code}
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {isPanoramic ? (
           <button
             className="btn-primary w-full text-xs mt-2"
             onClick={handlePanoramicExportAll}
-            disabled={exporting}
+            disabled={exporting || selectedLocales.size === 0}
           >
-            {exporting ? 'Rendering...' : `Download all ${panoramicFrameCount} frames`}
+            {exporting
+              ? 'Rendering...'
+              : selectedLocales.size === 0
+                ? 'Select at least one locale'
+                : selectedLocales.size === 1
+                  ? `Download all ${panoramicFrameCount} frames`
+                  : `Download ${selectedLocales.size * panoramicFrameCount} frames (${selectedLocales.size} locales)`}
           </button>
         ) : (
           <>
@@ -339,16 +481,22 @@ export function ExportTab() {
             <button
               className="btn-primary w-full text-xs mt-2"
               onClick={handleExportAll}
-              disabled={exporting}
+              disabled={exporting || selectedLocales.size === 0}
             >
-              {exporting ? 'Rendering...' : `Download all ${screens.length} screens`}
+              {exporting
+                ? 'Rendering...'
+                : selectedLocales.size === 0
+                  ? 'Select at least one locale'
+                  : selectedLocales.size === 1
+                    ? `Download all ${screens.length} screens`
+                    : `Download ${selectedLocales.size * screens.length} screens (${selectedLocales.size} locales)`}
             </button>
             <button
               className="btn-secondary w-full text-xs mt-1"
               onClick={handleExportCurrent}
               disabled={exporting || !screens[selectedScreen]}
             >
-              {exporting ? 'Rendering...' : `Download screen ${selectedScreen + 1}`}
+              {exporting ? 'Rendering...' : `Download screen ${selectedScreen + 1} (current locale)`}
             </button>
           </>
         )}

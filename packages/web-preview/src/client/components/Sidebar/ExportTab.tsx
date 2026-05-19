@@ -9,6 +9,12 @@ import { getDefaultExportSizeKey } from '../../utils/platformSelection';
 import { exportScreenClientSide, exportPanoramicSlicesClientSide } from '../../utils/clientExport';
 import { bundleAsZip, type ZipEntry } from '../../utils/zipExport';
 import { composeExportSlug } from '../../utils/exportSlug';
+import {
+  buildExportDiagnostic,
+  copyDiagnosticToClipboard,
+  type ExportDiagnostic,
+  type ExportDiagnosticContext,
+} from '../../utils/exportDiagnostic';
 import { getLocaleLabel } from '@appframe/core/locales';
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
@@ -79,6 +85,34 @@ export function ExportTab() {
   const [status, setStatus] = useState('Ready');
   const [toast, setToast] = useState<string | null>(null);
   const clearToast = useCallback(() => setToast(null), []);
+  // Latest captured failure. Surfaces a "Copy diagnostic" button next
+  // to the status so the user can ship us a reproducible bug report
+  // without having to open devtools. Cleared by any subsequent
+  // successful run via clearDiagnostic().
+  const [lastDiagnostic, setLastDiagnostic] = useState<ExportDiagnostic | null>(null);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const clearDiagnostic = useCallback(() => {
+    setLastDiagnostic(null);
+    setCopyState('idle');
+  }, []);
+  const captureFailure = useCallback(
+    (err: unknown, statusMessage: string, context: ExportDiagnosticContext) => {
+      setStatus(statusMessage);
+      setLastDiagnostic(buildExportDiagnostic(err, usePreviewStore.getState(), context));
+      setCopyState('idle');
+    },
+    [],
+  );
+  const handleCopyDiagnostic = useCallback(async () => {
+    if (!lastDiagnostic) return;
+    try {
+      await copyDiagnosticToClipboard(lastDiagnostic);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 2000);
+    } catch {
+      setCopyState('failed');
+    }
+  }, [lastDiagnostic]);
 
   // List of locales available for export in the current mode. Default is
   // always first; added locales follow in insertion order. Snapshot
@@ -222,8 +256,18 @@ export function ExportTab() {
       const ms = Math.round(performance.now() - t0);
       setStatus(`Downloaded ${entries.length} frames in ${ms}ms`);
       setToast(`Downloaded ${entries.length} frames across ${localesToExport.length} locale${localesToExport.length === 1 ? '' : 's'}`);
+      clearDiagnostic();
     } catch (err) {
-      setStatus(`Export failed: ${err instanceof Error ? err.message : 'Unknown'}`);
+      captureFailure(
+        err,
+        `Export failed: ${err instanceof Error ? err.message : 'Unknown'}`,
+        {
+          kind: 'export-panoramic-all-frames',
+          sizeKey: resolvedExportSize,
+          sizeWidth: sizeSpec.width,
+          sizeHeight: sizeSpec.height,
+        },
+      );
     } finally {
       setExporting(false);
     }
@@ -267,8 +311,20 @@ export function ExportTab() {
       const ms = Math.round(performance.now() - t0);
       setStatus(`Downloaded screen ${selectedScreen + 1} in ${ms}ms`);
       setToast(`Downloaded ${fileName}`);
+      clearDiagnostic();
     } catch (err) {
-      setStatus(`Error on screen ${selectedScreen + 1}: ${err instanceof Error ? err.message : 'Unknown'}`);
+      captureFailure(
+        err,
+        `Error on screen ${selectedScreen + 1}: ${err instanceof Error ? err.message : 'Unknown'}`,
+        {
+          kind: 'export-current-screen',
+          failingScreenIndex: selectedScreen,
+          failingLocale: locale,
+          sizeKey: resolvedExportSize,
+          sizeWidth: sizeSpec.width,
+          sizeHeight: sizeSpec.height,
+        },
+      );
     } finally {
       setExporting(false);
     }
@@ -332,8 +388,17 @@ export function ExportTab() {
           fileNames.push(relPath);
           totalRendered++;
         } catch (err) {
-          setStatus(
+          captureFailure(
+            err,
             `Error on ${localeLabel} screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`,
+            {
+              kind: 'export-all-screens',
+              failingScreenIndex: i,
+              failingLocale: localeCode,
+              sizeKey: resolvedExportSize,
+              sizeWidth: sizeSpec.width,
+              sizeHeight: sizeSpec.height,
+            },
           );
         }
       }
@@ -359,6 +424,7 @@ export function ExportTab() {
     setExporting(false);
     setStatus(`Downloaded ${totalRendered} of ${totalExpected} screens in ${ms}ms`);
     setToast(`Downloaded ${totalRendered} screenshots across ${localesToExport.length} locale${localesToExport.length === 1 ? '' : 's'}`);
+    if (totalRendered === totalExpected) clearDiagnostic();
   };
 
   const handleReload = async () => {
@@ -523,9 +589,24 @@ export function ExportTab() {
             Reload Project
           </button>
         </div>
-        <div className={`text-[10px] mt-2 ${status.startsWith('Download error') || status.startsWith('Reload failed') || status.startsWith('Error') ? 'text-red-400' : status.startsWith('Downloaded') || status === 'Project reloaded from disk' ? 'text-green-400' : 'text-text-dim'}`}>
+        <div className={`text-[10px] mt-2 ${status.startsWith('Download error') || status.startsWith('Reload failed') || status.startsWith('Error') || status.startsWith('Export failed') ? 'text-red-400' : status.startsWith('Downloaded') || status === 'Project reloaded from disk' ? 'text-green-400' : 'text-text-dim'}`}>
           {status}
         </div>
+        {lastDiagnostic && (
+          <button
+            type="button"
+            onClick={handleCopyDiagnostic}
+            className="mt-1.5 inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-surface-2 hover:bg-surface-2/80 text-text-dim hover:text-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            aria-label="Copy export diagnostic JSON to clipboard"
+            title="Includes error + project + variant + locale + platform + size + browser + commit. Paste into a bug report so we can reproduce without back-and-forth."
+          >
+            {copyState === 'copied'
+              ? 'Diagnostic copied'
+              : copyState === 'failed'
+                ? 'Copy failed — see console'
+                : 'Copy diagnostic'}
+          </button>
+        )}
       </Section>
     </>
   );

@@ -81,35 +81,50 @@ export function HeaderBar({
         )}
         <span className="text-sm font-semibold whitespace-nowrap">appframe</span>
         <button
-          className="inline-flex items-center gap-1 text-[11px] text-text-dim hover:text-text bg-surface-2 hover:bg-surface px-2 py-1 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent max-w-[140px]"
+          className="inline-flex items-center gap-1.5 text-[11px] text-text-dim hover:text-text bg-surface-2 hover:bg-surface px-2 py-1 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent max-w-[140px]"
           onClick={onOpenProjectPicker}
-          title="Switch project"
+          title={
+            autosaveStatus === 'saving'
+              ? 'Saving...'
+              : autosaveStatus === 'saved'
+                ? 'Saved'
+                : autosaveStatus === 'error'
+                  ? autosaveLastError ?? 'Save failed'
+                  : 'Switch project'
+          }
           aria-label={`Project: ${activeProjectDisplayName}. Click to switch.`}
         >
+          {/* Tiny status dot inside the project button — same flex slot
+              every state, no width changes, no row-wrap risk. Yellow
+              while saving, green briefly on save, red on failure,
+              transparent otherwise. Hover title carries the full
+              status / error message. */}
+          <span
+            aria-hidden="true"
+            className={`shrink-0 w-1.5 h-1.5 rounded-full transition-colors duration-200 ${
+              autosaveStatus === 'saving'
+                ? 'bg-amber-400'
+                : autosaveStatus === 'saved'
+                  ? 'bg-emerald-400'
+                  : autosaveStatus === 'error'
+                    ? 'bg-red-400'
+                    : 'bg-transparent'
+            }`}
+          />
           <span className="truncate">{activeProjectDisplayName}</span>
           <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 shrink-0" fill="none" aria-hidden="true">
             <path d="M3 4.5 6 7.5l3-3" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        {autosaveStatus !== 'idle' && (
-          <span
-            className={`text-[10px] whitespace-nowrap px-1.5 py-0.5 rounded-md ${
-              autosaveStatus === 'saving'
-                ? 'text-text-dim bg-surface-2'
-                : autosaveStatus === 'saved'
-                  ? 'text-emerald-300 bg-emerald-500/10'
-                  : 'text-red-300 bg-red-500/10'
-            }`}
-            title={autosaveStatus === 'error' && autosaveLastError ? autosaveLastError : undefined}
-            aria-live="polite"
-          >
-            {autosaveStatus === 'saving'
-              ? 'Saving...'
-              : autosaveStatus === 'saved'
-                ? 'Saved'
-                : 'Save failed'}
-          </span>
-        )}
+        <span className="sr-only" aria-live="polite">
+          {autosaveStatus === 'saving'
+            ? 'Saving project'
+            : autosaveStatus === 'saved'
+              ? 'Project saved'
+              : autosaveStatus === 'error'
+                ? `Save failed: ${autosaveLastError ?? 'unknown error'}`
+                : ''}
+        </span>
         {config && (
           <span className="text-xs text-text-dim truncate">{config.app.name}</span>
         )}

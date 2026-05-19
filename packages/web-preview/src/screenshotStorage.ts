@@ -4,6 +4,7 @@ import { join, resolve, extname, basename, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import type { Express, Request, Response } from 'express';
 import sharp from 'sharp';
+import { isPathInside } from './utils/pathSafety.js';
 
 const SUPPORTED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.svg']);
 const CONTENT_TYPES: Record<string, string> = {
@@ -124,8 +125,7 @@ export function resolveScreenshotPath(root: string, project: string, filename: s
   }
   const dir = projectScreenshotsDir(root, safeProject);
   const abs = resolve(dir, safeName);
-  const sep = process.platform === 'win32' ? '\\' : '/';
-  if (!abs.startsWith(resolve(dir) + sep)) {
+  if (!isPathInside(dir, abs)) {
     throw new Error('resolved path escapes the project screenshots directory');
   }
   return abs;
@@ -194,8 +194,7 @@ export async function writeScreenshotFromDataUrl(
   await mkdir(dir, { recursive: true });
   const filename = await pickUniqueFilename(dir, stem, finalExt);
   const absPath = resolve(dir, filename);
-  const sep = process.platform === 'win32' ? '\\' : '/';
-  if (!absPath.startsWith(resolve(dir) + sep)) {
+  if (!isPathInside(dir, absPath)) {
     throw new Error('resolved path escapes the project screenshots directory');
   }
   await writeFile(absPath, buffer);
@@ -440,8 +439,7 @@ export function registerScreenshotRoutes(app: Express, options: ScreenshotStorag
     }
     const screenshotsDir = projectScreenshotsDir(options.projectsRoot, project);
     const sourcePath = resolve(screenshotsDir, safeName);
-    const sep = process.platform === 'win32' ? '\\' : '/';
-    if (!sourcePath.startsWith(resolve(screenshotsDir) + sep)) {
+    if (!isPathInside(screenshotsDir, sourcePath)) {
       res.status(400).json({ error: 'invalid path' });
       return;
     }

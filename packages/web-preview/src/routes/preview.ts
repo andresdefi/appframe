@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import type { Express } from 'express';
 import {
   getFrame,
@@ -20,6 +19,7 @@ import type {
 } from '@appframe/core';
 import type { TemplateContext, DeviceContext } from '@appframe/core';
 import { buildKoubouPreviewFrame } from '../koubouPreviewFrame.js';
+import { isPathInside } from '../utils/pathSafety.js';
 import {
   getLocalizedScreenshotPath,
   placeholderSvgDataUrl,
@@ -376,7 +376,7 @@ async function resolveContext(
           p.localeConfig,
         )
       : '';
-    if (screenshotPath && !screenshotPath.startsWith(resolve(ctx.configDir))) {
+    if (screenshotPath && !isPathInside(ctx.configDir, screenshotPath)) {
       screenshotUrl = placeholderSvgDataUrl();
     } else {
       screenshotUrl = await screenshotToDataUrl(screenshotPath);

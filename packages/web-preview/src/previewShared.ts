@@ -11,6 +11,7 @@ import {
   resolveScreenshotUrlToDataUrl,
   type ScreenshotStorageOptions,
 } from './screenshotStorage.js';
+import { isPathInside } from './utils/pathSafety.js';
 
 export function getLocaleText(
   config: AppframeConfig,
@@ -212,7 +213,7 @@ export async function resolveCanvasAssetDataUrl(
   }
 
   const assetPath = resolve(baseDir, value);
-  if (!assetPath.startsWith(resolve(baseDir))) {
+  if (!isPathInside(baseDir, assetPath)) {
     return placeholderSvgDataUrlWithLabel(fallbackLabel);
   }
   return screenshotToDataUrl(assetPath, fallbackLabel);

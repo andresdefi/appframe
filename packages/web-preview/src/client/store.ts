@@ -600,9 +600,31 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   createVariant: (name) =>
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
-      const variant = buildVariantRecord(name ?? nextVariantName(variants), state, {
-        history: [makeHistoryEntry('created', 'Variant created manually')],
-        provenance: { origin: 'manual', branchDepth: 0 },
+      // Blank variant: a single fresh screen, no carryover from the
+      // currently-active variant. "Duplicate current" is the path for
+      // forking the active state — see duplicateActiveVariant. Variants
+      // model: alternate canvases inside a project, not edits on top.
+      if (!state.config) return state;
+      const blankScreen = createScreenState(0, state.config, state.platform);
+      const blankSnapshotState = {
+        ...state,
+        isPanoramic: false,
+        screens: [blankScreen],
+        selectedScreen: 0,
+        panoramicElements: [],
+        selectedElementIndex: null,
+        locale: 'default',
+        localeScreens: {},
+        localePanoramicElements: {},
+        sessionLocales: {},
+      };
+      const variant = buildVariantRecord(name ?? nextVariantName(variants), blankSnapshotState, {
+        history: [makeHistoryEntry('created', 'Variant created blank')],
+        provenance: {
+          origin: 'manual',
+          branchDepth: 0,
+          note: 'Started fresh — no carryover from the active variant.',
+        },
       });
       return {
         variants: [...variants, variant],

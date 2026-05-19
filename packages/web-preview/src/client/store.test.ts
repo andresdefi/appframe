@@ -1,11 +1,39 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { usePreviewStore } from './store';
 import { buildVariantRecord } from './storeSnapshots';
+import type { AppframeConfig } from './types';
+
+function makeConfig(): AppframeConfig {
+  return {
+    project: 'test-store',
+    platforms: ['iphone'],
+    sizes: { iphone: ['ios-6.9'] },
+    frames: { ios: 'iphone-17-pro-max', style: 'flat', deviceColor: undefined },
+    theme: {
+      font: 'inter',
+      fontWeight: 700,
+      headlineFont: 'inter',
+      headlineFontWeight: 800,
+      subtitleFont: 'inter',
+      subtitleFontWeight: 400,
+      colors: {
+        primary: '#000', secondary: '#666', background: '#fff',
+        text: '#000', subtitle: '#666', freeText: '#666',
+      },
+    },
+    screens: [
+      { headline: 'Existing', subtitle: 'A', screenshot: 'screenshots/a.png' },
+    ],
+    backgrounds: { default: 'preset:lavender' },
+    fonts: { paths: [] },
+  } as unknown as AppframeConfig;
+}
 
 beforeEach(() => {
   usePreviewStore.setState({
     variants: [],
     activeVariantId: null,
+    config: null,
   });
 });
 
@@ -50,5 +78,46 @@ describe('recordVariantArtifact', () => {
 
     const updated = usePreviewStore.getState().variants.find((v) => v.id === variant.id);
     expect(updated?.artifacts[0]?.id).toMatch(/^artifact-/);
+  });
+});
+
+describe('createVariant', () => {
+  // Phase 9.1: the "New variant" button used to silently snapshot the
+  // active variant's state. The mental model is alternate canvases —
+  // a new variant should start fresh, not carry over the active one's
+  // edits. "Duplicate current" is the fork path.
+  it('creates a blank variant with a single fresh screen, ignoring the active variant state', () => {
+    const config = makeConfig();
+    // Seed an active variant with rich state — a fresh createVariant
+    // call must not inherit any of this.
+    usePreviewStore.setState({
+      config,
+      platform: 'iphone',
+      variants: [],
+      activeVariantId: null,
+      screens: [],
+      panoramicElements: [],
+      localeScreens: { 'es-ES': [] },
+      sessionLocales: { 'es-ES': { label: 'Spanish' } },
+    });
+
+    usePreviewStore.getState().createVariant('Fresh');
+
+    const state = usePreviewStore.getState();
+    const created = state.variants.find((v) => v.name === 'Fresh');
+    expect(created).toBeDefined();
+    expect(state.activeVariantId).toBe(created!.id);
+    expect(created!.snapshot.screens).toHaveLength(1);
+    expect(created!.snapshot.isPanoramic).toBe(false);
+    expect(created!.snapshot.localeScreens).toEqual({});
+    expect(created!.snapshot.sessionLocales).toEqual({});
+    expect(created!.provenance?.origin).toBe('manual');
+    expect(created!.history[0]?.label).toMatch(/blank/i);
+  });
+
+  it('is a no-op when config has not been loaded yet', () => {
+    usePreviewStore.setState({ config: null, variants: [], activeVariantId: null });
+    usePreviewStore.getState().createVariant('Fresh');
+    expect(usePreviewStore.getState().variants).toHaveLength(0);
   });
 });

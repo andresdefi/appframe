@@ -592,6 +592,44 @@ describe('renameProject / duplicateProject / deleteProject', () => {
     expect(originalData.screens[0]!.screenshotUrl).toBe('/api/screenshots/alpha/screen1.png');
   });
 
+  // Regression for P3b: validate-then-mutate. A corrupt appframe.json
+  // in the source must abort the rename BEFORE the directory is
+  // moved. Pre-fix behavior: rename ran first, then the read failed,
+  // leaving the project at a new slug with stale screenshot URLs.
+  it('renameProject leaves the source directory intact when appframe.json is corrupt', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    await writeFile(
+      join(options.projectsRoot, 'alpha', 'appframe.json'),
+      '{ not valid json',
+      'utf-8',
+    );
+
+    await expect(renameProject(options, 'alpha', 'beta')).rejects.toThrow();
+
+    // alpha should still exist at its original slug; beta should not
+    // have been created.
+    await expect(stat(join(options.projectsRoot, 'alpha'))).resolves.toBeDefined();
+    await expect(stat(join(options.projectsRoot, 'beta'))).rejects.toThrow();
+  });
+
+  it('duplicateProject leaves the destination clean when source appframe.json is corrupt', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    await writeFile(
+      join(options.projectsRoot, 'alpha', 'appframe.json'),
+      '{ not valid json',
+      'utf-8',
+    );
+
+    await expect(duplicateProject(options, 'alpha', 'gamma')).rejects.toThrow();
+
+    // gamma must not exist — half-copied directories were the bug.
+    await expect(stat(join(options.projectsRoot, 'gamma'))).rejects.toThrow();
+    // alpha untouched.
+    await expect(stat(join(options.projectsRoot, 'alpha'))).resolves.toBeDefined();
+  });
+
   it('duplicateProject auto-suffixes when destination slug collides', async () => {
     const options = await makeRoot();
     await createProject(options, 'alpha');

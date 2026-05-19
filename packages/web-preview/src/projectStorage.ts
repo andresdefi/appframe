@@ -480,19 +480,38 @@ export async function renameProject(
   if (await projectExists(options.projectsRoot, baseSlug)) {
     throw new Error(`project "${baseSlug}" already exists`);
   }
+  // Validate-then-mutate. Read + rewrite the JSON in memory first so a
+  // corrupt / future-schema project file aborts BEFORE we touch the
+  // filesystem. Previously we renamed the directory, then tried to
+  // read; if the read failed the directory was already at the new
+  // name but the JSON inside still pointed at the old slug — a
+  // half-renamed state we couldn't recover from.
+  const preflight = await readProject(options, safeFrom);
+  const rewritten = preflight
+    ? rewriteScreenshotProjectInJson(preflight.data, safeFrom, baseSlug)
+    : null;
   await rename(
     projectDir(options.projectsRoot, safeFrom),
     projectDir(options.projectsRoot, baseSlug),
   );
-  // The directory move leaves screenshot files in place under the new
-  // path on disk, but the URLs persisted inside appframe.json still
-  // reference the old slug — every <img src="/api/screenshots/<old>/...">
-  // would 404 after the rename. Rewrite those URLs to the new slug so
-  // the project's own references stay valid.
-  const envelope = await readProject(options, baseSlug);
-  if (envelope) {
-    const rewritten = rewriteScreenshotProjectInJson(envelope.data, safeFrom, baseSlug);
-    await writeProject(options, baseSlug, rewritten);
+  // Now the dir is at the new path. Write the precomputed rewritten
+  // JSON. If THIS write fails we roll the rename back so the user
+  // ends up with the project under its original slug, not stranded
+  // with broken screenshot URLs at the new slug.
+  if (rewritten) {
+    try {
+      await writeProject(options, baseSlug, rewritten);
+    } catch (err) {
+      try {
+        await rename(
+          projectDir(options.projectsRoot, baseSlug),
+          projectDir(options.projectsRoot, safeFrom),
+        );
+      } catch (rollbackErr) {
+        console.warn('[projectStorage] rename rollback also failed', rollbackErr);
+      }
+      throw err;
+    }
   }
   const meta: ProjectMeta = {
     schemaVersion: META_SCHEMA_VERSION,
@@ -527,19 +546,35 @@ export async function duplicateProject(
   const baseSlug = isAlreadySlug ? trimmed : slugifyProjectName(trimmed);
   if (!baseSlug) throw new Error('duplicate target name has no usable characters');
   const safeTo = await pickUniqueProjectSlug(options.projectsRoot, baseSlug);
+  // Same validate-then-mutate dance as renameProject: read + rewrite
+  // the source JSON in memory before any FS change. A corrupt source
+  // file aborts here instead of leaving a half-copied destination
+  // behind.
+  const preflight = await readProject(options, safeFrom);
+  const rewritten = preflight
+    ? rewriteScreenshotProjectInJson(preflight.data, safeFrom, safeTo)
+    : null;
   await cp(
     projectDir(options.projectsRoot, safeFrom),
     projectDir(options.projectsRoot, safeTo),
     { recursive: true },
   );
-  // cp leaves every /api/screenshots/<safeFrom>/... URL inside the copied
-  // appframe.json pointing at the original project. Delete or rename the
-  // source and the duplicate breaks. Rewrite those URLs to the new slug
-  // here, same as renameProject does at the top of this file.
-  const envelope = await readProject(options, safeTo);
-  if (envelope) {
-    const rewritten = rewriteScreenshotProjectInJson(envelope.data, safeFrom, safeTo);
-    await writeProject(options, safeTo, rewritten);
+  // Now the destination dir exists with the source's JSON. Overwrite
+  // with the rewritten copy so /api/screenshots/<safeFrom>/... URLs
+  // point at the new slug. If the write fails we clean up the
+  // half-copied destination dir so the user isn't left with a stranded
+  // project that references the wrong screenshot path.
+  if (rewritten) {
+    try {
+      await writeProject(options, safeTo, rewritten);
+    } catch (err) {
+      try {
+        await rm(projectDir(options.projectsRoot, safeTo), { recursive: true, force: true });
+      } catch (cleanupErr) {
+        console.warn('[projectStorage] duplicate cleanup failed', cleanupErr);
+      }
+      throw err;
+    }
   }
   const isoNow = now().toISOString();
   const meta: ProjectMeta = {

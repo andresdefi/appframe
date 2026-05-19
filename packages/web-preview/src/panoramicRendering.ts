@@ -26,6 +26,7 @@ import type {
 } from '@appframe/core';
 import { buildKoubouPreviewFrame } from './koubouPreviewFrame.js';
 import { resolveCanvasAssetDataUrl } from './previewShared.js';
+import type { ScreenshotStorageOptions } from './screenshotStorage.js';
 
 export function buildPanoramicShadowCss(
   shadow: { opacity: number; blur: number; color: string; offsetY: number } | undefined,
@@ -109,13 +110,22 @@ export async function buildPanoramicRenderedBackgroundLayers(args: {
   configDir: string;
   canvasWidth: number;
   canvasHeight: number;
+  // Required for /api/screenshots/<project>/<file> URLs that uploadImageFile
+  // returns. Without it, those URLs fall through to a filesystem resolve
+  // and end up as the SVG placeholder.
+  screenshotStorage?: ScreenshotStorageOptions;
 }): Promise<PanoramicRenderedBackgroundLayer[]> {
-  const { background, configDir, canvasWidth, canvasHeight } = args;
+  const { background, configDir, canvasWidth, canvasHeight, screenshotStorage } = args;
   const rendered: PanoramicRenderedBackgroundLayer[] = [];
 
   for (const layer of background.layers ?? []) {
     if (layer.kind === 'image') {
-      const imageDataUrl = await resolveCanvasAssetDataUrl(layer.image, configDir, 'Background');
+      const imageDataUrl = await resolveCanvasAssetDataUrl(
+        layer.image,
+        configDir,
+        'Background',
+        screenshotStorage,
+      );
       rendered.push({
         kind: 'image',
         backgroundCss: buildPanoramicBackgroundLayerCss({ ...layer, image: imageDataUrl }),
@@ -153,7 +163,7 @@ export async function buildPanoramicRenderedBackgroundLayers(args: {
   if (rendered.length === 0) {
     let legacyCss = buildPanoramicBackgroundCss(background);
     if (background.type === 'image' && background.image) {
-      legacyCss = `url('${await resolveCanvasAssetDataUrl(background.image, configDir, 'Background')}') center/cover no-repeat`;
+      legacyCss = `url('${await resolveCanvasAssetDataUrl(background.image, configDir, 'Background', screenshotStorage)}') center/cover no-repeat`;
     }
     rendered.push({
       kind: background.type === 'image' ? 'image' : background.type === 'gradient' ? 'gradient' : 'solid',
@@ -187,8 +197,12 @@ export async function buildPanoramicRenderedElement(args: {
    * so the live panoramic iframe avoids ~17 MB of decoded frame bitmap
    * per element. Export pipelines leave this false. */
   previewMode?: boolean;
+  // Same role as on buildPanoramicRenderedBackgroundLayers: lets
+  // resolveCanvasAssetDataUrl handle /api/screenshots/<project>/<file>
+  // URLs instead of falling through to a filesystem path.
+  screenshotStorage?: ScreenshotStorageOptions;
 }): Promise<PanoramicRenderedElement> {
-  const { element, space, config, configDir, frameStyle, previewMode } = args;
+  const { element, space, config, configDir, frameStyle, previewMode, screenshotStorage } = args;
   const xPx = space.originXPx + (element.x / 100) * space.widthPx;
   const yPx = space.originYPx + (element.y / 100) * space.heightPx;
 
@@ -198,6 +212,7 @@ export async function buildPanoramicRenderedElement(args: {
       element.screenshot,
       configDir,
       'Screenshot',
+      screenshotStorage,
     );
 
     const frameId = element.frame ?? config.frames.ios ?? undefined;
@@ -346,7 +361,7 @@ export async function buildPanoramicRenderedElement(args: {
       rotation: element.rotation,
       opacity: element.opacity,
       borderRadius: element.borderRadius,
-      srcDataUrl: await resolveCanvasAssetDataUrl(element.src, configDir, 'Image'),
+      srcDataUrl: await resolveCanvasAssetDataUrl(element.src, configDir, 'Image', screenshotStorage),
       fit: element.fit,
       shadowCss: buildPanoramicShadowCss(element.shadow),
     };
@@ -365,7 +380,7 @@ export async function buildPanoramicRenderedElement(args: {
       borderRadius: element.borderRadius,
       paddingPx: (element.padding / 100) * space.heightPx,
       backgroundColor: element.backgroundColor,
-      srcDataUrl: await resolveCanvasAssetDataUrl(element.src, configDir, 'Logo'),
+      srcDataUrl: await resolveCanvasAssetDataUrl(element.src, configDir, 'Logo', screenshotStorage),
       fit: element.fit,
       shadowCss: buildPanoramicShadowCss(element.shadow),
     };
@@ -391,7 +406,7 @@ export async function buildPanoramicRenderedElement(args: {
       heightPx,
       rotation: element.rotation,
       borderRadius: element.borderRadius,
-      screenshotUrl: await resolveCanvasAssetDataUrl(element.screenshot, configDir, 'Crop'),
+      screenshotUrl: await resolveCanvasAssetDataUrl(element.screenshot, configDir, 'Crop', screenshotStorage),
       zoom: element.zoom,
       translateXPx,
       translateYPx,
@@ -495,6 +510,8 @@ export async function buildPanoramicRenderedElement(args: {
         config,
         configDir,
         frameStyle,
+        previewMode,
+        screenshotStorage,
       }),
     ),
   );

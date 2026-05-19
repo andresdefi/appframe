@@ -60,6 +60,7 @@ export function registerPanoramicPreviewRoute(app: Express, ctx: RouteContext): 
             configDir: ctx.configDir,
             frameStyle,
             previewMode,
+            screenshotStorage: ctx.screenshotStorage,
           }),
         ),
       );
@@ -69,6 +70,7 @@ export function registerPanoramicPreviewRoute(app: Express, ctx: RouteContext): 
         configDir: ctx.configDir,
         canvasWidth: totalWidth,
         canvasHeight: frameHeight,
+        screenshotStorage: ctx.screenshotStorage,
       });
 
       // Compute a contrasting guide color from the background

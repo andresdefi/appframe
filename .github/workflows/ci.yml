@@ -31,8 +31,12 @@ jobs:
 
       - run: pnpm lint
 
-      - run: pnpm typecheck
-
+      # Build before typecheck: @appframe/core ships its types from
+      # dist/, so web-preview's tsc can only resolve `@appframe/core`
+      # after core has been built. pnpm build runs packages in
+      # workspace-dependency order, so this populates core/dist first.
       - run: pnpm build
+
+      - run: pnpm typecheck
 
       - run: pnpm test

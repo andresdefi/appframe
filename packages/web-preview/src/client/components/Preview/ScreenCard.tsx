@@ -96,6 +96,8 @@ export function ScreenCard({
     return () => registerIframe(index, null);
   }, [index]);
 
+  const { patchLoupe, patchCallout } = useInstantPatch();
+
   const handleDeviceDrop = useCallback(
     (partial: { deviceTop: number; deviceOffsetX: number }) => {
       updateScreen(index, partial);
@@ -136,12 +138,69 @@ export function ScreenCard({
     [index, screen, updateScreen],
   );
 
+  const handleLoupeDrop = useCallback(
+    (partial: { displayX: number; displayY: number }) => {
+      if (!screen?.loupe) return;
+      updateScreen(index, { loupe: { ...screen.loupe, ...partial } });
+    },
+    [index, screen?.loupe, updateScreen],
+  );
+
+  // During a loupe drag, patch the iframe directly so both the wrapper
+  // position AND the magnified content track the cursor live. The
+  // canonical state update happens on release via handleLoupeDrop, so
+  // the expensive iframe HTML rewrite only fires once per gesture.
+  const handleLoupeInstant = useCallback(
+    (partial: { displayX: number; displayY: number }) => {
+      if (!screen?.loupe) return;
+      patchLoupe({ ...screen.loupe, ...partial });
+    },
+    [screen?.loupe, patchLoupe],
+  );
+
+  const handleSpotlightDrop = useCallback(
+    (partial: { x: number; y: number }) => {
+      if (!screen?.spotlight) return;
+      updateScreen(index, { spotlight: { ...screen.spotlight, ...partial } });
+    },
+    [index, screen?.spotlight, updateScreen],
+  );
+
+  const handleCalloutDrop = useCallback(
+    (idx: number, partial: { displayX: number; displayY: number }) => {
+      if (!screen) return;
+      const callouts = (screen.callouts ?? []).map((c, i) =>
+        i === idx ? { ...c, ...partial } : c,
+      );
+      updateScreen(index, { callouts });
+    },
+    [index, screen, updateScreen],
+  );
+
+  // Live callout patch — repositions the card AND re-crops the image
+  // inside so the magnified content tracks the cursor during drag.
+  // State update is deferred to release via handleCalloutDrop.
+  const handleCalloutInstant = useCallback(
+    (idx: number, partial: { displayX: number; displayY: number }) => {
+      if (!screen) return;
+      const co = screen.callouts[idx];
+      if (!co) return;
+      patchCallout(idx, { ...co, ...partial });
+    },
+    [screen, patchCallout],
+  );
+
   // Non-default locales are frozen for structural data — device frame,
-  // annotations, overlays. Text positions stay editable per locale
-  // since translations frequently need different placement to fit
-  // longer / shorter copy. Pass the allowed-kinds filter accordingly.
-  const allowedDragKinds = useMemo<ReadonlyArray<'device' | 'text' | 'annotation' | 'overlay'>>(
-    () => (locale === 'default' ? ['device', 'text', 'annotation', 'overlay'] : ['text']),
+  // annotations, overlays, loupe, spotlight, callouts. Text positions
+  // stay editable per locale since translations frequently need
+  // different placement to fit longer / shorter copy.
+  const allowedDragKinds = useMemo<
+    ReadonlyArray<'device' | 'text' | 'annotation' | 'overlay' | 'loupe' | 'spotlight' | 'callout'>
+  >(
+    () =>
+      locale === 'default'
+        ? ['device', 'text', 'annotation', 'overlay', 'loupe', 'spotlight', 'callout']
+        : ['text'],
     [locale],
   );
   const { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget } = useDragPosition(
@@ -155,10 +214,14 @@ export function ScreenCard({
     handleTextDrop,
     handleAnnotationDrop,
     handleOverlayDrop,
+    handleLoupeDrop,
+    handleLoupeInstant,
+    handleSpotlightDrop,
+    handleCalloutDrop,
+    handleCalloutInstant,
     allowedDragKinds,
   );
 
-  const { patchLoupe } = useInstantPatch();
   // Ref-mirrors the latest loupe state so the MutationObserver can refresh
   // the loupe (when the device moves underneath it) without re-attaching
   // the observer on every loupe edit.
@@ -253,8 +316,15 @@ export function ScreenCard({
       selector = target.cls === 'freeText' ? '.free-text' : `.${target.cls}`;
     } else if (target.kind === 'annotation') {
       selector = `.annotation-shape[data-idx="${target.idx}"]`;
-    } else {
+    } else if (target.kind === 'overlay') {
       selector = `.overlay-item[data-idx="${target.idx}"]`;
+    } else if (target.kind === 'loupe') {
+      selector = '.loupe-wrapper';
+    } else if (target.kind === 'spotlight') {
+      selector = '.spotlight-cutout';
+    } else {
+      // callout
+      selector = `.callout-card[data-idx="${target.idx}"]`;
     }
     const el = doc.querySelector(selector) as HTMLElement | null;
     if (!el) {
@@ -299,9 +369,19 @@ export function ScreenCard({
     // Same callback handles two responsibilities: keep center guides in
     // sync with the dragged element, and re-sample the loupe whenever the
     // device-wrapper position/size changes so the magnifier tracks live.
-    const onMutation = () => {
+    // refreshLoupe is scoped to device-wrapper mutations only — running
+    // it on every observed element (annotation, overlay, callout, etc.)
+    // adds a full DOM re-patch per tick of every slider / drag, which
+    // shows up as stutter on the heavier shapes (callouts especially).
+    const onMutation = (records: MutationRecord[]) => {
       recomputeGuides();
-      refreshLoupe();
+      const deviceMoved = records.some((r) => {
+        const t = r.target as Element;
+        return t.classList?.contains('device-wrapper');
+      });
+      if (deviceMoved) {
+        refreshLoupe();
+      }
     };
     const observer = new MutationObserver(onMutation);
     const selectors = ['.device-wrapper', '.headline', '.subtitle', '.free-text'];
@@ -315,7 +395,7 @@ export function ScreenCard({
     // Annotations and overlays (elements) are dynamic — observe every shape
     // that exists in the current render. The guide check filters by
     // dragTarget so only the active one matters.
-    for (const el of Array.from(doc.querySelectorAll('.annotation-shape, .overlay-item'))) {
+    for (const el of Array.from(doc.querySelectorAll('.annotation-shape, .overlay-item, .loupe-wrapper, .spotlight-cutout, .callout-card'))) {
       observer.observe(el, { attributes: true, attributeFilter: ['style'] });
       attached++;
     }

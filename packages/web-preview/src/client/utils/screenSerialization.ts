@@ -194,6 +194,22 @@ type SlimmedScreen = Partial<ScreenState>;
 export function slimScreen(screen: ScreenState): SlimmedScreen {
   const slim: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(screen)) {
+    // Always persist the spotlight/loupe enabled flag when their
+    // corresponding shape data is present, even if the flag itself is
+    // at its default. The shape persists across disable so the user
+    // can re-enable without losing tweaks; without this, "enabled=
+    // false (default)" would be stripped from the file, and on load
+    // fattenScreen's legacy migration would see the data and re-infer
+    // enabled=true — making "disable then reload" silently flip back
+    // to enabled.
+    if (key === 'spotlightEnabled' && screen.spotlight) {
+      slim[key] = value;
+      continue;
+    }
+    if (key === 'loupeEnabled' && screen.loupe) {
+      slim[key] = value;
+      continue;
+    }
     if (key in STATIC_SCREEN_DEFAULTS) {
       const defaultValue = (STATIC_SCREEN_DEFAULTS as Record<string, unknown>)[key];
       if (deepEqual(value, defaultValue)) continue;

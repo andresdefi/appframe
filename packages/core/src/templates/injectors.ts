@@ -84,6 +84,10 @@ function buildSpotlightPieces(spotlight: SpotlightParams): EffectPieces {
   height: ${h}%;
   border-radius: ${radius};
   box-shadow: 0 0 ${blur > 0 ? blur : 0}px 9999px rgba(0,0,0,${dimOpacity});
+  /* Pickable: the editor's drag overlay hit-tests this rect to start a
+     drag. The wrapper stays pointer-events:none so dim regions don't
+     intercept clicks on the rest of the canvas. */
+  pointer-events: auto;
 }
 </style>`;
 

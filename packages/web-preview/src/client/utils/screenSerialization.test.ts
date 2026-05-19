@@ -162,6 +162,40 @@ describe('fattenScreen', () => {
     expect(fat.headlineSize).toBe(110);
   });
 
+  it('preserves spotlightEnabled=false when spotlight data is non-null (disable+reload roundtrip)', () => {
+    // Regression: slim used to drop `spotlightEnabled: false` because
+    // false matches the static default. With the spotlight shape still
+    // present on the next load, fattenScreen would then re-infer
+    // enabled=true from data presence (the legacy migration path),
+    // silently flipping disabled state back to enabled.
+    const screen = buildDefaultScreen({
+      spotlightEnabled: false,
+      spotlight: { x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0, borderRadius: 0 },
+      loupeEnabled: false,
+      loupe: { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, displayX: 50, displayY: 50, zoom: 2.5, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 },
+    });
+    const slim = slimScreen(screen);
+    expect(slim).toHaveProperty('spotlightEnabled', false);
+    expect(slim).toHaveProperty('loupeEnabled', false);
+
+    // Round-trip: fatten should restore the disabled state, not infer enabled.
+    const fat = fattenScreen({ id: 'x', screenIndex: 0, headline: 'h', ...slim });
+    expect(fat.spotlightEnabled).toBe(false);
+    expect(fat.loupeEnabled).toBe(false);
+    expect(fat.spotlight).not.toBeNull();
+    expect(fat.loupe).not.toBeNull();
+  });
+
+  it('strips spotlightEnabled / loupeEnabled when matching default AND no data is present', () => {
+    // The opposite case: a fresh screen with the sections never
+    // touched should still slim cleanly — we don't want to bloat
+    // every saved screen with two redundant booleans.
+    const screen = buildDefaultScreen();
+    const slim = slimScreen(screen);
+    expect(slim).not.toHaveProperty('spotlightEnabled');
+    expect(slim).not.toHaveProperty('loupeEnabled');
+  });
+
   it('infers spotlightEnabled / loupeEnabled from data presence for legacy projects', () => {
     // Older projects didn't have the *Enabled flags — non-null data
     // meant "the section is on". Fatten promotes that to the explicit

@@ -30,6 +30,7 @@ export function PreviewArea() {
   const selectedScreen = usePreviewStore((s) => s.selectedScreen);
   const setSelectedScreen = usePreviewStore((s) => s.setSelectedScreen);
   const addScreen = usePreviewStore((s) => s.addScreen);
+  const duplicateScreen = usePreviewStore((s) => s.duplicateScreen);
   const removeScreen = usePreviewStore((s) => s.removeScreen);
   const moveScreen = usePreviewStore((s) => s.moveScreen);
 
@@ -226,10 +227,12 @@ export function PreviewArea() {
             canRemove={!structuralLocked && screens.length > 1}
             canMoveLeft={!structuralLocked && i > 0}
             canMoveRight={!structuralLocked && i < screens.length - 1}
+            canDuplicate={!structuralLocked && screens.length < MAX_SCREENS_PER_PROJECT}
             onSelect={() => setSelectedScreen(i)}
             onRemove={() => removeScreen(i)}
             onMoveLeft={() => moveScreen(i, i - 1)}
             onMoveRight={() => moveScreen(i, i + 1)}
+            onDuplicate={() => duplicateScreen(i)}
             renderVersion={renderVersion}
             platform={platform}
             locale={activeLocale}

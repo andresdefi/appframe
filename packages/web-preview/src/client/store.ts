@@ -307,6 +307,7 @@ export interface PreviewStore {
   initScreens: (config: AppframeConfig, platform: string) => void;
   hydrateProjectSnapshot: (snapshot: unknown) => void;
   addScreen: () => void;
+  duplicateScreen: (index: number) => void;
   removeScreen: (index: number) => void;
   moveScreen: (from: number, to: number) => void;
 
@@ -1121,6 +1122,51 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       return {
         screens: [...screens, newState],
         selectedScreen: screens.length,
+      };
+    }),
+
+  duplicateScreen: (index) =>
+    set((state) => {
+      // Mirrors addScreen's structural guards: locale lock + cap.
+      if (state.locale !== 'default') return state;
+      const source = state.screens[index];
+      if (!source) return state;
+      if (state.screens.length >= MAX_SCREENS_PER_PROJECT) return state;
+      pushSnapshot(state);
+
+      // structuredClone gives a deep copy that's safe for nested objects
+      // (spotlight, loupe, annotations[], overlays[], etc.). Then we
+      // replace identity fields so the dupe stands on its own.
+      const clone: ScreenState = {
+        ...structuredClone(source),
+        id: crypto.randomUUID(),
+        // screenIndex is rewritten by the reindex pass below.
+        screenIndex: index + 1,
+      };
+      // Give nested items fresh ids so per-row keys / refs don't collide
+      // with the originals after re-render.
+      clone.annotations = clone.annotations.map((a) => ({
+        ...a,
+        id: `ann-${crypto.randomUUID().slice(0, 8)}`,
+      }));
+      clone.overlays = clone.overlays.map((o) => ({
+        ...o,
+        id: `overlay-${crypto.randomUUID().slice(0, 8)}`,
+      }));
+      clone.callouts = clone.callouts.map((c) => ({
+        ...c,
+        id: `callout-${crypto.randomUUID().slice(0, 8)}`,
+      }));
+
+      const screens = [
+        ...state.screens.slice(0, index + 1),
+        clone,
+        ...state.screens.slice(index + 1),
+      ].map((s, i) => ({ ...s, screenIndex: i }));
+
+      return {
+        screens,
+        selectedScreen: index + 1,
       };
     }),
 

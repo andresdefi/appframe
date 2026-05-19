@@ -172,6 +172,70 @@ describe('variant thumbnails', () => {
   });
 });
 
+describe('duplicateScreen', () => {
+  it('inserts a deep clone right after the source with a fresh id, selects it, and re-indexes', () => {
+    const config = makeConfig();
+    usePreviewStore.setState({ config, platform: 'iphone', locale: 'default' });
+    // Populate two screens so we can verify "insert after source" rather
+    // than "append".
+    usePreviewStore.getState().addScreen();
+    expect(usePreviewStore.getState().screens).toHaveLength(2);
+
+    const before = usePreviewStore.getState().screens;
+    const sourceId = before[0]!.id;
+    const sourceHeadline = before[0]!.headline;
+
+    usePreviewStore.getState().duplicateScreen(0);
+
+    const screens = usePreviewStore.getState().screens;
+    expect(screens).toHaveLength(3);
+    // Clone is at index 1, original at index 0, prior index-1 pushed to index 2.
+    expect(screens[1]!.id).not.toBe(sourceId);
+    expect(screens[1]!.headline).toBe(sourceHeadline);
+    expect(screens[1]!.screenIndex).toBe(1);
+    expect(screens[0]!.screenIndex).toBe(0);
+    expect(screens[2]!.screenIndex).toBe(2);
+    expect(usePreviewStore.getState().selectedScreen).toBe(1);
+  });
+
+  it('regenerates ids for nested annotations / overlays / callouts so refs do not collide', () => {
+    const config = makeConfig();
+    usePreviewStore.setState({ config, platform: 'iphone', locale: 'default' });
+    // Force one screen into existence and seed it with a known-id list.
+    const seeded = usePreviewStore.getState().screens[0]!;
+    usePreviewStore.setState({
+      screens: [
+        {
+          ...seeded,
+          annotations: [
+            { id: 'ann-keep', shape: 'rectangle', x: 0, y: 0, w: 10, h: 10, strokeColor: '#000', strokeWidth: 1, borderRadius: 0 },
+          ],
+          overlays: [{ id: 'overlay-keep', type: 'shape', x: 0, y: 0, size: 10, rotation: 0, opacity: 1 }] as never,
+          callouts: [{ id: 'callout-keep', sourceX: 0, sourceY: 0, sourceW: 10, sourceH: 10, displayX: 0, displayY: 0, displayScale: 1, rotation: 0, borderRadius: 0, shadow: true, borderWidth: 0, borderColor: '#fff', background: '#fff', padding: 0, cardScale: 1 }] as never,
+        },
+      ],
+    });
+
+    usePreviewStore.getState().duplicateScreen(0);
+
+    const dup = usePreviewStore.getState().screens[1]!;
+    expect(dup.annotations[0]!.id).not.toBe('ann-keep');
+    expect(dup.overlays[0]!.id).not.toBe('overlay-keep');
+    expect(dup.callouts[0]!.id).not.toBe('callout-keep');
+    // Originals should still have their old ids.
+    const orig = usePreviewStore.getState().screens[0]!;
+    expect(orig.annotations[0]!.id).toBe('ann-keep');
+  });
+
+  it('is locked on non-default locales', () => {
+    const config = makeConfig();
+    usePreviewStore.setState({ config, platform: 'iphone', locale: 'es-ES' });
+    const before = usePreviewStore.getState().screens.length;
+    usePreviewStore.getState().duplicateScreen(0);
+    expect(usePreviewStore.getState().screens).toHaveLength(before);
+  });
+});
+
 describe('undo/redo', () => {
   // Regression: HistoryEntry used to skip localeScreens, so updateScreen
   // on a non-default locale would push a snapshot that didn't carry the

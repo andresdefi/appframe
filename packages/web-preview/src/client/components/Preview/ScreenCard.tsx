@@ -19,10 +19,12 @@ interface ScreenCardProps {
   canRemove: boolean;
   canMoveLeft: boolean;
   canMoveRight: boolean;
+  canDuplicate: boolean;
   onSelect: () => void;
   onRemove: () => void;
   onMoveLeft: () => void;
   onMoveRight: () => void;
+  onDuplicate: () => void;
   renderVersion: number;
   platform: string;
   locale: string;
@@ -62,10 +64,12 @@ export function ScreenCard({
   canRemove,
   canMoveLeft,
   canMoveRight,
+  canDuplicate,
   onSelect,
   onRemove,
   onMoveLeft,
   onMoveRight,
+  onDuplicate,
   renderVersion,
   platform,
   locale,
@@ -519,6 +523,30 @@ export function ScreenCard({
                   aria-label={`Move screen ${index + 1} right`}
                 >
                   &rsaquo;
+                </button>
+              )}
+              {canDuplicate && (
+                <button
+                  className="text-text-dim hover:text-text px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded inline-flex items-center"
+                  onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+                  title="Duplicate screen"
+                  aria-label={`Duplicate screen ${index + 1}`}
+                >
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <rect x="4.5" y="4.5" width="9" height="9" rx="1.5" />
+                    <path d="M2.5 11.5V3a.5.5 0 0 1 .5-.5h8.5" />
+                  </svg>
                 </button>
               )}
               {canRemove && (

@@ -3,11 +3,10 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { execFileSync } from 'node:child_process';
 
-// Best-effort git SHA + build timestamp. Surfaced in error diagnostics
-// so a user-reported issue carries the exact commit it was built from.
-// Both are no-ops if git isn't available (e.g. extracted tarball).
-// execFileSync (not execSync) — no shell, no injection surface, args
-// passed as an array.
+// Best-effort git SHA. Surfaced in error diagnostics so a user-reported
+// issue carries the exact commit it was built from. No-op if git isn't
+// available (e.g. extracted tarball). execFileSync (not execSync) — no
+// shell, no injection surface, args passed as an array.
 function safeGitSha(): string {
   try {
     return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
@@ -26,7 +25,6 @@ export default defineConfig({
   publicDir: false,
   define: {
     __APPFRAME_COMMIT__: JSON.stringify(safeGitSha()),
-    __APPFRAME_BUILD_AT__: JSON.stringify(new Date().toISOString()),
   },
   server: {
     port: 5173,

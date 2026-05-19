@@ -39,7 +39,7 @@ export interface ExportDiagnostic {
   capturedAt: string;
   error: { message: string; name: string; stack?: string };
   context: ExportDiagnosticContext;
-  app: { commit?: string; buildAt?: string };
+  app: { commit?: string };
   browser: { userAgent: string };
   project: {
     slug: string;
@@ -77,11 +77,10 @@ export interface ExportDiagnostic {
   recentLogs: { t: string; level: 'log' | 'info' | 'warn' | 'error'; message: string }[];
 }
 
-// Vite injects these from the env at build time. See vite.config.ts.
-// They're best-effort: if the build script doesn't populate them the
-// diagnostic still has every other field.
+// Vite injects this from the env at build time. See vite.config.ts.
+// Best-effort: if the build script doesn't populate it the diagnostic
+// still has every other field.
 declare const __APPFRAME_COMMIT__: string | undefined;
-declare const __APPFRAME_BUILD_AT__: string | undefined;
 
 function readDefine(name: string): string | undefined {
   try {
@@ -99,15 +98,6 @@ function getCommit(): string | undefined {
     return typeof __APPFRAME_COMMIT__ !== 'undefined' ? (__APPFRAME_COMMIT__ as any) : readDefine('__APPFRAME_COMMIT__');
   } catch {
     return readDefine('__APPFRAME_COMMIT__');
-  }
-}
-
-function getBuildAt(): string | undefined {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return typeof __APPFRAME_BUILD_AT__ !== 'undefined' ? (__APPFRAME_BUILD_AT__ as any) : readDefine('__APPFRAME_BUILD_AT__');
-  } catch {
-    return readDefine('__APPFRAME_BUILD_AT__');
   }
 }
 
@@ -180,7 +170,6 @@ export function buildExportDiagnostic(
     context,
     app: {
       ...(getCommit() ? { commit: getCommit()! } : {}),
-      ...(getBuildAt() ? { buildAt: getBuildAt()! } : {}),
     },
     browser: {
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',

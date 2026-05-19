@@ -247,6 +247,42 @@ export function ScreenCard({
     horizontal: false,
     vertical: false,
   });
+  // Equal-spacing guides — only fire while dragging one of {headline,
+  // subtitle, device} AND that element sits at equal centre-to-centre
+  // distance from the other two of the trio. All coordinates are
+  // iframe-canvas px (intrinsic, pre-scale); the render side
+  // multiplies by `scale` to convert to container px.
+  // - vertical: dragged is between a TOP and BOTTOM neighbour at the
+  //   same Y-gap to each. Brackets are drawn along the dragged's X.
+  // - horizontal: same idea on the X axis.
+  type EqualSpacingShape = {
+    vertical: { topY: number; selfY: number; bottomY: number; centerX: number } | null;
+    horizontal: { leftX: number; selfX: number; rightX: number; centerY: number } | null;
+  };
+  const [equalSpacing, setEqualSpacing] = useState<EqualSpacingShape>({
+    vertical: null,
+    horizontal: null,
+  });
+  const equalSpacingRef = useRef(equalSpacing);
+  const setEqualSpacingIfChanged = useCallback((next: EqualSpacingShape) => {
+    const cur = equalSpacingRef.current;
+    // Cheap shape equality: both null shapes match, otherwise compare keys.
+    const sameVertical = (cur.vertical === null && next.vertical === null) ||
+      (cur.vertical !== null && next.vertical !== null &&
+        cur.vertical.topY === next.vertical.topY &&
+        cur.vertical.selfY === next.vertical.selfY &&
+        cur.vertical.bottomY === next.vertical.bottomY &&
+        cur.vertical.centerX === next.vertical.centerX);
+    const sameHorizontal = (cur.horizontal === null && next.horizontal === null) ||
+      (cur.horizontal !== null && next.horizontal !== null &&
+        cur.horizontal.leftX === next.horizontal.leftX &&
+        cur.horizontal.selfX === next.horizontal.selfX &&
+        cur.horizontal.rightX === next.horizontal.rightX &&
+        cur.horizontal.centerY === next.horizontal.centerY);
+    if (sameVertical && sameHorizontal) return;
+    equalSpacingRef.current = next;
+    setEqualSpacing(next);
+  }, []);
   // Mirror of `guides` so setGuidesIfChanged can compare against the latest
   // value without re-creating the callback on every render. Without this,
   // recomputeGuides runs on every MutationObserver tick (~60×/sec while
@@ -345,6 +381,72 @@ export function ScreenCard({
     const vertical = Math.abs(centerX - cCenterX) <= tolerancePxX;
     const horizontal = Math.abs(centerY - cCenterY) <= tolerancePxY;
     setGuidesIfChanged({ vertical, horizontal });
+
+    // Equal-spacing guides — only for the {headline, subtitle, device}
+    // trio. Walks the three element centres and checks whether the
+    // dragged one sits between the other two with matching gaps. The
+    // tolerance is the same per-axis step size as the centre guides so
+    // the bracket only fires when the user genuinely lands on it.
+    const isTrioMember =
+      target.kind === 'device' ||
+      (target.kind === 'text' && (target.cls === 'headline' || target.cls === 'subtitle'));
+    if (!isTrioMember) {
+      setEqualSpacingIfChanged({ vertical: null, horizontal: null });
+      return;
+    }
+    const trio: Array<{ key: string; cx: number; cy: number; isSelf: boolean }> = [];
+    const collect = (sel: string, isSelf: boolean) => {
+      const node = doc.querySelector(sel) as HTMLElement | null;
+      if (!node) return;
+      // Text nodes only have a meaningful centre once dragged to
+      // position:fixed (or after the user has dropped them, when
+      // they're absolute-positioned). Skip if neither: a flex-
+      // block text spans the whole text area and its centre would
+      // be misleading.
+      if ((sel === '.headline' || sel === '.subtitle' || sel === '.free-text')) {
+        const cs = view?.getComputedStyle(node).position;
+        if (cs !== 'fixed' && cs !== 'absolute') return;
+      }
+      const r = node.getBoundingClientRect();
+      trio.push({ key: sel, cx: r.left + r.width / 2, cy: r.top + r.height / 2, isSelf });
+    };
+    const selfSel =
+      target.kind === 'device' ? '.device-wrapper' : `.${target.cls}`;
+    collect('.device-wrapper', selfSel === '.device-wrapper');
+    collect('.headline', selfSel === '.headline');
+    collect('.subtitle', selfSel === '.subtitle');
+    const self = trio.find((t) => t.isSelf);
+    const others = trio.filter((t) => !t.isSelf);
+    if (!self || others.length < 2) {
+      setEqualSpacingIfChanged({ vertical: null, horizontal: null });
+      return;
+    }
+
+    // Vertical equal-spacing: dragged sits between the two others on Y.
+    let verticalMatch: EqualSpacingShape['vertical'] = null;
+    const sortedByY = [...others].sort((a, b) => a.cy - b.cy);
+    const top = sortedByY[0];
+    const bot = sortedByY[sortedByY.length - 1];
+    if (top && bot && top !== bot && top.cy < self.cy && self.cy < bot.cy) {
+      const gapAbove = self.cy - top.cy;
+      const gapBelow = bot.cy - self.cy;
+      if (Math.abs(gapAbove - gapBelow) <= tolerancePxY) {
+        verticalMatch = { topY: top.cy, selfY: self.cy, bottomY: bot.cy, centerX: self.cx };
+      }
+    }
+    // Horizontal equal-spacing.
+    let horizontalMatch: EqualSpacingShape['horizontal'] = null;
+    const sortedByX = [...others].sort((a, b) => a.cx - b.cx);
+    const left = sortedByX[0];
+    const right = sortedByX[sortedByX.length - 1];
+    if (left && right && left !== right && left.cx < self.cx && self.cx < right.cx) {
+      const gapLeft = self.cx - left.cx;
+      const gapRight = right.cx - self.cx;
+      if (Math.abs(gapLeft - gapRight) <= tolerancePxX) {
+        horizontalMatch = { leftX: left.cx, selfX: self.cx, rightX: right.cx, centerY: self.cy };
+      }
+    }
+    setEqualSpacingIfChanged({ vertical: verticalMatch, horizontal: horizontalMatch });
   }, []);
 
   // MutationObserver fires only on style mutations, so drag-start (which
@@ -699,20 +801,66 @@ export function ScreenCard({
         />
         {/* Center guides — only while actively dragging, and only when the
             dragged element's center exactly hits a canvas axis. */}
+        {/* Guide style: each line gets a 1px halo via box-shadow on both
+            sides so it stays visible against any background — including
+            backgrounds that match its core colour (green on green,
+            red on red, etc.). */}
         {isDragging && guides.vertical && (
           <div
             className="absolute top-0 bottom-0 pointer-events-none z-10"
-            style={{ left: '50%', width: 1, background: '#ef4444', transform: 'translateX(-50%)' }}
+            style={{ left: '50%', width: 1, background: '#ef4444', transform: 'translateX(-50%)', boxShadow: '1px 0 0 rgba(0,0,0,0.55), -1px 0 0 rgba(0,0,0,0.55)' }}
             aria-hidden="true"
           />
         )}
         {isDragging && guides.horizontal && (
           <div
             className="absolute left-0 right-0 pointer-events-none z-10"
-            style={{ top: '50%', height: 1, background: '#ef4444', transform: 'translateY(-50%)' }}
+            style={{ top: '50%', height: 1, background: '#ef4444', transform: 'translateY(-50%)', boxShadow: '0 1px 0 rgba(0,0,0,0.55), 0 -1px 0 rgba(0,0,0,0.55)' }}
             aria-hidden="true"
           />
         )}
+        {/* Equal-spacing brackets. Two short coloured segments along the
+            dragged element's perpendicular axis, one for each gap.
+            Iframe-canvas px scaled into container px for absolute
+            positioning. */}
+        {isDragging && equalSpacing.vertical && (() => {
+          const e = equalSpacing.vertical;
+          const x = Math.round(e.centerX * scale);
+          const topY = Math.round(e.topY * scale);
+          const selfY = Math.round(e.selfY * scale);
+          const botY = Math.round(e.bottomY * scale);
+          const color = '#22c55e';
+          const lineHalo = '1px 0 0 rgba(0,0,0,0.55), -1px 0 0 rgba(0,0,0,0.55)';
+          const tickHalo = '0 1px 0 rgba(0,0,0,0.55), 0 -1px 0 rgba(0,0,0,0.55)';
+          return (
+            <>
+              <div className="absolute pointer-events-none z-10" style={{ left: x - 4, top: topY - 1, width: 8, height: 2, background: color, boxShadow: tickHalo }} aria-hidden="true" />
+              <div className="absolute pointer-events-none z-10" style={{ left: x, top: topY, width: 1, height: selfY - topY, background: color, boxShadow: lineHalo }} aria-hidden="true" />
+              <div className="absolute pointer-events-none z-10" style={{ left: x - 4, top: selfY - 1, width: 8, height: 2, background: color, boxShadow: tickHalo }} aria-hidden="true" />
+              <div className="absolute pointer-events-none z-10" style={{ left: x, top: selfY, width: 1, height: botY - selfY, background: color, boxShadow: lineHalo }} aria-hidden="true" />
+              <div className="absolute pointer-events-none z-10" style={{ left: x - 4, top: botY - 1, width: 8, height: 2, background: color, boxShadow: tickHalo }} aria-hidden="true" />
+            </>
+          );
+        })()}
+        {isDragging && equalSpacing.horizontal && (() => {
+          const e = equalSpacing.horizontal;
+          const y = Math.round(e.centerY * scale);
+          const leftX = Math.round(e.leftX * scale);
+          const selfX = Math.round(e.selfX * scale);
+          const rightX = Math.round(e.rightX * scale);
+          const color = '#22c55e';
+          const lineHalo = '0 1px 0 rgba(0,0,0,0.55), 0 -1px 0 rgba(0,0,0,0.55)';
+          const tickHalo = '1px 0 0 rgba(0,0,0,0.55), -1px 0 0 rgba(0,0,0,0.55)';
+          return (
+            <>
+              <div className="absolute pointer-events-none z-10" style={{ left: leftX - 1, top: y - 4, width: 2, height: 8, background: color, boxShadow: tickHalo }} aria-hidden="true" />
+              <div className="absolute pointer-events-none z-10" style={{ left: leftX, top: y, width: selfX - leftX, height: 1, background: color, boxShadow: lineHalo }} aria-hidden="true" />
+              <div className="absolute pointer-events-none z-10" style={{ left: selfX - 1, top: y - 4, width: 2, height: 8, background: color, boxShadow: tickHalo }} aria-hidden="true" />
+              <div className="absolute pointer-events-none z-10" style={{ left: selfX, top: y, width: rightX - selfX, height: 1, background: color, boxShadow: lineHalo }} aria-hidden="true" />
+              <div className="absolute pointer-events-none z-10" style={{ left: rightX - 1, top: y - 4, width: 2, height: 8, background: color, boxShadow: tickHalo }} aria-hidden="true" />
+            </>
+          );
+        })()}
         {/* Drag overlay — sits above iframe to capture pointer events.
             useDragPosition is configured per-locale to only allow text
             drags on non-default locales, so device / annotation /

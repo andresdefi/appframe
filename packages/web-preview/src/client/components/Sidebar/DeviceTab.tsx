@@ -374,6 +374,7 @@ export function DeviceTab() {
                     })
                   }
                   onInstant={(v) => patchBorder({ thickness: v })}
+                  resetTo={4}
                 />
                 <ColorPicker
                   label="Color"
@@ -396,6 +397,7 @@ export function DeviceTab() {
                     })
                   }
                   onInstant={(v) => patchBorder({ radius: v })}
+                  resetTo={40}
                 />
               </>
             )}
@@ -427,6 +429,7 @@ export function DeviceTab() {
               formatValue={(v) => `${v}%`}
               onChange={(v) => update({ deviceScale: v })}
               onInstant={(v) => instantDevice('deviceScale', v)}
+              resetTo={pd.deviceScale}
             />
             <RangeSlider
               label="Device Position"
@@ -436,6 +439,7 @@ export function DeviceTab() {
               formatValue={(v) => `${v}%`}
               onChange={(v) => update({ deviceTop: v })}
               onInstant={(v) => instantDevice('deviceTop', v)}
+              resetTo={pd.deviceTop}
             />
             <RangeSlider
               label="Horizontal Position"
@@ -445,6 +449,7 @@ export function DeviceTab() {
               formatValue={(v) => `${v}%`}
               onChange={(v) => update({ deviceOffsetX: v })}
               onInstant={(v) => instantDevice('deviceOffsetX', v)}
+              resetTo={0}
             />
             <RangeSlider
               label="Device Rotation"
@@ -454,6 +459,7 @@ export function DeviceTab() {
               formatValue={(v) => `${v}\u00B0`}
               onChange={(v) => update({ deviceRotation: v })}
               onInstant={(v) => instantDevice('deviceRotation', v)}
+              resetTo={0}
             />
             {showAngle && (
               <RangeSlider
@@ -464,6 +470,7 @@ export function DeviceTab() {
                 formatValue={(v) => `${v}\u00B0`}
                 onChange={(v) => update({ deviceAngle: v })}
                 onInstant={(v) => instantDevice('deviceAngle', v)}
+                resetTo={pd.deviceAngle}
               />
             )}
             <RangeSlider
@@ -474,6 +481,7 @@ export function DeviceTab() {
               formatValue={(v) => `${v}\u00B0`}
               onChange={(v) => update({ deviceTilt: v })}
               onInstant={(v) => instantDevice('deviceTilt', v)}
+              resetTo={0}
             />
             {isFrameNone && (
               <RangeSlider
@@ -483,6 +491,7 @@ export function DeviceTab() {
                 max={50}
                 formatValue={(v) => `${v}%`}
                 onChange={(v) => update({ cornerRadius: v })}
+                resetTo={0}
               />
             )}
             <button
@@ -534,6 +543,7 @@ export function DeviceTab() {
                 deviceShadow: { ...(screen.deviceShadow ?? { opacity: 0.25, blur: 20, color: '#000000', offsetY: 10 }), opacity: v / 100 },
               })
             }
+            resetTo={25}
           />
           <RangeSlider
             label="Blur"
@@ -546,6 +556,7 @@ export function DeviceTab() {
                 deviceShadow: { ...(screen.deviceShadow ?? { opacity: 0.25, blur: 20, color: '#000000', offsetY: 10 }), blur: v },
               })
             }
+            resetTo={20}
           />
           <ColorPicker
             label="Color"
@@ -567,6 +578,7 @@ export function DeviceTab() {
                 deviceShadow: { ...(screen.deviceShadow ?? { opacity: 0.25, blur: 20, color: '#000000', offsetY: 10 }), offsetY: v },
               })
             }
+            resetTo={10}
           />
         </div>
       </Section>
@@ -723,6 +735,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={90}
           formatValue={(v) => `${v}%`}
           onChange={(v) => onChange({ offsetX: v })}
+          resetTo={slotPreset.offsetX}
         />
         <RangeSlider
           label="Vertical Position"
@@ -731,6 +744,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={90}
           formatValue={(v) => `${v}%`}
           onChange={(v) => onChange({ offsetY: v })}
+          resetTo={slotPreset.offsetY}
         />
         <RangeSlider
           label="Scale"
@@ -739,6 +753,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={150}
           formatValue={(v) => `${v}%`}
           onChange={(v) => onChange({ scale: v })}
+          resetTo={slotPreset.scale}
         />
         <RangeSlider
           label="Rotation"
@@ -747,6 +762,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={180}
           formatValue={(v) => `${v}\u00B0`}
           onChange={(v) => onChange({ rotation: v })}
+          resetTo={slotPreset.rotation}
         />
         <RangeSlider
           label="Perspective Angle"
@@ -755,6 +771,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={45}
           formatValue={(v) => `${v}\u00B0`}
           onChange={(v) => onChange({ angle: v })}
+          resetTo={slotPreset.angle}
         />
         <RangeSlider
           label="3D Tilt"
@@ -763,6 +780,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={45}
           formatValue={(v) => `${v}\u00B0`}
           onChange={(v) => onChange({ tilt: v })}
+          resetTo={slotPreset.tilt}
         />
       </div>
 

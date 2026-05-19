@@ -158,6 +158,7 @@ export function PanoramicBackgroundContent() {
           min={2}
           max={10}
           onChange={setFrameCount}
+          resetTo={3}
         />
       </Section>
 
@@ -258,6 +259,7 @@ export function PanoramicBackgroundContent() {
                 formatValue={(v) => `${v}\u00B0`}
                 onChange={(v) => updateBackground({ gradient: { ...bgGradient, direction: v } })}
                 onInstant={(v) => instantGradient({ direction: v })}
+                resetTo={135}
               />
             )}
 
@@ -349,6 +351,7 @@ export function PanoramicBackgroundContent() {
                         overlay: { ...background.overlay!, opacity: v / 100 },
                       })
                     }
+                    resetTo={30}
                   />
                 </>
               )}
@@ -472,6 +475,7 @@ export function PanoramicBackgroundContent() {
                   onChange={(value) =>
                     updateLayer(selectedLayerIndex, { ...selectedLayer, opacity: value / 100 } as PanoramicBackgroundLayer)
                   }
+                  resetTo={100}
                 />
                 <RangeSlider
                   label="Blur"
@@ -482,6 +486,7 @@ export function PanoramicBackgroundContent() {
                   onChange={(value) =>
                     updateLayer(selectedLayerIndex, { ...selectedLayer, blur: value } as PanoramicBackgroundLayer)
                   }
+                  resetTo={0}
                 />
 
                 {selectedLayer.kind === 'solid' && (
@@ -521,6 +526,7 @@ export function PanoramicBackgroundContent() {
                         onChange={(value) =>
                           updateLayer(selectedLayerIndex, { ...selectedLayer, direction: value })
                         }
+                        resetTo={135}
                       />
                     )}
                     {selectedLayer.gradientType === 'radial' && (
@@ -602,6 +608,7 @@ export function PanoramicBackgroundContent() {
                       max={400}
                       formatValue={(v) => `${v}%`}
                       onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, scale: value })}
+                      resetTo={100}
                     />
                   </>
                 )}
@@ -620,6 +627,7 @@ export function PanoramicBackgroundContent() {
                       max={150}
                       formatValue={(v) => `${v}%`}
                       onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, x: value })}
+                      resetTo={50}
                     />
                     <RangeSlider
                       label="Y"
@@ -628,6 +636,7 @@ export function PanoramicBackgroundContent() {
                       max={150}
                       formatValue={(v) => `${v}%`}
                       onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, y: value })}
+                      resetTo={50}
                     />
                     <RangeSlider
                       label="Width"
@@ -636,6 +645,7 @@ export function PanoramicBackgroundContent() {
                       max={200}
                       formatValue={(v) => `${v}%`}
                       onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, width: value })}
+                      resetTo={50}
                     />
                     <RangeSlider
                       label="Height"
@@ -644,6 +654,7 @@ export function PanoramicBackgroundContent() {
                       max={200}
                       formatValue={(v) => `${v}%`}
                       onChange={(value) => updateLayer(selectedLayerIndex, { ...selectedLayer, height: value })}
+                      resetTo={50}
                     />
                   </>
                 )}

@@ -30,6 +30,7 @@ export function DecorationInspector({ index }: { index: number }) {
         formatValue={(v) => `${v}%`}
         onChange={(v) => update({ width: v })}
         onInstant={(v) => instant({ width: v })}
+        resetTo={5}
       />
       {element.height !== undefined && (
         <RangeSlider
@@ -41,6 +42,7 @@ export function DecorationInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ height: v })}
           onInstant={(v) => instant({ height: v })}
+          resetTo={8}
         />
       )}
       <RangeSlider
@@ -52,6 +54,7 @@ export function DecorationInspector({ index }: { index: number }) {
         formatValue={(v) => `${Math.round(v * 100)}%`}
         onChange={(v) => update({ opacity: v })}
         onInstant={(v) => instant({ opacity: v })}
+        resetTo={0.15}
       />
       <RangeSlider
         label="Rotation"
@@ -61,6 +64,7 @@ export function DecorationInspector({ index }: { index: number }) {
         formatValue={(v) => `${v}°`}
         onChange={(v) => update({ rotation: v })}
         onInstant={(v) => instant({ rotation: v })}
+        resetTo={0}
       />
       <ColorPicker label="Color" value={element.color} onChange={(v) => update({ color: v })} />
     </Section>

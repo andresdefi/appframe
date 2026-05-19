@@ -22,6 +22,7 @@ export function GroupInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ width: v })}
           onInstant={(v) => instant({ width: v })}
+          resetTo={50}
         />
         <RangeSlider
           label="Height"
@@ -32,6 +33,7 @@ export function GroupInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ height: v })}
           onInstant={(v) => instant({ height: v })}
+          resetTo={50}
         />
         <RangeSlider
           label="Rotation"
@@ -41,6 +43,7 @@ export function GroupInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}°`}
           onChange={(v) => update({ rotation: v })}
           onInstant={(v) => instant({ rotation: v })}
+          resetTo={0}
         />
         <RangeSlider
           label="Opacity"
@@ -51,6 +54,7 @@ export function GroupInspector({ index }: { index: number }) {
           formatValue={(v) => `${Math.round(v * 100)}%`}
           onChange={(v) => update({ opacity: v })}
           onInstant={(v) => instant({ opacity: v })}
+          resetTo={1}
         />
       </Section>
 

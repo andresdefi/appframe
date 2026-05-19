@@ -62,6 +62,7 @@ export function CropInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ width: v })}
           onInstant={(v) => instant({ width: v })}
+          resetTo={12}
         />
         <RangeSlider
           label="Height"
@@ -72,6 +73,7 @@ export function CropInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ height: v })}
           onInstant={(v) => instant({ height: v })}
+          resetTo={18}
         />
         <RangeSlider
           label="Zoom"
@@ -81,6 +83,7 @@ export function CropInspector({ index }: { index: number }) {
           step={0.05}
           formatValue={(v) => `${v.toFixed(2)}x`}
           onChange={(v) => update({ zoom: v })}
+          resetTo={1.5}
         />
         <RangeSlider
           label="Focus X"
@@ -90,6 +93,7 @@ export function CropInspector({ index }: { index: number }) {
           step={1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ focusX: v })}
+          resetTo={50}
         />
         <RangeSlider
           label="Focus Y"
@@ -99,6 +103,7 @@ export function CropInspector({ index }: { index: number }) {
           step={1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ focusY: v })}
+          resetTo={40}
         />
         <RangeSlider
           label="Rotation"
@@ -108,6 +113,7 @@ export function CropInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}°`}
           onChange={(v) => update({ rotation: v })}
           onInstant={(v) => instant({ rotation: v })}
+          resetTo={0}
         />
         <RangeSlider
           label="Border Radius"
@@ -116,6 +122,7 @@ export function CropInspector({ index }: { index: number }) {
           max={100}
           formatValue={(v) => `${v}px`}
           onChange={(v) => update({ borderRadius: v })}
+          resetTo={24}
         />
       </Section>
 
@@ -142,6 +149,7 @@ export function CropInspector({ index }: { index: number }) {
               onChange={(v) =>
                 update({ shadow: { ...element.shadow!, opacity: v / 100 } } as Partial<PanoramicElement>)
               }
+              resetTo={22}
             />
             <RangeSlider
               label="Blur"
@@ -152,6 +160,7 @@ export function CropInspector({ index }: { index: number }) {
               onChange={(v) =>
                 update({ shadow: { ...element.shadow!, blur: v } } as Partial<PanoramicElement>)
               }
+              resetTo={28}
             />
             <ColorPicker
               label="Color"
@@ -169,6 +178,7 @@ export function CropInspector({ index }: { index: number }) {
               onChange={(v) =>
                 update({ shadow: { ...element.shadow!, offsetY: v } } as Partial<PanoramicElement>)
               }
+              resetTo={10}
             />
           </>
         )}

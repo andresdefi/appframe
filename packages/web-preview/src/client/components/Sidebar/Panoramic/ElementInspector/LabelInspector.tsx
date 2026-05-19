@@ -27,6 +27,7 @@ export function LabelInspector({ index }: { index: number }) {
         formatValue={(v) => `${v}%`}
         onChange={(v) => update({ fontSize: v })}
         onInstant={(v) => instant({ fontSize: v })}
+        resetTo={1.5}
       />
       <ColorPicker
         label="Text Color"
@@ -46,6 +47,7 @@ export function LabelInspector({ index }: { index: number }) {
         step={0.1}
         formatValue={(v) => `${v}%`}
         onChange={(v) => update({ padding: v })}
+        resetTo={0.5}
       />
       <RangeSlider
         label="Border Radius"
@@ -54,6 +56,7 @@ export function LabelInspector({ index }: { index: number }) {
         max={30}
         formatValue={(v) => `${v}px`}
         onChange={(v) => update({ borderRadius: v })}
+        resetTo={8}
       />
     </Section>
   );

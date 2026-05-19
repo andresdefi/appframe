@@ -111,12 +111,12 @@ export function PanoramicEffectsTab() {
                 { value: 'circle', label: 'Circle' },
               ]}
             />
-            <RangeSlider label="Position X" value={effects.spotlight.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, x: v } })} />
-            <RangeSlider label="Position Y" value={effects.spotlight.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, y: v } })} />
-            <RangeSlider label="Width" value={effects.spotlight.w} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, w: v } })} />
-            <RangeSlider label="Height" value={effects.spotlight.h} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, h: v } })} />
-            <RangeSlider label="Dim Opacity" value={Math.round(effects.spotlight.dimOpacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, dimOpacity: v / 100 } })} />
-            <RangeSlider label="Background Blur" value={effects.spotlight.blur} min={0} max={30} formatValue={(v) => `${v}px`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, blur: v } })} />
+            <RangeSlider label="Position X" value={effects.spotlight.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, x: v } })} resetTo={50} />
+            <RangeSlider label="Position Y" value={effects.spotlight.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, y: v } })} resetTo={50} />
+            <RangeSlider label="Width" value={effects.spotlight.w} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, w: v } })} resetTo={30} />
+            <RangeSlider label="Height" value={effects.spotlight.h} min={5} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, h: v } })} resetTo={30} />
+            <RangeSlider label="Dim Opacity" value={Math.round(effects.spotlight.dimOpacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, dimOpacity: v / 100 } })} resetTo={60} />
+            <RangeSlider label="Background Blur" value={effects.spotlight.blur} min={0} max={30} formatValue={(v) => `${v}px`} onChange={(v) => update({ spotlight: { ...effects.spotlight!, blur: v } })} resetTo={0} />
             {effects.spotlight.shape === 'rectangle' && (
               <RangeSlider
                 label="Corner Radius"
@@ -125,6 +125,7 @@ export function PanoramicEffectsTab() {
                 max={200}
                 formatValue={(v) => `${v}px`}
                 onChange={(v) => update({ spotlight: { ...effects.spotlight!, borderRadius: v } })}
+                resetTo={0}
               />
             )}
           </>
@@ -160,11 +161,11 @@ export function PanoramicEffectsTab() {
               ]}
             />
             <ColorPicker label="Color" value={ann.strokeColor} onChange={(v) => updateAnnotation(idx, { strokeColor: v })} />
-            <RangeSlider label="Position X" value={ann.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { x: v })} />
-            <RangeSlider label="Position Y" value={ann.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { y: v })} />
-            <RangeSlider label="Width" value={ann.w} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { w: v })} />
-            <RangeSlider label="Height" value={ann.h} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { h: v })} />
-            <RangeSlider label="Stroke Width" value={ann.strokeWidth} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => updateAnnotation(idx, { strokeWidth: v })} />
+            <RangeSlider label="Position X" value={ann.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { x: v })} resetTo={50} />
+            <RangeSlider label="Position Y" value={ann.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { y: v })} resetTo={50} />
+            <RangeSlider label="Width" value={ann.w} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { w: v })} resetTo={20} />
+            <RangeSlider label="Height" value={ann.h} min={1} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateAnnotation(idx, { h: v })} resetTo={20} />
+            <RangeSlider label="Stroke Width" value={ann.strokeWidth} min={1} max={20} formatValue={(v) => `${v}px`} onChange={(v) => updateAnnotation(idx, { strokeWidth: v })} resetTo={4} />
             {ann.shape !== 'circle' && (
               <RangeSlider
                 label="Corner Radius"
@@ -173,6 +174,7 @@ export function PanoramicEffectsTab() {
                 max={200}
                 formatValue={(v) => `${v}px`}
                 onChange={(v) => updateAnnotation(idx, { borderRadius: v })}
+                resetTo={12}
               />
             )}
           </CollapsiblePanel>
@@ -210,11 +212,11 @@ export function PanoramicEffectsTab() {
                 { value: 'custom', label: 'Custom' },
               ]}
             />
-            <RangeSlider label="Position X" value={ov.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { x: v })} />
-            <RangeSlider label="Position Y" value={ov.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { y: v })} />
-            <RangeSlider label="Size" value={ov.size} min={1} max={50} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { size: v })} />
-            <RangeSlider label="Rotation" value={ov.rotation} min={-180} max={180} formatValue={(v) => `${v}\u00B0`} onChange={(v) => updateOverlay(idx, { rotation: v })} />
-            <RangeSlider label="Opacity" value={Math.round(ov.opacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { opacity: v / 100 })} />
+            <RangeSlider label="Position X" value={ov.x} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { x: v })} resetTo={50} />
+            <RangeSlider label="Position Y" value={ov.y} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { y: v })} resetTo={50} />
+            <RangeSlider label="Size" value={ov.size} min={1} max={50} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { size: v })} resetTo={10} />
+            <RangeSlider label="Rotation" value={ov.rotation} min={-180} max={180} formatValue={(v) => `${v}\u00B0`} onChange={(v) => updateOverlay(idx, { rotation: v })} resetTo={0} />
+            <RangeSlider label="Opacity" value={Math.round(ov.opacity * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { opacity: v / 100 })} resetTo={100} />
             {ov.type === 'shape' && (
               <>
                 <Select
@@ -228,8 +230,8 @@ export function PanoramicEffectsTab() {
                   ]}
                 />
                 <ColorPicker label="Color" value={ov.shapeColor ?? '#6366f1'} onChange={(v) => updateOverlay(idx, { shapeColor: v })} />
-                <RangeSlider label="Shape Opacity" value={Math.round((ov.shapeOpacity ?? 0.5) * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { shapeOpacity: v / 100 })} />
-                <RangeSlider label="Blur" value={ov.shapeBlur ?? 0} min={0} max={50} formatValue={(v) => `${v}px`} onChange={(v) => updateOverlay(idx, { shapeBlur: v })} />
+                <RangeSlider label="Shape Opacity" value={Math.round((ov.shapeOpacity ?? 0.5) * 100)} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => updateOverlay(idx, { shapeOpacity: v / 100 })} resetTo={50} />
+                <RangeSlider label="Blur" value={ov.shapeBlur ?? 0} min={0} max={50} formatValue={(v) => `${v}px`} onChange={(v) => updateOverlay(idx, { shapeBlur: v })} resetTo={0} />
               </>
             )}
           </CollapsiblePanel>

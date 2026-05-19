@@ -52,6 +52,7 @@ export function TextInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ fontSize: v })}
           onInstant={(v) => instant({ fontSize: v })}
+          resetTo={3.5}
         />
         <RangeSlider
           label="Font Weight"
@@ -62,6 +63,7 @@ export function TextInspector({ index }: { index: number }) {
           formatValue={(v) => String(v)}
           onChange={(v) => update({ fontWeight: v })}
           onInstant={(v) => instant({ fontWeight: v })}
+          resetTo={700}
         />
         <Select
           label="Alignment"
@@ -81,6 +83,7 @@ export function TextInspector({ index }: { index: number }) {
           step={0.05}
           formatValue={(v) => v.toFixed(2)}
           onChange={(v) => update({ lineHeight: v })}
+          resetTo={1.15}
         />
         <div className="flex gap-2 mb-2">
           <div className="flex-1">
@@ -116,6 +119,8 @@ export function TextInspector({ index }: { index: number }) {
           max={10}
           formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
           onChange={(v) => update({ letterSpacing: v } as Partial<PanoramicElement>)}
+          resetTo={0}
+          resetLabel="Auto"
         />
         <RangeSlider
           label="Rotation"
@@ -124,6 +129,7 @@ export function TextInspector({ index }: { index: number }) {
           max={30}
           formatValue={(v) => `${v}°`}
           onChange={(v) => update({ rotation: v } as Partial<PanoramicElement>)}
+          resetTo={0}
         />
       </Section>
 
@@ -203,6 +209,7 @@ export function TextInspector({ index }: { index: number }) {
                   onChange={(v) =>
                     update({ gradient: { ...g, direction: v } } as Partial<PanoramicElement>)
                   }
+                  resetTo={135}
                 />
                 {g.colors.map((color, i) => (
                   <ColorPicker
@@ -240,6 +247,7 @@ export function TextInspector({ index }: { index: number }) {
             step={0.5}
             formatValue={(v) => `${v}%`}
             onChange={(v) => update({ maxWidth: v })}
+            resetTo={25}
           />
         )}
       </Section>

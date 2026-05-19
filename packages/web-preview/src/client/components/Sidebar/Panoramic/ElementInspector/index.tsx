@@ -58,6 +58,7 @@ export function ElementInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ x: v })}
           onInstant={(v) => instant({ x: v })}
+          resetTo={50}
         />
         <RangeSlider
           label="Y %"
@@ -68,6 +69,7 @@ export function ElementInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ y: v })}
           onInstant={(v) => instant({ y: v })}
+          resetTo={50}
         />
         <RangeSlider
           label="Z-Index"
@@ -75,6 +77,7 @@ export function ElementInspector({ index }: { index: number }) {
           min={0}
           max={100}
           onChange={(v) => update({ z: v })}
+          resetTo={0}
         />
       </Section>
 

@@ -214,6 +214,7 @@ export function DesignTab() {
                   })
                 }
                 onInstant={(v) => instantGradient({ direction: v })}
+                resetTo={135}
               />
             )}
 
@@ -326,6 +327,7 @@ export function DesignTab() {
                 formatValue={(v) => `${v}%`}
                 onChange={(v) => update({ backgroundImagePositionX: v })}
                 onInstant={(v) => instantBgImage({ positionX: v })}
+                resetTo={50}
               />
               <RangeSlider
                 label="Position Y"
@@ -335,6 +337,7 @@ export function DesignTab() {
                 formatValue={(v) => `${v}%`}
                 onChange={(v) => update({ backgroundImagePositionY: v })}
                 onInstant={(v) => instantBgImage({ positionY: v })}
+                resetTo={50}
               />
               <RangeSlider
                 label="Zoom"
@@ -345,7 +348,6 @@ export function DesignTab() {
                 onChange={(v) => update({ backgroundImageScale: v })}
                 onInstant={(v) => instantBgImage({ scale: v })}
                 resetTo={100}
-                resetLabel="Fit"
               />
               <Checkbox
                 label="Dim Overlay"
@@ -381,6 +383,7 @@ export function DesignTab() {
                       })
                     }
                     onInstant={(v) => patchBgOverlay({ opacity: v / 100 })}
+                    resetTo={30}
                   />
                 </>
               )}

@@ -63,6 +63,7 @@ export function ImageInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ width: v })}
           onInstant={(v) => instant({ width: v })}
+          resetTo={12}
         />
         <RangeSlider
           label="Height"
@@ -73,6 +74,7 @@ export function ImageInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ height: v })}
           onInstant={(v) => instant({ height: v })}
+          resetTo={element.type === 'logo' ? 10 : 12}
         />
         <Select
           label="Fit"
@@ -92,6 +94,7 @@ export function ImageInspector({ index }: { index: number }) {
           formatValue={(v) => `${Math.round(v * 100)}%`}
           onChange={(v) => update({ opacity: v })}
           onInstant={(v) => instant({ opacity: v })}
+          resetTo={element.type === 'logo' ? 0.96 : 1}
         />
         <RangeSlider
           label="Rotation"
@@ -101,6 +104,7 @@ export function ImageInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}°`}
           onChange={(v) => update({ rotation: v })}
           onInstant={(v) => instant({ rotation: v })}
+          resetTo={0}
         />
         <RangeSlider
           label="Border Radius"
@@ -109,6 +113,7 @@ export function ImageInspector({ index }: { index: number }) {
           max={100}
           formatValue={(v) => `${v}px`}
           onChange={(v) => update({ borderRadius: v })}
+          resetTo={element.type === 'logo' ? 24 : 0}
         />
         {element.type === 'logo' && (
           <>
@@ -120,6 +125,7 @@ export function ImageInspector({ index }: { index: number }) {
               step={0.1}
               formatValue={(v) => `${v}%`}
               onChange={(v) => update({ padding: v })}
+              resetTo={1.2}
             />
             <ColorPicker
               label="Background"
@@ -155,6 +161,7 @@ export function ImageInspector({ index }: { index: number }) {
                   shadow: { ...element.shadow!, opacity: v / 100 },
                 } as Partial<PanoramicElement>)
               }
+              resetTo={20}
             />
             <RangeSlider
               label="Blur"
@@ -165,6 +172,7 @@ export function ImageInspector({ index }: { index: number }) {
               onChange={(v) =>
                 update({ shadow: { ...element.shadow!, blur: v } } as Partial<PanoramicElement>)
               }
+              resetTo={24}
             />
             <ColorPicker
               label="Color"
@@ -186,6 +194,7 @@ export function ImageInspector({ index }: { index: number }) {
                   shadow: { ...element.shadow!, offsetY: v },
                 } as Partial<PanoramicElement>)
               }
+              resetTo={8}
             />
           </>
         )}

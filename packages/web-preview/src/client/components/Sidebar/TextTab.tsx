@@ -93,6 +93,8 @@ export function TextTab() {
             formatValue={(v) => `${v}px`}
             onChange={(v) => update({ headlineSize: v })}
             onInstant={(v) => instantText('headlineSize', v)}
+            resetTo={0}
+            resetLabel="Auto"
           />
           <RangeSlider
             label="Rotation"
@@ -102,6 +104,7 @@ export function TextTab() {
             formatValue={(v) => `${v}°`}
             onChange={(v) => update({ headlineRotation: v })}
             onInstant={(v) => instantText('headlineRotation', v)}
+            resetTo={0}
           />
           <RangeSlider
             label="Line Height"
@@ -110,6 +113,8 @@ export function TextTab() {
             max={180}
             formatValue={(v) => (v === 0 ? 'Auto' : (v / 100).toFixed(2))}
             onChange={(v) => update({ headlineLineHeight: v })}
+            resetTo={0}
+            resetLabel="Auto"
           />
           <RangeSlider
             label="Letter Spacing"
@@ -118,6 +123,8 @@ export function TextTab() {
             max={10}
             formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
             onChange={(v) => update({ headlineLetterSpacing: v })}
+            resetTo={0}
+            resetLabel="Auto"
           />
           <div className="flex gap-2 mb-2">
             <div className="flex-1">
@@ -181,6 +188,8 @@ export function TextTab() {
               formatValue={(v) => `${v}px`}
               onChange={(v) => update({ subtitleSize: v })}
               onInstant={(v) => instantText('subtitleSize', v)}
+              resetTo={0}
+              resetLabel="Auto"
             />
             <RangeSlider
               label="Rotation"
@@ -190,6 +199,7 @@ export function TextTab() {
               formatValue={(v) => `${v}°`}
               onChange={(v) => update({ subtitleRotation: v })}
               onInstant={(v) => instantText('subtitleRotation', v)}
+              resetTo={0}
             />
             <RangeSlider
               label="Opacity"
@@ -198,6 +208,8 @@ export function TextTab() {
               max={100}
               formatValue={(v) => (v === 0 ? 'Auto' : `${v}%`)}
               onChange={(v) => update({ subtitleOpacity: v })}
+              resetTo={0}
+              resetLabel="Auto"
             />
             <RangeSlider
               label="Letter Spacing"
@@ -206,6 +218,8 @@ export function TextTab() {
               max={10}
               formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
               onChange={(v) => update({ subtitleLetterSpacing: v })}
+              resetTo={0}
+              resetLabel="Auto"
             />
             <Select
               label="Case"
@@ -266,6 +280,8 @@ export function TextTab() {
                 formatValue={(v) => `${v}px`}
                 onChange={(v) => update({ freeTextSize: v })}
                 onInstant={(v) => instantText('freeTextSize', v)}
+                resetTo={0}
+                resetLabel="Auto"
               />
               <RangeSlider
                 label="Rotation"
@@ -275,6 +291,7 @@ export function TextTab() {
                 formatValue={(v) => `${v}°`}
                 onChange={(v) => update({ freeTextRotation: v })}
                 onInstant={(v) => instantText('freeTextRotation', v)}
+                resetTo={0}
               />
               <RangeSlider
                 label="Letter Spacing"
@@ -283,6 +300,8 @@ export function TextTab() {
                 max={10}
                 formatValue={(v) => (v === 0 ? 'Auto' : `${v / 100}em`)}
                 onChange={(v) => update({ freeTextLetterSpacing: v })}
+                resetTo={0}
+                resetLabel="Auto"
               />
               <Select
                 label="Case"
@@ -361,6 +380,7 @@ export function TextTab() {
                   headlineGradient: { ...screen.headlineGradient!, direction: v },
                 })
               }
+              resetTo={90}
             />
           </>
         )}
@@ -417,6 +437,7 @@ export function TextTab() {
                   subtitleGradient: { ...screen.subtitleGradient!, direction: v },
                 })
               }
+              resetTo={90}
             />
           </>
         )}

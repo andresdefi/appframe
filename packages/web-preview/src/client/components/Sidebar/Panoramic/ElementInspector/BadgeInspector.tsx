@@ -31,6 +31,7 @@ export function BadgeInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ width: v })}
           onInstant={(v) => instant({ width: v })}
+          resetTo={16}
         />
         <RangeSlider
           label="Height"
@@ -41,6 +42,7 @@ export function BadgeInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ height: v })}
           onInstant={(v) => instant({ height: v })}
+          resetTo={5}
         />
         <RangeSlider
           label="Font Size"
@@ -50,6 +52,7 @@ export function BadgeInspector({ index }: { index: number }) {
           step={0.1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ fontSize: v })}
+          resetTo={1.1}
         />
         <RangeSlider
           label="Rotation"
@@ -59,6 +62,7 @@ export function BadgeInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}°`}
           onChange={(v) => update({ rotation: v })}
           onInstant={(v) => instant({ rotation: v })}
+          resetTo={0}
         />
         <RangeSlider
           label="Border Radius"
@@ -67,6 +71,7 @@ export function BadgeInspector({ index }: { index: number }) {
           max={100}
           formatValue={(v) => `${v}px`}
           onChange={(v) => update({ borderRadius: v })}
+          resetTo={100}
         />
         <RangeSlider
           label="Opacity"
@@ -77,6 +82,7 @@ export function BadgeInspector({ index }: { index: number }) {
           formatValue={(v) => `${Math.round(v * 100)}%`}
           onChange={(v) => update({ opacity: v })}
           onInstant={(v) => instant({ opacity: v })}
+          resetTo={0.96}
         />
       </Section>
 
@@ -100,6 +106,7 @@ export function BadgeInspector({ index }: { index: number }) {
           step={0.5}
           formatValue={(v) => `${v}px`}
           onChange={(v) => update({ borderWidth: v })}
+          resetTo={1}
         />
       </Section>
     </>

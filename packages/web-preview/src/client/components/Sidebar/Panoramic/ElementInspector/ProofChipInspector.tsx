@@ -37,6 +37,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           step={0.1}
           formatValue={(v) => (v === 0 ? 'Off' : `${v.toFixed(1)}★`)}
           onChange={(v) => update({ rating: v === 0 ? undefined : Number(v.toFixed(1)) })}
+          resetTo={5}
         />
       </Section>
 
@@ -50,6 +51,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ width: v })}
           onInstant={(v) => instant({ width: v })}
+          resetTo={18}
         />
         <RangeSlider
           label="Height"
@@ -60,6 +62,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ height: v })}
           onInstant={(v) => instant({ height: v })}
+          resetTo={9}
         />
         <RangeSlider
           label="Value Size"
@@ -69,6 +72,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           step={0.1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ valueSize: v })}
+          resetTo={1.8}
         />
         <RangeSlider
           label="Detail Size"
@@ -78,6 +82,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           step={0.1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ detailSize: v })}
+          resetTo={1}
         />
         <RangeSlider
           label="Padding"
@@ -87,6 +92,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           step={0.1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ padding: v })}
+          resetTo={1.4}
         />
         <RangeSlider
           label="Rotation"
@@ -96,6 +102,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}°`}
           onChange={(v) => update({ rotation: v })}
           onInstant={(v) => instant({ rotation: v })}
+          resetTo={0}
         />
         <RangeSlider
           label="Opacity"
@@ -106,6 +113,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           formatValue={(v) => `${Math.round(v * 100)}%`}
           onChange={(v) => update({ opacity: v })}
           onInstant={(v) => instant({ opacity: v })}
+          resetTo={0.98}
         />
       </Section>
 
@@ -131,6 +139,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           step={0.5}
           formatValue={(v) => `${v}px`}
           onChange={(v) => update({ borderWidth: v })}
+          resetTo={1}
         />
         <RangeSlider
           label="Border Radius"
@@ -139,6 +148,7 @@ export function ProofChipInspector({ index }: { index: number }) {
           max={100}
           formatValue={(v) => `${v}px`}
           onChange={(v) => update({ borderRadius: v })}
+          resetTo={28}
         />
       </Section>
     </>

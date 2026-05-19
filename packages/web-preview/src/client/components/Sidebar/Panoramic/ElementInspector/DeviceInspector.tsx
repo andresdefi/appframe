@@ -162,6 +162,7 @@ export function DeviceInspector({ index }: { index: number }) {
                           borderSimulation: { ...bs, thickness: v },
                         } as Partial<PanoramicElement>)
                       }
+                      resetTo={4}
                     />
                     <ColorPicker
                       label="Color"
@@ -183,6 +184,7 @@ export function DeviceInspector({ index }: { index: number }) {
                           borderSimulation: { ...bs, radius: v },
                         } as Partial<PanoramicElement>)
                       }
+                      resetTo={40}
                     />
                   </>
                 );
@@ -213,6 +215,7 @@ export function DeviceInspector({ index }: { index: number }) {
               formatValue={(v) => `${v}%`}
               onChange={(v) => update({ width: v })}
               onInstant={(v) => instant({ width: v })}
+              resetTo={12}
             />
             <RangeSlider
               label="Device Rotation"
@@ -222,6 +225,7 @@ export function DeviceInspector({ index }: { index: number }) {
               formatValue={(v) => `${v}°`}
               onChange={(v) => update({ rotation: v })}
               onInstant={(v) => instant({ rotation: v })}
+              resetTo={0}
             />
             <RangeSlider
               label="3D Tilt"
@@ -230,6 +234,7 @@ export function DeviceInspector({ index }: { index: number }) {
               max={40}
               formatValue={(v) => `${v}°`}
               onChange={(v) => update({ deviceTilt: v } as Partial<PanoramicElement>)}
+              resetTo={0}
             />
             {isFrameNone && (
               <RangeSlider
@@ -239,6 +244,7 @@ export function DeviceInspector({ index }: { index: number }) {
                 max={50}
                 formatValue={(v) => `${v}%`}
                 onChange={(v) => update({ cornerRadius: v } as Partial<PanoramicElement>)}
+                resetTo={0}
               />
             )}
           </>
@@ -270,6 +276,7 @@ export function DeviceInspector({ index }: { index: number }) {
               max={100}
               formatValue={(v) => `${v}%`}
               onChange={(v) => update({ shadow: { ...element.shadow!, opacity: v / 100 } })}
+              resetTo={25}
             />
             <RangeSlider
               label="Blur"
@@ -278,6 +285,7 @@ export function DeviceInspector({ index }: { index: number }) {
               max={50}
               formatValue={(v) => `${v}px`}
               onChange={(v) => update({ shadow: { ...element.shadow!, blur: v } })}
+              resetTo={20}
             />
             <ColorPicker
               label="Color"
@@ -291,6 +299,7 @@ export function DeviceInspector({ index }: { index: number }) {
               max={30}
               formatValue={(v) => `${v}px`}
               onChange={(v) => update({ shadow: { ...element.shadow!, offsetY: v } })}
+              resetTo={10}
             />
           </>
         )}

@@ -146,6 +146,7 @@ export function ElementsTab() {
               formatValue={(v) => `${v}%`}
               onChange={(v) => updateOverlay(idx, { x: v })}
               onInstant={(v) => instantOverlay(idx, { x: v })}
+              resetTo={OVERLAY_BASE.x}
             />
             <RangeSlider
               label="Position Y"
@@ -155,6 +156,7 @@ export function ElementsTab() {
               formatValue={(v) => `${v}%`}
               onChange={(v) => updateOverlay(idx, { y: v })}
               onInstant={(v) => instantOverlay(idx, { y: v })}
+              resetTo={OVERLAY_BASE.y}
             />
             <RangeSlider
               label="Size"
@@ -165,6 +167,7 @@ export function ElementsTab() {
               formatValue={(v) => `${v}px`}
               onChange={(v) => updateOverlay(idx, { size: v })}
               onInstant={(v) => instantOverlay(idx, { size: v })}
+              resetTo={OVERLAY_BASE.size}
             />
             <RangeSlider
               label="Rotation"
@@ -174,6 +177,7 @@ export function ElementsTab() {
               formatValue={(v) => `${v}°`}
               onChange={(v) => updateOverlay(idx, { rotation: v })}
               onInstant={(v) => instantOverlay(idx, { rotation: v })}
+              resetTo={OVERLAY_BASE.rotation}
             />
             <RangeSlider
               label="Opacity"
@@ -183,6 +187,7 @@ export function ElementsTab() {
               formatValue={(v) => `${v}%`}
               onChange={(v) => updateOverlay(idx, { opacity: v / 100 })}
               onInstant={(v) => instantOverlay(idx, { opacity: v / 100 })}
+              resetTo={Math.round(OVERLAY_BASE.opacity * 100)}
             />
             <Select
               label="Layer"
@@ -247,6 +252,7 @@ export function ElementsTab() {
                   formatValue={(v) => `${v}%`}
                   onChange={(v) => updateOverlay(idx, { shapeOpacity: v / 100 })}
                   onInstant={(v) => instantOverlay(idx, { shapeOpacity: v / 100 })}
+                  resetTo={50}
                 />
                 <RangeSlider
                   label="Blur"
@@ -256,6 +262,7 @@ export function ElementsTab() {
                   formatValue={(v) => `${v}px`}
                   onChange={(v) => updateOverlay(idx, { shapeBlur: v })}
                   onInstant={(v) => instantOverlay(idx, { shapeBlur: v })}
+                  resetTo={0}
                 />
               </>
             )}

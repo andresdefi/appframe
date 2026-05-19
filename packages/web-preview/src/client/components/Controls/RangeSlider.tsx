@@ -147,17 +147,38 @@ export function RangeSlider({
             {displayValue}
           </span>
         )}
-        {resetTo !== undefined && value !== resetTo && !disabled && (
-          <button
-            type="button"
-            onClick={() => onChange(resetTo)}
-            className="text-[10px] text-text-dim hover:text-text transition-colors shrink-0 px-1.5 py-0.5 rounded-md hover:bg-surface-2"
-            aria-label={`${resetLabel} to ${formatValue ? formatValue(resetTo) : resetTo}`}
-            title={`${resetLabel} to ${formatValue ? formatValue(resetTo) : resetTo}`}
-          >
-            {resetLabel}
-          </button>
-        )}
+        {resetTo !== undefined ? (
+          (() => {
+            const canReset = value !== resetTo && !disabled;
+            return (
+              <button
+                type="button"
+                onClick={canReset ? () => onChange(resetTo) : undefined}
+                className={`text-text-dim shrink-0 h-4 w-4 inline-flex items-center justify-center rounded transition-opacity ${canReset ? 'opacity-100 hover:text-text hover:bg-surface-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent' : 'opacity-0 pointer-events-none'}`}
+                aria-hidden={!canReset}
+                tabIndex={canReset ? 0 : -1}
+                aria-label={canReset ? `${resetLabel} to ${formatValue ? formatValue(resetTo) : resetTo}` : undefined}
+                title={canReset ? `${resetLabel} to ${formatValue ? formatValue(resetTo) : resetTo}` : undefined}
+              >
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9" />
+                  <path d="M2.5 2v3.5h3.5" />
+                </svg>
+              </button>
+            );
+          })()
+        ) : null}
       </div>
     </div>
   );

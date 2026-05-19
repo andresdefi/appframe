@@ -52,6 +52,7 @@ export function CardInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ width: v })}
           onInstant={(v) => instant({ width: v })}
+          resetTo={18}
         />
         <RangeSlider
           label="Height"
@@ -62,6 +63,7 @@ export function CardInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ height: v })}
           onInstant={(v) => instant({ height: v })}
+          resetTo={18}
         />
         <Select
           label="Alignment"
@@ -80,6 +82,7 @@ export function CardInspector({ index }: { index: number }) {
           step={0.1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ padding: v })}
+          resetTo={2.2}
         />
         <RangeSlider
           label="Opacity"
@@ -90,6 +93,7 @@ export function CardInspector({ index }: { index: number }) {
           formatValue={(v) => `${Math.round(v * 100)}%`}
           onChange={(v) => update({ opacity: v })}
           onInstant={(v) => instant({ opacity: v })}
+          resetTo={0.96}
         />
         <RangeSlider
           label="Rotation"
@@ -99,6 +103,7 @@ export function CardInspector({ index }: { index: number }) {
           formatValue={(v) => `${v}°`}
           onChange={(v) => update({ rotation: v })}
           onInstant={(v) => instant({ rotation: v })}
+          resetTo={0}
         />
         <RangeSlider
           label="Border Radius"
@@ -107,6 +112,7 @@ export function CardInspector({ index }: { index: number }) {
           max={100}
           formatValue={(v) => `${v}px`}
           onChange={(v) => update({ borderRadius: v })}
+          resetTo={28}
         />
         <RangeSlider
           label="Border Width"
@@ -115,6 +121,7 @@ export function CardInspector({ index }: { index: number }) {
           max={20}
           formatValue={(v) => `${v}px`}
           onChange={(v) => update({ borderWidth: v })}
+          resetTo={1}
         />
       </Section>
 
@@ -155,6 +162,7 @@ export function CardInspector({ index }: { index: number }) {
           step={0.1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ eyebrowSize: v })}
+          resetTo={1.1}
         />
         <RangeSlider
           label="Title Size"
@@ -164,6 +172,7 @@ export function CardInspector({ index }: { index: number }) {
           step={0.1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ titleSize: v })}
+          resetTo={2.2}
         />
         <RangeSlider
           label="Body Size"
@@ -173,6 +182,7 @@ export function CardInspector({ index }: { index: number }) {
           step={0.1}
           formatValue={(v) => `${v}%`}
           onChange={(v) => update({ bodySize: v })}
+          resetTo={1.3}
         />
       </Section>
 
@@ -199,6 +209,7 @@ export function CardInspector({ index }: { index: number }) {
               onChange={(v) =>
                 update({ shadow: { ...element.shadow!, opacity: v / 100 } } as Partial<PanoramicElement>)
               }
+              resetTo={18}
             />
             <RangeSlider
               label="Blur"
@@ -209,6 +220,7 @@ export function CardInspector({ index }: { index: number }) {
               onChange={(v) =>
                 update({ shadow: { ...element.shadow!, blur: v } } as Partial<PanoramicElement>)
               }
+              resetTo={24}
             />
             <ColorPicker
               label="Color"
@@ -226,6 +238,7 @@ export function CardInspector({ index }: { index: number }) {
               onChange={(v) =>
                 update({ shadow: { ...element.shadow!, offsetY: v } } as Partial<PanoramicElement>)
               }
+              resetTo={8}
             />
           </>
         )}

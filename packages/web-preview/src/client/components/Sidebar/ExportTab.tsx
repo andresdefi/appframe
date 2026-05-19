@@ -355,76 +355,95 @@ export function ExportTab() {
     const t0 = performance.now();
     let totalRendered = 0;
     let totalExpected = 0;
-    // Each locale carries its own screen snapshot in localeScreens[code]
-    // (Default uses state.screens). Iterate locale × screens, rendering
-    // each via the locale's own ScreenState so per-locale text, position,
-    // and screenshots all flow through buildExportBody unchanged.
-    for (const localeCode of localesToExport) {
-      const localeScreens = localeCode === 'default' ? screens : localeScreensMap[localeCode];
-      if (!localeScreens || localeScreens.length === 0) continue;
-      totalExpected += localeScreens.length;
-      const localeLabel = localeCode === 'default' ? 'Default' : getLocaleLabel(localeCode);
-      const localeCfg = localeCode === 'default' ? undefined : sessionLocales[localeCode];
-      for (let i = 0; i < localeScreens.length; i++) {
-        const screen = localeScreens[i];
-        if (!screen) continue;
-        setStatus(`Rendering ${localeLabel} screen ${i + 1} of ${localeScreens.length}...`);
-        try {
-          const body = buildExportBody(screen, {
-            previewW,
-            previewH,
-            locale: localeCode,
-            localeConfig: localeCfg,
-            sizeKey: resolvedExportSize,
-          });
-          const blob = await exportScreenClientSide(
-            body as unknown as Record<string, unknown>,
-            sizeSpec.width,
-            sizeSpec.height,
-          );
-          const fileName = `screen-${i + 1}.png`;
-          const relPath = useFolders ? `${localeCode}/${fileName}` : fileName;
-          entries.push({ relPath, blob });
-          fileNames.push(relPath);
-          totalRendered++;
-        } catch (err) {
-          captureFailure(
-            err,
-            `Error on ${localeLabel} screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`,
-            {
-              kind: 'export-all-screens',
-              failingScreenIndex: i,
-              failingLocale: localeCode,
+    // Wrap everything after setExporting(true) so a throw in bundling,
+    // artifact recording, or download still releases the button —
+    // mirrors handlePanoramicExportAll. Without this, an unexpected
+    // bundleAsZip / downloadBlob failure would leave the Export tab
+    // stuck in the "rendering..." state until reload.
+    try {
+      // Each locale carries its own screen snapshot in localeScreens[code]
+      // (Default uses state.screens). Iterate locale × screens, rendering
+      // each via the locale's own ScreenState so per-locale text, position,
+      // and screenshots all flow through buildExportBody unchanged.
+      for (const localeCode of localesToExport) {
+        const localeScreens = localeCode === 'default' ? screens : localeScreensMap[localeCode];
+        if (!localeScreens || localeScreens.length === 0) continue;
+        totalExpected += localeScreens.length;
+        const localeLabel = localeCode === 'default' ? 'Default' : getLocaleLabel(localeCode);
+        const localeCfg = localeCode === 'default' ? undefined : sessionLocales[localeCode];
+        for (let i = 0; i < localeScreens.length; i++) {
+          const screen = localeScreens[i];
+          if (!screen) continue;
+          setStatus(`Rendering ${localeLabel} screen ${i + 1} of ${localeScreens.length}...`);
+          try {
+            const body = buildExportBody(screen, {
+              previewW,
+              previewH,
+              locale: localeCode,
+              localeConfig: localeCfg,
               sizeKey: resolvedExportSize,
-              sizeWidth: sizeSpec.width,
-              sizeHeight: sizeSpec.height,
-            },
-          );
+            });
+            const blob = await exportScreenClientSide(
+              body as unknown as Record<string, unknown>,
+              sizeSpec.width,
+              sizeSpec.height,
+            );
+            const fileName = `screen-${i + 1}.png`;
+            const relPath = useFolders ? `${localeCode}/${fileName}` : fileName;
+            entries.push({ relPath, blob });
+            fileNames.push(relPath);
+            totalRendered++;
+          } catch (err) {
+            captureFailure(
+              err,
+              `Error on ${localeLabel} screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`,
+              {
+                kind: 'export-all-screens',
+                failingScreenIndex: i,
+                failingLocale: localeCode,
+                sizeKey: resolvedExportSize,
+                sizeWidth: sizeSpec.width,
+                sizeHeight: sizeSpec.height,
+              },
+            );
+          }
         }
       }
+      if (entries.length > 0) {
+        setStatus(`Bundling ${entries.length} screens...`);
+        const zipBlob = await bundleAsZip(entries);
+        downloadBlob(zipBlob, `${exportSlug}-screens.zip`);
+        // For variant-history bookkeeping. Record the active locale at
+        // export time (closest single value for a multi-locale export);
+        // could grow to a list later if a variant should remember which
+        // locales it shipped with.
+        recordVariantArtifact({
+          kind: 'screens',
+          locale,
+          mode: 'individual',
+          renderer: 'modern-screenshot',
+          sizeKey: resolvedExportSize,
+          fileNames,
+        });
+      }
+      const ms = Math.round(performance.now() - t0);
+      setStatus(`Downloaded ${totalRendered} of ${totalExpected} screens in ${ms}ms`);
+      setToast(`Downloaded ${totalRendered} screenshots across ${localesToExport.length} locale${localesToExport.length === 1 ? '' : 's'}`);
+      if (totalRendered === totalExpected) clearDiagnostic();
+    } catch (err) {
+      captureFailure(
+        err,
+        `Export failed: ${err instanceof Error ? err.message : 'Unknown'}`,
+        {
+          kind: 'export-all-screens',
+          sizeKey: resolvedExportSize,
+          sizeWidth: sizeSpec.width,
+          sizeHeight: sizeSpec.height,
+        },
+      );
+    } finally {
+      setExporting(false);
     }
-    if (entries.length > 0) {
-      setStatus(`Bundling ${entries.length} screens...`);
-      const zipBlob = await bundleAsZip(entries);
-      downloadBlob(zipBlob, `${exportSlug}-screens.zip`);
-      // For variant-history bookkeeping. Record the active locale at
-      // export time (closest single value for a multi-locale export);
-      // could grow to a list later if a variant should remember which
-      // locales it shipped with.
-      recordVariantArtifact({
-        kind: 'screens',
-        locale,
-        mode: 'individual',
-        renderer: 'modern-screenshot',
-        sizeKey: resolvedExportSize,
-        fileNames,
-      });
-    }
-    const ms = Math.round(performance.now() - t0);
-    setExporting(false);
-    setStatus(`Downloaded ${totalRendered} of ${totalExpected} screens in ${ms}ms`);
-    setToast(`Downloaded ${totalRendered} screenshots across ${localesToExport.length} locale${localesToExport.length === 1 ? '' : 's'}`);
-    if (totalRendered === totalExpected) clearDiagnostic();
   };
 
   const handleReload = async () => {

@@ -18,6 +18,10 @@
 // cost that's invisible next to the rasterization itself.
 import type { domToCanvas } from 'modern-screenshot';
 import { canvasToPngBlob } from './canvasBlob';
+import { withTimeout } from './withTimeout';
+
+const READINESS_TIMEOUT_MS = 15_000;
+const RASTERIZE_TIMEOUT_MS = 20_000;
 
 type DomToCanvas = typeof domToCanvas;
 let domToCanvasPromise: Promise<DomToCanvas> | null = null;
@@ -190,15 +194,23 @@ async function runCapture(req: QueuedRequest): Promise<string> {
     : Promise.resolve();
   const images = Array.from(doc.images);
   const imagesDecoded = Promise.allSettled(images.map((img) => img.decode()));
-  await Promise.all([fontsReady, imagesDecoded]);
+  await withTimeout(
+    Promise.all([fontsReady, imagesDecoded]),
+    READINESS_TIMEOUT_MS,
+    'capture: font/image readiness',
+  );
   if (req.cancelled) throw new Error('capture cancelled');
 
   const domToCanvas = await loadDomToCanvas();
-  const canvas = await domToCanvas(doc.documentElement, {
-    scale: 1,
-    width: req.width,
-    height: req.height,
-  });
+  const canvas = await withTimeout(
+    domToCanvas(doc.documentElement, {
+      scale: 1,
+      width: req.width,
+      height: req.height,
+    }),
+    RASTERIZE_TIMEOUT_MS,
+    'capture: rasterize',
+  );
   if (req.cancelled) throw new Error('capture cancelled');
 
   const blob = await canvasToPngBlob(canvas);

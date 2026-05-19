@@ -16,6 +16,13 @@
 // next to the rasterization itself.
 import type { domToCanvas } from 'modern-screenshot';
 import { canvasToPngBlob } from './canvasBlob';
+import { withTimeout } from './withTimeout';
+
+// Bounds. Picked generously enough that a slow data-URL decode or a
+// large font face load won't trip them, but small enough that a true
+// hang surfaces as a thrown error instead of an indefinite spinner.
+const READINESS_TIMEOUT_MS = 15_000;
+const RASTERIZE_TIMEOUT_MS = 20_000;
 
 type DomToCanvas = typeof domToCanvas;
 let domToCanvasPromise: Promise<DomToCanvas> | null = null;
@@ -75,7 +82,11 @@ async function prepareIframeForRender(html: string, width: number, height: numbe
     : Promise.resolve();
   const images = Array.from(doc.images);
   const imagesDecoded = Promise.allSettled(images.map((img) => img.decode()));
-  await Promise.all([fontsReady, imagesDecoded]);
+  await withTimeout(
+    Promise.all([fontsReady, imagesDecoded]),
+    READINESS_TIMEOUT_MS,
+    'export: font/image readiness',
+  );
 
   return iframe;
 }
@@ -105,7 +116,11 @@ export async function exportScreenClientSide(
   const iframe = await prepareIframeForRender(html, width, height);
   const doc = iframe.contentDocument!;
   const domToCanvas = await loadDomToCanvas();
-  const canvas = await domToCanvas(doc.documentElement, { scale: 1, width, height });
+  const canvas = await withTimeout(
+    domToCanvas(doc.documentElement, { scale: 1, width, height }),
+    RASTERIZE_TIMEOUT_MS,
+    'export: rasterize screen',
+  );
   return canvasToPngBlob(canvas);
 }
 
@@ -140,11 +155,15 @@ export async function exportPanoramicSlicesClientSide(
   const iframe = await prepareIframeForRender(html, totalWidth, frameHeight);
   const doc = iframe.contentDocument!;
   const domToCanvas = await loadDomToCanvas();
-  const wideCanvas = await domToCanvas(doc.documentElement, {
-    scale: 1,
-    width: totalWidth,
-    height: frameHeight,
-  });
+  const wideCanvas = await withTimeout(
+    domToCanvas(doc.documentElement, {
+      scale: 1,
+      width: totalWidth,
+      height: frameHeight,
+    }),
+    RASTERIZE_TIMEOUT_MS,
+    'export: rasterize panoramic canvas',
+  );
 
   const slices: Blob[] = [];
   for (let i = 0; i < frameCount; i++) {

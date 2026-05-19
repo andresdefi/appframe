@@ -2,6 +2,7 @@
   "name": "appframe-monorepo",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "description": "Generate professional App Store & Play Store promotional screenshots",
   "scripts": {
     "build": "pnpm -r build",

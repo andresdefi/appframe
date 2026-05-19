@@ -7,7 +7,7 @@
 // screenshot doesn't show a hairline gap at the device bezel.
 
 import type { FrameDefinition } from '@appframe/core';
-import { getDeviceFamily } from '@appframe/core';
+import type { getDeviceFamily } from '@appframe/core';
 
 export type KoubouFamily = NonNullable<ReturnType<typeof getDeviceFamily>>;
 

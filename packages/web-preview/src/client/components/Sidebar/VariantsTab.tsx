@@ -81,7 +81,6 @@ function VariantCard({
   useLayoutEffect(() => {
     if (menuOpen) setMenuPos(computeMenuPos());
     else setMenuPos(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuOpen]);
 
   // Close on outside click, scroll, or resize. Scroll/resize would otherwise

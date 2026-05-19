@@ -14,7 +14,8 @@
 // editor's initial load stays smaller. The first export pays a one-time
 // chunk-load cost (~50-200 ms on a slow connection) which is invisible
 // next to the rasterization itself.
-type DomToPng = typeof import('modern-screenshot').domToPng;
+import type { domToPng } from 'modern-screenshot';
+type DomToPng = typeof domToPng;
 let domToPngPromise: Promise<DomToPng> | null = null;
 function loadDomToPng(): Promise<DomToPng> {
   if (!domToPngPromise) {

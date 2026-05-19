@@ -351,28 +351,23 @@ export async function listProjects(options: ProjectStorageOptions): Promise<Proj
   for (const name of entries) {
     if (!PROJECT_SLUG_RE.test(name)) continue;
     const projectPath = join(root, name);
-    let isDir = false;
     try {
       const s = await stat(projectPath);
-      isDir = s.isDirectory();
+      if (!s.isDirectory()) continue;
     } catch {
       continue;
     }
-    if (!isDir) continue;
 
     const projectFile = join(projectPath, PROJECT_FILE);
-    let hasProjectFile = false;
-    let projectFileMtime: Date | null = null;
+    let projectFileMtime: Date;
     try {
       const s = await stat(projectFile);
-      hasProjectFile = s.isFile();
+      if (!s.isFile()) continue;
       projectFileMtime = s.mtime;
     } catch {
       // No project file — skip.
       continue;
     }
-
-    if (!hasProjectFile) continue;
 
     // Read meta.json once. Both displayName + savedAt + timestamps come
     // from here so we don't have to parse the (much larger)

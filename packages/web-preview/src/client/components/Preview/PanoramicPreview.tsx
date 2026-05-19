@@ -171,7 +171,6 @@ export function PanoramicPreview() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       abortRef.current?.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     config,
     activeLocale,

@@ -16,7 +16,8 @@
 // locale (the inactive-row capture flow runs here). Dynamic-import keeps it
 // out of the initial bundle; the first capture pays a one-time chunk-load
 // cost that's invisible next to the rasterization itself.
-type DomToPng = typeof import('modern-screenshot').domToPng;
+import type { domToPng } from 'modern-screenshot';
+type DomToPng = typeof domToPng;
 let domToPngPromise: Promise<DomToPng> | null = null;
 function loadDomToPng(): Promise<DomToPng> {
   if (!domToPngPromise) {

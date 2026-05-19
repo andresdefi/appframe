@@ -390,7 +390,6 @@ export function ScreenCard({
       abortRef.current?.abort();
     };
     // renderVersion forces re-render when triggerRender() is called
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, renderVersion, platform, previewW, previewH, locale, localeConfig, deviceFamilies, attachGuideObserver]);
 
   return (

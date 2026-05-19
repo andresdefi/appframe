@@ -3,6 +3,16 @@ export interface SaveScheduler<TPayload> {
   schedule: (compute: () => TPayload) => void;
   /** Cancel any pending save and run save() synchronously with the latest computed payload (if any has changed since the last persisted value). Used on tab close. */
   flushSync: () => void;
+  /**
+   * Cancel any pending debounce timer and fire save() with mode
+   * 'debounced' immediately — the regular async save path, not the
+   * unload-optimized 'sync' path. Use this when the page is about to
+   * be hidden but not unloaded (e.g. visibilitychange → hidden) so the
+   * save callback can run a normal fetch that's not subject to the
+   * browser's keepalive body-size cap. No-op when there's no pending
+   * payload or the latest payload was already saved.
+   */
+  flushPending: () => void;
   /** Stop accepting new schedules, clear pending timers. */
   dispose: () => void;
   /** Read-only state hooks for tests. */
@@ -92,6 +102,14 @@ export function createSaveScheduler<TPayload>(
         timer = null;
       }
       fire('sync');
+    },
+    flushPending() {
+      if (disposed) return;
+      if (timer !== null) {
+        clearTimer(timer);
+        timer = null;
+      }
+      fire('debounced');
     },
     dispose() {
       disposed = true;

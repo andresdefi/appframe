@@ -69,15 +69,17 @@ export function useProjectAutosave({
         const body = JSON.stringify(slimmed);
         if (mode === 'sync') {
           // keepalive lets the request outlive a page unload — but
-          // browsers silently drop keepalive bodies over ~64 KB. For
-          // bigger projects (lots of variants + locales + thumbnail
-          // data URLs), the unload save would just vanish without us
-          // knowing. Surface that loudly via the status indicator
-          // instead of pretending it succeeded.
+          // browsers silently drop keepalive bodies over ~64 KB. The
+          // scheduler only routes a payload through 'sync' when it
+          // differs from the last persisted serialization, so reaching
+          // this branch with an over-limit body means there ARE
+          // unsaved edits that we can't reliably ship on unload.
+          // Surface that loudly via the status indicator instead of
+          // pretending it succeeded.
           if (body.length > KEEPALIVE_BODY_LIMIT) {
             setAutosaveStatus(
               'error',
-              `Project too large (${Math.round(body.length / 1024)} KB) for the keepalive save that runs at tab close. Your last debounced save still landed; close the tab a moment after your last edit to be safe.`,
+              `Project too large (${Math.round(body.length / 1024)} KB) for the keepalive save that runs at tab close. Your last unsaved edits may not be on disk; wait for the next autosave (about a second) before closing the tab.`,
             );
             return;
           }
@@ -156,7 +158,14 @@ export function useProjectAutosave({
 
     const onBeforeUnload = () => scheduler.flushSync();
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') scheduler.flushSync();
+      if (document.visibilityState !== 'hidden') return;
+      // Visibility-hide isn't an unload — the tab may come right back.
+      // Use the regular async fetch path so a large pending save isn't
+      // dropped by the keepalive size cap. If the page actually closes
+      // while this fetch is in flight, the browser may abort it, but
+      // that's a strictly better failure mode than silently no-op'ing
+      // every hide of a backgrounded tab.
+      scheduler.flushPending();
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('visibilitychange', onVisibility);

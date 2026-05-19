@@ -51,6 +51,26 @@ describe('createSaveScheduler', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
+  it('flushPending fires the latest payload with mode debounced and cancels the timer', () => {
+    const save = vi.fn();
+    const scheduler = createSaveScheduler<string>({ debounceMs: 500, save });
+    scheduler.schedule(() => 'a');
+    expect(scheduler.hasPendingTimer()).toBe(true);
+    scheduler.flushPending();
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith('a', 'debounced');
+    expect(scheduler.hasPendingTimer()).toBe(false);
+    vi.advanceTimersByTime(1000);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it('flushPending with no pending save is a no-op', () => {
+    const save = vi.fn();
+    const scheduler = createSaveScheduler<string>({ debounceMs: 500, save });
+    scheduler.flushPending();
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it('flushSync with no pending save is a no-op', () => {
     const save = vi.fn();
     const scheduler = createSaveScheduler<string>({ debounceMs: 500, save });

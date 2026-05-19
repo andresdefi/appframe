@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { LOCALE_CATALOG, getLocaleLabel } from '@appframe/core/locales';
 import { usePreviewStore } from '../../store';
 import { Section } from '../Controls/Section';
+import { useConfirmDialog } from '../Controls/ConfirmDialog';
 
 export function LocalesTab() {
   const sessionLocales = usePreviewStore((s) => s.sessionLocales);
@@ -16,6 +17,7 @@ export function LocalesTab() {
   const setCanvasCompareAll = usePreviewStore((s) => s.setCanvasCompareAll);
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   // A locale appears in this mode's list when it has its own snapshot
   // for this mode. Snapshot model: `localeScreens[code]` = Individual,
@@ -28,6 +30,7 @@ export function LocalesTab() {
 
   return (
     <>
+      {confirmDialog}
       <Section
         title={`Locales (${totalCount})`}
         defaultCollapsed={false}
@@ -47,10 +50,14 @@ export function LocalesTab() {
               code={code}
               active={activeLocale === code}
               onClick={() => setLocale(code)}
-              onRemove={() => {
-                if (window.confirm(`Remove locale "${getLocaleLabel(code)}"? Its text and uploaded screenshots will be discarded.`)) {
-                  removeLocale(code);
-                }
+              onRemove={async () => {
+                const ok = await confirm({
+                  title: `Remove locale "${getLocaleLabel(code)}"?`,
+                  message: 'Its text and uploaded screenshots will be discarded.',
+                  confirmLabel: 'Remove',
+                  destructive: true,
+                });
+                if (ok) removeLocale(code);
               }}
             />
           ))}

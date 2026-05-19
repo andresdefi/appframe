@@ -9,8 +9,10 @@ import {
 import { getLocaleLabel } from '@appframe/core/locales';
 import { InactivePanoramicRow } from './InactivePanoramicRow';
 import { LocaleRowHeader } from './LocaleRowHeader';
+import { useConfirmDialog } from '../Controls/ConfirmDialog';
 
 export function PanoramicPreview() {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const areaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -422,6 +424,8 @@ export function PanoramicPreview() {
   );
 
   return (
+    <>
+    {confirmDialog}
     <div ref={areaRef} className="flex-1 flex flex-col overflow-hidden bg-bg relative">
       {/* Canvas — stacks one row per locale */}
       <div className="flex-1 overflow-auto">
@@ -440,10 +444,14 @@ export function PanoramicPreview() {
                   label={label}
                   active={active}
                   onActivate={() => setLocale(loc)}
-                  onRemove={loc !== 'default' ? () => {
-                    if (window.confirm(`Remove locale "${label}"? Its text and uploaded screenshots will be discarded.`)) {
-                      removeLocale(loc);
-                    }
+                  onRemove={loc !== 'default' ? async () => {
+                    const ok = await confirm({
+                      title: `Remove locale "${label}"?`,
+                      message: 'Its text and uploaded screenshots will be discarded.',
+                      confirmLabel: 'Remove',
+                      destructive: true,
+                    });
+                    if (ok) removeLocale(loc);
                   } : undefined}
                 />
                 {active ? (
@@ -518,5 +526,6 @@ export function PanoramicPreview() {
         </div>
       </div>
     </div>
+    </>
   );
 }

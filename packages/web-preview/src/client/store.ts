@@ -491,7 +491,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   panoramicFrameCount: 5,
   panoramicBackground: { type: 'solid', color: '#ffffff', layers: [] } as PanoramicBackground,
   panoramicElements: [] as PanoramicElement[],
-  panoramicEffects: { spotlight: null, annotations: [], overlays: [] } as PanoramicEffects,
+  panoramicEffects: { spotlightEnabled: false, spotlight: null, annotations: [], overlays: [] } as PanoramicEffects,
   selectedElementIndex: null,
   fonts: [],
   frames: [],

@@ -111,24 +111,22 @@ export function EffectsTab() {
     <>
       {dialog}
       {/* Spotlight */}
-      <Section title="Spotlight / Dimming" tooltip="Dim the background and highlight a specific area of your screenshot to draw attention." defaultCollapsed={false}>
-        {!screen.spotlight && (
-          <p className="text-[10px] text-text-dim mb-2 leading-relaxed text-pretty">
-            Dim the screenshot background and highlight a specific region to guide the viewer&apos;s eye.
-          </p>
-        )}
+      <Section title="Spotlight / Dimming" tooltip="Dim the screenshot background and highlight a specific region to guide the viewer's eye." defaultCollapsed={false}>
         <Checkbox
           label="Enable Spotlight"
-          checked={!!screen.spotlight}
+          checked={screen.spotlightEnabled}
           onChange={(checked) =>
             update({
-              spotlight: checked
+              spotlightEnabled: checked,
+              // Initialise default shape on first enable; subsequent
+              // toggles keep whatever the user tuned.
+              spotlight: checked && !screen.spotlight
                 ? { x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0, borderRadius: 0 }
-                : null,
+                : screen.spotlight,
             })
           }
         />
-        {screen.spotlight && (
+        {screen.spotlightEnabled && screen.spotlight && (
           <>
             <Select
               label="Shape"
@@ -214,12 +212,13 @@ export function EffectsTab() {
       <Section title="Loupe / Magnification" tooltip="Magnify a region of the screenshot and display it enlarged elsewhere on the frame.">
         <Checkbox
           label="Loupe"
-          checked={!!screen.loupe}
+          checked={screen.loupeEnabled}
           onChange={(checked) =>
             update({
-              loupe: checked
+              loupeEnabled: checked,
+              loupe: checked && !screen.loupe
                 ? { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, displayX: 50, displayY: 50, zoom: 2.5, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0, xOffset: 0, yOffset: 0 }
-                : null,
+                : screen.loupe,
             })
           }
         />
@@ -228,7 +227,7 @@ export function EffectsTab() {
           const l = screen.loupe ?? defaults;
           const upd = (partial: Record<string, unknown>) => update({ loupe: { ...l, ...partial } });
           return (
-            <div className={!screen.loupe ? 'opacity-40 pointer-events-none' : ''}>
+            <div className={!screen.loupeEnabled ? 'opacity-40 pointer-events-none' : ''}>
               <RangeSlider label="Position X" value={l.displayX ?? 50} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => upd({ displayX: v })} onInstant={(v) => instantLoupe({ displayX: v })} resetTo={50} />
               <RangeSlider label="Position Y" value={l.displayY ?? 50} min={0} max={100} formatValue={(v) => `${v}%`} onChange={(v) => upd({ displayY: v })} onInstant={(v) => instantLoupe({ displayY: v })} resetTo={50} />
               <RangeSlider label="Width" value={l.width} min={0.05} max={1} step={0.01} formatValue={(v) => v.toFixed(2)} onChange={(v) => upd({ width: v })} onInstant={(v) => instantLoupe({ width: v })} resetTo={0.5} />

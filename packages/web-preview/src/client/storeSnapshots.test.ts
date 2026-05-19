@@ -67,6 +67,7 @@ function makeStubScreen(id: string, overrides: Partial<ScreenState> = {}): Scree
     subtitleOpacity: 0,
     subtitleLetterSpacing: 0,
     subtitleTextTransform: '',
+    spotlightEnabled: false,
     spotlight: null,
     annotations: [],
     textPositions: { headline: null, subtitle: null, freeText: null },
@@ -85,6 +86,7 @@ function makeStubScreen(id: string, overrides: Partial<ScreenState> = {}): Scree
     deviceShadow: null,
     borderSimulation: null,
     cornerRadius: 0,
+    loupeEnabled: false,
     loupe: null,
     callouts: [],
     overlays: [],
@@ -94,7 +96,7 @@ function makeStubScreen(id: string, overrides: Partial<ScreenState> = {}): Scree
 }
 
 const stubBackground: PanoramicBackground = { type: 'solid', color: '#ffffff', layers: [] };
-const stubEffects: PanoramicEffects = { spotlight: null, annotations: [], overlays: [] };
+const stubEffects: PanoramicEffects = { spotlightEnabled: false, spotlight: null, annotations: [], overlays: [] };
 
 function makeBaseState() {
   return {

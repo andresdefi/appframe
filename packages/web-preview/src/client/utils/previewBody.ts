@@ -90,7 +90,9 @@ export function buildScreenRenderBody(
     composition: screen.composition || 'single',
     headlineGradient: screen.headlineGradient,
     subtitleGradient: screen.subtitleGradient,
-    spotlight: screen.spotlight || undefined,
+    // Only render spotlight when the enabled flag is on. Data persists
+    // across disable/enable so toggling preserves the user's tuned shape.
+    spotlight: screen.spotlightEnabled && screen.spotlight ? screen.spotlight : undefined,
     annotations: screen.annotations.length > 0 ? screen.annotations : undefined,
     backgroundType: screen.backgroundType !== 'preset' ? screen.backgroundType : undefined,
     backgroundColor: screen.backgroundType === 'solid' ? screen.backgroundColor : undefined,
@@ -110,7 +112,7 @@ export function buildScreenRenderBody(
     deviceShadow: screen.deviceShadow || undefined,
     borderSimulation: screen.borderSimulation || undefined,
     cornerRadius: screen.cornerRadius || undefined,
-    loupe: screen.loupe || undefined,
+    loupe: screen.loupeEnabled && screen.loupe ? screen.loupe : undefined,
     callouts: screen.callouts.length > 0 ? screen.callouts : undefined,
     overlays: screen.overlays.length > 0 ? screen.overlays : undefined,
     headlineLineHeight: screen.headlineLineHeight ? screen.headlineLineHeight / 100 : undefined,

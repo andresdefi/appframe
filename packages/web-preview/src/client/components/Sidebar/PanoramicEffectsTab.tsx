@@ -83,24 +83,20 @@ export function PanoramicEffectsTab() {
     <>
       {dialog}
       {/* Spotlight */}
-      <Section title="Spotlight / Dimming" tooltip="Dim the panoramic canvas and highlight a specific area to draw attention." defaultCollapsed={false}>
-        {!effects.spotlight && (
-          <p className="text-[10px] text-text-dim mb-2 leading-relaxed">
-            Dim the canvas background and highlight a specific region to guide the viewer&apos;s eye.
-          </p>
-        )}
+      <Section title="Spotlight / Dimming" tooltip="Dim the canvas background and highlight a specific region to guide the viewer's eye." defaultCollapsed={false}>
         <Checkbox
           label="Enable Spotlight"
-          checked={!!effects.spotlight}
+          checked={effects.spotlightEnabled}
           onChange={(checked) =>
             update({
-              spotlight: checked
+              spotlightEnabled: checked,
+              spotlight: checked && !effects.spotlight
                 ? { x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0, borderRadius: 0 }
-                : null,
+                : effects.spotlight,
             })
           }
         />
-        {effects.spotlight && (
+        {effects.spotlightEnabled && effects.spotlight && (
           <>
             <Select
               label="Shape"

@@ -162,6 +162,34 @@ describe('fattenScreen', () => {
     expect(fat.headlineSize).toBe(110);
   });
 
+  it('infers spotlightEnabled / loupeEnabled from data presence for legacy projects', () => {
+    // Older projects didn't have the *Enabled flags — non-null data
+    // meant "the section is on". Fatten promotes that to the explicit
+    // flag so the new toggle code reads existing files correctly.
+    const fatLegacyOn = fattenScreen({
+      id: 'x', screenIndex: 0, headline: 'h',
+      spotlight: { x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0, borderRadius: 0 },
+      loupe: { width: 0.5, height: 0.33, sourceX: 0, sourceY: 0, displayX: 50, displayY: 50, zoom: 2.5, cornerRadius: 0, borderWidth: 0, borderColor: '#ffffff', shadow: true, shadowColor: '#000000', shadowRadius: 30, shadowOffsetX: 0, shadowOffsetY: 0 },
+    });
+    expect(fatLegacyOn.spotlightEnabled).toBe(true);
+    expect(fatLegacyOn.loupeEnabled).toBe(true);
+
+    // Absent data → defaults stay false.
+    const fatLegacyOff = fattenScreen({ id: 'x', screenIndex: 0, headline: 'h' });
+    expect(fatLegacyOff.spotlightEnabled).toBe(false);
+    expect(fatLegacyOff.loupeEnabled).toBe(false);
+
+    // Explicit flag in saved data wins over the inference.
+    const fatExplicit = fattenScreen({
+      id: 'x', screenIndex: 0, headline: 'h',
+      spotlightEnabled: false,
+      spotlight: { x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0, borderRadius: 0 },
+    });
+    expect(fatExplicit.spotlightEnabled).toBe(false);
+    // Data is preserved even though it's off — the whole point.
+    expect(fatExplicit.spotlight).not.toBeNull();
+  });
+
   it('migrates legacy 0 / null text sizes to the new px defaults', () => {
     // Older projects stored `headlineSize: 0` (or null) as the "use
     // preset auto" sentinel. The current model uses concrete px so the

@@ -278,7 +278,7 @@ describe('undo/redo', () => {
       headlineLineHeight: 0, headlineLetterSpacing: 0,
       headlineTextTransform: '', headlineFontStyle: '',
       subtitleOpacity: 0, subtitleLetterSpacing: 0, subtitleTextTransform: '',
-      spotlight: null, annotations: [],
+      spotlightEnabled: false, spotlight: null, annotations: [],
       textPositions: { headline: null, subtitle: null, freeText: null },
       screenshotUrl: null, screenshotName: null, screenshotDims: null,
       backgroundType: 'solid', backgroundColor: '#fff',
@@ -286,7 +286,7 @@ describe('undo/redo', () => {
       backgroundImageDataUrl: null, backgroundImageFit: 'cover',
       backgroundImagePositionX: 50, backgroundImagePositionY: 50, backgroundImageScale: 100,
       backgroundOverlay: null, deviceShadow: null, borderSimulation: null,
-      cornerRadius: 0, loupe: null, callouts: [], overlays: [], extraDevices: [],
+      cornerRadius: 0, loupeEnabled: false, loupe: null, callouts: [], overlays: [], extraDevices: [],
     };
   }
 

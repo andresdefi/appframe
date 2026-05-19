@@ -144,7 +144,9 @@ export function PanoramicPreview() {
           font: config.theme.font,
           fontWeight: config.theme.fontWeight,
           frameStyle: config.frames.style,
-          effects: panoramicEffects,
+          effects: panoramicEffects.spotlightEnabled
+            ? panoramicEffects
+            : { ...panoramicEffects, spotlight: null },
           previewMode: true,
         };
 

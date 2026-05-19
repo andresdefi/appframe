@@ -45,6 +45,7 @@ export type {
 };
 
 export interface PanoramicEffects {
+  spotlightEnabled: boolean;
   spotlight: SpotlightConfig | null;
   annotations: Annotation[];
   overlays: Overlay[];
@@ -125,6 +126,11 @@ export interface ScreenState {
   subtitleOpacity: number;
   subtitleLetterSpacing: number;
   subtitleTextTransform: string;
+  // Spotlight / loupe use separate enabled flags so toggling the
+  // section off and back on preserves the user's tuned config —
+  // `spotlight` / `loupe` hold the last-edited shape, `*Enabled` is
+  // the on/off switch.
+  spotlightEnabled: boolean;
   spotlight: SpotlightConfig | null;
   annotations: Annotation[];
   textPositions: {
@@ -153,6 +159,7 @@ export interface ScreenState {
   deviceShadow: DeviceShadow | null;
   borderSimulation: BorderSimulation | null;
   cornerRadius: number;
+  loupeEnabled: boolean;
   loupe: Loupe | null;
   callouts: Callout[];
   overlays: Overlay[];

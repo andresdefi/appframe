@@ -192,7 +192,9 @@ export function ExportTab() {
       frameHeight: previewH,
       background: panoramicBackground,
       elements: elementsForLocale,
-      effects: panoramicEffects,
+      effects: panoramicEffects.spotlightEnabled
+        ? panoramicEffects
+        : { ...panoramicEffects, spotlight: null },
       font: config?.theme.font,
       fontWeight: config?.theme.fontWeight,
       frameStyle: config?.frames.style,

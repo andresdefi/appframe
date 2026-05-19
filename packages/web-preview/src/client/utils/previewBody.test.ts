@@ -61,6 +61,7 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
     subtitleOpacity: 85,
     subtitleLetterSpacing: 4,
     subtitleTextTransform: 'capitalize',
+    spotlightEnabled: true,
     spotlight: { x: 20, y: 30, w: 40, h: 25, shape: 'rectangle', dimOpacity: 0.55, blur: 14, borderRadius: 0 },
     annotations: [
       { id: 'ann-1', shape: 'rectangle', x: 10, y: 20, w: 30, h: 15, strokeColor: '#ff0000', strokeWidth: 4, borderRadius: 0 },
@@ -90,6 +91,7 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
     deviceShadow: { opacity: 0.3, blur: 24, color: '#000000', offsetY: 12 },
     borderSimulation: { enabled: true, thickness: 2, color: '#ffffff', radius: 24 },
     cornerRadius: 28,
+    loupeEnabled: true,
     loupe: {
       width: 0.5,
       height: 0.33,

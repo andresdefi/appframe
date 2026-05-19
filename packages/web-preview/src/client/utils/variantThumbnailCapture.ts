@@ -145,7 +145,9 @@ async function runCapture(variant: VariantRecord, ctx: CaptureContext): Promise<
       font: ctx.config.theme.font,
       fontWeight: ctx.config.theme.fontWeight,
       frameStyle: ctx.config.frames.style,
-      effects: snapshot.panoramicEffects,
+      effects: snapshot.panoramicEffects.spotlightEnabled
+        ? snapshot.panoramicEffects
+        : { ...snapshot.panoramicEffects, spotlight: null },
       previewMode: true,
     };
     return rasterize('/api/panoramic-preview-html', body, canvasW, canvasH);

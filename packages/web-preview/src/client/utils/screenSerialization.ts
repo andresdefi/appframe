@@ -64,6 +64,7 @@ export const STATIC_SCREEN_DEFAULTS: {
   subtitleOpacity: number;
   subtitleLetterSpacing: number;
   subtitleTextTransform: string;
+  spotlightEnabled: boolean;
   spotlight: SpotlightConfig | null;
   annotations: Annotation[];
   textPositions: {
@@ -86,6 +87,7 @@ export const STATIC_SCREEN_DEFAULTS: {
   deviceShadow: DeviceShadow | null;
   borderSimulation: BorderSimulation | null;
   cornerRadius: number;
+  loupeEnabled: boolean;
   loupe: Loupe | null;
   callouts: Callout[];
   overlays: Overlay[];
@@ -122,6 +124,7 @@ export const STATIC_SCREEN_DEFAULTS: {
   subtitleOpacity: 0,
   subtitleLetterSpacing: 0,
   subtitleTextTransform: '',
+  spotlightEnabled: false,
   spotlight: null,
   annotations: [],
   textPositions: { headline: null, subtitle: null, freeText: null },
@@ -145,6 +148,7 @@ export const STATIC_SCREEN_DEFAULTS: {
   deviceShadow: null,
   borderSimulation: null,
   cornerRadius: 0,
+  loupeEnabled: false,
   loupe: null,
   callouts: [],
   overlays: [],
@@ -235,6 +239,17 @@ export function fattenScreen(saved: unknown): Partial<ScreenState> & Record<stri
       const v = normalized[key];
       if (v === null || v === 0) delete normalized[key];
     }
+  }
+  // Spotlight / loupe used to be "data present === enabled" (null meant
+  // off, otherwise on). The current model splits the on/off switch
+  // (`*Enabled`) from the persisted shape, so toggling off and back on
+  // doesn't wipe the user's tuned config. For legacy projects, infer
+  // the enabled flag from whether the data was present.
+  if (!('spotlightEnabled' in normalized) && normalized.spotlight) {
+    normalized.spotlightEnabled = true;
+  }
+  if (!('loupeEnabled' in normalized) && normalized.loupe) {
+    normalized.loupeEnabled = true;
   }
   // Spread defaults FIRST so saved values win.
   return {

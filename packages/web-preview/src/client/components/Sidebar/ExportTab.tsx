@@ -8,6 +8,7 @@ import { buildExportBody } from '../../utils/previewBody';
 import { getDefaultExportSizeKey } from '../../utils/platformSelection';
 import { exportScreenClientSide, exportPanoramicSlicesClientSide } from '../../utils/clientExport';
 import { bundleAsZip, type ZipEntry } from '../../utils/zipExport';
+import { composeExportSlug } from '../../utils/exportSlug';
 import { getLocaleLabel } from '@appframe/core/locales';
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
@@ -47,13 +48,6 @@ function downloadBlob(blob: Blob, filename: string) {
   }, 60_000);
 }
 
-function slugifyVariantName(value: string): string {
-  const slug = value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return slug || 'variant';
-}
 
 export function ExportTab() {
   const platform = usePreviewStore((s) => s.platform);
@@ -137,14 +131,15 @@ export function ExportTab() {
   const activeLocaleConfig = locale === 'default' ? undefined : sessionLocales[locale];
   const activeVariant = variants.find((variant) => variant.id === activeVariantId) ?? null;
   const activeProjectDisplayName = usePreviewStore((s) => s.activeProjectDisplayName);
-  // Filename prefix. Use the variant name when there's an active variant
-  // (so concept-a vs concept-b don't collide); otherwise fall back to the
-  // project display name. The previous fallback of the literal string
-  // 'variant' produced filenames like `variant-screen-1.png` for every
-  // project without variants (i.e. most of them).
-  const exportSlug = activeVariant
-    ? slugifyVariantName(activeVariant.name)
-    : slugifyVariantName(activeProjectDisplayName || 'project');
+  // Filename prefix. Always lead with the project identity; append the
+  // variant slug only when 2+ variants exist (otherwise there's nothing
+  // to disambiguate against). Logic lives in utils/exportSlug.ts and
+  // is unit-tested there.
+  const exportSlug = composeExportSlug(
+    activeProjectDisplayName,
+    activeVariant?.name,
+    variants.length,
+  );
 
   // --- Panoramic export helpers ---
   // Panoramic body for a specific locale. Default uses state.panoramicElements;

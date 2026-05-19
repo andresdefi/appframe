@@ -1,80 +1,59 @@
-# Variant export naming + base-set access plan
+# Variant export naming plan
 
-Status: open. Drafted 2026-05-19 while implementing the Codex review plan. The user surfaced this twice during live testing of unrelated fixes — once after H3 verification, once after M1 verification — and asked it be tracked in its own doc.
+Status: done in commit TBD. Drafted 2026-05-19 while implementing the Codex review plan; revised 2026-05-19 once live testing exposed an incorrect assumption about the variant model.
 
-Not in scope for the Codex review plan. Belongs to the variants surface area, which is mostly Phase 9 / P1 territory in `codex-review-plan.md`.
+## The original complaint
 
-## The two symptoms
+After creating a variant, "Download all N screens" produced `variant-2-screens.zip` (or `variant-2-frames.zip` in panoramic mode). The project's display name was nowhere in the filename. The user wanted the project name back in the filename.
 
-1. **Project name disappears in export filenames.** After creating a variant, "Download all N screens" produces `variant-2-screens.zip` (or `variant-2-frames.zip` in panoramic mode). The project's display name is nowhere in the filename. Sample: a project called "Impostor Party Game" with one variant called "Variant 2" exports as `variant-2-screens.zip`, not `impostor-party-game-variant-2-screens.zip`.
-2. **No way back to the base (non-variant) set.** Once any variant is created and selected, every export is variant-scoped. The original screens you had before creating the first variant are still in the project's state, but the sidebar only lists the variant cards — there's no "Default" / "Base" / "No variant" selector that lets you export the pre-variant set.
+## What the variant model actually looks like
 
-Both symptoms arise from the same root cause: the export pipeline treats the variant as the only filename identity, and the variants UI has no "no variant active" affordance.
+A first pass at this plan assumed projects had a "base" state distinct from variants, reachable when `activeVariantId === null`. Reading the code (`packages/web-preview/src/client/store.ts:897-923`, `initScreens`) revealed otherwise:
 
-## Where the code is today
+- Every project that goes through `initScreens` immediately gets a single variant called **"Concept A"** created from the current screens, and `activeVariantId` is set to that variant's id.
+- `activeVariantId === null` essentially never occurs in normal usage. There is no separate base state hiding behind the variants list — "Concept A" *is* the base.
+- "Create Variant" from the Variants tab adds a sibling (named `Variant 2`, `Variant 3`, …). The user sees the original work as "Concept A" plus the new ones.
 
-- Export filename is computed in `packages/web-preview/src/client/components/Sidebar/ExportTab.tsx:143-147`:
-  ```ts
-  const exportSlug = activeVariant
-    ? slugifyVariantName(activeVariant.name)
-    : slugifyVariantName(activeProjectDisplayName || 'project');
-  ```
-  When `activeVariant` is set, the project name is dropped entirely. The ternary's "no variant" branch already uses the project name, so the *plumbing* for the project name is there — it's just discarded once a variant is active.
-- The ZIP filename is `${exportSlug}-screens.zip` / `${exportSlug}-frames.zip` (ExportTab.tsx:221, 344).
-- The store keeps `activeVariantId: string | null` and `variants: VariantRecord[]`. `null` means "no variant active". So the model already supports the concept of a base set — but `createVariant` flips the active id to the new variant immediately and there's no UI to flip it back to `null`.
+So the model doesn't need a synthetic "Base" card on top of the variants list — Concept A already plays that role.
 
-## Proposed fix (one plan, two commits)
+## What shipped
 
-### Commit 1: project name in variant export filenames
+One commit, one rule, no UI change:
 
-Change the slug to combine both:
+`packages/web-preview/src/client/utils/exportSlug.ts` (new) exposes:
 
 ```ts
-const projectSlug = slugifyVariantName(activeProjectDisplayName || 'project');
-const exportSlug = activeVariant
-  ? `${projectSlug}-${slugifyVariantName(activeVariant.name)}`
-  : projectSlug;
+composeExportSlug(projectDisplayName, activeVariantName, variantCount): string
 ```
 
-Result: a variant export becomes `impostor-party-game-variant-2-screens.zip`. A no-variant export stays `impostor-party-game-screens.zip` — no regression for users without variants.
+- Always leads with the project slug.
+- Appends the active variant's slug **only when `variantCount > 1`** — i.e. only when there are actually multiple variants to disambiguate against.
 
-Edge cases to think through:
-- Project name and variant name collide / one is empty: `slugifyVariantName('')` returns ''. Guard so we don't emit `--screens.zip`.
-- Single-screen "Download screen N" path uses the same `exportSlug` (line 265). Same change applies, no special-casing.
+`ExportTab.tsx` calls it once and reuses the result for `*-screens.zip`, `*-frames.zip`, and the single-screen "Download screen N" path.
 
-Test: new vitest assertion against `slugifyVariantName` composition and the ExportTab logic.
+### Filename matrix
 
-### Commit 2: "Base set" entry in the Variants tab
+| State | Filename |
+|-------|----------|
+| New project "Spentio" (1 variant: Concept A) | `spentio-screens.zip` |
+| New project "Spentio" + added Variant 2 (2 variants) | `spentio-concept-a-screens.zip` when Concept A active, `spentio-variant-2-screens.zip` when Variant 2 active |
+| Delete Concept A, keep only Variant 2 (1 variant) | `spentio-screens.zip` (variant suffix drops once it stops being ambiguous) |
 
-Decide: is the base set a *peer* of the variants (selectable card alongside them) or a *root* (always shown at top, can't be deleted)? Recommended: peer with these properties:
-- Always present, not deletable.
-- Doesn't appear in the `variants[]` array — it's the state when `activeVariantId === null`.
-- VariantsTab renders a synthetic card at the top of the list labeled "Base" (or "Default") with the project's display name and a thumbnail of the current pre-variant screens.
-- Clicking it sets `activeVariantId = null` via a new store action `clearActiveVariant()`.
+### Why not a synthetic "Base" card
 
-UX questions to settle before implementation:
-- Where does the "Base" name come from? Project displayName is the obvious choice.
-- Should the base set's snapshot live inside the variant store, or is it just "whatever's in `state.screens` / `state.panoramicElements` when no variant is active"? The latter is simpler and matches today's model.
-- Does selecting the base set blow away unsaved changes on the active variant? It shouldn't — the existing `syncActiveVariantRecord` already snapshots the active variant when state changes. Need to confirm it fires on selection change.
+Considered and rejected. Two reasons:
 
-Touch points (rough):
-- `packages/web-preview/src/client/store.ts`: new action `clearActiveVariant`, possibly tweak `selectVariant` to accept `null`.
-- `packages/web-preview/src/client/components/Sidebar/Variants/VariantsTab.tsx`: render the synthetic card, wire the click.
-- Tests in `store.test.ts`: round-trip variant ↔ base, assert state is preserved on both ends.
+1. The model doesn't support an "unvarianted" state. Adding one would mean refactoring `initScreens` to not auto-create Concept A, plus rebuilding all the places that assume a variant is always active. That's a much larger product change.
+2. The actual user need ("get back to the original set") is met by clicking the existing Concept A card in the variants list. The original report conflated "filename is wrong" with "I can't find the base" — fixing the filename rule answers both, because once the variant suffix only appears when meaningful, the original Concept A is recoverable by deleting all other variants.
 
-Risk: low. The model already supports `activeVariantId === null`; this just adds a UI affordance to reach that state again.
-
-## What stays out
-
-- Variant thumbnails (P1 in codex-review-plan.md). Independent feature.
-- Per-variant project metadata (display names, descriptions). Variants already have `name` and `description`; not changing.
-- Multi-locale and the snapshot-at-add-time model — none of this touches `localeScreens` / `localePanoramicElements`.
+If the team later wants a real "base set" distinct from variants, that's its own design pass, not a refactor inside this filename change.
 
 ## Verification checklist
 
-- [ ] Export a project with no variant: filename matches `<project>-screens.zip` (no regression).
-- [ ] Create a variant called "Variant 2" inside project "Impostor Party Game"; export filename is `impostor-party-game-variant-2-screens.zip`.
-- [ ] Panoramic mode equivalent: `<project>-<variant>-frames.zip`.
-- [ ] Click the new "Base" card; canvas reverts to the pre-variant screens. Export filename returns to `<project>-screens.zip`.
-- [ ] Click back into "Variant 2"; canvas restores the variant state, exports use the variant slug.
-- [ ] All tests green; live Safari smoke pass on both flows.
+- [x] Tests in `exportSlug.test.ts` cover: no variant, single variant (any name), 2+ variants, empty inputs, punctuation, casing.
+- [ ] New project "Spentio" with one auto-generated Concept A: filename = `spentio-screens.zip`.
+- [ ] Add Variant 2, select it, export: filename = `spentio-variant-2-screens.zip`.
+- [ ] Select Concept A, export: filename = `spentio-concept-a-screens.zip`.
+- [ ] Delete Concept A: filename = `spentio-screens.zip` (variant suffix drops because only one variant remains).
+- [ ] Panoramic equivalent for the frame export path.
+- [ ] All tests green; live Safari smoke pass.

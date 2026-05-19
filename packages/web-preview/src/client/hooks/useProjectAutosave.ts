@@ -6,6 +6,14 @@ import { slimProjectSnapshot } from '../utils/screenSerialization';
 
 const DEBOUNCE_MS = 500;
 
+// Browsers cap fetch(keepalive: true) request bodies at 64 KB total
+// per origin. Bodies that exceed this are silently dropped — the
+// request never lands and the catch never fires. Use a slightly
+// conservative threshold to leave headroom for headers + URL.
+const KEEPALIVE_BODY_LIMIT = 60 * 1024;
+// 4s success indicator — long enough to notice, short enough to fade.
+const SAVED_INDICATOR_MS = 4000;
+
 export interface UseProjectAutosaveOptions {
   enabled: boolean;
   /** Active project slug. Required; the hook becomes a no-op if empty. */
@@ -47,6 +55,8 @@ export function useProjectAutosave({
     if (!project) return;
     baselineRef.current = JSON.stringify(projectSnapshotFromState(usePreviewStore.getState()));
 
+    const setAutosaveStatus = usePreviewStore.getState().setAutosaveStatus;
+    let savedTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduler = createSaveScheduler<ProjectSnapshot>({
       debounceMs,
       save: (snapshot, mode) => {
@@ -56,22 +66,50 @@ export function useProjectAutosave({
         // behaviour. fattenScreen in applyVariantSnapshot re-injects
         // the defaults on load.
         const slimmed = slimProjectSnapshot(snapshot);
+        const body = JSON.stringify(slimmed);
         if (mode === 'sync') {
-          // keepalive lets the request outlive a page unload (Chrome,
-          // Firefox, Safari all support it for fetch in modern versions).
+          // keepalive lets the request outlive a page unload — but
+          // browsers silently drop keepalive bodies over ~64 KB. For
+          // bigger projects (lots of variants + locales + thumbnail
+          // data URLs), the unload save would just vanish without us
+          // knowing. Surface that loudly via the status indicator
+          // instead of pretending it succeeded.
+          if (body.length > KEEPALIVE_BODY_LIMIT) {
+            setAutosaveStatus(
+              'error',
+              `Project too large (${Math.round(body.length / 1024)} KB) for the keepalive save that runs at tab close. Your last debounced save still landed; close the tab a moment after your last edit to be safe.`,
+            );
+            return;
+          }
           fetch(`/api/projects/${encodeURIComponent(project)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(slimmed),
+            body,
             keepalive: true,
           }).catch(() => {
-            // best effort — nothing we can do once the page is gone
+            // The page is unloading — no UI to update.
           });
           return;
         }
-        saveProject(slimmed, project).catch((err: unknown) => {
-          console.warn('Project autosave failed', err);
-        });
+        setAutosaveStatus('saving');
+        if (savedTimer) clearTimeout(savedTimer);
+        saveProject(slimmed, project).then(
+          () => {
+            setAutosaveStatus('saved');
+            savedTimer = setTimeout(() => {
+              // Only fade if we haven't started another save in the
+              // meantime — saving/error wins over the auto-fade.
+              if (usePreviewStore.getState().autosaveStatus === 'saved') {
+                setAutosaveStatus('idle');
+              }
+            }, SAVED_INDICATOR_MS);
+          },
+          (err: unknown) => {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            console.warn('Project autosave failed', err);
+            setAutosaveStatus('error', message);
+          },
+        );
       },
     });
 
@@ -128,6 +166,8 @@ export function useProjectAutosave({
       // exactly what we want here.
       scheduler.flushSync();
       scheduler.dispose();
+      if (savedTimer) clearTimeout(savedTimer);
+      setAutosaveStatus('idle');
     };
   }, [enabled, project, debounceMs]);
 }

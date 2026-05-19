@@ -212,6 +212,12 @@ export interface PreviewStore {
   variants: VariantRecord[];
   activeVariantId: string | null;
   recommendedVariantId: string | null;
+  /** Autosave UI surface — drives the small indicator in HeaderBar so
+   *  the user can see whether their edits are landing on disk. Set by
+   *  useProjectAutosave on schedule / completion / failure. */
+  autosaveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  autosaveLastError: string | null;
+  setAutosaveStatus: (status: 'idle' | 'saving' | 'saved' | 'error', error?: string | null) => void;
   /** Active project slug, drives the autosave / load endpoints. */
   activeProject: string;
   /** Human-readable name of the active project, shown in the header. */
@@ -443,6 +449,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   variants: [],
   activeVariantId: null,
   recommendedVariantId: null,
+  autosaveStatus: 'idle',
+  autosaveLastError: null,
+  setAutosaveStatus: (status, error = null) =>
+    set({ autosaveStatus: status, autosaveLastError: status === 'error' ? error : null }),
   // Empty until App.tsx's init() resumes the most-recent project or
   // auto-creates the first one. Reading this before init completes is
   // a bug — autosave + uploads both require a real project name.

@@ -27,6 +27,8 @@ export function HeaderBar({
 }: HeaderBarProps) {
   const config = usePreviewStore((s) => s.config);
   const activeProjectDisplayName = usePreviewStore((s) => s.activeProjectDisplayName);
+  const autosaveStatus = usePreviewStore((s) => s.autosaveStatus);
+  const autosaveLastError = usePreviewStore((s) => s.autosaveLastError);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
   const togglePanoramic = usePreviewStore((s) => s.togglePanoramic);
   const undo = usePreviewStore((s) => s.undo);
@@ -89,6 +91,25 @@ export function HeaderBar({
             <path d="M3 4.5 6 7.5l3-3" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
+        {autosaveStatus !== 'idle' && (
+          <span
+            className={`text-[10px] whitespace-nowrap px-1.5 py-0.5 rounded-md ${
+              autosaveStatus === 'saving'
+                ? 'text-text-dim bg-surface-2'
+                : autosaveStatus === 'saved'
+                  ? 'text-emerald-300 bg-emerald-500/10'
+                  : 'text-red-300 bg-red-500/10'
+            }`}
+            title={autosaveStatus === 'error' && autosaveLastError ? autosaveLastError : undefined}
+            aria-live="polite"
+          >
+            {autosaveStatus === 'saving'
+              ? 'Saving...'
+              : autosaveStatus === 'saved'
+                ? 'Saved'
+                : 'Save failed'}
+          </span>
+        )}
         {config && (
           <span className="text-xs text-text-dim truncate">{config.app.name}</span>
         )}

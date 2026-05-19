@@ -21,7 +21,7 @@
     "dev": "tsc --watch",
     "dev:client": "vite",
     "clean": "rm -rf dist client-dist *.tsbuildinfo",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.client.json --noEmit",
     "typecheck:client": "tsc -p tsconfig.client.json --noEmit"
   },
   "dependencies": {

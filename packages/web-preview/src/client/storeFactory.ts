@@ -34,8 +34,14 @@ export function createScreenState(
       screen?.subtitleFont ?? config.theme.subtitleFont ?? config.theme.font ?? 'inter',
     subtitleFontWeight:
       screen?.subtitleFontWeight ?? config.theme.subtitleFontWeight ?? 400,
-    headlineSize: config.theme.headlineSize ?? 110,
-    subtitleSize: config.theme.subtitleSize ?? 55,
+    // Text sizes are NOT inherited from the theme. `theme.headlineSize`
+    // is derived from screen 0's value in editorState.ts — if the user
+    // sets screen 0 to 40px, that pollutes the theme, which would then
+    // propagate to every newly-added screen. Hard-code the defaults so
+    // Add Screen always lands at the standard 110 / 55 / 55, regardless
+    // of what the first screen was edited to.
+    headlineSize: 110,
+    subtitleSize: 55,
     headlineRotation: 0,
     subtitleRotation: 0,
     freeText: '',

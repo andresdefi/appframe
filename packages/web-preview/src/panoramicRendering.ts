@@ -183,8 +183,12 @@ export async function buildPanoramicRenderedElement(args: {
   config: AppframeConfig;
   configDir: string;
   frameStyle: FrameStyle;
+  /** When true, the device-frame URL hits the on-the-fly resize endpoint
+   * so the live panoramic iframe avoids ~17 MB of decoded frame bitmap
+   * per element. Export pipelines leave this false. */
+  previewMode?: boolean;
 }): Promise<PanoramicRenderedElement> {
-  const { element, space, config, configDir, frameStyle } = args;
+  const { element, space, config, configDir, frameStyle, previewMode } = args;
   const xPx = space.originXPx + (element.x / 100) * space.widthPx;
   const yPx = space.originYPx + (element.y / 100) * space.heightPx;
 
@@ -216,7 +220,8 @@ export async function buildPanoramicRenderedElement(args: {
               const pngPath = koubouId ? await getDeviceFramePath(koubouId) : null;
               if (pngPath && koubouId) {
                 // Same URL-not-base64 treatment as the individual mode.
-                framePngUrl = `/api/device-frame?id=${encodeURIComponent(koubouId)}`;
+                const previewSuffix = previewMode ? '&preview=1' : '';
+                framePngUrl = `/api/device-frame?id=${encodeURIComponent(koubouId)}${previewSuffix}`;
                 frame = buildKoubouPreviewFrame(koubouFamily);
               }
             }

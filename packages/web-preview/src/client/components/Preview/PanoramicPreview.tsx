@@ -127,9 +127,10 @@ export function PanoramicPreview() {
         abortRef.current = controller;
 
         // Rewrite screenshot URLs to their preview-resolution variants for
-        // the live iframe. Export goes through its own pipeline and keeps
-        // full-res URLs — only the on-screen panoramic preview gets the
-        // smaller bitmaps.
+        // the live iframe, and ask the server to use the preview-resize
+        // device-frame URL too. Export goes through its own pipeline and
+        // keeps full-res URLs — only the on-screen panoramic preview
+        // gets the smaller bitmaps.
         const body = {
           locale: activeLocale,
           localeConfig,
@@ -142,6 +143,7 @@ export function PanoramicPreview() {
           fontWeight: config.theme.fontWeight,
           frameStyle: config.frames.style,
           effects: panoramicEffects,
+          previewMode: true,
         };
 
         fetchPanoramicPreviewHtml(body as Record<string, unknown>, controller.signal)

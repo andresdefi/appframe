@@ -32,6 +32,10 @@ export function buildScreenRenderBody(
 
   return {
     screenIndex: screen.screenIndex,
+    // Tells the server to emit the preview-resized device-frame URL
+    // (?preview=1) when constructing template context. Without this,
+    // each iframe loads ~17 MB of decoded RGBA per frame PNG.
+    previewMode: previewMode || undefined,
     screenshotDataUrl: screenshotUrl,
     locale: preferLocaleText ? locale : undefined,
     preferLocaleText: preferLocaleText || undefined,

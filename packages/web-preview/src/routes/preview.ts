@@ -41,6 +41,10 @@ interface PreviewParams {
   locale: string;
   localeConfig?: LocaleConfig;
   preferLocaleText?: boolean;
+  /** When true, the template's framePngUrl is the resize-on-the-fly preview
+   * variant (`?preview=1`) so iframes don't decode 17 MB frame bitmaps each.
+   * Set by ScreenCard / PanoramicPreview; export pipelines leave it false. */
+  previewMode?: boolean;
   isFullscreen?: boolean;
   layout?: LayoutVariant;
   headline?: string;
@@ -204,6 +208,7 @@ function parseBody(
     locale: expectString(body.locale) ?? 'default',
     localeConfig: expectObject(body.localeConfig) as LocaleConfig | undefined,
     preferLocaleText: expectBoolean(body.preferLocaleText),
+    previewMode: expectBoolean(body.previewMode),
     isFullscreen: expectBoolean(body.isFullscreen),
     layout: expectString(body.layout) as LayoutVariant | undefined,
     headline: expectString(body.headline),
@@ -395,8 +400,10 @@ async function resolveContext(
       if (pngExists && koubouId) {
         // Serve via URL so the browser caches one copy across all iframes.
         // Was inlined as base64 — ~600KB per iframe × 5 iframes blew up
-        // browser memory on edit cycles.
-        framePngUrl = `/api/device-frame?id=${encodeURIComponent(koubouId)}`;
+        // browser memory on edit cycles. In preview mode, hit the resize
+        // route so each iframe decodes ~3 MB instead of ~17 MB.
+        const previewSuffix = p.previewMode ? '&preview=1' : '';
+        framePngUrl = `/api/device-frame?id=${encodeURIComponent(koubouId)}${previewSuffix}`;
         frame = buildKoubouPreviewFrame(koubouFamily);
       }
     }
@@ -566,7 +573,8 @@ async function resolveContext(
                 : null;
               if (extraPngExists && extraKoubouId) {
                 // Same URL-not-base64 treatment as the primary device.
-                slotFramePngUrl = `/api/device-frame?id=${encodeURIComponent(extraKoubouId)}`;
+                const previewSuffix = p.previewMode ? '&preview=1' : '';
+                slotFramePngUrl = `/api/device-frame?id=${encodeURIComponent(extraKoubouId)}${previewSuffix}`;
                 slotFrame = {
                   id: extraKoubou.id,
                   name: extraKoubou.name,

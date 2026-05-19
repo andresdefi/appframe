@@ -43,6 +43,7 @@ export function registerPanoramicPreviewRoute(app: Express, ctx: RouteContext): 
       const font = (body.font as string) ?? config.theme.font;
       const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
       const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
+      const previewMode = body.previewMode === true;
 
       const totalWidth = frameWidth * frameCount;
       const renderedElements: PanoramicRenderedElement[] = await Promise.all(
@@ -58,6 +59,7 @@ export function registerPanoramicPreviewRoute(app: Express, ctx: RouteContext): 
             config,
             configDir: ctx.configDir,
             frameStyle,
+            previewMode,
           }),
         ),
       );

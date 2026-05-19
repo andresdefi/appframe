@@ -93,13 +93,17 @@ export const STATIC_SCREEN_DEFAULTS: {
 } = {
   isFullscreen: false,
   layout: 'center',
-  headlineSize: 0,
-  subtitleSize: 0,
+  // Slim-default sizes that match the "reset" px values exposed in the
+  // Text tab: 110/55/55. Stored as concrete numbers so the slider readout
+  // matches what the renderer draws — no more "0 means auto, slider min-
+  // clamps to 40, renderer falls back to preset" round-trip.
+  headlineSize: 110,
+  subtitleSize: 55,
   headlineRotation: 0,
   subtitleRotation: 0,
   freeText: '',
   freeTextEnabled: false,
-  freeTextSize: 0,
+  freeTextSize: 55,
   freeTextRotation: 0,
   freeTextLetterSpacing: 0,
   freeTextTextTransform: '',
@@ -218,10 +222,24 @@ export function fattenScreen(saved: unknown): Partial<ScreenState> & Record<stri
     const { screenshotDataUrl, ...rest } = obj;
     migrated = { ...rest, screenshotUrl: screenshotDataUrl };
   }
+  // Legacy "auto" sentinel for text sizes was `0` / `null`, with the
+  // renderer falling back to a preset scale and the slider clamping its
+  // display to its min (40 / 20). The new model stores concrete px so
+  // the slider readout matches what gets rendered. Promote any legacy
+  // 0/null reads to the new explicit defaults (110/55/55) so older
+  // projects open in the new state without the user having to click
+  // reset per slider.
+  const normalized: Record<string, unknown> = { ...migrated };
+  for (const key of ['headlineSize', 'subtitleSize', 'freeTextSize'] as const) {
+    if (key in normalized) {
+      const v = normalized[key];
+      if (v === null || v === 0) delete normalized[key];
+    }
+  }
   // Spread defaults FIRST so saved values win.
   return {
     ...STATIC_SCREEN_DEFAULTS,
-    ...migrated,
+    ...normalized,
   } as Partial<ScreenState> & Record<string, unknown>;
 }
 

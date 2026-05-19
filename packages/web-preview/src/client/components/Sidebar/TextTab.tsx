@@ -93,8 +93,7 @@ export function TextTab() {
             formatValue={(v) => `${v}px`}
             onChange={(v) => update({ headlineSize: v })}
             onInstant={(v) => instantText('headlineSize', v)}
-            resetTo={0}
-            resetLabel="Auto"
+            resetTo={110}
           />
           <RangeSlider
             label="Rotation"
@@ -188,8 +187,7 @@ export function TextTab() {
               formatValue={(v) => `${v}px`}
               onChange={(v) => update({ subtitleSize: v })}
               onInstant={(v) => instantText('subtitleSize', v)}
-              resetTo={0}
-              resetLabel="Auto"
+              resetTo={55}
             />
             <RangeSlider
               label="Rotation"
@@ -280,8 +278,7 @@ export function TextTab() {
                 formatValue={(v) => `${v}px`}
                 onChange={(v) => update({ freeTextSize: v })}
                 onInstant={(v) => instantText('freeTextSize', v)}
-                resetTo={0}
-                resetLabel="Auto"
+                resetTo={55}
               />
               <RangeSlider
                 label="Rotation"

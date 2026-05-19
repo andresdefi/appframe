@@ -134,7 +134,9 @@ describe('slimScreen', () => {
 describe('fattenScreen', () => {
   it('re-injects every omitted static default', () => {
     const fat = fattenScreen({ id: 'x', screenIndex: 0, headline: 'h' });
-    expect(fat.headlineSize).toBe(0);
+    expect(fat.headlineSize).toBe(110);
+    expect(fat.subtitleSize).toBe(55);
+    expect(fat.freeTextSize).toBe(55);
     expect(fat.layout).toBe('center');
     expect(fat.annotations).toEqual([]);
     expect(fat.spotlight).toBeNull();
@@ -157,7 +159,29 @@ describe('fattenScreen', () => {
   it('returns just defaults when given garbage', () => {
     const fat = fattenScreen(null);
     expect(fat.layout).toBe('center');
-    expect(fat.headlineSize).toBe(0);
+    expect(fat.headlineSize).toBe(110);
+  });
+
+  it('migrates legacy 0 / null text sizes to the new px defaults', () => {
+    // Older projects stored `headlineSize: 0` (or null) as the "use
+    // preset auto" sentinel. The current model uses concrete px so the
+    // slider readout matches what's drawn. Fatten normalises legacy
+    // values to the new defaults so old projects open coherent.
+    const fatZero = fattenScreen({
+      id: 'x', screenIndex: 0, headline: 'h',
+      headlineSize: 0, subtitleSize: 0, freeTextSize: 0,
+    });
+    expect(fatZero.headlineSize).toBe(110);
+    expect(fatZero.subtitleSize).toBe(55);
+    expect(fatZero.freeTextSize).toBe(55);
+
+    const fatNull = fattenScreen({
+      id: 'x', screenIndex: 0, headline: 'h',
+      headlineSize: null, subtitleSize: null, freeTextSize: null,
+    });
+    expect(fatNull.headlineSize).toBe(110);
+    expect(fatNull.subtitleSize).toBe(55);
+    expect(fatNull.freeTextSize).toBe(55);
   });
 
   it('migrates the legacy `screenshotDataUrl` field to `screenshotUrl`', () => {

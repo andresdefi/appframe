@@ -22,7 +22,7 @@ This is a self-contained brief for a future Claude Code session. Start a new ses
 | **M2** | Panoramic background image layers miss preview-resize | `previewBody.ts:206-207` — code reads `layer.src`; schema uses `layer.image` | **Medium** (perf regression I introduced) | The previous session's preview-resize work doesn't actually apply to panoramic background image layers because the field name was wrong. Full-res images still load in the live panoramic iframe. |
 | **M3** | ZIP bundling re-compresses already-compressed PNGs | `zipExport.ts:41` uses DEFLATE level 6 | **Medium** (CPU/time) | Multi-locale exports burn extra CPU for ~0% size benefit. PNGs are already DEFLATE-compressed internally. |
 | **M4** | Lint excludes TSX | `package.json:10-12` runs ESLint on `packages/*/src/**/*.ts` only | **Medium** (process gap) | Most of the actual UI code is TSX and isn't linted. Hides unused imports / React patterns. |
-| **P1** | Variants have no visual preview | `VariantsTab.tsx:12` hardcodes thumbnails to `null`; fallback at line 145 | **Product gap, not a bug** | Every variant card shows "No preview rendered yet." Capture/store flow doesn't exist yet. Defer — this is a feature, not a defect. |
+| **P1** | Variants have no visual preview AND today's "+" silently snapshots current state | `VariantsTab.tsx:12` hardcodes thumbnails to `null`; `store.ts:599` `createVariant` captures current state instead of starting fresh | **Product gap + UX mismatch** | Intended mental model: variants are alternate canvases; "+" should prompt fresh-vs-duplicate; comparison needs thumbnails to work. Scoped in phase 9 below. |
 
 ### Bonus errors uncovered by H2 (real client typecheck output)
 
@@ -106,9 +106,49 @@ Update `package.json:10-12` lint glob to include `*.tsx` and probably client tes
 
 Files: root `package.json`. Plus whatever lint cleanups the new scope surfaces — those are mechanical and grouped into one commit.
 
-### Phase 9 (deferred) — P1: variant thumbnails
+### Phase 9 — Variants: fresh-start creation + thumbnails (P1, scoped)
 
-Not in this plan's scope. This is a product feature, not a fix. Capture/store flow needs design (when to capture: on create? on edit? lazy on demand? Where to store: data URL in state, blob in IndexedDB, file in `<project>/variants/<id>.png`?). Worth a separate planning doc when picked up.
+**Product spec (2026-05-19):**
+
+User mental model — variants are named **alternate canvases** within a project. The user works on one variant, hits "+" to start a parallel attempt, and can flip between them to compare. Edits in one never affect another. Original is preserved.
+
+What changes vs. today's code:
+
+1. **Variant creation prompts the user with two paths.**
+   - **"Start fresh"** — new variant initializes to 1 screen, default platform, placeholder text, no screenshots. (No screenshots: deliberate; if users push back later, switch to "inherit the default variant's screenshots." Park as a future option, don't pre-build.)
+   - **"Duplicate current"** — fork the active variant's full state into a new one. This is today's `duplicateActiveVariant` flow, with the parent/branch-depth metadata it already produces.
+2. **Existing `createVariant` (which silently snapshots the current state) gets removed or rewired.** The current "+" button in `VariantsTab.tsx` should open the prompt, not silently create a snapshot.
+3. **Thumbnails on every variant card.** Captured on create, on duplicate, and on the user's "save" action for a variant (or on a debounced interval after edits, if save isn't an explicit thing). Without thumbnails the flip-between-to-compare model is too slow to be useful.
+
+**Implementation sketch:**
+
+- New store action `createBlankVariant(name?)`: builds a `ScreenState[]` of length 1 using `createScreenState(0, config, defaultPlatform)`, wraps in a `VariantRecord` via `buildVariantRecord` with `history: ['created (blank)']` and `provenance: { origin: 'blank' }`. Sets it active.
+- Keep `duplicateActiveVariant` as is (already correct for the "fork this" path).
+- Wire `VariantsTab.tsx`'s "+" to open a small popover/modal with the two options. UI: either a popover with "Start fresh" / "Duplicate current" buttons, or two adjacent toolbar buttons. Implementing session picks based on what fits the existing sidebar style.
+- Thumbnail capture: re-use `modern-screenshot`'s `domToPng` (already a dep, already lazy-loaded). Capture from the active screen's iframe at low resolution (e.g., 240px wide), store as a data URL on the `VariantRecord.thumbnail` field. Persist in the project file like any other variant field.
+- `VariantsTab.tsx:12` removes the hardcoded `null`; reads `variant.thumbnail` instead. The fallback "No preview rendered yet" stays as the empty state for variants created before this lands or when capture fails.
+
+**Files:**
+- `packages/web-preview/src/client/store.ts` — new action, possibly rewire of existing `createVariant`
+- `packages/web-preview/src/client/storeFactory.ts` — fresh-state builder
+- `packages/web-preview/src/client/storeSnapshots.ts` — `VariantRecord` type gets a `thumbnail?: string` field; `variantSnapshotFromState` + `applyVariantSnapshot` cope with the new field
+- `packages/web-preview/src/client/components/Sidebar/VariantsTab.tsx` — the "+" UI + the card thumbnail rendering
+- Tests: store actions for blank-creation, persistence round-trip including the thumbnail field
+
+**Risk areas:**
+- `VariantRecord` shape change ripples through serialization. Migration in `coerceVariantSnapshot` should treat missing `thumbnail` as `null` so old projects load fine.
+- Thumbnail capture costs CPU. Capture on create/duplicate (one-time, fine). On edit-save (debounced, fine). Don't capture on every render.
+- Storing thumbnail data URLs in the project file inflates `appframe.json` modestly (~10-30 KB per variant). Acceptable.
+
+**Verification:**
+- Click "+" → see the two-option prompt.
+- "Start fresh" → variant appears with 1 screen, placeholder text, no screenshots, default platform.
+- "Duplicate current" → variant appears as a copy of the active one.
+- Each variant card in the Variants tab shows a thumbnail.
+- Switch between variants → each preserves its own state.
+- Close + reopen project → thumbnails still there, state still split per variant.
+
+**Effort:** ~1 day of focused work; deferred to its own commit (probably 2-3 logical commits: store changes, UI changes, persistence/migration).
 
 ## Commit cadence
 
@@ -120,12 +160,11 @@ Aim for one commit per phase. Phase 6 may split into 2-3 commits if the client e
 4. Hand to user for live verification of the specific behavior.
 5. On confirmation: commit with a message describing what + why, then push.
 
-Total: 7-9 commits. Half a day of work assuming no surprises in phase 6's discriminated-union fight.
+Total: 9-12 commits across phases 1-9. Roughly 1.5 days of focused work: phases 1-8 are half a day; phase 9 (variants rework) is the bigger ~1 day chunk.
 
 ## What stays out
 
-- **P1 (variant thumbnails)**: separate plan when picked up. See phase 9 note.
-- **Any new product features**: this is purely defect + process work.
+- **Any other new product features**: this plan is defect + process + the single scoped product change (variants in phase 9). Anything else gets its own brief.
 - **Big architectural changes**: option C from `parent-doc-rendering-plan.md` is independent of this work. Don't touch.
 - **Touching the multi-locale snapshot model**: nothing here changes how `localeScreens` / `localePanoramicElements` work. The H3 fix is a one-line import addition. M2 is purely a URL-rewrite path. Etc.
 
@@ -141,4 +180,9 @@ Before declaring this plan done, the following must all be true:
 - [ ] M2: load a project with a panoramic image background layer; iframe loads `.previews/` URL not full-res
 - [ ] M3: time a 12-PNG export before/after; faster with no visual diff in output ZIP
 - [ ] M4: `pnpm lint` flags an introduced `tsx`-only error (sanity check that scope expanded)
+- [ ] P1: "+" in Variants tab prompts "Start fresh" vs "Duplicate current"
+- [ ] P1: Start fresh produces 1 screen, default platform, placeholder text, no screenshots
+- [ ] P1: Duplicate current produces a fork of the active variant's full state
+- [ ] P1: Every variant card shows a thumbnail; switching between variants is visually obvious from the grid
+- [ ] P1: Close + reopen project preserves both thumbnails and per-variant state
 - [ ] All tests green, all builds green, no Safari smoke regressions

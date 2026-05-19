@@ -93,6 +93,75 @@ describe('createSaveScheduler', () => {
     expect(save).toHaveBeenCalledWith(99, 'debounced');
   });
 
+  it('retries the same payload after a failed save (sync throw)', () => {
+    const save = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('disk full');
+      })
+      .mockImplementationOnce(() => undefined);
+    const scheduler = createSaveScheduler<{ x: number }>({ debounceMs: 500, save });
+    scheduler.schedule(() => ({ x: 1 }));
+    vi.advanceTimersByTime(500);
+    expect(save).toHaveBeenCalledTimes(1);
+    // Same payload — would normally be skipped as a no-op, but the
+    // previous attempt rejected so the scheduler must let it through.
+    scheduler.schedule(() => ({ x: 1 }));
+    vi.advanceTimersByTime(500);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries the same payload after a failed save (rejected promise)', async () => {
+    // Pre-build the promises so the test owns a handled reference and
+    // we never let an unhandled rejection escape the mock factory.
+    const firstFail = Promise.reject(new Error('network'));
+    firstFail.catch(() => undefined);
+    const save = vi
+      .fn<(payload: { x: number }, mode: 'debounced' | 'sync') => Promise<void>>()
+      .mockImplementationOnce(() => firstFail)
+      .mockImplementationOnce(() => Promise.resolve());
+    const scheduler = createSaveScheduler<{ x: number }>({ debounceMs: 500, save });
+    scheduler.schedule(() => ({ x: 1 }));
+    vi.advanceTimersByTime(500);
+    expect(save).toHaveBeenCalledTimes(1);
+    // Let the scheduler's rejection handler run before the next
+    // schedule() so lastSerialized reverts in time.
+    await firstFail.catch(() => undefined);
+    scheduler.schedule(() => ({ x: 1 }));
+    vi.advanceTimersByTime(500);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not revert when a newer payload landed during the in-flight save', async () => {
+    let rejectFirst!: (err: Error) => void;
+    const firstPromise = new Promise<void>((_, reject) => {
+      rejectFirst = reject;
+    });
+    const save = vi
+      .fn<(payload: { x: number }, mode: 'debounced' | 'sync') => Promise<void>>()
+      .mockImplementationOnce(() => firstPromise)
+      .mockImplementationOnce(() => Promise.resolve())
+      .mockImplementationOnce(() => Promise.resolve());
+    const scheduler = createSaveScheduler<{ x: number }>({ debounceMs: 500, save });
+    // Fire #1 with x:1; promise stays pending.
+    scheduler.schedule(() => ({ x: 1 }));
+    vi.advanceTimersByTime(500);
+    expect(save).toHaveBeenCalledTimes(1);
+    // Fire #2 with x:2 lands while #1 is still in-flight.
+    scheduler.schedule(() => ({ x: 2 }));
+    vi.advanceTimersByTime(500);
+    expect(save).toHaveBeenCalledTimes(2);
+    // Now #1 rejects. lastSerialized is x:2, so the revert must be a no-op.
+    rejectFirst(new Error('late'));
+    await Promise.resolve();
+    await Promise.resolve();
+    // Re-scheduling x:2 should still be skipped as a no-op since #2 was
+    // recorded as successful (lastSerialized was not reverted).
+    scheduler.schedule(() => ({ x: 2 }));
+    vi.advanceTimersByTime(500);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
   it('dispose stops accepting schedules and clears the timer', () => {
     const save = vi.fn();
     const scheduler = createSaveScheduler<number>({ debounceMs: 500, save });

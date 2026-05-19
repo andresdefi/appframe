@@ -93,7 +93,11 @@ export function useProjectAutosave({
         }
         setAutosaveStatus('saving');
         if (savedTimer) clearTimeout(savedTimer);
-        saveProject(slimmed, project).then(
+        // Return the promise so the scheduler can revert its
+        // last-serialized marker on failure; without that, a failed
+        // save would be treated as already-persisted on the next flush
+        // and the user's pending edits would silently never reach disk.
+        return saveProject(slimmed, project).then(
           () => {
             setAutosaveStatus('saved');
             savedTimer = setTimeout(() => {
@@ -108,6 +112,7 @@ export function useProjectAutosave({
             const message = err instanceof Error ? err.message : 'Unknown error';
             console.warn('Project autosave failed', err);
             setAutosaveStatus('error', message);
+            throw err;
           },
         );
       },

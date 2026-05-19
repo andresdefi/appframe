@@ -11,7 +11,13 @@ export interface SaveScheduler<TPayload> {
 
 export interface SaveSchedulerOptions<TPayload> {
   debounceMs: number;
-  save: (payload: TPayload, mode: 'debounced' | 'sync') => void;
+  /**
+   * Persist `payload`. May return a Promise; if it rejects (or the
+   * synchronous form throws), the scheduler treats the payload as
+   * not-yet-saved so the same content retries on the next flush /
+   * schedule without requiring another user edit.
+   */
+  save: (payload: TPayload, mode: 'debounced' | 'sync') => void | Promise<void>;
   /** Optional equality check on the serialized payload to skip no-op saves. Default: JSON.stringify equality. */
   serialize?: (payload: TPayload) => string;
   /** Optional injection for tests. */
@@ -49,8 +55,24 @@ export function createSaveScheduler<TPayload>(
     pendingCompute = null;
     const serialized = serialize(payload);
     if (serialized === lastSerialized) return;
+    const previousSerialized = lastSerialized;
     lastSerialized = serialized;
-    options.save(payload, mode);
+    // Roll lastSerialized back if save() reports failure. Only revert
+    // when no newer payload has been recorded since, so a later edit
+    // that landed during the in-flight save isn't undone.
+    const markFailed = (): void => {
+      if (lastSerialized === serialized) {
+        lastSerialized = previousSerialized;
+      }
+    };
+    try {
+      const result = options.save(payload, mode);
+      if (result && typeof (result as Promise<void>).then === 'function') {
+        (result as Promise<void>).then(undefined, markFailed);
+      }
+    } catch {
+      markFailed();
+    }
   }
 
   return {

@@ -309,14 +309,14 @@ describe('preview/export payload builders', () => {
     const bg: PanoramicBackground = {
       layers: [
         { kind: 'solid', color: '#000000', opacity: 1 },
-        { kind: 'image', src: '/api/screenshots/my-project/bg.jpg', fit: 'cover', opacity: 1 },
+        { kind: 'image', image: '/api/screenshots/my-project/bg.jpg', fit: 'cover', opacity: 1 },
         { kind: 'glow', color: '#ff00ff', x: 50, y: 50, radius: 30, intensity: 0.7 },
       ],
     } as PanoramicBackground;
 
     const out = rewritePanoramicBackgroundForPreview(bg);
     expect(out.layers?.[0]).toBe(bg.layers?.[0]);
-    expect((out.layers?.[1] as { src: string }).src).toBe(
+    expect((out.layers?.[1] as { image: string }).image).toBe(
       '/api/screenshots/my-project/.previews/bg.jpg',
     );
     expect(out.layers?.[2]).toBe(bg.layers?.[2]);

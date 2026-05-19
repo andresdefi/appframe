@@ -203,10 +203,10 @@ export function rewritePanoramicBackgroundForPreview(
   let changed = false;
   const layers = bg.layers.map((layer) => {
     if (layer.kind !== 'image') return layer;
-    const rewritten = toPreviewScreenshotUrl(layer.src);
-    if (rewritten && rewritten !== layer.src) {
+    const rewritten = toPreviewScreenshotUrl(layer.image);
+    if (rewritten && rewritten !== layer.image) {
       changed = true;
-      return { ...layer, src: rewritten };
+      return { ...layer, image: rewritten };
     }
     return layer;
   });

@@ -25,6 +25,7 @@ Open-source tool for generating professional App Store & Play Store promotional 
 - `fonts/` — Bundled open-source fonts
 
 ## Build
+- First-time / fresh-clone setup: `pnpm install && pnpm build`. The web-preview server reads from `packages/web-preview/dist/` and the UI from `packages/web-preview/client-dist/`; both are git-ignored and produced by `pnpm build`. `pnpm preview` errors out until that build has run.
 - `pnpm build` — Build all packages
 - `pnpm dev` — Watch mode for all packages
 - `pnpm test` — Vitest across all packages
@@ -32,6 +33,7 @@ Open-source tool for generating professional App Store & Play Store promotional 
 - `pnpm lint` — ESLint
 - `pnpm format` — Prettier
 - `pnpm preview` — Start the local web UI at http://localhost:4400
+- Publishing the web-preview package runs `pnpm run build` via `prepublishOnly`, so the published tarball always contains a fresh `dist/` and `client-dist/` even though those folders aren't tracked in git.
 
 ## Testing
 - Vitest for unit and integration tests

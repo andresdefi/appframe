@@ -1,1 +1,0 @@
-const r={"sans-serif":"Sans Serif",serif:"Serif",display:"Display"},t=["sans-serif","serif","display"];function a(o){const n={};for(const s of o){const e=s.category??"sans-serif",i=n[e]??[];i.push({value:s.id,label:s.name}),n[e]=i}return t.filter(s=>{var e;return(e=n[s])==null?void 0:e.length}).map(s=>({label:r[s]??s,options:n[s]}))}export{a as b};

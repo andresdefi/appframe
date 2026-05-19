@@ -22,7 +22,8 @@
     "dev:client": "vite",
     "clean": "rm -rf dist client-dist *.tsbuildinfo",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.client.json --noEmit",
-    "typecheck:client": "tsc -p tsconfig.client.json --noEmit"
+    "typecheck:client": "tsc -p tsconfig.client.json --noEmit",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "@appframe/core": "workspace:*",

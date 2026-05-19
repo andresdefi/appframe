@@ -31,13 +31,21 @@ export function useProjectAutosave({
   project,
   debounceMs = DEBOUNCE_MS,
 }: UseProjectAutosaveOptions): void {
-  const skipNextRef = useRef(true);
+  // Snapshot at subscribe time, used to ignore subscribe-time echoes
+  // without dropping the user's first real edit. The old skip-the-
+  // next-change ref dropped the first edit whenever a project was
+  // opened or switched, because hydrate had already finished before
+  // the subscriber attached — the user's first edit was the first
+  // change observed, and it got skipped. Comparing against a baseline
+  // serializes only the no-op echoes (state set to the same shape it
+  // already had) and lets real edits through.
+  const baselineRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
     // Empty project = not booted yet. Don't subscribe — see header comment.
     if (!project) return;
-    skipNextRef.current = true;
+    baselineRef.current = JSON.stringify(projectSnapshotFromState(usePreviewStore.getState()));
 
     const scheduler = createSaveScheduler<ProjectSnapshot>({
       debounceMs,
@@ -91,10 +99,15 @@ export function useProjectAutosave({
       ];
       const changed = fields.some((f) => state[f] !== prev[f]);
       if (!changed) return;
-      if (skipNextRef.current) {
-        skipNextRef.current = false;
-        return;
-      }
+      // Compare serialized snapshots against the baseline so we ignore
+      // store events that produce the same persistent shape as what we
+      // already had at subscribe time. Anything that meaningfully
+      // diverges — every real edit — gets through on the first try.
+      const nextSerialized = JSON.stringify(
+        projectSnapshotFromState(usePreviewStore.getState()),
+      );
+      if (nextSerialized === baselineRef.current) return;
+      baselineRef.current = nextSerialized;
       scheduler.schedule(() => projectSnapshotFromState(usePreviewStore.getState()));
     });
 

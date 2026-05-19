@@ -241,9 +241,17 @@ export function App() {
             parsed[key] = entries as SizeEntry[];
           }
           setSizes(parsed);
-          // Set default export size
-          const defaultExportSize = getDefaultExportSizeKey(parsed, platform);
-          if (defaultExportSize) setExportSize(defaultExportSize);
+          // Only seed exportSize when nothing's been persisted yet. If
+          // hydrateProjectSnapshot just restored a saved value, leave
+          // it alone — otherwise the just-fixed autosave (which catches
+          // every real state change after subscribe) will persist this
+          // default and silently overwrite the user's choice on next
+          // save.
+          const currentExportSize = usePreviewStore.getState().exportSize;
+          if (!currentExportSize) {
+            const defaultExportSize = getDefaultExportSizeKey(parsed, platform);
+            if (defaultExportSize) setExportSize(defaultExportSize);
+          }
         } catch {
           // Sizes are optional for preview
         }

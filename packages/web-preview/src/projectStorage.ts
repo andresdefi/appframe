@@ -537,6 +537,15 @@ export async function duplicateProject(
     projectDir(options.projectsRoot, safeTo),
     { recursive: true },
   );
+  // cp leaves every /api/screenshots/<safeFrom>/... URL inside the copied
+  // appframe.json pointing at the original project. Delete or rename the
+  // source and the duplicate breaks. Rewrite those URLs to the new slug
+  // here, same as renameProject does at the top of this file.
+  const envelope = await readProject(options, safeTo);
+  if (envelope) {
+    const rewritten = rewriteScreenshotProjectInJson(envelope.data, safeFrom, safeTo);
+    await writeProject(options, safeTo, rewritten);
+  }
   const isoNow = now().toISOString();
   const meta: ProjectMeta = {
     schemaVersion: META_SCHEMA_VERSION,

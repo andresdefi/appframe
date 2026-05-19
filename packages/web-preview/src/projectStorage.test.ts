@@ -572,6 +572,26 @@ describe('renameProject / duplicateProject / deleteProject', () => {
     expect((env!.data as { headline: string }).headline).toBe('hi');
   });
 
+  it('duplicateProject rewrites screenshot URLs inside the project file to the new slug', async () => {
+    const options = await makeRoot();
+    await createProject(options, 'alpha');
+    await writeProject(options, 'alpha', {
+      screens: [
+        { headline: 'a', screenshotUrl: '/api/screenshots/alpha/screen1.png' },
+        { headline: 'b', screenshotUrl: '/api/screenshots/alpha/screen2.png' },
+      ],
+    });
+    const meta = await duplicateProject(options, 'alpha', 'gamma');
+    const env = await readProject(options, meta.name);
+    const data = env!.data as { screens: { screenshotUrl: string }[] };
+    expect(data.screens[0]!.screenshotUrl).toBe('/api/screenshots/gamma/screen1.png');
+    expect(data.screens[1]!.screenshotUrl).toBe('/api/screenshots/gamma/screen2.png');
+    // The source project keeps its own URLs untouched.
+    const original = await readProject(options, 'alpha');
+    const originalData = original!.data as { screens: { screenshotUrl: string }[] };
+    expect(originalData.screens[0]!.screenshotUrl).toBe('/api/screenshots/alpha/screen1.png');
+  });
+
   it('duplicateProject auto-suffixes when destination slug collides', async () => {
     const options = await makeRoot();
     await createProject(options, 'alpha');

@@ -121,3 +121,53 @@ describe('createVariant', () => {
     expect(usePreviewStore.getState().variants).toHaveLength(0);
   });
 });
+
+describe('variant thumbnails', () => {
+  it('setVariantThumbnail stores the data URL on the matching variant', () => {
+    const a = buildVariantRecord('A', usePreviewStore.getState());
+    const b = buildVariantRecord('B', usePreviewStore.getState());
+    usePreviewStore.setState({ variants: [a, b], activeVariantId: a.id });
+
+    usePreviewStore.getState().setVariantThumbnail(b.id, 'data:image/png;base64,XXX');
+    const variants = usePreviewStore.getState().variants;
+    expect(variants.find((v) => v.id === a.id)?.thumbnail ?? null).toBeNull();
+    expect(variants.find((v) => v.id === b.id)?.thumbnail).toBe('data:image/png;base64,XXX');
+  });
+
+  it('selectVariant preserves the outgoing variant thumbnail when nothing was edited', () => {
+    const a = buildVariantRecord('A', usePreviewStore.getState());
+    const b = buildVariantRecord('B', usePreviewStore.getState());
+    usePreviewStore.setState({ variants: [a, b], activeVariantId: a.id });
+    usePreviewStore.getState().setVariantThumbnail(a.id, 'data:image/png;base64,KEEP');
+
+    usePreviewStore.getState().selectVariant(b.id);
+    const updatedA = usePreviewStore.getState().variants.find((v) => v.id === a.id);
+    expect(updatedA?.thumbnail).toBe('data:image/png;base64,KEEP');
+  });
+
+  it('selectVariant invalidates the outgoing variant thumbnail when its snapshot actually changed', () => {
+    const a = buildVariantRecord('A', usePreviewStore.getState());
+    const b = buildVariantRecord('B', usePreviewStore.getState());
+    usePreviewStore.setState({ variants: [a, b], activeVariantId: a.id });
+    usePreviewStore.getState().setVariantThumbnail(a.id, 'data:image/png;base64,OLD');
+
+    // Simulate an edit to the active variant by changing the live
+    // state. selectVariant's sync will pull this into A's snapshot
+    // and detect the difference.
+    usePreviewStore.setState({ previewW: 999 });
+
+    usePreviewStore.getState().selectVariant(b.id);
+    const updatedA = usePreviewStore.getState().variants.find((v) => v.id === a.id);
+    expect(updatedA?.thumbnail).toBeNull();
+  });
+
+  it('selectVariant is a no-op when re-selecting the active variant — thumbnail kept', () => {
+    const a = buildVariantRecord('A', usePreviewStore.getState());
+    usePreviewStore.setState({ variants: [a], activeVariantId: a.id });
+    usePreviewStore.getState().setVariantThumbnail(a.id, 'data:image/png;base64,KEEP');
+
+    usePreviewStore.getState().selectVariant(a.id);
+    const sameA = usePreviewStore.getState().variants.find((v) => v.id === a.id);
+    expect(sameA?.thumbnail).toBe('data:image/png;base64,KEEP');
+  });
+});

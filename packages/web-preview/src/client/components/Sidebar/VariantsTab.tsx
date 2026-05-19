@@ -4,17 +4,10 @@ import { Section } from '../Controls/Section';
 import { usePreviewStore } from '../../store';
 import type { VariantRecord } from '../../store';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
+import { useVariantThumbnails } from '../../hooks/useVariantThumbnails';
 
 function variantMode(variant: VariantRecord): 'Individual' | 'Panoramic' {
   return variant.snapshot.isPanoramic ? 'Panoramic' : 'Individual';
-}
-
-function variantThumb(_variant: VariantRecord): string | null {
-  // Variant thumbnails used to be served from /api/session-asset, which was
-  // retired when variants moved into the project snapshot. Until a new
-  // thumbnail pipeline lands (e.g. captured from the live preview), variants
-  // simply show without a thumbnail.
-  return null;
 }
 
 interface VariantCardProps {
@@ -38,7 +31,7 @@ function VariantCard({
   onDelete,
   onApprove,
 }: VariantCardProps) {
-  const thumb = variantThumb(variant);
+  const thumb = variant.thumbnail ?? null;
   const mode = variantMode(variant);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -284,6 +277,8 @@ export function VariantsTab() {
   const approveVariant = usePreviewStore((s) => s.approveVariant);
   const createVariant = usePreviewStore((s) => s.createVariant);
   const setActiveTab = usePreviewStore((s) => s.setActiveTab);
+
+  useVariantThumbnails();
 
   const { confirm, dialog } = useConfirmDialog();
 

@@ -197,6 +197,11 @@ export interface VariantRecord {
   score?: VariantScoreSummary;
   history: VariantHistoryEntry[];
   provenance?: VariantProvenance;
+  // Data URL of a small PNG render of the variant's snapshot. Driven by
+  // useVariantThumbnails — see utils/variantThumbnailCapture.ts. Null
+  // means "needs capture" (new variant, post-edit invalidation, or
+  // legacy project loaded before this field existed).
+  thumbnail?: string | null;
 }
 
 export interface PreviewStore {
@@ -282,6 +287,7 @@ export interface PreviewStore {
   setVariantStatus: (id: string, status: VariantStatus) => void;
   recordVariantArtifact: (artifact: Omit<VariantArtifact, 'id' | 'exportedAt'>) => void;
   recordVariantArtifactForVariant: (variantId: string, artifact: Omit<VariantArtifact, 'id' | 'exportedAt'>) => void;
+  setVariantThumbnail: (variantId: string, thumbnail: string | null) => void;
   setTheme: (theme: 'dark' | 'light') => void;
   setExportSize: (size: string) => void;
   setFonts: (fonts: FontData[]) => void;
@@ -722,7 +728,32 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   selectVariant: (id) =>
     set((state) => {
       if (id === state.activeVariantId) return state;
-      const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
+      const outgoingId = state.activeVariantId;
+      const outgoingPrev = outgoingId
+        ? state.variants.find((variant) => variant.id === outgoingId)
+        : null;
+      const synced = syncActiveVariantRecord(state.variants, outgoingId, state);
+      // Only invalidate the outgoing variant's thumbnail if the user
+      // actually edited it — i.e. the snapshot sync produced a different
+      // result. Comparing serialized snapshots is good enough; switching
+      // variants is a rare action and snapshots are 5-50 KB. The first
+      // sync after a fresh project load fattens slim-on-disk screens, so
+      // there'll be one transient invalidation per variant per session —
+      // acceptable cost for never invalidating on a true no-op switch.
+      const outgoingNext = outgoingId
+        ? synced.find((variant) => variant.id === outgoingId)
+        : null;
+      const outgoingChanged =
+        outgoingPrev !== null &&
+        outgoingNext !== null &&
+        outgoingPrev !== undefined &&
+        outgoingNext !== undefined &&
+        JSON.stringify(outgoingPrev.snapshot) !== JSON.stringify(outgoingNext.snapshot);
+      const variants = outgoingChanged
+        ? synced.map((variant) =>
+            variant.id === outgoingId ? { ...variant, thumbnail: null } : variant,
+          )
+        : synced;
       const nextVariant = variants.find((variant) => variant.id === id);
       if (!nextVariant) return state;
       return {
@@ -835,6 +866,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         ),
       };
     }),
+  setVariantThumbnail: (variantId, thumbnail) =>
+    set((state) => ({
+      variants: state.variants.map((variant) =>
+        variant.id === variantId ? { ...variant, thumbnail } : variant,
+      ),
+    })),
   setTheme: (theme) => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('appframe.theme', theme);

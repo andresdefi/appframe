@@ -8,6 +8,8 @@ import {
   touchProject,
   type ProjectSummary,
 } from '../utils/api';
+import { useConfirmDialog } from './Controls/ConfirmDialog';
+import { usePromptDialog } from './Controls/PromptDialog';
 
 export interface ProjectPickerProps {
   /** Currently active project so we can highlight / refuse to delete it. */
@@ -41,6 +43,8 @@ export function ProjectPicker({ activeProject, onSelect, onDismiss }: ProjectPic
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const { prompt, dialog: promptDialog } = usePromptDialog();
 
   const refresh = useCallback(async () => {
     try {
@@ -77,9 +81,12 @@ export function ProjectPicker({ activeProject, onSelect, onDismiss }: ProjectPic
 
   const handleNew = async () => {
     if (pending) return;
-    const raw = window.prompt('New project name:');
-    if (!raw) return;
-    const name = raw.trim();
+    const name = await prompt({
+      title: 'New project',
+      label: 'Project name',
+      confirmLabel: 'Create',
+      placeholder: 'My App',
+    });
     if (!name) return;
     setPending(true);
     setError(null);
@@ -95,9 +102,12 @@ export function ProjectPicker({ activeProject, onSelect, onDismiss }: ProjectPic
 
   const handleRename = async (project: ProjectSummary) => {
     if (pending) return;
-    const raw = window.prompt(`Rename "${project.displayName}" to:`, project.displayName);
-    if (!raw) return;
-    const to = raw.trim();
+    const to = await prompt({
+      title: `Rename "${project.displayName}"`,
+      label: 'New name',
+      defaultValue: project.displayName,
+      confirmLabel: 'Rename',
+    });
     if (!to || to === project.displayName) return;
     setPending(true);
     setError(null);
@@ -112,12 +122,12 @@ export function ProjectPicker({ activeProject, onSelect, onDismiss }: ProjectPic
 
   const handleDuplicate = async (project: ProjectSummary) => {
     if (pending) return;
-    const raw = window.prompt(
-      `Duplicate "${project.displayName}" as:`,
-      `${project.displayName} Copy`,
-    );
-    if (!raw) return;
-    const to = raw.trim();
+    const to = await prompt({
+      title: `Duplicate "${project.displayName}"`,
+      label: 'New project name',
+      defaultValue: `${project.displayName} Copy`,
+      confirmLabel: 'Duplicate',
+    });
     if (!to) return;
     setPending(true);
     setError(null);
@@ -136,9 +146,13 @@ export function ProjectPicker({ activeProject, onSelect, onDismiss }: ProjectPic
       setError('Cannot delete the active project. Switch projects first.');
       return;
     }
-    const ok = window.confirm(
-      `Delete "${project.displayName}"? This removes the project folder from disk and cannot be undone.`,
-    );
+    const ok = await confirm({
+      title: `Delete "${project.displayName}"?`,
+      message:
+        'This removes the project folder from disk and cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
     if (!ok) return;
     setPending(true);
     setError(null);
@@ -152,6 +166,9 @@ export function ProjectPicker({ activeProject, onSelect, onDismiss }: ProjectPic
   };
 
   return (
+    <>
+    {confirmDialog}
+    {promptDialog}
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={(e) => {
@@ -263,5 +280,6 @@ export function ProjectPicker({ activeProject, onSelect, onDismiss }: ProjectPic
         </div>
       </div>
     </div>
+    </>
   );
 }

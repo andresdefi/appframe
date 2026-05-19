@@ -5,6 +5,13 @@ import type { FontData, SizeEntry, DeviceFamily } from './store';
 import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, putLiveConfig, loadProject, fetchProjects, touchProject, createProject as createProjectApi } from './utils/api';
 import { useProjectAutosave } from './hooks/useProjectAutosave';
 import { HeaderBar } from './components/HeaderBar';
+import { setupConsoleCapture } from './utils/consoleCapture';
+import { setupRecentActionsRecorder } from './utils/recentActions';
+
+// Boot-time. Module-level so the patches install once before the
+// rest of the app subscribes to anything. Both are idempotent.
+setupConsoleCapture();
+setupRecentActionsRecorder();
 // Eager imports: tabs that the user sees first and most often.
 import { DesignTab } from './components/Sidebar/DesignTab';
 import { DeviceTab } from './components/Sidebar/DeviceTab';

@@ -11,6 +11,10 @@
  */
 
 import type { PreviewStore } from '../store';
+import type { ScreenState, PanoramicElement, PanoramicBackground, PanoramicEffects } from '../types';
+import { selectScreensForLocale } from '../store';
+import { getRecentActions } from './recentActions';
+import { getRecentLogs } from './consoleCapture';
 
 export interface ExportDiagnosticContext {
   kind:
@@ -29,7 +33,9 @@ export interface ExportDiagnosticContext {
 }
 
 export interface ExportDiagnostic {
-  schemaVersion: 1;
+  // Bumped when the shape changes meaningfully so downstream tooling
+  // (if any) can read old reports without crashing.
+  schemaVersion: 2;
   capturedAt: string;
   error: { message: string; name: string; stack?: string };
   context: ExportDiagnosticContext;
@@ -46,6 +52,29 @@ export interface ExportDiagnostic {
     localesCount: number;
     activeVariant: { id: string; name: string; status: string } | null;
   };
+  // The exact input that triggered the failure. For individual mode
+  // this is the single ScreenState at the failing locale + index.
+  // For panoramic it's the whole canvas (background + elements +
+  // effects + frame count). Lets us replay the exact case without
+  // asking the user for their project file.
+  failingInput:
+    | { mode: 'individual'; screen: ScreenState | null }
+    | {
+        mode: 'panoramic';
+        frameCount: number;
+        background: PanoramicBackground;
+        elements: PanoramicElement[];
+        effects: PanoramicEffects;
+      }
+    | null;
+  // Lead-up: short ring buffer of recent significant store changes,
+  // newest last. Pulled from utils/recentActions.
+  recentActions: { t: string; label: string }[];
+  // Console messages captured in the same browser tab, newest last.
+  // Includes warnings from background pipelines (autosave failures,
+  // capture queue noise, etc) that often explain why a foreground
+  // failure happened.
+  recentLogs: { t: string; level: 'log' | 'info' | 'warn' | 'error'; message: string }[];
 }
 
 // Vite injects these from the env at build time. See vite.config.ts.
@@ -97,6 +126,10 @@ export function buildExportDiagnostic(
     | 'sessionLocales'
     | 'localeScreens'
     | 'localePanoramicElements'
+    | 'panoramicFrameCount'
+    | 'panoramicBackground'
+    | 'panoramicElements'
+    | 'panoramicEffects'
   >,
   context: ExportDiagnosticContext,
 ): ExportDiagnostic {
@@ -113,8 +146,31 @@ export function buildExportDiagnostic(
     ? 1 + Object.keys(state.localePanoramicElements ?? {}).length
     : 1 + Object.keys(state.localeScreens ?? {}).length;
 
+  // Failing input — the actual content the rasterizer choked on.
+  // Individual: the specific ScreenState at the failing locale/index.
+  // Panoramic: the whole canvas snapshot (it's not per-screen there).
+  let failingInput: ExportDiagnostic['failingInput'] = null;
+  if (state.isPanoramic) {
+    failingInput = {
+      mode: 'panoramic',
+      frameCount: state.panoramicFrameCount,
+      background: state.panoramicBackground,
+      elements: state.panoramicElements,
+      effects: state.panoramicEffects,
+    };
+  } else if (
+    typeof context.failingScreenIndex === 'number' &&
+    typeof context.failingLocale === 'string'
+  ) {
+    const localeScreens = selectScreensForLocale(state, context.failingLocale);
+    failingInput = {
+      mode: 'individual',
+      screen: localeScreens[context.failingScreenIndex] ?? null,
+    };
+  }
+
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     capturedAt: new Date().toISOString(),
     error: {
       message: errorObj.message,
@@ -142,6 +198,9 @@ export function buildExportDiagnostic(
         ? { id: activeVariant.id, name: activeVariant.name, status: activeVariant.status }
         : null,
     },
+    failingInput,
+    recentActions: getRecentActions(),
+    recentLogs: getRecentLogs(),
   };
 }
 

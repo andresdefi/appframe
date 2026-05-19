@@ -219,7 +219,11 @@ export function useInstantPatch() {
           applyRotation(headline, partial.headlineRotation);
         }
         if (partial.headlineHtml !== undefined) {
-          headline.innerHTML = partial.headlineHtml;
+          // Same sanitizer as the full re-render path. Without this, a
+          // malicious imported project or paste edge case could execute
+          // in the same-origin preview iframe before the debounced full
+          // render cleans it up.
+          headline.innerHTML = sanitizeRichHtml(partial.headlineHtml);
         }
         if (partial.headlineColor !== undefined) {
           headline.style.color = partial.headlineColor;

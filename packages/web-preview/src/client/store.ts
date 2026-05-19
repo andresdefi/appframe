@@ -3,15 +3,12 @@ import type {
   ScreenState,
   AppframeConfig,
   LocaleConfig,
-  FrameStyle,
   PanoramicElement,
   PanoramicBackground,
   PanoramicEffects,
 } from './types';
-import { PLATFORM_DEVICE_DEFAULTS } from './types';
 import { syncPanoramicDevicesToPlatform } from './utils/deviceFrames';
 import { MAX_SCREENS_PER_PROJECT } from './utils/platformSelection';
-import { fattenScreen } from './utils/screenSerialization';
 
 // Selectors, createScreenState, and snapshot serialization moved to
 // sibling files so this file stays focused on the create<PreviewStore>()
@@ -31,7 +28,6 @@ import { getConfiguredLocaleText } from './storeSelectors';
 import { createScreenState } from './storeFactory';
 import {
   variantSnapshotFromState,
-  projectSnapshotFromState,
   applyVariantSnapshot,
   coerceVariantSnapshot,
   syncActiveVariantRecord,

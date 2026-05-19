@@ -35,6 +35,7 @@ import {
   cloneVariantRecord,
   nextVariantName,
   makeHistoryEntry,
+  makeId,
 } from './storeSnapshots';
 import { deepCopy, isRecord } from './utils/cloneHelpers';
 

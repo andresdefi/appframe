@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { usePreviewStore } from '../../store';
+import { usePreviewStore, selectScreensForLocale } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
 import { Checkbox } from '../Controls/Checkbox';
@@ -230,7 +230,16 @@ export function ExportTab() {
   };
 
   const handleExportCurrent = async () => {
-    const screen = screens[selectedScreen];
+    // Pick the screen array that matches the currently-active locale.
+    // Default uses state.screens; non-default locales carry their own
+    // snapshot in localeScreensMap[localeCode]. Without this, editing
+    // Spanish then clicking "Download screen N" would export the
+    // default-locale screen by mistake.
+    const localeScreens = selectScreensForLocale(
+      { screens, localeScreens: localeScreensMap },
+      locale,
+    );
+    const screen = localeScreens[selectedScreen];
     if (!screen) return;
     const sizeSpec = platformSizes.find((s) => s.key === resolvedExportSize);
     if (!sizeSpec) {
@@ -485,7 +494,13 @@ export function ExportTab() {
             <button
               className="btn-secondary w-full text-xs mt-1"
               onClick={handleExportCurrent}
-              disabled={exporting || !screens[selectedScreen]}
+              disabled={
+                exporting ||
+                !selectScreensForLocale(
+                  { screens, localeScreens: localeScreensMap },
+                  locale,
+                )[selectedScreen]
+              }
             >
               {exporting ? 'Rendering...' : `Download screen ${selectedScreen + 1} (current locale)`}
             </button>

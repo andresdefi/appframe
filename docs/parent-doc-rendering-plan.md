@@ -1,207 +1,617 @@
-# Parent-document rendering — Option C planning context
+# Parent-document rendering plan
 
-Status: open. Drafted 2026-05-19 after option A (visibility-snapshot overlay, commit 797a267) shipped as the surgical fix for Safari's tab-switch bitmap-purge flash. A covered the immediate failure mode without touching the iframe-per-card architecture; this plan captures what it would take to remove iframes from the live preview path entirely.
+Status: open. Revised 2026-05-19 after reviewing the current live-preview,
+drag, instant-patch, font, capture, and export code paths.
 
-This doc is the brief for a future Claude Code session picking up that work. Start a new session and tell Claude: "read `docs/parent-doc-rendering-plan.md` and implement it."
+This is the implementation brief for migrating Appframe's **active live
+editing preview** from iframe documents to shadow DOM hosted in the parent
+document. The goal is to remove the iframe-per-card preview architecture that
+caused Safari's tab-switch bitmap-purge flash, while keeping export fidelity
+and current editing behavior intact.
 
-## What this is
+Option A, the visibility-snapshot overlay, remains the tactical fix for the
+Safari flash. This plan is Option C: a structural cleanup that removes iframes
+from the active preview path.
 
-A migration of the **live editing preview** off iframes and onto shadow DOM rooted in the parent document. Each `ScreenCard` becomes a `<div>` host with an open `shadowRoot` instead of an `<iframe>` whose `contentDocument` we `doc.write()` into. The server-side template engine and the export pipeline stay on iframes — only the live in-editor preview changes.
+## Executive Summary
 
-Why the constraint to "only live preview": export uses its own offscreen iframe at full export resolution (`packages/web-preview/src/client/utils/clientExport.ts`). That's the correct pattern for export — explicit dimensions, hard isolation, no parent-doc style interference. It's also load-bearing for visual fidelity ("what you see is what you get"). Migrating export is its own multi-day project and out of scope here; this plan accepts the temporary asymmetry and addresses it via parity testing.
+Move each active `ScreenCard` from:
 
-## Why C, not B
+```tsx
+<iframe ref={iframeRef} />
+// fetch HTML -> iframe.contentDocument.open/write/close()
+```
 
-B was "consolidate the 6 iframes into one." It would cut device-frame bitmap duplication (one decoded copy instead of six) and help, but it doesn't eliminate the iframe-per-tab purge heuristic that bit us — it just shrinks it. C eliminates the heuristic entirely because there are no iframes left in the preview path. The effort delta between B and C is small (B already requires CSS scoping work that C subsumes), so B is a stepping stone we should skip.
+to:
 
-## What changes user-facing
+```tsx
+<div ref={hostRef} />
+// fetch HTML -> parse HTML -> extract style/body -> shadowRoot.replaceChildren()
+```
 
-Nothing, if executed well. Same screens, same controls, same drag behavior, same export output, same fonts at same sizes. Subtle improvements:
+The Nunjucks template engine remains the source of preview HTML. The export
+pipeline remains iframe-based. Inactive locale row captures, variant thumbnail
+captures, and other hidden `modern-screenshot` capture flows also remain
+iframe-based for now.
 
-- Tab-switch flash disappears even without the option-A overlay (Safari treats the parent doc the way it treats any normal single-page site).
-- Find-in-page (Cmd+F) finds text in the previews.
-- OS-level drag-and-drop into the canvas works without iframe-boundary event swallowing.
-- VoiceOver and dev tools read screen contents as part of the parent document tree.
-- Font loading deduplicates automatically — one `@font-face` registration in the parent doc instead of one per iframe.
+The migration should be gated by visual parity tests and shipped behind a
+feature flag before becoming the default.
 
-Regressions worth catching with parity tests (see below): any CSS or layout primitive that quietly assumed iframe semantics.
+## Why This Is Better Than The Current Architecture
 
-## Risk areas
+The current active preview path creates one same-origin iframe per visible
+screen card. `ScreenCard.tsx` fetches rendered HTML and writes it into
+`iframe.contentDocument` using `doc.open()`, `doc.write()`, and `doc.close()`.
+That works, but it makes every card a separate browsing context with its own
+document lifecycle, font declarations, decoded image surfaces, event boundary,
+and Safari bitmap-cache behavior.
 
-Shadow DOM is conceptually close to iframe isolation but not identical. The 80% case is a one-line swap; the 20% has real footguns.
+Moving active previews into parent-document shadow roots improves the
+architecture in several concrete ways:
 
-### CSS scoping
+- **Safari stability**: the active preview no longer depends on Safari keeping
+  nested iframe bitmap contents alive after backgrounding or tab switching.
+- **Lower duplication**: fonts can be registered once on the parent document
+  instead of emitted into every live iframe rewrite.
+- **Cleaner input handling**: drag, drop, hover, and hit testing no longer cross
+  an iframe boundary.
+- **Better accessibility and inspection**: preview text becomes part of the
+  parent document tree for find-in-page, dev tools, and assistive technology.
+- **More future flexibility**: future editing primitives can target a normal
+  DOM subtree rather than a nested document.
+- **Maintained isolation**: shadow DOM still scopes template CSS, while CSS
+  containment can restore much of the layout/paint containment that iframes
+  gave for free.
 
-Shadow DOM gives automatic style isolation: rules declared inside a shadow root only match elements inside that root. Existing template CSS (`/packages/core/templates/`) uses class selectors like `.canvas`, `.headline`, `.device-wrapper` — those stay as-is, no rewriting needed. **This is the biggest win over option B**, which would require attribute-prefixing every selector.
+This is not primarily a performance rewrite. Any memory/performance win is a
+bonus. The main reason to do it is to remove iframe lifecycle behavior from
+the editing surface.
 
-What does need attention:
+## Explicit Scope
 
-- `:root` doesn't exist inside a shadow root. Any template CSS using `:root { --foo: ... }` must become `:host { --foo: ... }`. Grep the templates first.
-- `:host` is the new way to style the shadow host element itself from inside the shadow root.
-- Global CSS (Tailwind on the parent doc) does NOT leak into shadow roots. If any template visually depends on Tailwind utility classes inheriting from outside, those need to be brought inside. Audit the templates for class names that look like Tailwind utilities.
+In scope:
 
-### Viewport-relative units
+- Active individual-mode preview cards (`ScreenCard.tsx`).
+- Active panoramic preview (`PanoramicPreview.tsx`), after individual mode is
+  proven.
+- Shared preview DOM access used by drag, guides, loupe refresh, and instant
+  patches.
+- Live-preview font registration in the parent document.
+- Visual parity tests comparing iframe and shadow renderings.
 
-Inside an iframe, `vw` / `vh` / `vmin` / `vmax` resolve against the iframe's own viewport (`previewW × previewH`). Inside shadow DOM, they resolve against the **parent document's viewport** — i.e., the whole browser window. Any template rule using viewport units will paint wildly differently after migration.
+Out of scope:
 
-Mitigation: `grep -rn "vw\|vh\|vmin\|vmax" packages/core/templates/` before migrating. Each hit needs a rewrite, typically to a percentage of the wrapper element or to a CSS variable computed by the host (e.g., `--canvas-width: 320px; … width: calc(var(--canvas-width) * 0.5)`).
+- Export pipeline migration. `clientExport.ts` should stay iframe-based.
+- Hidden capture utilities used by inactive locale rows and variant thumbnails.
+- Removing the Nunjucks template engine.
+- Rewriting rendered preview HTML in React.
+- Streaming or partial DOM diffs.
+- Cross-browser polyfills for very old browsers without shadow DOM support.
+
+Important boundary: "live preview" in this plan means the active editor row the
+user manipulates directly. It does **not** mean every internal rasterization
+flow that currently uses an iframe.
+
+## Current Iframe Surfaces To Preserve For Now
+
+Do not migrate these in this plan:
+
+- `packages/web-preview/src/client/utils/clientExport.ts`
+- `packages/web-preview/src/client/utils/captureManager.ts`
+- `packages/web-preview/src/client/utils/variantThumbnailCapture.ts`
+- Any hidden iframe whose purpose is feeding `modern-screenshot`.
+
+Reason: these paths benefit from full document isolation, explicit dimensions,
+and `document.fonts.ready` / `doc.images` readiness checks. They are not the
+source of the interactive Safari flash, and changing them would expand the
+risk surface dramatically.
+
+## Core Risk: Shadow DOM Is Not An Iframe
+
+Shadow DOM gives style scoping, not a full document. The migration must handle
+the differences below deliberately.
+
+### Full HTML Documents
+
+The templates currently emit full documents:
+
+- `<!doctype html>`
+- `<html>`
+- `<head><style>...</style></head>`
+- `<body>...</body>`
+
+An iframe can consume that directly. A shadow root cannot. The shadow renderer
+must parse the HTML and insert only the relevant pieces:
+
+1. Parse with `DOMParser`.
+2. Extract `<style>` nodes from the parsed `<head>`.
+3. Extract child nodes from the parsed `<body>`.
+4. Insert them into the shadow root under a stable wrapper element.
+
+Recommended internal shape:
+
+```html
+<style>/* template CSS, possibly transformed for shadow */</style>
+<div class="preview-document" style="width: ...px; height: ...px;">
+  <!-- parsed body children -->
+</div>
+```
+
+Do not append parsed `<html>` or `<body>` elements directly into the shadow
+root and assume browser behavior will match iframe behavior.
+
+### `body`, `html`, and `:root` CSS
+
+Template CSS currently styles `body` for dimensions, overflow, fonts, and font
+smoothing. In shadow DOM, there is no iframe body. These rules need a shadow
+equivalent.
+
+Options:
+
+- Preferred: update templates to target a wrapper class such as
+  `.preview-document` while keeping iframe output equivalent.
+- Alternative: transform known-safe selectors in the live shadow renderer:
+  `html, body` and `body` -> `.preview-document`.
+
+Avoid broad, ad hoc CSS rewriting. If selectors are transformed, keep the
+transform small, covered by tests, and limited to known template output.
+
+Also audit templates for `:root`. Inside a shadow root it should become
+`:host` or `.preview-document`, depending on whether the variable belongs on
+the host or the internal document wrapper.
+
+### Font Loading
+
+Current template rendering injects `fontFaceCss` into the HTML. That is still
+needed for iframe export and hidden capture flows. The plan must not remove
+template `@font-face` globally.
+
+Add an explicit font emission mode to the template engine:
+
+```ts
+type FontFaceMode = 'inline' | 'url' | 'none';
+```
+
+Suggested behavior:
+
+- `inline`: existing base64/data URI font CSS for standalone iframe rendering.
+- `url`: existing `/preview-fonts/...` URL CSS for preview-server iframes.
+- `none`: no `@font-face` emitted because the parent document has already
+  registered the needed fonts.
+
+The live shadow path should use `none`. Export and hidden captures should keep
+using their current modes.
+
+Add a client helper such as:
+
+```ts
+ensurePreviewFontsRegistered(fontIds: string[]): Promise<void>
+```
+
+It should register only the font families currently needed by the rendered
+screen or panoramic canvas, including per-element headline, subtitle, and free
+text fonts. Registering every bundled font at app boot is simpler but may be
+too heavy as the font catalog grows.
+
+Readiness should be explicit:
+
+- Before swapping the first shadow render for a card, wait for the required
+  `FontFace.load()` promises or `document.fonts.ready`.
+- On later swaps, reuse already-registered font faces.
+- Keep export readiness tied to iframe `doc.fonts.ready`.
+
+### Viewport Units
+
+In an iframe, `vw`, `vh`, `vmin`, and `vmax` resolve against the preview
+document. In shadow DOM, they resolve against the browser viewport.
+
+Audit:
+
+```sh
+rg -n "vw|vh|vmin|vmax" packages/core/templates
+```
+
+Every hit must be converted to template-computed pixels, percentages of the
+canvas, or CSS variables based on the preview dimensions.
 
 ### `position: fixed`
 
-Inside an iframe, `position: fixed` is relative to the iframe viewport. Inside shadow DOM, it's relative to the parent document viewport. Any fixed-positioned element (the drag-state text positioning code uses `position: fixed` mid-drag — see `useDragPosition.ts`) would jump to be relative to the whole page.
+In an iframe, `position: fixed` is relative to the iframe viewport. In a
+shadow root, it is relative to the browser viewport. This is known to matter
+for text drag behavior in `useDragPosition.ts`.
 
-Mitigation: replace `position: fixed` with `position: absolute` inside a `contain: layout` wrapper. The wrapper acts as the new containing block. Audit and rewrite.
+Do not rely on `position: fixed` inside shadow live previews. Convert drag-time
+text positioning to absolute positioning within the preview document wrapper.
+
+The plan should treat this as a hook migration, not only a template audit:
+
+- `useDragPosition.ts` currently sets `el.style.position = 'fixed'`.
+- `ScreenCard.tsx` checks for computed `position === 'fixed'` before drawing
+  center guides for text.
+- `useInstantPatch.ts` checks computed fixed positioning when applying text
+  rotation.
+
+Those checks need to move to an explicit "drag-positioned text" model that
+works in both backends.
+
+### Coordinate Systems
+
+The current hooks lean on iframe-local coordinates. A simple
+`Document | ShadowRoot` return type is not enough.
+
+Create a real adapter:
+
+```ts
+interface PreviewSurface {
+  kind: 'iframe' | 'shadow';
+  root: Document | ShadowRoot;
+  host: HTMLElement;
+  querySelector<T extends Element>(selector: string): T | null;
+  querySelectorAll<T extends Element>(selector: string): T[];
+  elementsFromPoint(clientX: number, clientY: number): Element[];
+  clientToCanvasPoint(clientX: number, clientY: number): { x: number; y: number };
+  getComputedStyle(el: Element): CSSStyleDeclaration;
+  getCanvasRect(): DOMRect | null;
+}
+```
+
+For iframes, the adapter converts parent client coordinates into iframe-local
+coordinates before calling `contentDocument.elementsFromPoint`. For shadow DOM,
+it can use parent client coordinates directly and filter to elements inside the
+shadow root.
+
+This adapter should replace direct `iframe.contentDocument` access in:
+
+- `useDragPosition.ts`
+- `useInstantPatch.ts`
+- guide and loupe observer logic in `ScreenCard.tsx`
+- panoramic instant-patch and drag logic when panoramic is migrated
+
+### DOM Readiness
+
+Iframe capture/export code waits for fonts and images. The live preview has
+historically relied on browser loading behavior after `doc.write`.
+
+For shadow rendering, add a small readiness step before removing the loading
+state:
+
+- await required font registration
+- decode images inside the shadow root with `img.decode()`
+- tolerate broken images with `Promise.allSettled`
+
+This avoids swapping in a half-loaded live preview and makes parity tests less
+flaky.
 
 ### Containment
 
-Iframes inherently contain layout, paint, and style. Shadow DOM does not. A bad CSS rule inside a shadow root can theoretically force the parent doc to recalc layout. Wrap every shadow host with `contain: layout style paint` to restore iframe-like behavior. This is a one-line CSS rule on the host wrapper.
+Iframes contain layout and paint naturally. Shadow roots do not. Every active
+preview host should use containment:
 
-### Font loading
+```css
+.preview-shadow-host {
+  contain: layout style paint;
+}
+```
 
-Iframes can declare their own `@font-face` rules in their own `<head>`. Shadow DOM does not inherit `@font-face` from the parent document **automatically** when the styles are loaded via `<style>` tags, but **does** when fonts are registered on `document.fonts` (the FontFace API). Today the templates emit `@font-face` per iframe; that needs to move out to a one-time parent-doc registration on app start.
+The inner wrapper should also have stable explicit dimensions:
 
-Mitigation: registerFonts() helper called once at app boot (likely in `App.tsx`). It reads `/preview-fonts/...` files into `FontFace` instances and adds them to `document.fonts`. Templates emit only `font-family: 'X'` declarations, no `@font-face` blocks.
+```css
+.preview-document {
+  width: var(--preview-width);
+  height: var(--preview-height);
+  overflow: hidden;
+}
+```
 
-### Export asymmetry
+This helps keep a bad template rule or heavy repaint from affecting the editor
+around it.
 
-Live preview = shadow DOM. Export = iframe. The same template HTML rendered through both paths could differ visually if any of the above (viewport units, fixed positioning, font availability) interact differently. This is the hidden risk: a user edits in the preview, sees one thing, exports, and gets something subtly different.
+### Security
 
-**This is what "parity test pass first" exists for.** See the next section.
+Current previews render same-origin HTML, and rich text is sanitized before it
+is inserted. Shadow DOM reduces the blast radius of iframe document rewrites,
+but it also moves preview markup into the parent page's DOM context.
 
-## Parity testing — DO THIS FIRST
+Keep these guardrails:
 
-Before writing one line of shadow-DOM code, build a parity harness. Without it, the migration is too risky to land.
+- Continue using `sanitizeRichHtml` in the template engine.
+- Do not execute scripts from parsed HTML.
+- Prefer `DOMParser` plus explicit node extraction over assigning raw HTML to
+  the host.
+- Strip or ignore `<script>` tags during shadow mounting even if templates do
+  not emit them today.
 
-### Harness
+## Parity Testing First
 
-A test rig (Playwright or Vitest with a real browser) that:
+Before making shadow DOM the default, build a browser-based parity harness.
 
-1. Picks a curated set of test screens — 8-12 covering: long headlines, multi-line subtitles, RTL text, italic + bold variants, large device frames (iphone-17-pro-max), small device frames (iphone-17 mini), all background types (solid, gradient, image), the loupe enabled, callouts present, annotations present, overlays from the Elements catalog (shape + icon + arrow + blob), spotlight on, free-text on, and one fullscreen-screenshot screen.
-2. For each test screen, renders it via the current iframe path AND via the new shadow-DOM path side by side.
-3. Captures both as PNGs at identical dimensions.
-4. Computes a pixel diff (e.g., `pixelmatch`) and asserts the diff is below a small threshold (say, 0.1% of pixels, accounting for AA jitter).
+### Harness Shape
 
-If any test screen exceeds the threshold, the migration is not done. The harness becomes a regression gate.
+Use Playwright. Render the same fixture screen through both backends:
 
-### Snapshot fixture
+- current iframe backend
+- new shadow backend behind a flag
 
-Commit a snapshot fixture: for each test screen, the expected PNG (rendered via the iframe path on the day the harness landed). The shadow-DOM rendering is validated against these snapshots. Re-render the fixture only on intentional template changes.
+Capture the preview bounding boxes at identical CSS dimensions and compare
+pixels with a small threshold. If adding `pixelmatch` is acceptable, use it.
+If not, use a small local diff utility over decoded PNGs.
 
-### Manual smoke
+Initial test should be pairwise backend comparison, not golden snapshots. Once
+the harness is stable, add fixture snapshots only if they provide enough value
+to justify the update burden.
 
-In addition to automated diffs, a manual pass that walks each test screen and visually compares. Pixel diffs catch obvious breaks; eyeballs catch subtler ones (font hinting, color blending).
+### Fixture Coverage
 
-### Why this is mandatory
+Cover at least:
 
-The whole point of C is that the user sees no visible change. The only way to verify that claim is to compare pixels. Shipping C without a parity harness means relying on me-or-you noticing a regression on real projects — too slow, too unreliable.
+- long headline
+- multi-line subtitle
+- RTL text
+- bold and italic rich text
+- per-element headline/subtitle/free-text fonts
+- solid, gradient, and image backgrounds
+- fullscreen screenshot mode
+- large and small device frames
+- loupe
+- callouts
+- annotations
+- spotlight
+- overlays: shape, icon, arrow, blob/star/decor
+- non-default locale text positioning
+- one panoramic canvas once panoramic migration starts
 
-## Build order
+### Browsers
 
-### Phase 0 — Parity harness (no code change to ScreenCard)
+Run at least Chromium locally for fast iteration. Add WebKit/Safari coverage
+before flipping the default, because the original failure mode is Safari.
 
-Build the harness described above. Land it green against the current iframe rendering. Output is a CI-runnable test that produces a diff report. This is the gate.
+### Acceptance
 
-Files: `packages/web-preview/test/parity/` (new dir) with the harness + fixture PNGs + the diff utility. The harness runs against a running preview server (`pnpm preview`) over Playwright.
+The migration is not done until the shadow backend is visually equivalent to
+the iframe backend within the agreed threshold and manual inspection passes for
+the fixture set.
 
-**Done when**: `pnpm test:parity` passes locally and on CI for 8-12 test screens.
+## Build Order
 
-### Phase 1 — Font loading consolidation
+### Phase 0 - Audit And Harness
 
-Move `@font-face` emission out of the template and into a one-time parent-doc registration. Templates emit only `font-family: 'X'`. Verify with the parity harness that fonts still render identically.
+No production behavior change.
 
-Files: new `packages/web-preview/src/client/utils/fontRegistry.ts`, edits to `App.tsx` boot, removal of `@font-face` block from `packages/core/templates/_base/font-face.html` (or equivalent), template engine update to skip emitting `@font-face` for the live-preview path.
+Tasks:
 
-This phase ships independently and is reversible. If parity breaks, revert.
+- Add the parity harness.
+- Add fixture generation helpers.
+- Add an audit report for template `body`, `html`, `:root`, viewport units,
+  and `position: fixed`.
+- Add a short note listing every iframe-based path that stays out of scope.
 
-### Phase 2 — Template viewport-unit + position-fixed audit
+Done when:
 
-Grep all templates for `vw`, `vh`, `vmin`, `vmax`, `:root`, `position: fixed`. For each hit, decide on the rewrite (CSS variables, `:host`, absolute-in-contained). Land the rewrites. Parity harness should still pass against iframe rendering.
+- `pnpm test:parity` or equivalent runs locally.
+- The current iframe backend can render the fixture set.
+- The audit output is committed or summarized in this doc.
 
-Files: edits across `packages/core/templates/**/*.html`. No `ScreenCard` changes.
+### Phase 1 - Preview Surface Adapter
 
-### Phase 3 — `ShadowScreen` component, behind a feature flag
+Introduce the abstraction before introducing shadow DOM.
 
-Build the new component. Same props as `ScreenCard`, internally uses a `<div>` host with `attachShadow({ mode: 'open' })`. The shadow root receives the same template HTML the iframe currently consumes — applied via a DOMParser parse + `replaceChildren()` flow (not the unsafe direct-assignment alternative), so script tags don't execute and we get a clean DOM swap. Behind a feature flag (URL param `?shadow=1` or a localStorage toggle), ScreenCard mounts `ShadowScreen` instead of an iframe.
+Tasks:
 
-Drag, MutationObserver, loupe, guides — all access shadow root instead of iframe contentDocument via a thin abstraction (e.g., a `getPreviewDocument(card): Document | ShadowRoot` helper). The hooks call through that helper. Result: one set of side-effect code, two render backends, switchable.
+- Create a `PreviewSurface` adapter for current iframe previews.
+- Migrate `useDragPosition`, `useInstantPatch`, and guide/loupe observer code
+  to use the adapter while still rendering iframes.
+- Keep behavior unchanged.
 
-Files: new `packages/web-preview/src/client/components/Preview/ShadowScreen.tsx`, edits to hooks under `packages/web-preview/src/client/hooks/` (useDragPosition, useInstantPatch, the MutationObserver chain in ScreenCard), edits to ScreenCard.tsx to conditionally mount.
+Reason:
 
-Parity harness runs against both backends in CI.
+This reduces risk by separating "stop reaching through iframe refs directly"
+from "change the renderer."
 
-### Phase 4 — Default the flag to shadow DOM
+Done when:
 
-Flip the default. Iframe path still available via `?shadow=0`. Watch for issues in real-world use over a few days.
+- Existing tests pass.
+- Manual drag, guides, loupe, callout, text, annotation, and overlay instant
+  patches still work in iframe mode.
 
-Files: edit to the flag default.
+### Phase 2 - Font Mode And Parent Font Registry
 
-### Phase 5 — Remove the iframe path
+Tasks:
 
-Delete the iframe code path, the flag, and the `getPreviewDocument` abstraction (collapse to direct shadow-root access).
+- Add explicit font-face mode to the template engine.
+- Keep existing iframe/export behavior unchanged.
+- Add client-side parent document font registration.
+- Wire only the future shadow path to request no template font CSS.
 
-Files: cleanup pass across ScreenCard.tsx + hooks. Parity harness still runs against the (now-only) shadow path to detect future regressions in templates.
+Done when:
 
-### Phase 6 (separate, optional) — Migrate export to shadow DOM
+- Export still waits on iframe fonts and renders correctly.
+- Current live iframe preview remains unchanged.
+- A test proves `fontFaceCss` can be omitted only when requested.
 
-This eliminates the live/export asymmetry. Significant work because export depends on iframe dimensions, hidden offscreen positioning, and modern-screenshot's expectations about its capture target. Defer until shadow-DOM live preview has been stable for 2-4 weeks. Treated as a separate doc/plan when picked up.
+### Phase 3 - Shadow Renderer For Individual Mode, Flagged Off
 
-## Testing per phase
+Tasks:
 
-Beyond the parity harness:
+- Add `ShadowScreen` or equivalent.
+- Parse full template HTML into style nodes plus body children.
+- Mount into an open shadow root under `.preview-document`.
+- Apply containment and fixed dimensions on the host/wrapper.
+- Strip scripts and avoid direct raw HTML assignment.
+- Implement shadow version of `PreviewSurface`.
+- Add a feature flag: `?shadow=1` or localStorage.
 
-- **Phase 0**: harness itself is the test. Fixtures committed.
-- **Phase 1**: parity harness re-runs and passes after font registry change. Plus a manual smoke checking all 5 platform fonts render in the preview.
-- **Phase 2**: parity harness re-runs and passes after each template rewrite. Visual regression for the loupe specifically (uses fixed positioning today) should get an extra-careful look.
-- **Phase 3**: parity harness runs against BOTH backends (flag on and flag off) on every commit. Unit tests for `getPreviewDocument` abstraction.
-- **Phase 4**: real-world dogfood for 3-5 days before phase 5. Look for issues that escape the harness: editor performance, drag responsiveness, focus behavior, font fallback.
-- **Phase 5**: parity harness against the single (shadow) path. Removal of unused iframe-specific code paths and types.
+Important:
 
-Tests that need to land alongside the work but aren't strictly per-phase:
+Individual mode only in this phase. Leave panoramic on iframe until the
+surface abstraction and shadow renderer are proven.
 
-- **Memory benchmark**: total decoded bitmap memory of a 6-card project measured via `performance.measureUserAgentSpecificMemory()` (Safari 16.4+, behind a flag) or estimated from image dimensions. Should drop significantly after phase 4. Captured as a number in the PR description.
-- **Tab-background regression**: a Playwright test that emulates tab-hide / tab-visible and asserts no visible flash. Hard to automate the visual flash detection; may settle for "no full re-render fires after visibility change" via render-counter instrumentation.
+Done when:
 
-## Relevant files for the implementation session
+- Shadow individual previews render behind the flag.
+- Drag, guides, text positioning, loupe refresh, instant patches, file drops,
+  and locale text-only constraints work.
+- Parity harness passes for individual-mode fixtures.
 
-Live editing path (the migration's primary target):
+### Phase 4 - Template Compatibility Cleanup
 
-- `packages/web-preview/src/client/components/Preview/ScreenCard.tsx` — current iframe lifecycle, where the swap happens.
-- `packages/web-preview/src/client/hooks/useDragPosition.ts` — reads `iframe.contentDocument` heavily; needs the abstraction.
-- `packages/web-preview/src/client/hooks/useInstantPatch.ts` — same.
-- `packages/web-preview/src/client/utils/iframeRegistry.ts` — registry abstraction would expand to shadow roots too, or get replaced.
-- `packages/web-preview/src/client/components/Preview/PanoramicPreview.tsx` — one iframe, but same migration shape; do at the same time.
+Tasks:
 
-Template rules to audit:
+- Convert or adapt `body` / `html` styling.
+- Remove any live-shadow dependency on viewport units.
+- Replace drag-time `position: fixed` behavior with absolute positioning in
+  the preview wrapper.
+- Make the "is this text drag-positioned" checks explicit rather than tied to
+  computed `position === 'fixed'`.
 
-- `packages/core/templates/**/*.html` — all of them. Use the audit grep from "Risk areas".
+This phase may happen partly before Phase 3 if the audit reveals obvious
+template changes that are safe for iframe rendering too.
 
-What stays on iframe (do NOT touch in this plan):
+Done when:
 
-- `packages/web-preview/src/client/utils/clientExport.ts` — export pipeline. Phase 6 territory.
-- The whole server-side render endpoint (`/api/preview-html`, `/api/panoramic-preview-html`). Same HTML is consumed by both paths; only the client mount point changes.
+- Iframe and shadow parity still pass.
+- No known template CSS relies on iframe-only semantics in the shadow path.
 
-Parity infrastructure (all new):
+### Phase 5 - Panoramic Shadow Preview, Flagged
 
-- `packages/web-preview/test/parity/` — harness, fixtures, diff utility.
+Tasks:
 
-## Out of scope
+- Reuse the shadow renderer and adapter for `PanoramicPreview.tsx`.
+- Migrate panoramic drag and instant-patch code.
+- Add panoramic parity fixture.
 
-- **Export pipeline migration.** See phase 6. Separate plan when picked up.
-- **Removing the server-side template engine.** Even with shadow DOM, the same Nunjucks-rendered HTML is what gets injected. Moving rendering client-side (e.g., React for screen markup) is a different conversation.
-- **Streaming / partial updates.** Today every edit re-renders the whole HTML for that card. A shadow-DOM future could do React-style diffing instead. Not part of this plan; would be a separate phase 7+.
-- **Cross-browser fallback for shadow DOM.** Safari 16+ has full support including `delegatesFocus`, `slot`, etc. If the user base hits a pre-16 Safari, plan would need a polyfill or feature gate; flag the requirement at session-start but do not implement here.
-- **The "snapshot overlay" in option A.** That can stay as a defense-in-depth even after C ships — costs nothing, helps in the edge case where Safari purges something we didn't anticipate. Re-evaluate after phase 5 stability.
+Reason:
 
-## Effort estimate
+Panoramic has different coordinate math and one wide canvas, so it should not
+be bundled into the first individual-mode migration.
 
-Rough order-of-magnitude, assuming a focused Claude Code session and no scope creep:
+Done when:
 
-- Phase 0: 1 day (parity harness + 8-12 fixtures + CI wiring)
-- Phase 1: 0.5 day (font registry, narrow change)
-- Phase 2: 0.5-1 day (template audit + rewrites, depends on grep hit count)
-- Phase 3: 1-2 days (ShadowScreen + hook abstraction + dual-mode wiring)
-- Phase 4: passive (dogfood time)
-- Phase 5: 0.5 day (cleanup)
-- Total active work: ~3-5 focused days
+- Panoramic works behind the same flag.
+- Panoramic parity passes.
 
-If parity tests reveal more rendering differences than expected (phase 2 + 3), add 1-2 days to chase them down. The biggest unknown is "are there any third-party CSS-in-iframe behaviors we didn't anticipate" — the harness exists exactly to surface those.
+### Phase 6 - Default Shadow DOM For Active Preview
+
+Tasks:
+
+- Flip the default to shadow DOM for active individual and panoramic previews.
+- Keep `?shadow=0` as an escape hatch.
+- Dogfood for several days, especially in Safari.
+
+Watch:
+
+- tab-switch behavior
+- drag responsiveness
+- font fallback flashes
+- image decode timing
+- memory use on 6 to 10 screens
+- behavior with multiple locales
+
+Done when:
+
+- No blocking regressions are found in real projects.
+- Safari flash is gone without relying on the Option A overlay.
+
+### Phase 7 - Remove Iframe Active Preview Path
+
+Tasks:
+
+- Delete active preview iframe backend.
+- Delete the feature flag.
+- Collapse adapter code if the iframe branch is no longer needed for active
+  previews.
+- Keep hidden capture/export iframes.
+
+Done when:
+
+- Active editor preview uses only shadow DOM.
+- Export, inactive locale captures, and variant thumbnail captures still use
+  their iframe flows.
+- Tests and manual smoke pass.
+
+### Later - Export/Capture Migration, If Ever
+
+Only consider migrating export or hidden capture flows after the active shadow
+preview has been stable for at least 2 to 4 weeks.
+
+This would need a separate plan because export depends on full document
+dimensions, `modern-screenshot` target semantics, font/image readiness, and
+output fidelity. It is not a cleanup task inside this migration.
+
+## Testing Checklist
+
+Required before defaulting to shadow DOM:
+
+- Parity test: iframe vs shadow for individual mode.
+- Parity test: iframe vs shadow for panoramic mode.
+- Manual Safari tab-hide/tab-show smoke.
+- Manual drag smoke for device, headline, subtitle, free text, annotation, and
+  overlay.
+- Manual text editing smoke with rich text, color, gradient, and per-element
+  fonts.
+- Manual locale smoke: default plus non-default row, with structural drags
+  blocked outside default.
+- Export smoke proving exported PNG still matches expected iframe export
+  behavior.
+- Inactive locale row capture smoke.
+- Variant thumbnail capture smoke.
+
+Optional but useful:
+
+- Memory measurement for a 6-card project before and after defaulting to shadow.
+- Render counter around tab visibility change to prove background/foreground
+  does not trigger a full re-render cascade.
+
+## Relevant Files
+
+Active individual preview:
+
+- `packages/web-preview/src/client/components/Preview/ScreenCard.tsx`
+- `packages/web-preview/src/client/hooks/useDragPosition.ts`
+- `packages/web-preview/src/client/hooks/useInstantPatch.ts`
+- `packages/web-preview/src/client/utils/iframeRegistry.ts`
+
+Active panoramic preview:
+
+- `packages/web-preview/src/client/components/Preview/PanoramicPreview.tsx`
+- `packages/web-preview/src/client/hooks/usePanoramicInstantPatch.ts`
+- `packages/web-preview/src/client/utils/panoramicIframeRef.ts`
+
+Template engine and templates:
+
+- `packages/core/src/templates/engine.ts`
+- `packages/core/templates/universal/base.html`
+- `packages/core/templates/panoramic/base.html`
+- `packages/core/templates/_base/*.html`
+- `packages/core/src/fonts/loader.ts`
+
+Capture/export paths to preserve:
+
+- `packages/web-preview/src/client/utils/clientExport.ts`
+- `packages/web-preview/src/client/utils/captureManager.ts`
+- `packages/web-preview/src/client/utils/variantThumbnailCapture.ts`
+
+## Decision Record
+
+Decision: migrate active live preview to parent-document shadow DOM, not to a
+single shared iframe.
+
+Reasoning:
+
+- A single iframe would reduce duplication but still keeps the editor dependent
+  on iframe document lifecycle and Safari iframe bitmap behavior.
+- Shadow DOM removes the nested browsing context from the interactive surface
+  while preserving scoped template CSS.
+- The migration creates a better foundation for future direct-manipulation
+  editing primitives.
+
+Tradeoff:
+
+- Shadow DOM is not a drop-in iframe replacement. The project must pay the
+  migration cost for full-document HTML parsing, body/html CSS, font loading,
+  coordinate conversion, and fixed-position behavior.
+
+Conclusion:
+
+Option C is worth doing, but only if implemented with the adapter, font-mode,
+and parity-test guardrails above. Without those, the risk of subtle
+preview/export mismatch is too high.

@@ -1,8 +1,8 @@
 # appframe
 
-Open-source tool for generating professional App Store & Play Store promotional screenshots.
+Open-source local editor for generating professional App Store & Play Store promotional screenshots.
 
-Takes raw app screenshots and transforms them into polished, store-ready promotional images with device frames, headlines, styled backgrounds, and professional layouts.
+Take raw app screenshots, drop them into a local browser-based editor, dress them up with device frames, headlines, styled backgrounds, and professional compositions — and export store-ready PNGs.
 
 <p align="center">
   <img src="docs/screenshots/web-preview-hero.png" alt="appframe web preview — visual editor with gradient backgrounds, device frames, and real-time preview" width="100%" />
@@ -21,18 +21,26 @@ See [Writing Great Copy](#writing-great-copy) below.
 
 - **8 template styles**: minimal, bold, glow, playful, clean, branded, editorial, fullscreen
 - **9 composition presets**: single, peek-right/left, tilt-right/left, duo-overlap, duo-split, hero-tilt, fanned-cards
-- **100+ device frames**: iPhone 17/Air, iPad Pro, Apple Watch, Android, generic frames
-- **Multi-platform**: iOS, Android, Mac, and Apple Watch at exact store-required dimensions
-- **Multi-language**: Generate screenshots in any language from a single config file
-- **Per-screen customization**: Override backgrounds, compositions, and layouts per slide
-- **AI-collaborative**: MCP server + AI agent skill for automated screenshot generation with variant support
-- **Web preview**: Local browser UI for real-time visual tweaking with drag positioning
-- **Auto-capture**: Capture screenshots from iOS Simulator (xcrun) or Android Emulator (adb)
-- **Store upload**: Push screenshots directly to App Store Connect and Google Play Console
+- **Bundled device frames**: a handful of SVG frames for iPhone, iPad, and Android — the catalog is intentionally small; the bundled-frames quality pass is an open TODO. The Koubou integration (optional, externally installed) opens access to a larger photorealistic frame catalog.
+- **Multi-platform output**: iOS, Android, Mac, and Apple Watch at exact store-required dimensions
+- **Multi-locale support**: per-locale text, typography, position, and screenshots, all editable side-by-side
+- **Variants**: alternate canvases inside a project, each with its own thumbnail, that you can flip between to compare
+- **Local-first**: everything lives in `~/Documents/appframe/projects/<slug>/` — no cloud, no account, no telemetry
+- **Bundled web fonts**: inter, space-grotesk, poppins, montserrat, dm-sans, plus-jakarta-sans, raleway, playfair-display
 
-## Web Preview
+## Quick Start
 
-Run `appframe preview` to open a local browser UI where you can visually tweak every aspect of your screenshots in real time.
+```bash
+git clone https://github.com/andresdefi/appframe.git
+cd appframe
+pnpm install
+pnpm build
+pnpm preview
+```
+
+Then open http://localhost:4400. The editor auto-creates an `Untitled 1` project with three placeholder screens on first launch.
+
+## What the Editor Does
 
 ### Background, Device & Text Controls
 
@@ -57,50 +65,11 @@ Switch to Panoramic mode for a continuous canvas layout where elements can span 
 
 ### Export
 
-Choose output sizes for any device class, pick a rendering backend, and export individual screens or all at once.
+Choose output sizes for any device class and export individual screens or all of them at once. Multi-locale projects produce one ZIP with a folder per locale; single-locale projects keep files flat at the archive root.
 
 <p align="center">
-  <img src="docs/screenshots/web-preview-export.png" alt="Export panel with output size, renderer selection, and batch export" width="100%" />
+  <img src="docs/screenshots/web-preview-export.png" alt="Export panel with output size and batch export" width="100%" />
 </p>
-
-## Quick Start
-
-```bash
-# Install
-npm install -g appframe
-
-# Initialize a config for your app
-appframe init --name "My App" --style minimal
-
-# Add your screenshots to the screenshots/ folder, then generate
-appframe generate
-
-# Preview in browser
-appframe preview
-```
-
-## AI Agent Integration
-
-appframe works with AI coding agents (Claude Code, Cursor, Windsurf, and 40+ others) via MCP:
-
-```json
-{
-  "mcpServers": {
-    "appframe": {
-      "command": "appframe-mcp"
-    }
-  }
-}
-```
-
-### Agent Workflow
-
-appframe is the rendering tool — an agent drives the creative decisions (copy, layout, style) and invokes appframe to render. The MCP server exposes:
-
-- `appframe_generate` — headless batch export from an existing `appframe.yml` to PNGs on disk.
-- `appframe_validate`, `appframe_init`, and frame/config/upload tools for the rest of the pipeline.
-
-For interactive design, run `appframe preview` and edit in the web UI at `http://localhost:4400`. Download approved PNGs from the Export tab.
 
 ## Writing Great Copy
 
@@ -121,7 +90,7 @@ Use one per slide:
 1. **One idea per headline.** Never join two things with "and."
 2. **Short, common words.** 1-2 syllables. No jargon unless domain-specific.
 3. **3-5 words per line.** Must be readable at thumbnail size in the App Store.
-4. **Line breaks are intentional.** Use `\n` in your YAML to control where lines break.
+4. **Line breaks are intentional.** Use the headline editor's newlines to control where lines break.
 
 ### What Never Works
 
@@ -140,77 +109,6 @@ Use one per slide:
 | #4+ | **Core features** — one per slide, most important first |
 | 2nd to last | **Trust signal** — "made for people who [X]" |
 | Last | **Summary** — remaining features or coming soon |
-
-## Config File
-
-appframe uses a YAML config file (`appframe.yml`):
-
-```yaml
-app:
-  name: "FitPulse"
-  description: "Personal fitness tracker"
-  platforms: [ios, android]
-  features:
-    - Custom workout plans
-    - Progress tracking
-
-theme:
-  style: glow
-  colors:
-    primary: "#6366F1"
-    secondary: "#EC4899"
-    background: "#0A0A0F"
-    text: "#F8FAFC"
-    subtitle: "#94A3B8"
-  font: space-grotesk
-  fontWeight: 700
-
-frames:
-  ios: iphone-17-pro
-  android: generic-phone
-  style: flat
-
-screens:
-  # Slide 1: Hero — centered
-  - screenshot: screenshots/home.png
-    headline: "Your body,\nyour rules."
-    subtitle: "Fitness that adapts to you"
-    layout: center
-    composition: single
-
-  # Slide 2: Differentiator — angled, different background
-  - screenshot: screenshots/workouts.png
-    headline: "Plans that\nactually work."
-    layout: angled-right
-    background: "#1E1B4B"
-
-  # Slide 3: Feature — peek right for visual variety
-  - screenshot: screenshots/progress.png
-    headline: "Watch yourself\nimprove."
-    composition: peek-right
-
-  # Slide 4: Feature — peek left (pairs with previous)
-  - screenshot: screenshots/challenges.png
-    headline: "Compete with\nfriends."
-    composition: peek-left
-    background: "#18181B"
-
-  # Slide 5: Trust — back to centered
-  - screenshot: screenshots/nutrition.png
-    headline: "Fuel your\nprogress."
-    subtitle: "Built for people who show up"
-
-output:
-  platforms: [ios, android]
-  ios:
-    sizes: [6.7, 6.5]
-    format: png
-  android:
-    sizes: ["phone"]
-    format: png
-    featureGraphic: true
-  directory: ./output
-```
 
 ## Template Styles
 
@@ -241,97 +139,9 @@ Vary layouts across slides — never use the same composition for every screensh
 | `hero-tilt` | 2 | Large hero + smaller background device |
 | `fanned-cards` | 3 | Three devices fanned out |
 
-Composition presets set initial device positioning — you can fine-tune scale, rotation, offset, and angle from there via the web preview or YAML config.
+Composition presets set initial device positioning — fine-tune scale, rotation, offset, and angle from there in the Device tab.
 
 **Tip**: Pair `peek-right` on one slide with `peek-left` on the next — when viewed in the App Store, devices appear to span across screenshots.
-
-## CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `appframe init` | Create a new config file |
-| `appframe generate` | Generate all store screenshots from config |
-| `appframe validate` | Validate config (includes copy length warnings) |
-| `appframe preview` | Open web preview for visual tweaking |
-| `appframe capture` | Auto-capture from simulator/emulator |
-| `appframe frames list` | List available device frames |
-| `appframe upload` | Upload to App Store Connect / Google Play |
-| `appframe setup` | Install optional dependencies (Koubou) |
-
-## MCP Tools
-
-| Tool | Description |
-|------|-------------|
-| `appframe_init_config` | Create a new config file |
-| `appframe_read_config` | Read config contents |
-| `appframe_validate_config` | Validate config with warnings |
-| `appframe_update_config` | Update config fields |
-| `appframe_generate` | Generate all screenshots |
-| `appframe_preview_screen` | Render a single screen preview |
-| `appframe_list_frames` | List available device frames |
-| `appframe_list_templates` | List template styles |
-| `appframe_suggest_copy` | AI-guided copy with 3 approaches |
-| `appframe_suggest_theme` | AI-guided theme suggestion |
-| `appframe_generate_variants` | Generate 2-3 design variant configs |
-| `appframe_create_variant_session` | Create a file-backed 2-3 concept session for agent workflows |
-| `appframe_list_variant_session` | List concepts, active concept, approvals, and export history |
-| `appframe_select_variant` | Switch the active concept in a variant session |
-| `appframe_approve_variant` | Mark one concept as approved and demote the rest to draft |
-| `appframe_export_variant` | Export one concept from a variant session |
-| `appframe_export_approved_variant` | Export the approved concept from a variant session |
-| `appframe_upload_plan` | Preview upload plan |
-| `appframe_upload` | Upload screenshots to stores |
-
-### Agent Workflow
-
-Appframe now supports a file-backed concept workflow for AI agents. The intended flow is:
-
-1. Create a base config or open an existing `appframe.yml`
-2. Ask the agent to create a variant session with 2-3 concepts
-3. Let the agent review or refine the concepts
-4. Approve one concept
-5. Export the approved concept as a structured batch
-
-Example sequence:
-
-```text
-appframe_create_variant_session(configPath="/abs/path/appframe.yml", variantCount=3)
-appframe_list_variant_session(sessionPath="/abs/path/appframe.variants.session.json")
-appframe_select_variant(sessionPath="/abs/path/appframe.variants.session.json", variantId="concept-b")
-appframe_approve_variant(sessionPath="/abs/path/appframe.variants.session.json", variantId="concept-c")
-appframe_export_approved_variant(sessionPath="/abs/path/appframe.variants.session.json")
-```
-
-The variant session JSON stores:
-- the source config path
-- the active concept
-- the approved concept
-- per-concept export history
-
-## Store Upload
-
-### App Store Connect
-
-```bash
-export ASC_ISSUER_ID="your-issuer-id"
-export ASC_KEY_ID="your-key-id"
-export ASC_PRIVATE_KEY_PATH="/path/to/AuthKey.p8"
-export ASC_APP_ID="your-app-apple-id"
-```
-
-### Google Play Console
-
-```bash
-export GOOGLE_PLAY_SERVICE_ACCOUNT="/path/to/service-account.json"
-export GOOGLE_PLAY_PACKAGE_NAME="com.example.myapp"
-```
-
-```bash
-appframe upload --dry-run    # Preview what would be uploaded
-appframe upload              # Upload to both stores
-appframe upload --platform ios
-appframe upload --locale es
-```
 
 ## Output Sizes
 
@@ -339,10 +149,9 @@ appframe upload --locale es
 
 | Display | Output size |
 |---------|-------------|
-| iPhone 6.7" | 1290 x 2796 |
+| iPhone 6.9" | 1260 x 2736 |
 | iPhone 6.5" | 1284 x 2778 |
 | iPhone 6.3" | 1206 x 2622 |
-| iPhone 5.5" | 1242 x 2208 |
 | iPad 13" | 2064 x 2752 |
 | iPad 12.9" | 2048 x 2732 |
 | iPad 11" | 1668 x 2388 |
@@ -356,70 +165,48 @@ appframe upload --locale es
 | 10" Tablet | 1800 x 2560 |
 | Feature Graphic | 1024 x 500 |
 
-## Available Fonts
+## Project Storage
 
-inter, space-grotesk, poppins, montserrat, dm-sans, plus-jakarta-sans, raleway, playfair-display
+Each project lives at `~/Documents/appframe/projects/<slug>/`:
 
-All fonts are bundled — no external requests needed.
+- **`appframe.json`** — full project state (screens, variants, panoramic data, per-locale snapshots).
+- **`meta.json`** — small index (displayName, timestamps).
+- **`screenshots/`** — uploaded screenshot files referenced by `appframe.json`.
 
-## Rendering Backends
+Files are written atomically (`.tmp` + rename), so a crash mid-save never corrupts a project.
 
-### Playwright (default)
+## Live `/api/config`
 
-Built-in HTML/CSS renderer. Fast, supports all templates and effects.
-
-```bash
-appframe generate --renderer playwright
-```
-
-### Koubou (optional)
-
-[Koubou](https://github.com/bitomule/Koubou) provides photorealistic device frames (126+ frames).
-
-```bash
-appframe setup              # Install Koubou
-appframe generate --renderer koubou
-appframe generate --renderer auto   # Uses Koubou if available
-```
-
-| | Playwright | Koubou |
-|---|---|---|
-| Speed | ~1.5s per image | ~7s per image |
-| Device frames | SVG overlays (100+) | Photorealistic bezels (126+) |
-| Text rendering | Embedded web fonts | System fonts |
-| Background effects | Full CSS | Gradients only |
+While the preview server is running, the editor's full state is exposed read-only at `http://localhost:4400/api/config`. Tools and agents on the same machine can poll it to see what the editor is currently showing — useful for build pipelines or automated review flows. The endpoint is bound to `127.0.0.1` only by default; cross-origin requests are rejected.
 
 ## Development
 
 ```bash
-git clone https://github.com/your-username/appframe.git
-cd appframe
-pnpm install
-pnpm build
-pnpm test
-pnpm dev    # Watch mode
+pnpm typecheck      # tsc for core + web-preview (server + client)
+pnpm lint           # ESLint over packages/*/src/**/*.{ts,tsx}
+pnpm test           # Vitest unit + integration
+pnpm build          # Build both packages
+pnpm preview        # Start the local web editor at http://localhost:4400
+pnpm dev            # Watch mode (parallel across packages)
+pnpm test:e2e       # Playwright end-to-end tests (dev-only)
 ```
 
 ### Project Structure
 
 ```
 packages/
-  core/           Config, templates, renderer, frame management
-  cli/            Commander.js CLI
-  mcp-server/     MCP server for AI agents
-  web-preview/    Express preview server with browser UI
-  store-upload/   App Store Connect + Google Play upload
-skills/           AI agent skill (SKILL.md)
-frames/           Device frame assets + manifest
-fonts/            Bundled web fonts
-examples/         Example app configs
+  core/           Config schema, template engine, rendering pipeline, frame management
+  web-preview/    Express server + React/Vite editor UI
+frames/           Bundled device frame SVGs + manifest
+fonts/            Bundled open-source web fonts
+docs/             Plans + screenshots
 ```
 
 ## Requirements
 
-- Node.js >= 18
-- Playwright (auto-installed on first run)
-- Koubou (optional) — `pip install koubou`
+- Node.js `^20.19.0 || ^22.13.0 || >=24.0.0`
+- pnpm 9.15+ (the repo's `packageManager` field)
+- A modern Chromium-based browser (Safari and Firefox work too)
 
 ## License
 

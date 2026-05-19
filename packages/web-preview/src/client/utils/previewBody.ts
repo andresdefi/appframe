@@ -161,34 +161,42 @@ export function buildPreviewBody(
  * panoramic iframe (export still goes through the full-res path).
  * Untouched element types and non-matching URLs pass through without
  * cloning so the result shares structure with the input where possible.
+ *
+ * The work happens in a generic helper so TypeScript preserves the
+ * exact variant (`device`, `text`, etc.) through the recursion. Group
+ * children are a narrower union (no nested groups), and a non-generic
+ * function couldn't put the rewritten child array back into the group
+ * without a cast.
  */
+function rewriteOnePanoramicElement<T extends PanoramicElement>(el: T): T {
+  if (el.type === 'device' || el.type === 'crop') {
+    const rewritten = toPreviewScreenshotUrl(el.screenshot);
+    if (rewritten && rewritten !== el.screenshot) {
+      return { ...el, screenshot: rewritten };
+    }
+    return el;
+  }
+  if (el.type === 'image' || el.type === 'logo') {
+    const rewritten = toPreviewScreenshotUrl(el.src);
+    if (rewritten && rewritten !== el.src) {
+      return { ...el, src: rewritten };
+    }
+    return el;
+  }
+  if (el.type === 'group') {
+    const rewrittenChildren = el.children.map(rewriteOnePanoramicElement);
+    // Reference equality across children means nothing changed; skip
+    // the clone so React's element-prop comparisons stay cheap.
+    if (rewrittenChildren.every((c, i) => c === el.children[i])) return el;
+    return { ...el, children: rewrittenChildren };
+  }
+  return el;
+}
+
 export function rewritePanoramicElementsForPreview(
   elements: PanoramicElement[],
 ): PanoramicElement[] {
-  return elements.map((el) => {
-    if (el.type === 'device' || el.type === 'crop') {
-      const rewritten = toPreviewScreenshotUrl(el.screenshot);
-      if (rewritten && rewritten !== el.screenshot) {
-        return { ...el, screenshot: rewritten };
-      }
-      return el;
-    }
-    if (el.type === 'image' || el.type === 'logo') {
-      const rewritten = toPreviewScreenshotUrl(el.src);
-      if (rewritten && rewritten !== el.src) {
-        return { ...el, src: rewritten };
-      }
-      return el;
-    }
-    if (el.type === 'group') {
-      const rewrittenChildren = rewritePanoramicElementsForPreview(el.children);
-      // Reference equality across children means nothing changed; skip
-      // the clone so React's element-prop comparisons stay cheap.
-      if (rewrittenChildren.every((c, i) => c === el.children[i])) return el;
-      return { ...el, children: rewrittenChildren };
-    }
-    return el;
-  });
+  return elements.map(rewriteOnePanoramicElement);
 }
 
 /**

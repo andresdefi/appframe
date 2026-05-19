@@ -95,7 +95,7 @@ export function PanoramicEffectsTab() {
           onChange={(checked) =>
             update({
               spotlight: checked
-                ? { x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0 }
+                ? { x: 50, y: 50, w: 30, h: 30, shape: 'rectangle', dimOpacity: 0.6, blur: 0, borderRadius: 0 }
                 : null,
             })
           }

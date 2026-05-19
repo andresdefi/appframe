@@ -1,11 +1,7 @@
 import { usePreviewStore } from '../../../store';
 import { Section } from '../../Controls/Section';
-import { Select } from '../../Controls/Select';
 import { ElementInspector } from './ElementInspector';
-import {
-  ELEMENT_TYPE_LABELS,
-  getElementSummary,
-} from './helpers';
+import { ELEMENT_TYPE_LABELS } from './helpers';
 
 export function PanoramicTextContent() {
   const elements = usePreviewStore((s) => s.panoramicElements);

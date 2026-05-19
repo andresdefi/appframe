@@ -900,6 +900,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       previewH: currentState.previewH,
       locale: nextLocale,
       sessionLocales,
+      localeScreens: currentState.localeScreens,
+      localePanoramicElements: currentState.localePanoramicElements,
       isPanoramic,
       screens,
       selectedScreen: 0,
@@ -994,7 +996,6 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       newState.subtitle = '';
 
       if (last) {
-        newState.style = last.style;
         newState.layout = last.layout;
         newState.font = last.font;
         newState.fontWeight = last.fontWeight;

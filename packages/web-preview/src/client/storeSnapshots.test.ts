@@ -204,7 +204,7 @@ describe('variantSnapshotFromState', () => {
     const esScreens = applied.localeScreens['es-ES']!;
     expect(esScreens[0]!.screenshotUrl).toBe('/api/screenshots/proj/screen-1.png');
     // Legacy key is gone after the migration.
-    expect((esScreens[0] as Record<string, unknown>).screenshotDataUrl).toBeUndefined();
+    expect((esScreens[0] as unknown as Record<string, unknown>).screenshotDataUrl).toBeUndefined();
   });
 });
 
@@ -258,7 +258,7 @@ describe('buildVariantRecord', () => {
     expect(variant.snapshot.screens.length).toBe(1);
     expect(variant.history.length).toBe(1);
     expect(variant.history[0]!.type).toBe('created');
-    expect(variant.provenance.origin).toBe('manual');
+    expect(variant.provenance!.origin).toBe('manual');
   });
 
   it('uses provided provenance and history when given', () => {
@@ -269,8 +269,8 @@ describe('buildVariantRecord', () => {
       history: customHistory,
     });
     expect(variant.history).toBe(customHistory);
-    expect(variant.provenance.origin).toBe('duplicate');
-    expect(variant.provenance.parentVariantId).toBe('v0');
+    expect(variant.provenance!.origin).toBe('duplicate');
+    expect(variant.provenance!.parentVariantId).toBe('v0');
   });
 });
 

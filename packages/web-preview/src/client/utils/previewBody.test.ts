@@ -61,9 +61,9 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
     subtitleOpacity: 85,
     subtitleLetterSpacing: 4,
     subtitleTextTransform: 'capitalize',
-    spotlight: { x: 20, y: 30, w: 40, h: 25, shape: 'rectangle', dimOpacity: 0.55, blur: 14 },
+    spotlight: { x: 20, y: 30, w: 40, h: 25, shape: 'rectangle', dimOpacity: 0.55, blur: 14, borderRadius: 0 },
     annotations: [
-      { id: 'ann-1', shape: 'rectangle', x: 10, y: 20, w: 30, h: 15, strokeColor: '#ff0000', strokeWidth: 4 },
+      { id: 'ann-1', shape: 'rectangle', x: 10, y: 20, w: 30, h: 15, strokeColor: '#ff0000', strokeWidth: 4, borderRadius: 0 },
     ],
     textPositions: {
       headline: { x: 11, y: 12, width: 44 },
@@ -192,6 +192,7 @@ describe('preview/export payload builders', () => {
       extraDevices: [
         {
           dataUrl: '/api/screenshots/my-project/extra.png',
+          name: 'extra.png',
           frameId: 'iphone-15',
           offsetX: 100,
           offsetY: 50,
@@ -234,9 +235,12 @@ describe('preview/export payload builders', () => {
     const elements: PanoramicElement[] = [
       {
         type: 'device',
-        x: 10, y: 10, width: 20, height: 30, rotation: 0, opacity: 1, z: 1,
+        x: 10, y: 10, width: 20, rotation: 0, z: 1,
         screenshot: '/api/screenshots/my-project/d1.png',
         frame: 'iphone-15',
+        frameStyle: 'flat',
+        deviceScale: 92, deviceTop: 15, deviceOffsetX: 0, deviceAngle: 8, deviceTilt: 0,
+        cornerRadius: 0, fullscreenScreenshot: false,
       },
       {
         type: 'crop',
@@ -262,9 +266,12 @@ describe('preview/export payload builders', () => {
         children: [
           {
             type: 'device',
-            x: 0, y: 0, width: 100, height: 100, rotation: 0, opacity: 1, z: 1,
+            x: 0, y: 0, width: 100, rotation: 0, z: 1,
             screenshot: '/api/screenshots/my-project/d2.png',
             frame: 'iphone-15',
+            frameStyle: 'flat',
+            deviceScale: 92, deviceTop: 15, deviceOffsetX: 0, deviceAngle: 8, deviceTilt: 0,
+            cornerRadius: 0, fullscreenScreenshot: false,
           },
         ],
       },
@@ -289,15 +296,19 @@ describe('preview/export payload builders', () => {
     const elements: PanoramicElement[] = [
       {
         type: 'text',
-        x: 0, y: 0, width: 0, height: 0, rotation: 0, opacity: 1, z: 0,
+        x: 0, y: 0, rotation: 0, z: 0,
         content: 'hello', color: '#fff', fontSize: 5, fontWeight: 400,
         textAlign: 'center', lineHeight: 1.2, fontStyle: 'normal',
+        letterSpacing: 0, textTransform: '',
       },
       {
         type: 'device',
-        x: 10, y: 10, width: 20, height: 30, rotation: 0, opacity: 1, z: 1,
+        x: 10, y: 10, width: 20, rotation: 0, z: 1,
         screenshot: 'data:image/png;base64,XYZ',
         frame: 'iphone-15',
+        frameStyle: 'flat',
+        deviceScale: 92, deviceTop: 15, deviceOffsetX: 0, deviceAngle: 8, deviceTilt: 0,
+        cornerRadius: 0, fullscreenScreenshot: false,
       },
     ];
     const out = rewritePanoramicElementsForPreview(elements);

@@ -26,7 +26,6 @@ export function HeaderBar({
   onOpenProjectPicker,
 }: HeaderBarProps) {
   const config = usePreviewStore((s) => s.config);
-  const activeProject = usePreviewStore((s) => s.activeProject);
   const activeProjectDisplayName = usePreviewStore((s) => s.activeProjectDisplayName);
   const isPanoramic = usePreviewStore((s) => s.isPanoramic);
   const togglePanoramic = usePreviewStore((s) => s.togglePanoramic);

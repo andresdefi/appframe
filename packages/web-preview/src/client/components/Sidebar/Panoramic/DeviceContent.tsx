@@ -1,6 +1,5 @@
 import { usePreviewStore } from '../../../store';
 import { Section } from '../../Controls/Section';
-import { Select } from '../../Controls/Select';
 import { ElementInspector } from './ElementInspector';
 import { ScreenshotUploader } from './ScreenshotUploader';
 import {

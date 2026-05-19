@@ -35,10 +35,13 @@ function makeConfig(): AppframeConfig {
 function makePanoramicDevice(): PanoramicElement {
   return {
     type: 'device',
-    x: 10, y: 10, width: 20, height: 30, rotation: 0, opacity: 1, z: 1,
+    x: 10, y: 10, width: 20, rotation: 0, z: 1,
     screenshot: '/api/screenshots/test-locale-audit/one.png',
     frame: 'iphone-17-pro-max',
-  } as PanoramicElement;
+    frameStyle: 'flat',
+    deviceScale: 92, deviceTop: 15, deviceOffsetX: 0, deviceAngle: 8, deviceTilt: 0,
+    cornerRadius: 0, fullscreenScreenshot: false,
+  };
 }
 
 function seedIndividual(): ScreenState[] {

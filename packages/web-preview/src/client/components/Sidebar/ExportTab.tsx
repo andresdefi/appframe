@@ -171,10 +171,6 @@ export function ExportTab() {
       frameIndex,
     };
   };
-  // Kept for the single-screen download path which uses the active locale only.
-  const buildPanoramicBody = (frameIndex?: number) =>
-    buildPanoramicBodyForLocale(locale, frameIndex);
-
   // Panoramic batch export. Rasterizes the wide canvas once and slices it
   // into N per-frame PNGs — one render plus N cheap canvas crops, no
   // per-frame server round-trips. Slices are bundled into one ZIP so

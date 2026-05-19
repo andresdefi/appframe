@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { PanoramicBackgroundLayer } from '../../../types';
 import { usePreviewStore } from '../../../store';
 import { usePanoramicInstantPatch } from '../../../hooks/usePanoramicInstantPatch';
 import { Section } from '../../Controls/Section';

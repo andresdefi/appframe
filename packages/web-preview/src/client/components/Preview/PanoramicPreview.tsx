@@ -2,6 +2,10 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePreviewStore } from '../../store';
 import { fetchPanoramicPreviewHtml } from '../../utils/api';
 import { setPanoramicIframe } from '../../utils/panoramicIframeRef';
+import {
+  rewritePanoramicBackgroundForPreview,
+  rewritePanoramicElementsForPreview,
+} from '../../utils/previewBody';
 import { getLocaleLabel } from '@appframe/core/locales';
 import { InactivePanoramicRow } from './InactivePanoramicRow';
 import { LocaleRowHeader } from './LocaleRowHeader';
@@ -122,14 +126,18 @@ export function PanoramicPreview() {
         const controller = new AbortController();
         abortRef.current = controller;
 
+        // Rewrite screenshot URLs to their preview-resolution variants for
+        // the live iframe. Export goes through its own pipeline and keeps
+        // full-res URLs — only the on-screen panoramic preview gets the
+        // smaller bitmaps.
         const body = {
           locale: activeLocale,
           localeConfig,
           frameCount,
           frameWidth: previewW,
           frameHeight: previewH,
-          background,
-          elements,
+          background: rewritePanoramicBackgroundForPreview(background),
+          elements: rewritePanoramicElementsForPreview(elements),
           font: config.theme.font,
           fontWeight: config.theme.fontWeight,
           frameStyle: config.frames.style,

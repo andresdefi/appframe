@@ -1,8 +1,9 @@
-import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, access, readdir, unlink } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
-import { join, resolve, extname, basename } from 'node:path';
+import { join, resolve, extname, basename, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import type { Express, Request, Response } from 'express';
+import sharp from 'sharp';
 
 const SUPPORTED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.svg']);
 const CONTENT_TYPES: Record<string, string> = {
@@ -14,6 +15,22 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 const MAX_SCREENSHOT_BYTES = 25 * 1024 * 1024;
 const PROJECT_SLUG_RE = /^[a-zA-Z0-9_-]+$/;
+
+// Preview-resolution screenshots live next to the originals in a hidden
+// `.previews/` subdir and are served to the in-app iframes (not export).
+// Cuts Safari's decoded-bitmap memory by ~5× — the bitmap pressure was
+// the root cause of the periodic screenshot reload Safari users hit.
+// SVGs are vectors; their decoded memory is bounded by render size not
+// source size, so no preview is generated for them.
+const PREVIEW_DIR_NAME = '.previews';
+// 900 px is the sweet spot from the 2026-05-19 memory investigation:
+// ~37 MB decoded across 6 typical-sized iPhone screenshots (well below
+// Safari's critical-pressure threshold) while staying sharp enough that
+// max-zoom editing doesn't show visible softness on app UI details.
+// 600 px was tighter on memory but visibly soft at high zoom; 1200 px
+// preserved sharpness but barely improved over full-res memory usage.
+const PREVIEW_WIDTH = 900;
+const PREVIEW_RASTER_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
 export interface ScreenshotStorageOptions {
   projectsRoot: string;
@@ -71,6 +88,29 @@ function sanitizeFilename(value: unknown): { stem: string; ext: string } {
 
 function projectScreenshotsDir(root: string, project: string): string {
   return join(resolve(root), project, 'screenshots');
+}
+
+function previewPathFor(absSourcePath: string): string {
+  return join(dirname(absSourcePath), PREVIEW_DIR_NAME, basename(absSourcePath));
+}
+
+/**
+ * Write a preview-resolution copy of `absSourcePath` to its sibling
+ * `.previews/` dir. No-op for SVG (vector) and other non-raster sources.
+ * Throws on sharp errors so callers can decide whether to fall through
+ * — the upload path swallows the error since the original is the
+ * source of truth.
+ */
+async function generatePreview(absSourcePath: string): Promise<void> {
+  const ext = extname(absSourcePath).toLowerCase();
+  if (!PREVIEW_RASTER_EXTENSIONS.has(ext)) return;
+  const previewPath = previewPathFor(absSourcePath);
+  await mkdir(dirname(previewPath), { recursive: true });
+  // withoutEnlargement: leave already-small screenshots alone rather than
+  // upscaling them. Format is inferred from the destination extension.
+  await sharp(absSourcePath)
+    .resize({ width: PREVIEW_WIDTH, withoutEnlargement: true })
+    .toFile(previewPath);
 }
 
 export function resolveScreenshotPath(root: string, project: string, filename: string): string {
@@ -159,6 +199,14 @@ export async function writeScreenshotFromDataUrl(
     throw new Error('resolved path escapes the project screenshots directory');
   }
   await writeFile(absPath, buffer);
+  // Preview is best-effort: a failure here doesn't invalidate the
+  // full-res upload, and the GET route lazily regenerates on first
+  // request if the preview is missing.
+  try {
+    await generatePreview(absPath);
+  } catch (err) {
+    console.warn(`[screenshotStorage] preview generation failed for ${absPath}:`, err);
+  }
   return {
     project,
     filename,
@@ -167,6 +215,63 @@ export async function writeScreenshotFromDataUrl(
     url: `/api/screenshots/${project}/${filename}`,
     bytes: buffer.byteLength,
   };
+}
+
+/**
+ * Boot-time sweep. For each project under `projectsRoot`:
+ *   - generate any missing preview for an existing source screenshot
+ *   - delete any preview whose source no longer exists
+ *
+ * Idempotent + self-healing — runs on every server start so a manually
+ * deleted source file (Finder, git, etc.) doesn't leave orphan previews
+ * behind. Errors are logged and skipped; the sweep never throws.
+ */
+export async function sweepPreviews(options: ScreenshotStorageOptions): Promise<void> {
+  const root = resolve(options.projectsRoot);
+  let projectDirs: string[];
+  try {
+    projectDirs = await readdir(root);
+  } catch {
+    return; // no projects dir yet → nothing to sweep
+  }
+  for (const projectSlug of projectDirs) {
+    if (!PROJECT_SLUG_RE.test(projectSlug)) continue;
+    const screenshotsDir = projectScreenshotsDir(root, projectSlug);
+    let sources: string[];
+    try {
+      sources = await readdir(screenshotsDir);
+    } catch {
+      continue;
+    }
+    const sourceFiles = sources.filter(
+      (n) => PREVIEW_RASTER_EXTENSIONS.has(extname(n).toLowerCase()),
+    );
+    for (const name of sourceFiles) {
+      const previewPath = join(screenshotsDir, PREVIEW_DIR_NAME, name);
+      if (await fileExists(previewPath)) continue;
+      try {
+        await generatePreview(join(screenshotsDir, name));
+      } catch (err) {
+        console.warn(`[screenshotStorage] sweep: skipped ${projectSlug}/${name}:`, err);
+      }
+    }
+    // Orphan cleanup: any preview whose source is gone gets deleted.
+    let previews: string[];
+    try {
+      previews = await readdir(join(screenshotsDir, PREVIEW_DIR_NAME));
+    } catch {
+      continue; // .previews/ doesn't exist → nothing to clean
+    }
+    const sourceSet = new Set(sourceFiles);
+    for (const name of previews) {
+      if (sourceSet.has(name)) continue;
+      try {
+        await unlink(join(screenshotsDir, PREVIEW_DIR_NAME, name));
+      } catch (err) {
+        console.warn(`[screenshotStorage] sweep: orphan unlink failed ${projectSlug}/${name}:`, err);
+      }
+    }
+  }
 }
 
 export async function readScreenshotAsBuffer(
@@ -219,6 +324,67 @@ export function registerScreenshotRoutes(app: Express, options: ScreenshotStorag
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown error';
       res.status(400).json({ error: message });
+    }
+  });
+
+  // Preview route must come before the catch-all `:filename` route — Express
+  // matches in declaration order and the path includes a literal `.previews`
+  // segment that the generic route would not match anyway, but explicit
+  // ordering keeps the intent obvious.
+  app.get('/api/screenshots/:project/.previews/:filename', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const filename = typeof req.params.filename === 'string' ? req.params.filename : '';
+    try {
+      sanitizeProject(project);
+    } catch {
+      res.status(400).json({ error: 'invalid project' });
+      return;
+    }
+    const safeName = basename(filename);
+    if (safeName !== filename || safeName.includes('..')) {
+      res.status(400).json({ error: 'invalid filename' });
+      return;
+    }
+    const screenshotsDir = projectScreenshotsDir(options.projectsRoot, project);
+    const sourcePath = resolve(screenshotsDir, safeName);
+    const sep = process.platform === 'win32' ? '\\' : '/';
+    if (!sourcePath.startsWith(resolve(screenshotsDir) + sep)) {
+      res.status(400).json({ error: 'invalid path' });
+      return;
+    }
+    const previewPath = previewPathFor(sourcePath);
+    // Lazy heal: if the preview is missing but the source exists, regenerate
+    // on the fly. Keeps the route robust against manual deletes or a failed
+    // upload-time preview write.
+    if (!(await fileExists(previewPath))) {
+      if (!(await fileExists(sourcePath))) {
+        res.status(404).json({ error: 'screenshot not found' });
+        return;
+      }
+      try {
+        await generatePreview(sourcePath);
+      } catch (err) {
+        console.warn(`[screenshotStorage] on-demand preview failed ${project}/${safeName}:`, err);
+        // Fall back to serving the full-res file so the UI never breaks.
+        const fallback = await readScreenshotAsBuffer(options, project, safeName);
+        if (!fallback) {
+          res.status(404).json({ error: 'screenshot not found' });
+          return;
+        }
+        res.set('Content-Type', fallback.contentType);
+        res.set('Cache-Control', 'public, max-age=3600, immutable');
+        res.send(fallback.buffer);
+        return;
+      }
+    }
+    try {
+      const buffer = await readFile(previewPath);
+      const ext = extname(previewPath).toLowerCase();
+      res.set('Content-Type', CONTENT_TYPES[ext] ?? 'application/octet-stream');
+      res.set('Cache-Control', 'public, max-age=3600, immutable');
+      res.send(buffer);
+    } catch {
+      res.status(404).json({ error: 'preview not found' });
     }
   });
 

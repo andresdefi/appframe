@@ -354,6 +354,11 @@ export function ScreenCard({
         locale,
         localeConfig,
         deviceFamilies,
+        // previewMode = true: swap screenshot URLs to the .previews/ variant
+        // so Safari decodes ~5× smaller bitmaps per iframe. Export uses the
+        // same body builder with previewMode=false (its default) to keep
+        // full-res output.
+        true,
       );
 
       fetchPreviewHtml(body, controller.signal)

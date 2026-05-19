@@ -1,15 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import express, { type Express } from 'express';
 import request from 'supertest';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import {
   parseScreenshotUrl,
   readScreenshotAsBuffer,
   registerScreenshotRoutes,
   resolveScreenshotPath,
   resolveScreenshotUrlToDataUrl,
+  sweepPreviews,
   writeScreenshotFromDataUrl,
   type ScreenshotStorageOptions,
 } from './screenshotStorage.js';
@@ -22,6 +24,25 @@ const TINY_PNG_DATA_URL = `data:image/png;base64,${TINY_PNG_BASE64}`;
 async function makeRoot(): Promise<ScreenshotStorageOptions> {
   const dir = await mkdtemp(join(tmpdir(), 'appframe-screenshots-'));
   return { projectsRoot: dir };
+}
+
+/**
+ * Generate a known-dimension test PNG via sharp and return the base64
+ * data URL. Used to verify the preview-resize behavior (the 1×1
+ * TINY_PNG_DATA_URL is too small to meaningfully measure resize).
+ */
+async function makeTestPngDataUrl(width: number, height: number): Promise<string> {
+  const buf = await sharp({
+    create: {
+      width,
+      height,
+      channels: 4,
+      background: { r: 200, g: 50, b: 100, alpha: 1 },
+    },
+  })
+    .png()
+    .toBuffer();
+  return `data:image/png;base64,${buf.toString('base64')}`;
 }
 
 function buildApp(options: ScreenshotStorageOptions): Express {
@@ -326,5 +347,215 @@ describe('GET /api/screenshots/:project/:filename', () => {
     await writeFile(secret, 'tres secreto', 'utf-8');
     const res = await request(app).get('/api/screenshots/..%2F/secret.txt');
     expect(res.status).toBe(404);
+  });
+});
+
+describe('preview-resolution screenshots', () => {
+  let app: Express;
+  let options: ScreenshotStorageOptions;
+
+  beforeEach(async () => {
+    options = await makeRoot();
+    app = buildApp(options);
+  });
+
+  it('writeScreenshotFromDataUrl also writes a preview in .previews/', async () => {
+    const dataUrl = await makeTestPngDataUrl(1200, 1800);
+    const written = await writeScreenshotFromDataUrl(options, {
+      project: 'alpha',
+      filename: 'home.png',
+      dataUrl,
+    });
+    const previewPath = join(
+      options.projectsRoot,
+      'alpha',
+      'screenshots',
+      '.previews',
+      written.filename,
+    );
+    const previewBuf = await readFile(previewPath);
+    const meta = await sharp(previewBuf).metadata();
+    expect(meta.width).toBeLessThanOrEqual(900);
+    // Source was 1200×1800 → preview is 900-wide and proportionally tall.
+    expect(meta.width).toBe(900);
+    expect(meta.height).toBe(1350);
+  });
+
+  it('preview generation is skipped for SVG sources (vector — no decoded-bitmap pressure)', async () => {
+    const svgDataUrl =
+      'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"/>');
+    const written = await writeScreenshotFromDataUrl(options, {
+      project: 'alpha',
+      filename: 'logo.svg',
+      dataUrl: svgDataUrl,
+    });
+    const previewPath = join(
+      options.projectsRoot,
+      'alpha',
+      'screenshots',
+      '.previews',
+      written.filename,
+    );
+    await expect(stat(previewPath)).rejects.toThrow();
+  });
+
+  it('does not upscale small sources beyond their native width', async () => {
+    const dataUrl = await makeTestPngDataUrl(400, 600);
+    const written = await writeScreenshotFromDataUrl(options, {
+      project: 'alpha',
+      filename: 'tiny.png',
+      dataUrl,
+    });
+    const previewPath = join(
+      options.projectsRoot,
+      'alpha',
+      'screenshots',
+      '.previews',
+      written.filename,
+    );
+    const previewBuf = await readFile(previewPath);
+    const meta = await sharp(previewBuf).metadata();
+    expect(meta.width).toBe(400);
+    expect(meta.height).toBe(600);
+  });
+
+  describe('GET /api/screenshots/:project/.previews/:filename', () => {
+    it('serves the preview when it exists', async () => {
+      const dataUrl = await makeTestPngDataUrl(1500, 2000);
+      const written = await writeScreenshotFromDataUrl(options, {
+        project: 'alpha',
+        filename: 'home.png',
+        dataUrl,
+      });
+      const res = await request(app).get(
+        `/api/screenshots/alpha/.previews/${written.filename}`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('image/png');
+      const meta = await sharp(Buffer.from(res.body as Buffer)).metadata();
+      expect(meta.width).toBe(900);
+    });
+
+    it('lazily heals: regenerates the preview if missing but source exists', async () => {
+      const dataUrl = await makeTestPngDataUrl(1500, 2000);
+      const written = await writeScreenshotFromDataUrl(options, {
+        project: 'alpha',
+        filename: 'home.png',
+        dataUrl,
+      });
+      // Simulate a user deleting the preview file directly in Finder.
+      const previewPath = join(
+        options.projectsRoot,
+        'alpha',
+        'screenshots',
+        '.previews',
+        written.filename,
+      );
+      const { unlink } = await import('node:fs/promises');
+      await unlink(previewPath);
+      // First GET should regenerate.
+      const res = await request(app).get(
+        `/api/screenshots/alpha/.previews/${written.filename}`,
+      );
+      expect(res.status).toBe(200);
+      const regen = await readFile(previewPath);
+      const meta = await sharp(regen).metadata();
+      expect(meta.width).toBe(900);
+    });
+
+    it('returns 404 when the source screenshot is not in the project', async () => {
+      const res = await request(app).get('/api/screenshots/alpha/.previews/missing.png');
+      expect(res.status).toBe(404);
+    });
+
+    it('rejects path traversal in the preview filename', async () => {
+      const res = await request(app).get(
+        '/api/screenshots/alpha/.previews/..%2Fsecret.png',
+      );
+      expect([400, 404]).toContain(res.status);
+    });
+  });
+
+  describe('sweepPreviews', () => {
+    it('generates missing previews for existing source screenshots', async () => {
+      // Drop a source PNG straight into the project dir without using the
+      // upload path — simulates a project that pre-existed the preview
+      // feature (the migration case).
+      const project = 'alpha';
+      const screenshotsDir = join(options.projectsRoot, project, 'screenshots');
+      await mkdir(screenshotsDir, { recursive: true });
+      const buf = await sharp({
+        create: {
+          width: 1500,
+          height: 2000,
+          channels: 4,
+          background: { r: 0, g: 0, b: 0, alpha: 1 },
+        },
+      })
+        .png()
+        .toBuffer();
+      await writeFile(join(screenshotsDir, 'home.png'), buf);
+
+      await sweepPreviews(options);
+
+      const previewPath = join(screenshotsDir, '.previews', 'home.png');
+      const previewBuf = await readFile(previewPath);
+      const meta = await sharp(previewBuf).metadata();
+      expect(meta.width).toBe(900);
+    });
+
+    it('deletes orphan previews whose source no longer exists', async () => {
+      const project = 'alpha';
+      const screenshotsDir = join(options.projectsRoot, project, 'screenshots');
+      const previewsDir = join(screenshotsDir, '.previews');
+      await mkdir(previewsDir, { recursive: true });
+      // Plant an orphan preview (no matching source file).
+      await writeFile(join(previewsDir, 'orphan.png'), Buffer.from('not a real png'));
+
+      await sweepPreviews(options);
+
+      await expect(stat(join(previewsDir, 'orphan.png'))).rejects.toThrow();
+    });
+
+    it('is idempotent: a second sweep does not regenerate fresh previews', async () => {
+      const dataUrl = await makeTestPngDataUrl(1500, 2000);
+      const written = await writeScreenshotFromDataUrl(options, {
+        project: 'alpha',
+        filename: 'home.png',
+        dataUrl,
+      });
+      const previewPath = join(
+        options.projectsRoot,
+        'alpha',
+        'screenshots',
+        '.previews',
+        written.filename,
+      );
+      const firstStat = await stat(previewPath);
+      await new Promise((r) => setTimeout(r, 10)); // mtime resolution gap
+      await sweepPreviews(options);
+      const secondStat = await stat(previewPath);
+      expect(secondStat.mtimeMs).toBe(firstStat.mtimeMs);
+    });
+
+    it('does not throw when the projects root does not exist', async () => {
+      const bogus: ScreenshotStorageOptions = { projectsRoot: '/tmp/does-not-exist-appframe' };
+      await expect(sweepPreviews(bogus)).resolves.toBeUndefined();
+    });
+
+    it('skips project names that fail validation', async () => {
+      // Plant a directory whose name doesn't match the project-slug regex;
+      // sweep should ignore it rather than crash or sweep it.
+      const badName = join(options.projectsRoot, 'has spaces');
+      await mkdir(join(badName, 'screenshots'), { recursive: true });
+      const dataUrl = await makeTestPngDataUrl(1500, 2000);
+      const okProject = 'beta';
+      await writeScreenshotFromDataUrl(options, {
+        project: okProject,
+        filename: 'home.png',
+        dataUrl,
+      });
+      await expect(sweepPreviews(options)).resolves.toBeUndefined();
+    });
   });
 });

@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import type { LocaleConfig, ScreenState } from '../types';
-import { buildExportBody, buildPreviewBody } from './previewBody';
+import type { LocaleConfig, PanoramicBackground, PanoramicElement, ScreenState } from '../types';
+import {
+  buildExportBody,
+  buildPreviewBody,
+  rewritePanoramicBackgroundForPreview,
+  rewritePanoramicElementsForPreview,
+  toPreviewScreenshotUrl,
+} from './previewBody';
 
 function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
   return {
@@ -176,6 +182,144 @@ describe('preview/export payload builders', () => {
       locale: 'es',
       localeConfig,
     });
+  });
+
+  it('rewrites screenshot URLs to .previews/ when previewMode is true', () => {
+    const screen = createScreen({
+      screenshotDataUrl: '/api/screenshots/my-project/screen1.png',
+      backgroundType: 'image',
+      backgroundImageDataUrl: '/api/screenshots/my-project/bg.jpg',
+      extraDevices: [
+        {
+          dataUrl: '/api/screenshots/my-project/extra.png',
+          frameId: 'iphone-15',
+          offsetX: 100,
+          offsetY: 50,
+          scale: 0.8,
+          rotation: 0,
+          angle: 0,
+          tilt: 0,
+        },
+      ],
+    });
+
+    const preview = buildPreviewBody(screen, 'iphone', 400, 868, 'default', undefined, [], true);
+    const exportBody = buildExportBody(screen, {
+      previewW: 400,
+      previewH: 868,
+      locale: 'default',
+      sizeKey: 'ios-6.9',
+    });
+
+    expect(preview.screenshotDataUrl).toBe('/api/screenshots/my-project/.previews/screen1.png');
+    expect(preview.backgroundImageDataUrl).toBe('/api/screenshots/my-project/.previews/bg.jpg');
+    expect((preview.extraScreenshots as Array<Record<string, unknown>>)[0]?.screenshotDataUrl).toBe(
+      '/api/screenshots/my-project/.previews/extra.png',
+    );
+
+    // Export pipeline (previewMode defaults to false) keeps full-res URLs.
+    expect(exportBody.screenshotDataUrl).toBe('/api/screenshots/my-project/screen1.png');
+    expect(exportBody.backgroundImageDataUrl).toBe('/api/screenshots/my-project/bg.jpg');
+  });
+
+  it('leaves data URLs and unmatched strings alone in previewMode', () => {
+    expect(toPreviewScreenshotUrl('data:image/png;base64,AAA')).toBe('data:image/png;base64,AAA');
+    expect(toPreviewScreenshotUrl('https://example.com/x.png')).toBe('https://example.com/x.png');
+    expect(toPreviewScreenshotUrl('')).toBeUndefined();
+    expect(toPreviewScreenshotUrl(null)).toBeUndefined();
+    expect(toPreviewScreenshotUrl(undefined)).toBeUndefined();
+  });
+
+  it('rewrites panoramic device + crop + image + logo screenshots, recursing into groups', () => {
+    const elements: PanoramicElement[] = [
+      {
+        type: 'device',
+        x: 10, y: 10, width: 20, height: 30, rotation: 0, opacity: 1, z: 1,
+        screenshot: '/api/screenshots/my-project/d1.png',
+        frame: 'iphone-15',
+      },
+      {
+        type: 'crop',
+        x: 30, y: 10, width: 20, height: 20, rotation: 0, z: 2,
+        screenshot: '/api/screenshots/my-project/c1.png',
+        focusX: 50, focusY: 50, zoom: 1, borderRadius: 0,
+      },
+      {
+        type: 'image',
+        x: 0, y: 0, width: 10, height: 10, rotation: 0, opacity: 1, z: 3,
+        src: '/api/screenshots/my-project/img1.png',
+        fit: 'cover', borderRadius: 0,
+      },
+      {
+        type: 'logo',
+        x: 0, y: 0, width: 10, height: 10, rotation: 0, opacity: 1, z: 4,
+        src: '/api/screenshots/my-project/logo.png',
+        fit: 'contain', borderRadius: 0, padding: 0,
+      },
+      {
+        type: 'group',
+        x: 0, y: 50, width: 30, height: 30, rotation: 0, opacity: 1, z: 5,
+        children: [
+          {
+            type: 'device',
+            x: 0, y: 0, width: 100, height: 100, rotation: 0, opacity: 1, z: 1,
+            screenshot: '/api/screenshots/my-project/d2.png',
+            frame: 'iphone-15',
+          },
+        ],
+      },
+    ];
+
+    const out = rewritePanoramicElementsForPreview(elements);
+    expect((out[0] as { screenshot: string }).screenshot).toBe(
+      '/api/screenshots/my-project/.previews/d1.png',
+    );
+    expect((out[1] as { screenshot: string }).screenshot).toBe(
+      '/api/screenshots/my-project/.previews/c1.png',
+    );
+    expect((out[2] as { src: string }).src).toBe('/api/screenshots/my-project/.previews/img1.png');
+    expect((out[3] as { src: string }).src).toBe('/api/screenshots/my-project/.previews/logo.png');
+    const groupChildren = (out[4] as { children: PanoramicElement[] }).children;
+    expect((groupChildren[0] as { screenshot: string }).screenshot).toBe(
+      '/api/screenshots/my-project/.previews/d2.png',
+    );
+  });
+
+  it('panoramic rewriter preserves reference equality when nothing changes', () => {
+    const elements: PanoramicElement[] = [
+      {
+        type: 'text',
+        x: 0, y: 0, width: 0, height: 0, rotation: 0, opacity: 1, z: 0,
+        content: 'hello', color: '#fff', fontSize: 5, fontWeight: 400,
+        textAlign: 'center', lineHeight: 1.2, fontStyle: 'normal',
+      },
+      {
+        type: 'device',
+        x: 10, y: 10, width: 20, height: 30, rotation: 0, opacity: 1, z: 1,
+        screenshot: 'data:image/png;base64,XYZ',
+        frame: 'iphone-15',
+      },
+    ];
+    const out = rewritePanoramicElementsForPreview(elements);
+    expect(out[0]).toBe(elements[0]);
+    expect(out[1]).toBe(elements[1]);
+  });
+
+  it('rewrites image-layer URLs in panoramic background, leaves other layer kinds alone', () => {
+    const bg: PanoramicBackground = {
+      layers: [
+        { kind: 'solid', color: '#000000', opacity: 1 },
+        { kind: 'image', src: '/api/screenshots/my-project/bg.jpg', fit: 'cover', opacity: 1 },
+        { kind: 'glow', color: '#ff00ff', x: 50, y: 50, radius: 30, intensity: 0.7 },
+      ],
+    } as PanoramicBackground;
+
+    const out = rewritePanoramicBackgroundForPreview(bg);
+    expect(out.layers?.[0]).toBe(bg.layers?.[0]);
+    expect((out.layers?.[1] as { src: string }).src).toBe(
+      '/api/screenshots/my-project/.previews/bg.jpg',
+    );
+    expect(out.layers?.[2]).toBe(bg.layers?.[2]);
   });
 
   it('omits default locale and preset-only background override in both payloads', () => {

@@ -7,6 +7,7 @@ import type { AppframeConfig } from '@appframe/core';
 import {
   getDefaultProjectsRoot,
   registerScreenshotRoutes,
+  sweepPreviews,
   type ScreenshotStorageOptions,
 } from './screenshotStorage.js';
 import { registerProjectRoutes, type ProjectStorageOptions } from './projectStorage.js';
@@ -156,6 +157,14 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     screenshotStorage,
     projectStorage,
   };
+
+  // Generate any missing preview-resolution screenshots and clean up
+  // orphans. Runs once per boot, non-blocking — the listen call below
+  // doesn't wait. First request to a missing preview heals itself on
+  // demand via the lazy fallback in the GET route.
+  void sweepPreviews(screenshotStorage).catch((err) => {
+    console.warn('[appframe] sweepPreviews failed:', err);
+  });
 
   registerScreenshotRoutes(app, screenshotStorage);
   registerProjectRoutes(app, projectStorage);

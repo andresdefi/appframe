@@ -27,6 +27,19 @@ export interface ZipEntry {
  * `output/`, once multi-locale ships it becomes `output/<locale>/`
  * and no other code in this module needs to change.
  */
+// PNG and JPEG bytes are already DEFLATE/Huffman-compressed internally —
+// re-deflating them costs CPU for ~0% size benefit. Store them raw and
+// reserve DEFLATE for anything else (text manifests, JSON, etc.).
+function isAlreadyCompressed(relPath: string): boolean {
+  const lower = relPath.toLowerCase();
+  return (
+    lower.endsWith('.png') ||
+    lower.endsWith('.jpg') ||
+    lower.endsWith('.jpeg') ||
+    lower.endsWith('.webp')
+  );
+}
+
 export async function bundleAsZip(entries: ZipEntry[]): Promise<Blob> {
   const { default: JSZip } = await import('jszip');
   const zip: JSZipType = new JSZip();
@@ -36,13 +49,14 @@ export async function bundleAsZip(entries: ZipEntry[]): Promise<Blob> {
   // identically in both.
   for (const entry of entries) {
     const buf = await entry.blob.arrayBuffer();
-    zip.file(entry.relPath, buf);
+    zip.file(entry.relPath, buf, {
+      compression: isAlreadyCompressed(entry.relPath) ? 'STORE' : 'DEFLATE',
+    });
   }
   return zip.generateAsync({
     type: 'blob',
-    // DEFLATE with level 6 — same default as macOS's built-in zipper.
-    // PNG bytes are already compressed; level 9 buys ~0% over 6 but
-    // doubles CPU.
+    // Fallback compression for entries that didn't override it above.
+    // Level 6 matches macOS's default zipper.
     compression: 'DEFLATE',
     compressionOptions: { level: 6 },
   });

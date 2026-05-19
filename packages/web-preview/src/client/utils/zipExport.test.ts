@@ -74,6 +74,26 @@ describe('bundleAsZip', () => {
     expect(out).toEqual(PNG_BYTES);
   });
 
+  it('stores PNG / JPEG entries uncompressed (STORE), DEFLATEs everything else', async () => {
+    const entries: ZipEntry[] = [
+      { relPath: 'screen-1.png', blob: pngBlob() },
+      { relPath: 'photo.jpg', blob: pngBlob() },
+      { relPath: 'icon.webp', blob: pngBlob() },
+      { relPath: 'manifest.json', blob: new Blob([new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0])]) },
+    ];
+    const zip = await readZip(await bundleAsZip(entries));
+    // JSZip exposes the per-entry compression method on the file object.
+    type EntryWithCompression = { _data: { compression: { magic: string } } };
+    const png = zip.file('screen-1.png') as unknown as EntryWithCompression;
+    const jpg = zip.file('photo.jpg') as unknown as EntryWithCompression;
+    const webp = zip.file('icon.webp') as unknown as EntryWithCompression;
+    const json = zip.file('manifest.json') as unknown as EntryWithCompression;
+    expect(png._data.compression.magic).toBe('\x00\x00');     // STORE
+    expect(jpg._data.compression.magic).toBe('\x00\x00');
+    expect(webp._data.compression.magic).toBe('\x00\x00');
+    expect(json._data.compression.magic).toBe('\x08\x00');    // DEFLATE
+  });
+
   it('handles an empty entry list (produces a valid empty ZIP)', async () => {
     const out = await bundleAsZip([]);
     const zip = await readZip(out);

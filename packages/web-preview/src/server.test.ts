@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
+import cors from 'cors';
 import request from 'supertest';
 import type { Express } from 'express';
+import { buildAllowedOrigins, isOriginAllowed } from './server.js';
 
 vi.mock('@appframe/core', () => ({
   loadConfig: vi.fn().mockResolvedValue({
@@ -170,6 +172,62 @@ describe('PUT /api/config', () => {
       .set('Content-Type', 'application/json')
       .send('"not an object"');
     expect(res.status).toBe(400);
+  });
+});
+
+describe('origin guard', () => {
+  it('allows same-origin / no-Origin requests', () => {
+    const allowed = buildAllowedOrigins(4400);
+    expect(isOriginAllowed(undefined, allowed)).toBe(true);
+    expect(isOriginAllowed('http://localhost:4400', allowed)).toBe(true);
+    expect(isOriginAllowed('http://127.0.0.1:4400', allowed)).toBe(true);
+  });
+
+  it('rejects cross-origin requests', () => {
+    const allowed = buildAllowedOrigins(4400);
+    expect(isOriginAllowed('https://evil.example', allowed)).toBe(false);
+    expect(isOriginAllowed('http://localhost:4401', allowed)).toBe(false);
+    expect(isOriginAllowed('http://192.168.1.5:4400', allowed)).toBe(false);
+  });
+
+  // Wire the real middleware into a throwaway Express app so we exercise the
+  // exact behaviour the preview server installs.
+  function buildGuardedApp(port: number): Express {
+    const allowed = buildAllowedOrigins(port);
+    const guarded = express();
+    guarded.use((req, res, next) => {
+      if (isOriginAllowed(req.headers.origin, allowed)) {
+        next();
+        return;
+      }
+      res.status(403).json({ error: 'origin not allowed' });
+    });
+    guarded.use(
+      cors({
+        origin: (origin, callback) => callback(null, isOriginAllowed(origin, allowed)),
+      }),
+    );
+    guarded.put('/api/config', (_req, res) => { res.json({ success: true }); });
+    return guarded;
+  }
+
+  it('responds 403 to PUT /api/config with a foreign Origin', async () => {
+    const guarded = buildGuardedApp(4400);
+    const res = await request(guarded)
+      .put('/api/config')
+      .set('Origin', 'https://evil.example')
+      .send({});
+    expect(res.status).toBe(403);
+  });
+
+  it('still serves PUT /api/config with the preview Origin', async () => {
+    const guarded = buildGuardedApp(4400);
+    const res = await request(guarded)
+      .put('/api/config')
+      .set('Origin', 'http://localhost:4400')
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
   });
 });
 

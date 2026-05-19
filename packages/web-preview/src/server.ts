@@ -24,6 +24,23 @@ export interface PreviewServerOptions {
   configPath?: string;
   port?: number;
   projectsRoot?: string;
+  // Interface to bind on. Defaults to '127.0.0.1' — anything else opens the
+  // preview to other machines on the LAN, which is unsafe because the API
+  // can mutate / delete projects. Pass '0.0.0.0' (or a specific IP) only when
+  // you really want remote access.
+  host?: string;
+}
+
+// Origins allowed to call the API. Browsers attach the page's origin to
+// every request; we accept only the preview UI itself, plus same-origin /
+// non-browser clients (curl, electron, etc.) that omit Origin entirely.
+export function buildAllowedOrigins(port: number): Set<string> {
+  return new Set([`http://localhost:${port}`, `http://127.0.0.1:${port}`]);
+}
+
+export function isOriginAllowed(origin: string | undefined, allowed: Set<string>): boolean {
+  if (!origin) return true;
+  return allowed.has(origin);
 }
 
 function createDefaultConfig(): AppframeConfig {
@@ -97,7 +114,7 @@ function createDefaultConfig(): AppframeConfig {
 }
 
 export async function startPreviewServer(options: PreviewServerOptions): Promise<void> {
-  const { configPath, port = 4400 } = options;
+  const { configPath, port = 4400, host = '127.0.0.1' } = options;
   const screenshotStorage: ScreenshotStorageOptions = {
     projectsRoot: options.projectsRoot ?? getDefaultProjectsRoot(),
   };
@@ -116,7 +133,21 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     : createDefaultConfig();
 
   const app = express();
-  app.use(cors());
+  const allowedOrigins = buildAllowedOrigins(port);
+  // Reject any cross-origin request outright (403). This is a single-user
+  // local dev server; no third-party page has a legitimate reason to hit it.
+  app.use((req, res, next) => {
+    if (isOriginAllowed(req.headers.origin, allowedOrigins)) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: 'origin not allowed' });
+  });
+  app.use(
+    cors({
+      origin: (origin, callback) => callback(null, isOriginAllowed(origin, allowedOrigins)),
+    }),
+  );
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
@@ -197,8 +228,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     });
   });
 
-  app.listen(port, () => {
+  app.listen(port, host, () => {
     console.log(`appframe preview running at http://localhost:${port}`);
     console.log(`live config for agents: http://localhost:${port}/api/config`);
+    if (host !== '127.0.0.1' && host !== 'localhost') {
+      console.log(`bound to ${host}:${port} — reachable from other machines on the network`);
+    }
   });
 }

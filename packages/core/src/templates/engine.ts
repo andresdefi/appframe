@@ -17,6 +17,7 @@ import type {
 } from '../config/schema.js';
 import type { FrameDefinition } from '../frames/types.js';
 import { loadFontFaces, loadFontFacesUrl, getFontName } from '../fonts/loader.js';
+import { sanitizeRichHtml } from '../sanitize/richHtml.js';
 
 interface TypographyDefaults {
   fontWeight: number;
@@ -434,6 +435,12 @@ export class TemplateEngine {
       autoescape: true,
       noCache: true,
     });
+    // Custom filter that runs the rich-text allowlist sanitizer before
+    // the templates emit user-controlled HTML. Templates use it as
+    // `{{ headline | sanitizeRichHtml | safe }}` — sanitize strips
+    // anything outside the TipTap allowlist, then `| safe` opts back
+    // out of autoescape so the kept tags actually render.
+    this.env.addFilter('sanitizeRichHtml', (value: unknown) => sanitizeRichHtml(value));
   }
 
   /**

@@ -75,6 +75,8 @@ export type { FontInfo } from './fonts/index.js';
 export { STORE_SIZES, getTargetSizes } from './renderer/sizes.js';
 export type { ScreenshotSize } from './renderer/types.js';
 
+export { sanitizeRichHtml } from './sanitize/richHtml.js';
+
 export { COMPOSITION_PRESETS } from './composer/presets.js';
 export type { CompositionDefinition, DeviceSlotPreset } from './composer/presets.js';
 

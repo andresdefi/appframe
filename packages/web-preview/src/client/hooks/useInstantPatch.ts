@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { sanitizeRichHtml } from '@appframe/core/sanitize';
 import { getIframe } from '../utils/iframeRegistry';
 import { usePreviewStore } from '../store';
 
@@ -234,7 +235,7 @@ export function useInstantPatch() {
           applyRotation(subtitle, partial.subtitleRotation);
         }
         if (partial.subtitleHtml !== undefined) {
-          subtitle.innerHTML = partial.subtitleHtml;
+          subtitle.innerHTML = sanitizeRichHtml(partial.subtitleHtml);
         }
         if (partial.subtitleColor !== undefined) {
           subtitle.style.color = partial.subtitleColor;
@@ -250,7 +251,7 @@ export function useInstantPatch() {
           applyRotation(freeText, partial.freeTextRotation);
         }
         if (partial.freeTextHtml !== undefined) {
-          freeText.innerHTML = partial.freeTextHtml;
+          freeText.innerHTML = sanitizeRichHtml(partial.freeTextHtml);
         }
         if (partial.freeTextColor !== undefined) {
           freeText.style.color = partial.freeTextColor;

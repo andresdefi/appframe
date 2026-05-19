@@ -13,6 +13,10 @@
     "./locales": {
       "types": "./dist/locales/catalog.d.ts",
       "import": "./dist/locales/catalog.js"
+    },
+    "./sanitize": {
+      "types": "./dist/sanitize/richHtml.d.ts",
+      "import": "./dist/sanitize/richHtml.js"
     }
   },
   "scripts": {

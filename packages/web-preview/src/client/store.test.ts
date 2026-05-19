@@ -171,3 +171,100 @@ describe('variant thumbnails', () => {
     expect(sameA?.thumbnail).toBe('data:image/png;base64,KEEP');
   });
 });
+
+describe('undo/redo', () => {
+  // Regression: HistoryEntry used to skip localeScreens, so updateScreen
+  // on a non-default locale would push a snapshot that didn't carry the
+  // locale's data — undo would leave the locale edited and the default
+  // unchanged.
+  function makeScreen(headline: string): ScreenStateForTest {
+    return {
+      id: `scr-${headline}`,
+      screenIndex: 0,
+      headline,
+      subtitle: '',
+      isFullscreen: false,
+      layout: 'center',
+      font: 'inter',
+      fontWeight: 400,
+      headlineFont: 'inter',
+      headlineFontWeight: 600,
+      subtitleFont: 'inter',
+      subtitleFontWeight: 400,
+      headlineSize: 0,
+      subtitleSize: 0,
+      headlineRotation: 0,
+      subtitleRotation: 0,
+      freeText: '',
+      freeTextEnabled: false,
+      freeTextSize: 0,
+      freeTextFont: 'inter',
+      freeTextFontWeight: 400,
+      freeTextRotation: 0,
+      freeTextLetterSpacing: 0,
+      freeTextTextTransform: '',
+      colors: {
+        primary: '#000', secondary: '#000', background: '#fff',
+        text: '#000', subtitle: '#666', freeText: '#666',
+      },
+      frameId: '', deviceColor: '', frameStyle: 'flat', composition: 'single',
+      deviceScale: 92, deviceTop: 20, deviceRotation: 0, deviceOffsetX: 0,
+      deviceAngle: 8, deviceTilt: 0,
+      headlineGradient: null, subtitleGradient: null,
+      headlineLineHeight: 0, headlineLetterSpacing: 0,
+      headlineTextTransform: '', headlineFontStyle: '',
+      subtitleOpacity: 0, subtitleLetterSpacing: 0, subtitleTextTransform: '',
+      spotlight: null, annotations: [],
+      textPositions: { headline: null, subtitle: null, freeText: null },
+      screenshotUrl: null, screenshotName: null, screenshotDims: null,
+      backgroundType: 'solid', backgroundColor: '#fff',
+      backgroundGradient: { type: 'linear', colors: ['#6366f1', '#ec4899'], direction: 135, radialPosition: 'center' },
+      backgroundImageDataUrl: null, backgroundImageFit: 'cover',
+      backgroundImagePositionX: 50, backgroundImagePositionY: 50, backgroundImageScale: 100,
+      backgroundOverlay: null, deviceShadow: null, borderSimulation: null,
+      cornerRadius: 0, loupe: null, callouts: [], overlays: [], extraDevices: [],
+    };
+  }
+
+  it('undo restores locale-scoped edits, not just default screens', () => {
+    const defaultScreen = makeScreen('default-original');
+    const localeScreen = makeScreen('es-original');
+    usePreviewStore.setState({
+      screens: [defaultScreen],
+      localeScreens: { 'es-ES': [localeScreen] },
+      sessionLocales: { 'es-ES': { label: 'Spanish' } },
+      locale: 'es-ES',
+    });
+
+    // Edit the Spanish row's screen.
+    usePreviewStore.getState().updateScreen(0, { headline: 'es-edited' });
+    expect(usePreviewStore.getState().localeScreens['es-ES']?.[0]?.headline).toBe('es-edited');
+
+    // Undo must restore es-ES's screen to its original headline.
+    usePreviewStore.getState().undo();
+    expect(usePreviewStore.getState().localeScreens['es-ES']?.[0]?.headline).toBe('es-original');
+  });
+
+  it('setActiveProject clears the undo stack so undo cannot leak across projects', () => {
+    const screen = makeScreen('headline');
+    usePreviewStore.setState({
+      screens: [screen],
+      localeScreens: {},
+      sessionLocales: {},
+      locale: 'default',
+    });
+
+    // Build up an undo entry.
+    usePreviewStore.getState().updateScreen(0, { headline: 'edited' });
+    // The action pushed one snapshot — verify undo would otherwise restore.
+    usePreviewStore.getState().setActiveProject('other-project');
+    usePreviewStore.getState().undo();
+    expect(usePreviewStore.getState().screens[0]?.headline).toBe('edited');
+  });
+});
+
+// Local alias so we don't have to inline the full ScreenState shape on
+// every fixture above.
+type ScreenStateForTest = Parameters<ReturnType<typeof usePreviewStore.getState>['updateScreen']>[1] extends Partial<infer S>
+  ? S
+  : never;

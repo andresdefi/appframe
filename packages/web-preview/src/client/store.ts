@@ -319,12 +319,18 @@ export interface PreviewStore {
   redo: () => void;
 }
 
-// Simple undo/redo history for screen and panoramic state
+// Simple undo/redo history for screen and panoramic state. Includes
+// per-locale snapshots so an undo from a non-default locale edit
+// actually restores the locale's previous state — without these the
+// localeScreens / localePanoramicElements mutations leaked through
+// every undo.
 interface HistoryEntry {
   screens: ScreenState[];
   panoramicElements: PanoramicElement[];
   panoramicBackground: PanoramicBackground;
   panoramicEffects: PanoramicEffects;
+  localeScreens: Record<string, ScreenState[]>;
+  localePanoramicElements: Record<string, PanoramicElement[]>;
   selectedScreen: number;
   selectedElementIndex: number | null;
 }
@@ -337,6 +343,15 @@ const MAX_HISTORY = 25;
 const _undoStack: HistoryEntry[] = [];
 let _redoStack: HistoryEntry[] = [];
 let _skipSnapshot = false;
+
+// Called from any action that changes the project / variant / mode
+// context. Without this, undo could pull state from a different
+// variant or even a different project, since the stacks live at
+// module scope.
+function resetHistory(): void {
+  _undoStack.length = 0;
+  _redoStack = [];
+}
 
 // What a brand-new project looks like client-side. Mirrors the server's
 // createDefaultConfig (server.ts) but trimmed to 3 placeholder screens
@@ -402,6 +417,8 @@ function pushSnapshot(state: {
   panoramicElements: PanoramicElement[];
   panoramicBackground: PanoramicBackground;
   panoramicEffects: PanoramicEffects;
+  localeScreens: Record<string, ScreenState[]>;
+  localePanoramicElements: Record<string, PanoramicElement[]>;
   selectedScreen: number;
   selectedElementIndex: number | null;
 }) {
@@ -411,6 +428,8 @@ function pushSnapshot(state: {
     panoramicElements: deepCopy(state.panoramicElements),
     panoramicBackground: deepCopy(state.panoramicBackground),
     panoramicEffects: deepCopy(state.panoramicEffects),
+    localeScreens: deepCopy(state.localeScreens),
+    localePanoramicElements: deepCopy(state.localePanoramicElements),
     selectedScreen: state.selectedScreen,
     selectedElementIndex: state.selectedElementIndex,
   });
@@ -483,8 +502,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     }
     set({ activeTab: tab });
   },
-  setActiveProject: (project, displayName) =>
-    set({ activeProject: project, activeProjectDisplayName: displayName ?? project }),
+  setActiveProject: (project, displayName) => {
+    resetHistory();
+    set({ activeProject: project, activeProjectDisplayName: displayName ?? project });
+  },
   setLocale: (locale) => set({ locale }),
   setCanvasCompareAll: (value) => {
     if (typeof window !== 'undefined') {
@@ -603,7 +624,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         locale: shouldResetActive ? 'default' : state.locale,
       };
     }),
-  createVariant: (name) =>
+  createVariant: (name) => {
+    resetHistory();
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
       // Blank variant: a single fresh screen, no carryover from the
@@ -637,8 +659,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         activeVariantId: variant.id,
         ...applyVariantSnapshot(variant.snapshot),
       };
-    }),
-  duplicateActiveVariant: () =>
+    });
+  },
+  duplicateActiveVariant: () => {
+    resetHistory();
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
       const activeVariant = variants.find((variant) => variant.id === state.activeVariantId);
@@ -666,8 +690,10 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         activeVariantId: variant.id,
         ...applyVariantSnapshot(variant.snapshot),
       };
-    }),
-  createVariantSet: () =>
+    });
+  },
+  createVariantSet: () => {
+    resetHistory();
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
       const baseState = variantSnapshotFromState(state);
@@ -724,10 +750,12 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         activeVariantId: conceptA.id,
         ...applyVariantSnapshot(conceptA.snapshot),
       };
-    }),
-  selectVariant: (id) =>
+    });
+  },
+  selectVariant: (id) => {
     set((state) => {
       if (id === state.activeVariantId) return state;
+      resetHistory();
       const outgoingId = state.activeVariantId;
       const outgoingPrev = outgoingId
         ? state.variants.find((variant) => variant.id === outgoingId)
@@ -761,7 +789,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         activeVariantId: id,
         ...applyVariantSnapshot(nextVariant.snapshot),
       };
-    }),
+    });
+  },
   approveVariant: (id) =>
     set((state) => {
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state);
@@ -797,6 +826,9 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       if (id !== state.activeVariantId) {
         return { variants: state.variants.filter((variant) => variant.id !== id) };
       }
+      // Deleting the active variant switches into a sibling — reset
+      // history so undos don't pull state from the removed one.
+      resetHistory();
 
       const variants = syncActiveVariantRecord(state.variants, state.activeVariantId, state).filter(
         (variant) => variant.id !== id,
@@ -927,6 +959,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   triggerRender: () => set((state) => ({ renderVersion: state.renderVersion + 1 })),
 
   initScreens: (config, platform) => {
+    resetHistory();
     const isPanoramic = config.mode === 'panoramic';
     const currentState = get();
     const currentLocale = currentState.locale;
@@ -991,6 +1024,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   },
 
   hydrateProjectSnapshot: (snapshot) => {
+    resetHistory();
     const state = get();
     // Brand-new projects are persisted as literal `{}` on the server
     // (see projectStorage.ts:createProject). Treat empty/incomplete
@@ -1106,7 +1140,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     }),
 
   // Panoramic actions
-  togglePanoramic: () =>
+  togglePanoramic: () => {
+    resetHistory();
     set((state) => {
       // Swap active locale with the other mode's stash so each mode
       // restores its last-selected locale when re-entered.
@@ -1218,7 +1253,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
         };
       }
       return updates;
-    }),
+    });
+  },
 
   setSelectedElement: (index) => set({ selectedElementIndex: index }),
 
@@ -1343,6 +1379,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       panoramicElements: deepCopy(state.panoramicElements),
       panoramicBackground: deepCopy(state.panoramicBackground),
       panoramicEffects: deepCopy(state.panoramicEffects),
+      localeScreens: deepCopy(state.localeScreens),
+      localePanoramicElements: deepCopy(state.localePanoramicElements),
       selectedScreen: state.selectedScreen,
       selectedElementIndex: state.selectedElementIndex,
     });
@@ -1353,6 +1391,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       panoramicElements: deepCopy(entry.panoramicElements),
       panoramicBackground: deepCopy(entry.panoramicBackground),
       panoramicEffects: deepCopy(entry.panoramicEffects),
+      localeScreens: deepCopy(entry.localeScreens),
+      localePanoramicElements: deepCopy(entry.localePanoramicElements),
       selectedScreen: entry.selectedScreen,
       selectedElementIndex: entry.selectedElementIndex,
     });
@@ -1367,6 +1407,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       panoramicElements: deepCopy(state.panoramicElements),
       panoramicBackground: deepCopy(state.panoramicBackground),
       panoramicEffects: deepCopy(state.panoramicEffects),
+      localeScreens: deepCopy(state.localeScreens),
+      localePanoramicElements: deepCopy(state.localePanoramicElements),
       selectedScreen: state.selectedScreen,
       selectedElementIndex: state.selectedElementIndex,
     });
@@ -1377,6 +1419,8 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       panoramicElements: deepCopy(entry.panoramicElements),
       panoramicBackground: deepCopy(entry.panoramicBackground),
       panoramicEffects: deepCopy(entry.panoramicEffects),
+      localeScreens: deepCopy(entry.localeScreens),
+      localePanoramicElements: deepCopy(entry.localePanoramicElements),
       selectedScreen: entry.selectedScreen,
       selectedElementIndex: entry.selectedElementIndex,
     });

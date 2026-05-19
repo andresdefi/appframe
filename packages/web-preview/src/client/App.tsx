@@ -8,7 +8,6 @@ import { HeaderBar } from './components/HeaderBar';
 // Eager imports: tabs that the user sees first and most often.
 import { DesignTab } from './components/Sidebar/DesignTab';
 import { DeviceTab } from './components/Sidebar/DeviceTab';
-import { TextTab } from './components/Sidebar/TextTab';
 import { EffectsTab } from './components/Sidebar/EffectsTab';
 import { ExportTab } from './components/Sidebar/ExportTab';
 import { PreviewArea } from './components/Preview/PreviewArea';
@@ -25,6 +24,14 @@ const LocalesTab = lazy(() =>
 );
 const VariantsTab = lazy(() =>
   import('./components/Sidebar/VariantsTab').then((m) => ({ default: m.VariantsTab })),
+);
+// TextTab pulls Tiptap + ProseMirror (~150 KB minified), the heaviest
+// editor-only dependency in the tree. Lazy-loading it keeps that out
+// of the initial chunk; the user pays a small fetch on the first
+// Text-tab open, instant on every subsequent open thanks to the
+// browser cache.
+const TextTab = lazy(() =>
+  import('./components/Sidebar/TextTab').then((m) => ({ default: m.TextTab })),
 );
 const ProjectPicker = lazy(() =>
   import('./components/ProjectPicker').then((m) => ({ default: m.ProjectPicker })),

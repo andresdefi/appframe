@@ -322,6 +322,25 @@ export function nextVariantName(variants: VariantRecord[], prefix = 'Variant'): 
   return candidate;
 }
 
+/**
+ * Pick a non-colliding branch name for a duplicated variant.
+ * Strips any trailing ` Branch` / ` Branch N` from the active name to
+ * find the base, then walks `Branch`, `Branch 2`, `Branch 3`, … until
+ * one's free. Prevents "Variant 2 Branch Branch Branch" pile-ups when
+ * the user duplicates an already-duplicated variant.
+ */
+export function nextBranchName(activeName: string, variants: VariantRecord[]): string {
+  const base = activeName.replace(/ Branch(?: \d+)?$/, '');
+  const taken = new Set(variants.map((variant) => variant.name));
+  const first = `${base} Branch`;
+  if (!taken.has(first)) return first;
+  for (let i = 2; i < 1000; i++) {
+    const candidate = `${base} Branch ${i}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${base} Branch ${Date.now()}`;
+}
+
 // Re-export the clone helpers so callers don't need to know they live
 // in utils/. Keeps the import surface coherent.
 export { deepCopy, isRecord };

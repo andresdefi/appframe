@@ -34,6 +34,7 @@ import {
   buildVariantRecord,
   cloneVariantRecord,
   nextVariantName,
+  nextBranchName,
   makeHistoryEntry,
   makeId,
 } from './storeSnapshots';
@@ -669,7 +670,13 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       const baseSnapshot = variantSnapshotFromState(state);
       const variant = activeVariant
         ? cloneVariantRecord(activeVariant, baseSnapshot, {
-            name: `${activeVariant.name} Branch`,
+            // Don't compound ` Branch` on every duplication. Strip an
+            // existing branch suffix off the active name to find the
+            // base, then pick the next free `Branch N` slot. So
+            // "Variant 2" -> "Variant 2 Branch", and a re-duplicate of
+            // that becomes "Variant 2 Branch 2" instead of
+            // "Variant 2 Branch Branch".
+            name: nextBranchName(activeVariant.name, variants),
             provenance: {
               origin: 'duplicate',
               parentVariantId: activeVariant.id,

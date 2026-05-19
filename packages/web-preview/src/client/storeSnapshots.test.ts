@@ -5,6 +5,7 @@ import {
   coerceVariantSnapshot,
   buildVariantRecord,
   nextVariantName,
+  nextBranchName,
   makeHistoryEntry,
   makeId,
 } from './storeSnapshots';
@@ -289,5 +290,48 @@ describe('nextVariantName', () => {
 
   it('honors custom prefix', () => {
     expect(nextVariantName([], 'Concept')).toBe('Concept 1');
+  });
+});
+
+describe('nextBranchName', () => {
+  // Regression: duplicating an already-duplicated variant used to
+  // compound the suffix ("Variant 2 Branch Branch Branch ..."). Each
+  // duplicate now strips any existing branch suffix from the active
+  // name to find the base, then picks the next free Branch slot.
+  it('appends " Branch" to a never-duplicated name', () => {
+    expect(nextBranchName('Variant 2', [{ name: 'Variant 2' }] as never)).toBe('Variant 2 Branch');
+  });
+
+  it('does not compound suffixes when the active name already ends in " Branch"', () => {
+    const variants = [
+      { name: 'Variant 2' },
+      { name: 'Variant 2 Branch' },
+    ] as Parameters<typeof nextBranchName>[1];
+    expect(nextBranchName('Variant 2 Branch', variants)).toBe('Variant 2 Branch 2');
+  });
+
+  it('walks past taken Branch N slots', () => {
+    const variants = [
+      { name: 'Variant 2' },
+      { name: 'Variant 2 Branch' },
+      { name: 'Variant 2 Branch 2' },
+      { name: 'Variant 2 Branch 3' },
+    ] as Parameters<typeof nextBranchName>[1];
+    expect(nextBranchName('Variant 2 Branch 2', variants)).toBe('Variant 2 Branch 4');
+  });
+
+  it('strips the numeric branch suffix when finding the base', () => {
+    const variants = [
+      { name: 'Variant 2' },
+      { name: 'Variant 2 Branch' },
+      { name: 'Variant 2 Branch 2' },
+    ] as Parameters<typeof nextBranchName>[1];
+    // Active is "Variant 2 Branch 2", base is "Variant 2",
+    // first free is "Variant 2 Branch 3".
+    expect(nextBranchName('Variant 2 Branch 2', variants)).toBe('Variant 2 Branch 3');
+  });
+
+  it('handles custom-named bases without picking up false suffixes', () => {
+    expect(nextBranchName('Concept A', [{ name: 'Concept A' }] as never)).toBe('Concept A Branch');
   });
 });

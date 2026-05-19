@@ -23,6 +23,15 @@ import {
   rewritePanoramicBackgroundForPreview,
   rewritePanoramicElementsForPreview,
 } from './previewBody';
+import { withTimeout } from './withTimeout';
+
+// One hung capture (fonts.ready that never settles, a domToPng stall)
+// would otherwise block every queued thumbnail behind it, since the
+// global queue runs jobs sequentially. The values match
+// captureManager's so user-facing export and background thumbnail
+// capture treat "too slow" the same way.
+const READINESS_TIMEOUT_MS = 15_000;
+const RASTERIZE_TIMEOUT_MS = 20_000;
 
 // Lazy-loaded — same chunk as captureManager / clientExport.
 import type { domToPng } from 'modern-screenshot';
@@ -192,7 +201,9 @@ async function rasterize(
 
   // Same readiness wait as captureManager — fonts must load and images
   // must decode before domToPng walks the tree, otherwise the snapshot
-  // catches a half-rendered page.
+  // catches a half-rendered page. Bound both steps so one stuck font
+  // face or rasterize stall surfaces as a rejection instead of
+  // wedging every subsequent thumbnail behind it in the queue.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fontsReady = (doc as any).fonts?.ready
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,14 +211,22 @@ async function rasterize(
     : Promise.resolve();
   const images = Array.from(doc.images);
   const imagesDecoded = Promise.allSettled(images.map((img) => img.decode()));
-  await Promise.all([fontsReady, imagesDecoded]);
+  await withTimeout(
+    Promise.all([fontsReady, imagesDecoded]),
+    READINESS_TIMEOUT_MS,
+    'variant thumbnail: font/image readiness',
+  );
 
   const domToPngFn = await loadDomToPng();
-  return domToPngFn(doc.documentElement, {
-    scale: THUMBNAIL_SCALE,
-    width: canvasW,
-    height: canvasH,
-  });
+  return withTimeout(
+    domToPngFn(doc.documentElement, {
+      scale: THUMBNAIL_SCALE,
+      width: canvasW,
+      height: canvasH,
+    }),
+    RASTERIZE_TIMEOUT_MS,
+    'variant thumbnail: rasterize',
+  );
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

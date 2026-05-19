@@ -157,8 +157,8 @@ export interface VariantSnapshot {
   locale: string;
   sessionLocales: Record<string, LocaleConfig>;
   // Per-locale full snapshots — frozen at addLocale time, edited
-  // independently from Default thereafter. See snapshot-at-add-time
-  // mental model in docs/multi-locale-screenshot-sets.md.
+  // independently from Default thereafter. See the snapshot-at-add-time
+  // mental model in CLAUDE.md's Locales section.
   localeScreens: Record<string, ScreenState[]>;
   localePanoramicElements: Record<string, PanoramicElement[]>;
   isPanoramic: boolean;
@@ -266,7 +266,7 @@ export interface PreviewStore {
   // Per-locale full ScreenState snapshots. Each entry is a deep clone of
   // `screens` captured at add-time; once added, the locale is fully
   // independent. Default's edits do NOT propagate. Snapshot model is
-  // intentional — see docs/multi-locale-screenshot-sets.md.
+  // intentional — see CLAUDE.md's Locales section.
   localeScreens: Record<string, ScreenState[]>;
   // Per-locale full PanoramicElement[] snapshots. Same model as
   // localeScreens but for Panoramic mode.
@@ -575,7 +575,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       }
       // Individual mode: deep-clone state.screens into a frozen snapshot.
       // The locale becomes independent from here on — Default's edits
-      // don't propagate. See docs/multi-locale-screenshot-sets.md.
+      // don't propagate. See CLAUDE.md's Locales section.
       if (state.localeScreens[code]) return {};
       const snapshot = state.screens.map((screen) => {
         const cloned = deepCopy(screen);

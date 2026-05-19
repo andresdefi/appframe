@@ -69,8 +69,8 @@ export function HeaderBar({
           <button
             className={`inline-flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
               sidebarOpen
-                ? 'bg-surface-2 text-text font-medium surface-card'
-                : 'bg-surface text-text-dim hover:text-text hover:bg-surface-2'
+                ? 'bg-accent text-accent-fg font-medium'
+                : 'text-text-dim hover:text-text hover:bg-surface-2'
             }`}
             onClick={onToggleSidebar}
             aria-expanded={sidebarOpen}
@@ -156,10 +156,10 @@ export function HeaderBar({
                 }
                 className={`text-[11px] px-3 py-1.5 rounded-full whitespace-nowrap transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   activeTab === tab.id
-                    ? 'bg-surface-2 text-text font-medium surface-card'
+                    ? 'bg-accent text-accent-fg font-medium'
                     : disabled
                       ? 'text-text-dim/40 cursor-not-allowed'
-                      : 'text-text-dim hover:text-text'
+                      : 'text-text-dim hover:text-text hover:bg-surface-2'
                 }`}
                 onClick={() => {
                   if (disabled) return;

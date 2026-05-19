@@ -8,7 +8,10 @@
   --color-surface-2: #1f1f1f;
   --color-border: #2a2a2a;
   --color-text: #f5f5f7;
-  --color-text-dim: #8e8e93;
+  /* Bumped from #8e8e93 → #a8a8af for legibility on small uppercase
+     section labels and 10px helper copy. Still clearly secondary
+     against --color-text. */
+  --color-text-dim: #a8a8af;
   --color-accent: #fafafa;
   --color-accent-hover: #ffffff;
   --color-accent-fg: #0a0a0a;
@@ -24,13 +27,21 @@
 
 [data-theme="light"] {
   /* Light mode — Tailwind neutral palette (true neutral, no cool tint
-     like zinc). */
-  --color-bg: #fafafa;
+     like zinc). Canvas (bg) sits a clear step below the sidebar
+     (surface) so the screen cards have a proper "stage" to float
+     over — was #fafafa, which was visually indistinguishable from
+     the white sidebar. */
+  --color-bg: #e7e7e7;
   --color-surface: #ffffff;
   --color-surface-2: #f5f5f5;
   --color-border: #d4d4d4;
   --color-text: #171717;
-  --color-text-dim: #737373;
+  /* Closer to --color-text so header tabs, sidebar section labels,
+     and slider value chips read as confident "secondary dark" rather
+     than placeholder-grey. Was #737373 → #5e5e5e → now #3f3f3f
+     (9.7:1 on white surface; ~6.5:1 on the e7 canvas). Still
+     visually a step below the primary #171717. */
+  --color-text-dim: #3f3f3f;
   --color-accent: #171717;
   --color-accent-hover: #000000;
   --color-accent-fg: #ffffff;

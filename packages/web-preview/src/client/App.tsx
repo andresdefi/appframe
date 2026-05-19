@@ -390,8 +390,9 @@ export function App() {
   return (
     <div className="h-dvh flex flex-col md:flex-row overflow-hidden">
       {/* Sidebar — runs full height on desktop, collapsible above the
-          preview on mobile. No border; bg-surface alone separates it
-          from the canvas. */}
+          preview on mobile. No border: the canvas (bg) sits a step
+          below the sidebar (surface) so the tonal break separates
+          them on its own. */}
       <div
         id="editor-sidebar"
         className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex w-full md:w-80 md:min-w-80 max-h-[45vh] md:max-h-none bg-surface flex-col shrink-0 order-2 md:order-1 md:rounded-r-3xl overflow-hidden`}

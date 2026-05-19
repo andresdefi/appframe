@@ -71,7 +71,7 @@ export const STATIC_SCREEN_DEFAULTS: {
     subtitle: TextPosition | null;
     freeText: TextPosition | null;
   };
-  screenshotDataUrl: string | null;
+  screenshotUrl: string | null;
   screenshotName: string | null;
   screenshotDims: { width: number; height: number } | null;
   backgroundType: BackgroundType;
@@ -121,7 +121,7 @@ export const STATIC_SCREEN_DEFAULTS: {
   spotlight: null,
   annotations: [],
   textPositions: { headline: null, subtitle: null, freeText: null },
-  screenshotDataUrl: null,
+  screenshotUrl: null,
   screenshotName: null,
   screenshotDims: null,
   backgroundType: 'solid',
@@ -206,10 +206,22 @@ export function fattenScreen(saved: unknown): Partial<ScreenState> & Record<stri
   if (!saved || typeof saved !== 'object') {
     return { ...STATIC_SCREEN_DEFAULTS } as Partial<ScreenState> & Record<string, unknown>;
   }
+  const obj = saved as Record<string, unknown>;
+  // Legacy alias: the field used to be called `screenshotDataUrl`, which
+  // was misleading because it held an HTTP URL most of the time. Existing
+  // project files on disk still use the old name — promote them to the
+  // new `screenshotUrl` field on load. Next save writes the new name.
+  // The translation is a one-time pass; once a project has been opened
+  // and re-saved, the legacy key never appears again.
+  let migrated = obj;
+  if ('screenshotDataUrl' in obj && !('screenshotUrl' in obj)) {
+    const { screenshotDataUrl, ...rest } = obj;
+    migrated = { ...rest, screenshotUrl: screenshotDataUrl };
+  }
   // Spread defaults FIRST so saved values win.
   return {
     ...STATIC_SCREEN_DEFAULTS,
-    ...(saved as Record<string, unknown>),
+    ...migrated,
   } as Partial<ScreenState> & Record<string, unknown>;
 }
 

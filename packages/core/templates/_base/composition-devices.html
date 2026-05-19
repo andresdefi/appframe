@@ -32,7 +32,7 @@
                  height: {{ (dev.frame.screenArea.height * slotDw / dev.frame.frameSize.width) | round }}px;
                  border-radius: {{ (dev.frame.screenArea.borderRadius * slotDw / dev.frame.frameSize.width) | round }}px;
                  z-index: 1;">
-          <img src="{{ dev.screenshotDataUrl }}">
+          <img src="{{ dev.screenshotUrl }}">
         </div>
         <img src="{{ dev.framePngUrl }}" style="width: 100%; height: auto; display: block; position: relative; z-index: 2;">
       {% else %}
@@ -45,11 +45,11 @@
                width: {{ (dev.frame.screenArea.width * slotDw / dev.frame.frameSize.width) | round }}px;
                height: {{ (dev.frame.screenArea.height * slotDw / dev.frame.frameSize.width) | round }}px;
                border-radius: {{ (dev.frame.screenArea.borderRadius * slotDw / dev.frame.frameSize.width) | round }}px;">
-        <img src="{{ dev.screenshotDataUrl }}">
+        <img src="{{ dev.screenshotUrl }}">
       </div>
       {% endif %}
     {% else %}
-      <img src="{{ dev.screenshotDataUrl }}" style="width: 100%; border-radius: {{ (canvasWidth * 0.035) | round }}px;">
+      <img src="{{ dev.screenshotUrl }}" style="width: 100%; border-radius: {{ (canvasWidth * 0.035) | round }}px;">
     {% endif %}
   </div>
 {% endfor %}

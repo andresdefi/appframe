@@ -198,14 +198,14 @@ export function DeviceTab() {
       try {
         const uploaded = await uploadScreenshot({ filename, dataUrl: croppedDataUrl });
         update({
-          screenshotDataUrl: uploaded.url,
+          screenshotUrl: uploaded.url,
           screenshotName: uploaded.filename,
           screenshotDims: dims,
         });
       } catch (err) {
         console.error('Cropped screenshot upload failed, falling back to in-memory data URL', err);
         update({
-          screenshotDataUrl: croppedDataUrl,
+          screenshotUrl: croppedDataUrl,
           screenshotDims: dims,
         });
       }
@@ -217,9 +217,9 @@ export function DeviceTab() {
 
   return (
     <>
-      {showCrop && screen.screenshotDataUrl && (
+      {showCrop && screen.screenshotUrl && (
         <CropModal
-          imageDataUrl={screen.screenshotDataUrl}
+          imageDataUrl={screen.screenshotUrl}
           onApply={handleCropApply}
           onCancel={() => setShowCrop(false)}
         />
@@ -243,10 +243,10 @@ export function DeviceTab() {
 
       {/* Screenshot */}
       <Section title="Screenshot">
-        {screen.screenshotDataUrl && (
+        {screen.screenshotUrl && (
           <div className="flex items-center gap-2 mb-2">
             <img
-              src={screen.screenshotDataUrl}
+              src={screen.screenshotUrl}
               alt=""
               className="w-10 h-10 rounded object-cover border border-border"
             />
@@ -255,7 +255,7 @@ export function DeviceTab() {
             </span>
           </div>
         )}
-        {!screen.screenshotDataUrl && screen.screenshotName && (
+        {!screen.screenshotUrl && screen.screenshotName && (
           <div className="text-xs text-text-dim mb-2">{screen.screenshotName}</div>
         )}
         <button
@@ -272,7 +272,7 @@ export function DeviceTab() {
           aria-label="Upload screenshot image"
           onChange={handleScreenshotUpload}
         />
-        {screen.screenshotDataUrl && (
+        {screen.screenshotUrl && (
           <div className="flex gap-1 mt-1.5">
             <button
               className="btn-secondary flex-1 text-[11px]"
@@ -283,7 +283,7 @@ export function DeviceTab() {
             <button
               className="btn-secondary flex-1 text-[11px]"
               onClick={() =>
-                update({ screenshotDataUrl: null, screenshotName: null, screenshotDims: null })
+                update({ screenshotUrl: null, screenshotName: null, screenshotDims: null })
               }
             >
               Revert

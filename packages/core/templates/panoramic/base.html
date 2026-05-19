@@ -195,7 +195,7 @@
                    border-radius: {{ el.clipRadius }}px;
                    z-index: 1;"
         >
-          <img src="{{ el.screenshotDataUrl }}" />
+          <img src="{{ el.screenshotUrl }}" />
         </div>
         <img
           src="{{ el.framePngUrl }}"
@@ -211,11 +211,11 @@
                    height: {{ el.clipHeight }}px;
                    border-radius: {{ el.clipRadius }}px;"
         >
-          <img src="{{ el.screenshotDataUrl }}" />
+          <img src="{{ el.screenshotUrl }}" />
         </div>
         {% else %}
         <img
-          src="{{ el.screenshotDataUrl }}"
+          src="{{ el.screenshotUrl }}"
           style="width: 100%; border-radius: {{ el.borderRadius | default(0) }}px;"
         />
         {% endif %}
@@ -370,7 +370,7 @@
                {{ el.shadowCss | safe }}"
       >
         <img
-          src="{{ el.screenshotDataUrl }}"
+          src="{{ el.screenshotUrl }}"
           style="transform: translate({{ el.translateXPx | default(0) }}px, {{ el.translateYPx | default(0) }}px) scale({{ el.zoom | default(1) }});"
         />
       </div>

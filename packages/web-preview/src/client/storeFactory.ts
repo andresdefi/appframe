@@ -76,7 +76,7 @@ export function createScreenState(
     spotlight: null,
     annotations: [],
     textPositions: { headline: null, subtitle: null, freeText: null },
-    screenshotDataUrl: null,
+    screenshotUrl: null,
     screenshotName: screen?.screenshot?.split('/').pop() ?? null,
     screenshotDims: null,
     backgroundType: 'solid',

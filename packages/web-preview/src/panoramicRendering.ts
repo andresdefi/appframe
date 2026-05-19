@@ -194,7 +194,7 @@ export async function buildPanoramicRenderedElement(args: {
 
   if (element.type === 'device') {
     const widthPx = (element.width / 100) * space.widthPx;
-    const screenshotDataUrl = await resolveCanvasAssetDataUrl(
+    const screenshotUrl = await resolveCanvasAssetDataUrl(
       element.screenshot,
       configDir,
       'Screenshot',
@@ -256,7 +256,7 @@ export async function buildPanoramicRenderedElement(args: {
       yPx,
       widthPx,
       rotation: element.rotation,
-      screenshotDataUrl,
+      screenshotUrl,
       frameSvg,
       framePngUrl,
       shadowCss: buildPanoramicShadowCss(element.shadow),
@@ -391,7 +391,7 @@ export async function buildPanoramicRenderedElement(args: {
       heightPx,
       rotation: element.rotation,
       borderRadius: element.borderRadius,
-      screenshotDataUrl: await resolveCanvasAssetDataUrl(element.screenshot, configDir, 'Crop'),
+      screenshotUrl: await resolveCanvasAssetDataUrl(element.screenshot, configDir, 'Crop'),
       zoom: element.zoom,
       translateXPx,
       translateYPx,

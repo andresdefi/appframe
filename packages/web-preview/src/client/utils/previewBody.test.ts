@@ -70,7 +70,7 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
       subtitle: { x: 14, y: 22, width: 40 },
       freeText: null,
     },
-    screenshotDataUrl: 'data:image/png;base64,AAA',
+    screenshotUrl: 'data:image/png;base64,AAA',
     screenshotName: 'screen.png',
     screenshotDims: { width: 1290, height: 2796 },
     backgroundType: 'image',
@@ -186,7 +186,7 @@ describe('preview/export payload builders', () => {
 
   it('rewrites screenshot URLs to .previews/ when previewMode is true', () => {
     const screen = createScreen({
-      screenshotDataUrl: '/api/screenshots/my-project/screen1.png',
+      screenshotUrl: '/api/screenshots/my-project/screen1.png',
       backgroundType: 'image',
       backgroundImageDataUrl: '/api/screenshots/my-project/bg.jpg',
       extraDevices: [
@@ -211,14 +211,14 @@ describe('preview/export payload builders', () => {
       sizeKey: 'ios-6.9',
     });
 
-    expect(preview.screenshotDataUrl).toBe('/api/screenshots/my-project/.previews/screen1.png');
+    expect(preview.screenshotUrl).toBe('/api/screenshots/my-project/.previews/screen1.png');
     expect(preview.backgroundImageDataUrl).toBe('/api/screenshots/my-project/.previews/bg.jpg');
-    expect((preview.extraScreenshots as Array<Record<string, unknown>>)[0]?.screenshotDataUrl).toBe(
+    expect((preview.extraScreenshots as Array<Record<string, unknown>>)[0]?.screenshotUrl).toBe(
       '/api/screenshots/my-project/.previews/extra.png',
     );
 
     // Export pipeline (previewMode defaults to false) keeps full-res URLs.
-    expect(exportBody.screenshotDataUrl).toBe('/api/screenshots/my-project/screen1.png');
+    expect(exportBody.screenshotUrl).toBe('/api/screenshots/my-project/screen1.png');
     expect(exportBody.backgroundImageDataUrl).toBe('/api/screenshots/my-project/bg.jpg');
   });
 

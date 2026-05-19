@@ -77,7 +77,7 @@ describe('locale snapshot lifecycle (individual mode)', () => {
     usePreviewStore.getState().addLocale('es-ES', { copyImages: false });
     const snapshot = usePreviewStore.getState().localeScreens['es-ES']!;
     for (const s of snapshot) {
-      expect(s.screenshotDataUrl).toBeNull();
+      expect(s.screenshotUrl).toBeNull();
       expect(s.screenshotName).toBeNull();
       expect(s.screenshotDims).toBeNull();
     }

@@ -132,7 +132,13 @@ export interface ScreenState {
     subtitle: TextPosition | null;
     freeText: TextPosition | null;
   };
-  screenshotDataUrl: string | null;
+  // URL for the screen's source screenshot — typically
+  // `/api/screenshots/<project>/<file>.png` after server upload, or a
+  // base64 `data:` URL when the upload fell back to in-memory storage.
+  // Renamed from `screenshotDataUrl` (which was misleading — most of the
+  // time it holds an HTTP URL, not a data URL). Legacy field name is
+  // still accepted by `fattenScreen` so existing project files load.
+  screenshotUrl: string | null;
   screenshotName: string | null;
   screenshotDims: { width: number; height: number } | null;
   backgroundType: BackgroundType;

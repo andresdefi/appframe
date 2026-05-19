@@ -88,7 +88,7 @@ export interface TemplateContext {
   // Screen content
   headline: string;
   subtitle?: string;
-  screenshotDataUrl: string;
+  screenshotUrl: string;
 
   // Theme
   colors: ColorConfig;
@@ -218,7 +218,7 @@ export interface TemplateContext {
 }
 
 export interface DeviceContext {
-  screenshotDataUrl: string;
+  screenshotUrl: string;
   frame: FrameDefinition | null;
   frameSvg: string | null;
   framePngUrl?: string;
@@ -295,7 +295,7 @@ export interface PanoramicRenderedElement {
   // Device-specific
   widthPx?: number;
   rotation?: number;
-  screenshotDataUrl?: string;
+  screenshotUrl?: string;
   frameSvg?: string | null;
   framePngUrl?: string;
   shadowCss?: string;

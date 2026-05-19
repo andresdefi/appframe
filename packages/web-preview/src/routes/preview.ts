@@ -77,7 +77,7 @@ interface PreviewParams {
   sizeKey?: string;
   composition?: CompositionPreset;
   extraScreenshots?: Array<{
-    screenshotDataUrl?: string;
+    screenshotUrl?: string;
     frameId?: string;
     offsetX?: number;
     offsetY?: number;
@@ -236,13 +236,16 @@ function parseBody(
     subtitleTop: expectNumber(body.subtitleTop),
     subtitleLeft: expectNumber(body.subtitleLeft),
     subtitleWidth: expectNumber(body.subtitleWidth),
-    clientScreenshot: expectString(body.screenshotDataUrl),
+    // Accept both the new name (`screenshotUrl`) and the legacy one
+    // (`screenshotDataUrl`) so a stale browser session running pre-rename
+    // client code still renders correctly until next hard refresh.
+    clientScreenshot: expectString(body.screenshotUrl) ?? expectString(body.screenshotDataUrl),
     platform: expectString(body.platform),
     sizeKey: expectString(body.sizeKey),
     composition: expectString(body.composition) as CompositionPreset | undefined,
     extraScreenshots: expectArray(body.extraScreenshots) as
       | Array<{
-          screenshotDataUrl?: string;
+          screenshotUrl?: string;
           frameId?: string;
           offsetX?: number;
           offsetY?: number;
@@ -355,13 +358,13 @@ async function resolveContext(
     p.preferLocaleText ?? false,
   );
 
-  let screenshotDataUrl: string;
+  let screenshotUrl: string;
   if (p.clientScreenshot) {
     // Pass upload URLs through unchanged so the iframe loads the image
     // as a normal HTTP resource and the browser caches one copy across
     // all iframes / re-renders. Used to be resolved to a base64 data
     // URL here for legacy Playwright export, but that path is gone.
-    screenshotDataUrl = p.clientScreenshot;
+    screenshotUrl = p.clientScreenshot;
   } else {
     const screenshotPath = screen
       ? getLocalizedScreenshotPath(
@@ -374,9 +377,9 @@ async function resolveContext(
         )
       : '';
     if (screenshotPath && !screenshotPath.startsWith(resolve(ctx.configDir))) {
-      screenshotDataUrl = placeholderSvgDataUrl();
+      screenshotUrl = placeholderSvgDataUrl();
     } else {
-      screenshotDataUrl = await screenshotToDataUrl(screenshotPath);
+      screenshotUrl = await screenshotToDataUrl(screenshotPath);
     }
   }
 
@@ -416,7 +419,7 @@ async function resolveContext(
   const context: TemplateContext = {
     headline: resolvedHeadline,
     subtitle: resolvedSubtitle,
-    screenshotDataUrl,
+    screenshotUrl,
     isFullscreen: p.isFullscreen ?? screen?.isFullscreen ?? false,
     colors: p.colors ? { ...config.theme.colors, ...p.colors } : config.theme.colors,
     font: p.font ?? config.theme.font,
@@ -520,7 +523,7 @@ async function resolveContext(
 
     for (let i = 0; i < preset.deviceCount; i++) {
       const slot = preset.slots[i]!;
-      let slotScreenshotDataUrl: string;
+      let slotScreenshotUrl: string;
       let slotFrame = frame ?? null;
       let slotFrameSvg = frameSvg;
       let slotFramePngUrl = framePngUrl;
@@ -532,7 +535,7 @@ async function resolveContext(
       let slotTilt: number;
 
       if (i === 0) {
-        slotScreenshotDataUrl = screenshotDataUrl;
+        slotScreenshotUrl = screenshotUrl;
         slotOffsetX = p.deviceOffsetX ?? slot.offsetX;
         slotOffsetY = p.deviceTop ?? slot.offsetY;
         slotScale = p.deviceScale ?? slot.scale;
@@ -541,13 +544,13 @@ async function resolveContext(
         slotTilt = p.deviceTilt ?? slot.tilt;
       } else {
         const extra = p.extraScreenshots?.[i - 1];
-        if (extra?.screenshotDataUrl) {
+        if (extra?.screenshotUrl) {
           // Pass through as URL — the iframe loads it as a normal
           // resource. (Used to inline as base64 here; not needed since
           // the Playwright export path was removed.)
-          slotScreenshotDataUrl = extra.screenshotDataUrl;
+          slotScreenshotUrl = extra.screenshotUrl;
         } else {
-          slotScreenshotDataUrl = screenshotDataUrl;
+          slotScreenshotUrl = screenshotUrl;
         }
         slotOffsetX = extra?.offsetX ?? slot.offsetX;
         slotOffsetY = extra?.offsetY ?? slot.offsetY;
@@ -604,7 +607,7 @@ async function resolveContext(
       }
 
       devices.push({
-        screenshotDataUrl: slotScreenshotDataUrl,
+        screenshotUrl: slotScreenshotUrl,
         frame: slotFrame,
         frameSvg: slotFrameSvg,
         framePngUrl: slotFramePngUrl,

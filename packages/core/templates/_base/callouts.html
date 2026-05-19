@@ -64,7 +64,7 @@
     {# Image at fullW × fullH where fullW = contentW / srcW. With srcW =
        cw / zoom, fullW = ssWidth * zoom, so zoom controls the apparent
        magnification of the content without touching the card size. #}
-    <img class="callout-img" src="{{ screenshotDataUrl }}" style="
+    <img class="callout-img" src="{{ screenshotUrl }}" style="
       position: absolute;
       width: {{ (contentW / srcW) | round }}px;
       height: {{ (contentH / srcH) | round }}px;

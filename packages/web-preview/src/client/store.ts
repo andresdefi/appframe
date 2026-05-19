@@ -540,7 +540,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       const snapshot = state.screens.map((screen) => {
         const cloned = deepCopy(screen);
         if (!copyImages) {
-          cloned.screenshotDataUrl = null;
+          cloned.screenshotUrl = null;
           cloned.screenshotName = null;
           cloned.screenshotDims = null;
         }

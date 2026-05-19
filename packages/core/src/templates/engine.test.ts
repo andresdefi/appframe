@@ -16,7 +16,7 @@ import { mockScreenshotDataUrl } from '../test-utils.js';
 function makeContext(overrides?: Partial<TemplateContext>): TemplateContext {
   return {
     headline: 'Test Headline',
-    screenshotDataUrl: mockScreenshotDataUrl(),
+    screenshotUrl: mockScreenshotDataUrl(),
     colors: { primary: '#2563EB', secondary: '#7C3AED', background: '#F8FAFC', text: '#0F172A' },
     font: 'inter',
     fontWeight: 600,
@@ -61,7 +61,7 @@ describe('TemplateEngine', () => {
 
   it('includes screenshot data URL', async () => {
     const dataUrl = mockScreenshotDataUrl();
-    const html = await engine.render(makeContext({ screenshotDataUrl: dataUrl }));
+    const html = await engine.render(makeContext({ screenshotUrl: dataUrl }));
     expect(html).toContain('data:image/png;base64');
   });
 

@@ -20,7 +20,7 @@ const SUPPORTED_MIME_PREFIXES = ['image/'];
 const SUPPORTED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg'];
 
 export interface ScreenshotImagePatch {
-  screenshotDataUrl: string;
+  screenshotUrl: string;
   screenshotName: string;
   screenshotDims: { width: number; height: number };
 }
@@ -75,14 +75,14 @@ export async function uploadImageFileToScreen(file: File): Promise<ScreenshotIma
       project: activeProjectName(),
     });
     return {
-      screenshotDataUrl: uploaded.url,
+      screenshotUrl: uploaded.url,
       screenshotName: uploaded.filename,
       screenshotDims: dims,
     };
   } catch (err) {
     console.error('Screenshot upload failed, falling back to in-memory data URL', err);
     return {
-      screenshotDataUrl: dataUrl,
+      screenshotUrl: dataUrl,
       screenshotName: file.name,
       screenshotDims: dims,
     };

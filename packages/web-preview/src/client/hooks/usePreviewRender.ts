@@ -51,7 +51,7 @@ export function usePreviewRender() {
       spotlight: screen.spotlight,
       annotations: screen.annotations,
       textPositions: screen.textPositions,
-      screenshotDataUrl: screen.screenshotDataUrl,
+      screenshotUrl: screen.screenshotUrl,
       backgroundType: screen.backgroundType,
       backgroundColor: screen.backgroundColor,
       backgroundGradient: screen.backgroundGradient,

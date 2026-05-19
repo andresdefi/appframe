@@ -28,7 +28,7 @@ export function buildScreenRenderBody(
   previewMode = false,
 ): Record<string, unknown> {
   const preferLocaleText = locale !== 'default';
-  const screenshotUrl = previewIfMode(screen.screenshotDataUrl, previewMode);
+  const screenshotUrl = previewIfMode(screen.screenshotUrl, previewMode);
 
   return {
     screenIndex: screen.screenIndex,
@@ -36,7 +36,7 @@ export function buildScreenRenderBody(
     // (?preview=1) when constructing template context. Without this,
     // each iframe loads ~17 MB of decoded RGBA per frame PNG.
     previewMode: previewMode || undefined,
-    screenshotDataUrl: screenshotUrl,
+    screenshotUrl,
     locale: preferLocaleText ? locale : undefined,
     preferLocaleText: preferLocaleText || undefined,
     localeConfig: preferLocaleText ? localeConfig : undefined,
@@ -129,7 +129,7 @@ export function buildScreenRenderBody(
     extraScreenshots:
       screen.extraDevices.length > 0
         ? screen.extraDevices.map((d) => ({
-            screenshotDataUrl: previewIfMode(d.dataUrl, previewMode),
+            screenshotUrl: previewIfMode(d.dataUrl, previewMode),
             frameId: d.frameId ?? undefined,
             offsetX: d.offsetX ?? undefined,
             offsetY: d.offsetY ?? undefined,

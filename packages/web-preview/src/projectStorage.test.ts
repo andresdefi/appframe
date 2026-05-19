@@ -451,17 +451,17 @@ describe('renameProject / duplicateProject / deleteProject', () => {
     await createProject(options, 'alpha');
     await writeProject(options, 'alpha', {
       screens: [
-        { headline: 'a', screenshotDataUrl: '/api/screenshots/alpha/screen1.png' },
-        { headline: 'b', screenshotDataUrl: '/api/screenshots/alpha/screen2.png' },
+        { headline: 'a', screenshotUrl: '/api/screenshots/alpha/screen1.png' },
+        { headline: 'b', screenshotUrl: '/api/screenshots/alpha/screen2.png' },
       ],
     });
     await renameProject(options, 'alpha', 'beta');
     const env = await readProject(options, 'beta');
     const data = env!.data as {
-      screens: { screenshotDataUrl: string }[];
+      screens: { screenshotUrl: string }[];
     };
-    expect(data.screens[0]!.screenshotDataUrl).toBe('/api/screenshots/beta/screen1.png');
-    expect(data.screens[1]!.screenshotDataUrl).toBe('/api/screenshots/beta/screen2.png');
+    expect(data.screens[0]!.screenshotUrl).toBe('/api/screenshots/beta/screen1.png');
+    expect(data.screens[1]!.screenshotUrl).toBe('/api/screenshots/beta/screen2.png');
   });
 
   it('renameProject rewrites URLs in deeply-nested structures', async () => {
@@ -497,16 +497,16 @@ describe('renameProject / duplicateProject / deleteProject', () => {
     await createProject(options, 'alpha');
     await writeProject(options, 'alpha', {
       screens: [
-        { screenshotDataUrl: '/api/screenshots/alpha/screen1.png' },
+        { screenshotUrl: '/api/screenshots/alpha/screen1.png' },
         // A reference to some other project — should NOT be rewritten.
-        { screenshotDataUrl: '/api/screenshots/somewhere-else/x.png' },
+        { screenshotUrl: '/api/screenshots/somewhere-else/x.png' },
       ],
     });
     await renameProject(options, 'alpha', 'beta');
     const env = await readProject(options, 'beta');
-    const data = env!.data as { screens: { screenshotDataUrl: string }[] };
-    expect(data.screens[0]!.screenshotDataUrl).toBe('/api/screenshots/beta/screen1.png');
-    expect(data.screens[1]!.screenshotDataUrl).toBe('/api/screenshots/somewhere-else/x.png');
+    const data = env!.data as { screens: { screenshotUrl: string }[] };
+    expect(data.screens[0]!.screenshotUrl).toBe('/api/screenshots/beta/screen1.png');
+    expect(data.screens[1]!.screenshotUrl).toBe('/api/screenshots/somewhere-else/x.png');
   });
 
   it('renameProject does not touch inline data: URLs', async () => {
@@ -514,25 +514,25 @@ describe('renameProject / duplicateProject / deleteProject', () => {
     await createProject(options, 'alpha');
     const dataUrl = 'data:image/png;base64,iVBORw0KGAAA==';
     await writeProject(options, 'alpha', {
-      screens: [{ screenshotDataUrl: dataUrl }],
+      screens: [{ screenshotUrl: dataUrl }],
     });
     await renameProject(options, 'alpha', 'beta');
     const env = await readProject(options, 'beta');
-    const data = env!.data as { screens: { screenshotDataUrl: string }[] };
-    expect(data.screens[0]!.screenshotDataUrl).toBe(dataUrl);
+    const data = env!.data as { screens: { screenshotUrl: string }[] };
+    expect(data.screens[0]!.screenshotUrl).toBe(dataUrl);
   });
 
   it('renameProject leaves URLs alone when only the display name changes (same slug)', async () => {
     const options = await makeRoot();
     await createProject(options, 'my-app');
     await writeProject(options, 'my-app', {
-      screens: [{ screenshotDataUrl: '/api/screenshots/my-app/screen1.png' }],
+      screens: [{ screenshotUrl: '/api/screenshots/my-app/screen1.png' }],
     });
     // 'My App!' slugifies back to 'my-app' — same slug, only display name changes.
     await renameProject(options, 'my-app', 'My App!');
     const env = await readProject(options, 'my-app');
-    const data = env!.data as { screens: { screenshotDataUrl: string }[] };
-    expect(data.screens[0]!.screenshotDataUrl).toBe('/api/screenshots/my-app/screen1.png');
+    const data = env!.data as { screens: { screenshotUrl: string }[] };
+    expect(data.screens[0]!.screenshotUrl).toBe('/api/screenshots/my-app/screen1.png');
   });
 
   it('renameProject is a no-op on URL rewriting when the project file has no screenshot URLs', async () => {

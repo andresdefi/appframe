@@ -97,6 +97,27 @@ export function projectSnapshotFromState(
   };
 }
 
+/**
+ * Apply `fattenScreen` to every screen in every locale snapshot. Mirrors
+ * the top-level `snapshot.screens` fatten pass so the legacy
+ * `screenshotDataUrl` → `screenshotUrl` migration (and any other
+ * STATIC-defaults re-injection) runs on locale clones too. Without this,
+ * a project file saved before the rename would load with the locale
+ * screenshots missing — the field would be present on disk under the
+ * old key and absent under the new one.
+ */
+function fattenLocaleScreens(
+  raw: Record<string, ScreenState[]> | undefined,
+): Record<string, ScreenState[]> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, ScreenState[]> = {};
+  for (const [code, screens] of Object.entries(raw)) {
+    if (!Array.isArray(screens)) continue;
+    out[code] = screens.map((rawScreen) => fattenScreen(rawScreen) as ScreenState);
+  }
+  return out;
+}
+
 export function applyVariantSnapshot(
   snapshot: VariantSnapshot,
 ): Pick<
@@ -124,7 +145,12 @@ export function applyVariantSnapshot(
     previewH: snapshot.previewH,
     locale: snapshot.locale,
     sessionLocales: deepCopy(snapshot.sessionLocales),
-    localeScreens: deepCopy(snapshot.localeScreens ?? {}),
+    // Each locale's screens needs the same fattenScreen pass the
+    // top-level `screens` gets below, so STATIC defaults are re-injected
+    // AND the legacy `screenshotDataUrl` → `screenshotUrl` migration
+    // runs on each entry. Without this, locales saved before the rename
+    // lose their screenshots on load.
+    localeScreens: fattenLocaleScreens(snapshot.localeScreens),
     localePanoramicElements: deepCopy(snapshot.localePanoramicElements ?? {}),
     isPanoramic: snapshot.isPanoramic,
     // Backfill stable id for older snapshots that pre-date the field.
@@ -196,7 +222,7 @@ export function coerceVariantSnapshot(
         : fallback.sessionLocales,
     localeScreens:
       snapshot.localeScreens && typeof snapshot.localeScreens === 'object'
-        ? deepCopy(snapshot.localeScreens as Record<string, ScreenState[]>)
+        ? fattenLocaleScreens(snapshot.localeScreens as Record<string, ScreenState[]>)
         : {},
     localePanoramicElements:
       snapshot.localePanoramicElements &&

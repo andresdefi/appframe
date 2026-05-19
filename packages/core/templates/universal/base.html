@@ -29,7 +29,7 @@
 </head>
 <body>
   <div class="canvas">
-    <img src="{{ screenshotDataUrl }}">
+    <img src="{{ screenshotUrl }}">
   </div>
 </body>
   {% else %}
@@ -362,7 +362,7 @@
                    height: {{ (frame.screenArea.height * dw / frame.frameSize.width) | round }}px;
                    border-radius: {{ (frame.screenArea.borderRadius * dw / frame.frameSize.width) | round }}px;
                    z-index: 1;">
-            <img src="{{ screenshotDataUrl }}">
+            <img src="{{ screenshotUrl }}">
           </div>
           <img src="{{ framePngUrl }}" style="width: 100%; height: auto; display: block; position: relative; z-index: 2;">
         {% else %}
@@ -375,16 +375,16 @@
                  width: {{ (frame.screenArea.width * dw / frame.frameSize.width) | round }}px;
                  height: {{ (frame.screenArea.height * dw / frame.frameSize.width) | round }}px;
                  border-radius: {{ (frame.screenArea.borderRadius * dw / frame.frameSize.width) | round }}px;">
-          <img src="{{ screenshotDataUrl }}">
+          <img src="{{ screenshotUrl }}">
         </div>
         {% endif %}
       {% else %}
         {% if borderSimulation and borderSimulation.enabled %}
         <div class="border-sim" style="border: {{ borderSimulation.thickness }}px solid {{ borderSimulation.color }}; border-radius: {{ borderSimulation.radius }}px; overflow: hidden;">
-          <img src="{{ screenshotDataUrl }}" style="width: 100%; display: block;{% if cornerRadius %} border-radius: {{ (cornerRadius * dw / 100) | round }}px;{% endif %}">
+          <img src="{{ screenshotUrl }}" style="width: 100%; display: block;{% if cornerRadius %} border-radius: {{ (cornerRadius * dw / 100) | round }}px;{% endif %}">
         </div>
         {% else %}
-        <img src="{{ screenshotDataUrl }}" style="width: 100%;{% if cornerRadius %} border-radius: {{ (cornerRadius * dw / 100) | round }}px;{% endif %}">
+        <img src="{{ screenshotUrl }}" style="width: 100%;{% if cornerRadius %} border-radius: {{ (cornerRadius * dw / 100) | round }}px;{% endif %}">
         {% endif %}
       {% endif %}
     </div>

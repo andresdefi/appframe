@@ -69,7 +69,7 @@ function makeStubScreen(id: string, overrides: Partial<ScreenState> = {}): Scree
     spotlight: null,
     annotations: [],
     textPositions: { headline: null, subtitle: null, freeText: null },
-    screenshotDataUrl: null,
+    screenshotUrl: null,
     screenshotName: null,
     screenshotDims: null,
     backgroundType: 'solid',
@@ -177,6 +177,34 @@ describe('variantSnapshotFromState', () => {
     const applied = applyVariantSnapshot(legacy);
     expect(applied.localeScreens).toEqual({});
     expect(applied.localePanoramicElements).toEqual({});
+  });
+
+  it('runs the screenshotDataUrl→screenshotUrl migration on locale snapshots', () => {
+    // A pre-rename project file would have `screenshotDataUrl` on each
+    // locale screen too — not just the top-level screens. Without
+    // fattening locale screens on load, the field would survive under
+    // the legacy name and the new code (reading `.screenshotUrl`) would
+    // see undefined → screenshots vanish from the locale rows.
+    const state = makeBaseState();
+    const snapshot = variantSnapshotFromState(state);
+    const legacy = {
+      ...snapshot,
+      localeScreens: {
+        'es-ES': [
+          {
+            id: 'es-1',
+            screenIndex: 0,
+            headline: 'Hola',
+            screenshotDataUrl: '/api/screenshots/proj/screen-1.png',
+          },
+        ],
+      },
+    } as unknown as VariantSnapshot;
+    const applied = applyVariantSnapshot(legacy);
+    const esScreens = applied.localeScreens['es-ES']!;
+    expect(esScreens[0]!.screenshotUrl).toBe('/api/screenshots/proj/screen-1.png');
+    // Legacy key is gone after the migration.
+    expect((esScreens[0] as Record<string, unknown>).screenshotDataUrl).toBeUndefined();
   });
 });
 

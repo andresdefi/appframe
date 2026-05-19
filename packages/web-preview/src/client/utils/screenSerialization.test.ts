@@ -159,6 +159,35 @@ describe('fattenScreen', () => {
     expect(fat.layout).toBe('center');
     expect(fat.headlineSize).toBe(0);
   });
+
+  it('migrates the legacy `screenshotDataUrl` field to `screenshotUrl`', () => {
+    // Older project files on disk used `screenshotDataUrl` (misleading
+    // name — the value is almost always an HTTP URL, not a data URL).
+    // The current field is `screenshotUrl`; the migration transparently
+    // promotes the legacy key so existing projects load without churn.
+    const fat = fattenScreen({
+      id: 'x',
+      screenIndex: 0,
+      headline: 'h',
+      screenshotDataUrl: '/api/screenshots/legacy/screen1.png',
+    });
+    expect(fat.screenshotUrl).toBe('/api/screenshots/legacy/screen1.png');
+    expect((fat as Record<string, unknown>).screenshotDataUrl).toBeUndefined();
+  });
+
+  it('prefers the new field if both legacy and new are present', () => {
+    // Defensive: should never happen on disk, but if a manually-edited
+    // file has both keys (e.g., partially-migrated by hand) the new
+    // name wins.
+    const fat = fattenScreen({
+      id: 'x',
+      screenIndex: 0,
+      headline: 'h',
+      screenshotDataUrl: '/api/screenshots/legacy/old.png',
+      screenshotUrl: '/api/screenshots/current/new.png',
+    });
+    expect(fat.screenshotUrl).toBe('/api/screenshots/current/new.png');
+  });
 });
 
 describe('slim → fatten round-trip', () => {

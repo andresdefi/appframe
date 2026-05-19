@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { domToPng } from 'modern-screenshot';
 import { usePreviewStore, selectScreensForLocale } from '../../store';
 import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
@@ -8,6 +9,13 @@ import { registerIframe } from '../../utils/iframeRegistry';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
 import { dataTransferHasFiles } from '../../utils/dragUtils';
 import type { TextPosition } from '../../types';
+
+// How long the snapshot overlay sits over the iframe after the tab becomes
+// visible again. Long enough for Safari to re-decode iframe bitmaps that
+// got purged in the background; short enough that any state change since
+// the snapshot was taken (there shouldn't be any while hidden) doesn't
+// stay covered.
+const OVERLAY_REVEAL_DELAY_MS = 250;
 
 interface ScreenCardProps {
   index: number;
@@ -78,6 +86,17 @@ export function ScreenCard({
   const [initialLoad, setInitialLoad] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // PNG data URL captured when the tab goes to background; rendered as an
+  // overlay on top of the iframe during the tab-return window so Safari's
+  // per-iframe bitmap purge doesn't show as a visible "reload" flash. The
+  // overlay <img> lives in the parent document and isn't subject to the
+  // same purge heuristic that the iframe contents are.
+  const [overlaySnapshot, setOverlaySnapshot] = useState<string | null>(null);
+  // Aborts an in-flight snapshot capture if the tab becomes visible again
+  // before it completes — no point overlaying a snapshot the user will
+  // never see hidden.
+  const overlayActiveRef = useRef(false);
+  const overlayClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Snapshot model: read the active locale's own screen, not Default's
   // overlaid with locale text. When locale === 'default' this returns
@@ -91,6 +110,58 @@ export function ScreenCard({
     registerIframe(index, iframeRef.current);
     return () => registerIframe(index, null);
   }, [index]);
+
+  // Tab-switch snapshot overlay. Safari aggressively purges decoded bitmaps
+  // in background-tab iframes (each iframe is its own document, treated
+  // independently for memory reclaim), so returning to the tab shows a
+  // brief re-decode flash even after the preview-resize work. Capture each
+  // iframe to a PNG data URL on visibilitychange→hidden and render it as
+  // a parent-document <img> overlay. When the tab returns we leave the
+  // overlay up briefly while the iframe re-decodes invisibly behind it.
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'hidden') {
+        if (overlayClearTimerRef.current) {
+          clearTimeout(overlayClearTimerRef.current);
+          overlayClearTimerRef.current = null;
+        }
+        overlayActiveRef.current = true;
+        const iframe = iframeRef.current;
+        const doc = iframe?.contentDocument;
+        if (!iframe || !doc) return;
+        try {
+          // Capture at the iframe's intrinsic dimensions so the overlay
+          // matches the iframe's pre-scale layout 1:1 — we'll apply the
+          // same CSS transform to it as the iframe.
+          const dataUrl = await domToPng(doc.documentElement, {
+            width: previewW,
+            height: previewH,
+            scale: 1,
+          });
+          if (overlayActiveRef.current) {
+            setOverlaySnapshot(dataUrl);
+          }
+        } catch {
+          // Capture failed (e.g. CORS, document gone) — accept the brief
+          // flash on return rather than crash.
+        }
+      } else {
+        // Tab visible again. Leave the overlay up briefly so Safari can
+        // re-decode iframe bitmaps behind it, then clear.
+        overlayClearTimerRef.current = setTimeout(() => {
+          overlayActiveRef.current = false;
+          setOverlaySnapshot(null);
+          overlayClearTimerRef.current = null;
+        }, OVERLAY_REVEAL_DELAY_MS);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (overlayClearTimerRef.current) clearTimeout(overlayClearTimerRef.current);
+      overlayActiveRef.current = false;
+    };
+  }, [previewW, previewH]);
 
   const handleDeviceDrop = useCallback(
     (partial: { deviceTop: number; deviceOffsetX: number }) => {
@@ -590,6 +661,23 @@ export function ScreenCard({
           }}
           title={`Screen ${index + 1}`}
         />
+        {/* Snapshot overlay — see the visibilitychange effect above. Stays
+            in the parent document so Safari's per-iframe purge heuristic
+            doesn't reach it; the iframe re-decodes behind this image
+            and we clear after a brief reveal delay. */}
+        {overlaySnapshot && (
+          <img
+            src={overlaySnapshot}
+            alt=""
+            aria-hidden="true"
+            className="absolute top-0 left-0 pointer-events-none origin-top-left z-30"
+            style={{
+              width: previewW,
+              height: previewH,
+              transform: `scale(${scale})`,
+            }}
+          />
+        )}
         {/* Center guides — only while actively dragging, and only when the
             dragged element's center exactly hits a canvas axis. */}
         {isDragging && guides.vertical && (

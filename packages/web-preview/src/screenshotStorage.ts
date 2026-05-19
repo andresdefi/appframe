@@ -218,13 +218,57 @@ export async function writeScreenshotFromDataUrl(
 }
 
 /**
+ * Walk an arbitrary JSON tree (the appframe.json `data` envelope) and
+ * collect every string value of the form `/api/screenshots/<slug>/<file>`
+ * matching the given project slug. Robust to schema drift — finds
+ * references in screens, locale snapshots, variant snapshots, panoramic
+ * element trees, background image layers, extras, and anywhere else a
+ * screenshot URL might be embedded.
+ */
+function collectReferencedScreenshotFilenames(data: unknown, projectSlug: string): Set<string> {
+  const prefix = `/api/screenshots/${projectSlug}/`;
+  const referenced = new Set<string>();
+  const stack: unknown[] = [data];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (node === null || node === undefined) continue;
+    if (typeof node === 'string') {
+      if (!node.startsWith(prefix)) continue;
+      const rest = node.slice(prefix.length);
+      // Strip any query / hash / nested path — filename is the first
+      // segment after the slug.
+      const filename = rest.split(/[?#/]/)[0];
+      if (filename) referenced.add(filename);
+      continue;
+    }
+    if (Array.isArray(node)) {
+      for (const item of node) stack.push(item);
+      continue;
+    }
+    if (typeof node === 'object') {
+      for (const value of Object.values(node as Record<string, unknown>)) {
+        stack.push(value);
+      }
+    }
+  }
+  return referenced;
+}
+
+/**
  * Boot-time sweep. For each project under `projectsRoot`:
  *   - generate any missing preview for an existing source screenshot
  *   - delete any preview whose source no longer exists
+ *   - delete any source screenshot no longer referenced by the
+ *     project's appframe.json (orphans from re-uploads, removed
+ *     screens, deleted variants, etc.)
  *
- * Idempotent + self-healing — runs on every server start so a manually
- * deleted source file (Finder, git, etc.) doesn't leave orphan previews
- * behind. Errors are logged and skipped; the sweep never throws.
+ * Idempotent + self-healing — runs on every server start. Source-file
+ * orphan cleanup is gated on a parseable appframe.json: if the project
+ * file is missing or malformed we leave all sources in place rather
+ * than risk deleting files for an unknown state. The orphan pass runs
+ * BEFORE the preview pass so any newly-orphaned source's preview gets
+ * cleaned in the same sweep. Errors are logged and skipped; the sweep
+ * never throws.
  */
 export async function sweepPreviews(options: ScreenshotStorageOptions): Promise<void> {
   const root = resolve(options.projectsRoot);
@@ -243,7 +287,56 @@ export async function sweepPreviews(options: ScreenshotStorageOptions): Promise<
     } catch {
       continue;
     }
-    const sourceFiles = sources.filter(
+    let sourceFiles = sources.filter(
+      (n) => SUPPORTED_EXTENSIONS.has(extname(n).toLowerCase()),
+    );
+
+    // Orphan source cleanup — read the project file, collect every
+    // /api/screenshots/<slug>/<file> reference, then unlink anything
+    // on disk that's not referenced. Only runs when the project file
+    // is readable and well-formed; otherwise leave everything alone.
+    const projectFilePath = join(root, projectSlug, 'appframe.json');
+    let referenced: Set<string> | null = null;
+    try {
+      const raw = await readFile(projectFilePath, 'utf-8');
+      const parsed = JSON.parse(raw) as unknown;
+      // Project file is an envelope { data, savedAt, schemaVersion }.
+      const envelope = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+      const projectData = envelope && 'data' in envelope ? envelope.data : envelope;
+      if (projectData) {
+        referenced = collectReferencedScreenshotFilenames(projectData, projectSlug);
+      }
+    } catch {
+      // Missing / unreadable / unparseable appframe.json — skip orphan
+      // cleanup for this project so we never delete files based on
+      // an unknown state. The preview-side cleanup below still runs.
+      referenced = null;
+    }
+    if (referenced) {
+      const survivors: string[] = [];
+      for (const name of sourceFiles) {
+        if (referenced.has(name)) {
+          survivors.push(name);
+          continue;
+        }
+        try {
+          await unlink(join(screenshotsDir, name));
+        } catch (err) {
+          console.warn(
+            `[screenshotStorage] sweep: orphan source unlink failed ${projectSlug}/${name}:`,
+            err,
+          );
+          survivors.push(name); // keep it in the list so we don't try to regenerate its preview either
+        }
+      }
+      sourceFiles = survivors;
+    }
+
+    // Restrict the preview pass to raster sources (SVGs don't have
+    // generated previews; see PREVIEW_RASTER_EXTENSIONS).
+    sourceFiles = sourceFiles.filter(
       (n) => PREVIEW_RASTER_EXTENSIONS.has(extname(n).toLowerCase()),
     );
     for (const name of sourceFiles) {

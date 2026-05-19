@@ -557,5 +557,109 @@ describe('preview-resolution screenshots', () => {
       });
       await expect(sweepPreviews(options)).resolves.toBeUndefined();
     });
+
+    it('deletes orphan source files not referenced by appframe.json', async () => {
+      const project = 'alpha';
+      const screenshotsDir = join(options.projectsRoot, project, 'screenshots');
+      await mkdir(screenshotsDir, { recursive: true });
+
+      // Three source PNGs; only two are referenced by the project file.
+      const png = await sharp({
+        create: { width: 100, height: 100, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } },
+      }).png().toBuffer();
+      await writeFile(join(screenshotsDir, 'kept-1.png'), png);
+      await writeFile(join(screenshotsDir, 'kept-2.png'), png);
+      await writeFile(join(screenshotsDir, 'orphan.png'), png);
+      await writeFile(join(screenshotsDir, 'also-orphan.jpg'), png);
+
+      await writeFile(
+        join(options.projectsRoot, project, 'appframe.json'),
+        JSON.stringify({
+          data: {
+            screens: [
+              { screenshotUrl: `/api/screenshots/${project}/kept-1.png` },
+              { screenshotUrl: `/api/screenshots/${project}/kept-2.png` },
+            ],
+          },
+          savedAt: new Date().toISOString(),
+          schemaVersion: 1,
+        }),
+      );
+
+      await sweepPreviews(options);
+
+      await expect(stat(join(screenshotsDir, 'kept-1.png'))).resolves.toBeDefined();
+      await expect(stat(join(screenshotsDir, 'kept-2.png'))).resolves.toBeDefined();
+      await expect(stat(join(screenshotsDir, 'orphan.png'))).rejects.toThrow();
+      await expect(stat(join(screenshotsDir, 'also-orphan.jpg'))).rejects.toThrow();
+    });
+
+    it('finds references in nested places: variants, localeScreens, panoramic elements, background layers', async () => {
+      const project = 'alpha';
+      const screenshotsDir = join(options.projectsRoot, project, 'screenshots');
+      await mkdir(screenshotsDir, { recursive: true });
+
+      const png = await sharp({
+        create: { width: 100, height: 100, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } },
+      }).png().toBuffer();
+      for (const f of ['variant.png', 'locale.png', 'pano.png', 'bg.png', 'orphan.png']) {
+        await writeFile(join(screenshotsDir, f), png);
+      }
+
+      await writeFile(
+        join(options.projectsRoot, project, 'appframe.json'),
+        JSON.stringify({
+          data: {
+            screens: [],
+            localeScreens: {
+              'es-ES': [{ screenshotUrl: `/api/screenshots/${project}/locale.png` }],
+            },
+            panoramicElements: [
+              { type: 'device', screenshot: `/api/screenshots/${project}/pano.png` },
+            ],
+            panoramicBackground: {
+              layers: [{ kind: 'image', image: `/api/screenshots/${project}/bg.png` }],
+            },
+            variants: [
+              {
+                snapshot: {
+                  screens: [{ screenshotUrl: `/api/screenshots/${project}/variant.png` }],
+                },
+              },
+            ],
+          },
+          savedAt: new Date().toISOString(),
+          schemaVersion: 1,
+        }),
+      );
+
+      await sweepPreviews(options);
+
+      for (const f of ['variant.png', 'locale.png', 'pano.png', 'bg.png']) {
+        await expect(stat(join(screenshotsDir, f))).resolves.toBeDefined();
+      }
+      await expect(stat(join(screenshotsDir, 'orphan.png'))).rejects.toThrow();
+    });
+
+    it('does not delete source files when appframe.json is missing or malformed', async () => {
+      const project = 'alpha';
+      const screenshotsDir = join(options.projectsRoot, project, 'screenshots');
+      await mkdir(screenshotsDir, { recursive: true });
+      const png = await sharp({
+        create: { width: 100, height: 100, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } },
+      }).png().toBuffer();
+      await writeFile(join(screenshotsDir, 'orphan.png'), png);
+      // No appframe.json at all.
+
+      await sweepPreviews(options);
+
+      // Orphan is preserved because we don't know which files are referenced.
+      await expect(stat(join(screenshotsDir, 'orphan.png'))).resolves.toBeDefined();
+
+      // Now plant a malformed appframe.json — same safety rule.
+      await writeFile(join(options.projectsRoot, project, 'appframe.json'), '{ this is not valid json');
+      await sweepPreviews(options);
+      await expect(stat(join(screenshotsDir, 'orphan.png'))).resolves.toBeDefined();
+    });
   });
 });

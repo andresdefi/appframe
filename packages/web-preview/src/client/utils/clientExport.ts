@@ -14,14 +14,16 @@
 // editor's initial load stays smaller. The first export pays a one-time
 // chunk-load cost (~50-200 ms on a slow connection) which is invisible
 // next to the rasterization itself.
-import type { domToPng } from 'modern-screenshot';
-type DomToPng = typeof domToPng;
-let domToPngPromise: Promise<DomToPng> | null = null;
-function loadDomToPng(): Promise<DomToPng> {
-  if (!domToPngPromise) {
-    domToPngPromise = import('modern-screenshot').then((m) => m.domToPng);
+import type { domToCanvas } from 'modern-screenshot';
+import { canvasToPngBlob } from './canvasBlob';
+
+type DomToCanvas = typeof domToCanvas;
+let domToCanvasPromise: Promise<DomToCanvas> | null = null;
+function loadDomToCanvas(): Promise<DomToCanvas> {
+  if (!domToCanvasPromise) {
+    domToCanvasPromise = import('modern-screenshot').then((m) => m.domToCanvas);
   }
-  return domToPngPromise;
+  return domToCanvasPromise;
 }
 
 // Reuse a single hidden iframe across renders instead of create + destroy
@@ -102,16 +104,9 @@ export async function exportScreenClientSide(
 
   const iframe = await prepareIframeForRender(html, width, height);
   const doc = iframe.contentDocument!;
-  const domToPng = await loadDomToPng();
-  const dataUrl = await domToPng(doc.documentElement, { scale: 1, width, height });
-  return dataUrlToBlob(dataUrl);
-}
-
-async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
-  // fetch() can resolve data URLs in modern browsers and yields a Blob with
-  // the right mime type set, saving us a manual base64 decode.
-  const res = await fetch(dataUrl);
-  return res.blob();
+  const domToCanvas = await loadDomToCanvas();
+  const canvas = await domToCanvas(doc.documentElement, { scale: 1, width, height });
+  return canvasToPngBlob(canvas);
 }
 
 /**
@@ -144,15 +139,12 @@ export async function exportPanoramicSlicesClientSide(
 
   const iframe = await prepareIframeForRender(html, totalWidth, frameHeight);
   const doc = iframe.contentDocument!;
-  const domToPng = await loadDomToPng();
-  const dataUrl = await domToPng(doc.documentElement, {
+  const domToCanvas = await loadDomToCanvas();
+  const wideCanvas = await domToCanvas(doc.documentElement, {
     scale: 1,
     width: totalWidth,
     height: frameHeight,
   });
-
-  // Load the rasterized wide canvas as an Image so we can crop it.
-  const img = await loadImage(dataUrl);
 
   const slices: Blob[] = [];
   for (let i = 0; i < frameCount; i++) {
@@ -162,7 +154,7 @@ export async function exportPanoramicSlicesClientSide(
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('failed to acquire 2d context for slice canvas');
     ctx.drawImage(
-      img,
+      wideCanvas,
       i * frameWidth, 0, frameWidth, frameHeight, // source rect
       0, 0, frameWidth, frameHeight,              // dest rect
     );
@@ -170,22 +162,4 @@ export async function exportPanoramicSlicesClientSide(
     slices.push(blob);
   }
   return slices;
-}
-
-async function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('image load failed'));
-    img.src = src;
-  });
-}
-
-async function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error('canvas.toBlob returned null'));
-    }, 'image/png');
-  });
 }

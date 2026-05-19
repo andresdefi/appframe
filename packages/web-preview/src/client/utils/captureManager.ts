@@ -6,7 +6,7 @@
  * row in the foreground.
  *
  * Same iframe-prep flow as `clientExport.ts` (doc.write → await fonts +
- * image decode → domToPng), but Blob-backed ObjectURLs instead of data
+ * image decode → domToCanvas), but Blob-backed ObjectURLs instead of data
  * URLs so we don't carry a ~1MB string per row in JS memory. Captures
  * dedupe by key, fresher requests cancel stale in-flight ones, and the
  * cache is LRU-capped to avoid growth at very high locale counts.
@@ -16,14 +16,16 @@
 // locale (the inactive-row capture flow runs here). Dynamic-import keeps it
 // out of the initial bundle; the first capture pays a one-time chunk-load
 // cost that's invisible next to the rasterization itself.
-import type { domToPng } from 'modern-screenshot';
-type DomToPng = typeof domToPng;
-let domToPngPromise: Promise<DomToPng> | null = null;
-function loadDomToPng(): Promise<DomToPng> {
-  if (!domToPngPromise) {
-    domToPngPromise = import('modern-screenshot').then((m) => m.domToPng);
+import type { domToCanvas } from 'modern-screenshot';
+import { canvasToPngBlob } from './canvasBlob';
+
+type DomToCanvas = typeof domToCanvas;
+let domToCanvasPromise: Promise<DomToCanvas> | null = null;
+function loadDomToCanvas(): Promise<DomToCanvas> {
+  if (!domToCanvasPromise) {
+    domToCanvasPromise = import('modern-screenshot').then((m) => m.domToCanvas);
   }
-  return domToPngPromise;
+  return domToCanvasPromise;
 }
 
 export interface CaptureRequest {
@@ -191,18 +193,15 @@ async function runCapture(req: QueuedRequest): Promise<string> {
   await Promise.all([fontsReady, imagesDecoded]);
   if (req.cancelled) throw new Error('capture cancelled');
 
-  const domToPng = await loadDomToPng();
-  const dataUrl = await domToPng(doc.documentElement, {
+  const domToCanvas = await loadDomToCanvas();
+  const canvas = await domToCanvas(doc.documentElement, {
     scale: 1,
     width: req.width,
     height: req.height,
   });
   if (req.cancelled) throw new Error('capture cancelled');
 
-  // Convert data URL → Blob → ObjectURL so we don't keep the base64 string
-  // (10-30% larger than the binary) hanging in memory long-term.
-  const blobRes = await fetch(dataUrl);
-  const blob = await blobRes.blob();
+  const blob = await canvasToPngBlob(canvas);
   const url = URL.createObjectURL(blob);
 
   const prev = cache.get(req.key);

@@ -47,6 +47,120 @@ function normalizeScreenshotPath(
   return parts.join('/');
 }
 
+type ScreenConfig = AppframeConfig['screens'][number];
+
+// Build a single ScreenConfig from the editor's ScreenState shape.
+// Used for the top-level `screens` array and each locale's screens
+// override. The locale path uses a synthetic default original since
+// locales don't carry their own base ScreenConfig templates.
+function buildScreenConfig(
+  screen: Record<string, unknown>,
+  original: ScreenConfig,
+  index: number,
+): ScreenConfig {
+  const backgroundType = expectOptionalString(screen.backgroundType) as typeof original.backgroundType;
+  const backgroundColor = expectOptionalString(screen.backgroundColor);
+  const backgroundGradient = isRecord(screen.backgroundGradient)
+    ? screen.backgroundGradient as typeof original.backgroundGradient
+    : undefined;
+  const backgroundImage = expectOptionalString(screen.backgroundImageDataUrl);
+  const backgroundImageFit = expectOptionalString(screen.backgroundImageFit) as typeof original.backgroundImageFit;
+  const backgroundImagePositionX = typeof screen.backgroundImagePositionX === 'number' ? screen.backgroundImagePositionX : undefined;
+  const backgroundImagePositionY = typeof screen.backgroundImagePositionY === 'number' ? screen.backgroundImagePositionY : undefined;
+  const backgroundImageScale = typeof screen.backgroundImageScale === 'number' ? screen.backgroundImageScale : undefined;
+  const backgroundOverlay = isRecord(screen.backgroundOverlay)
+    ? screen.backgroundOverlay as typeof original.backgroundOverlay
+    : undefined;
+
+  return {
+    ...original,
+    screenshot: normalizeScreenshotPath(original.screenshot, screen.screenshotName, index),
+    headline: expectOptionalString(screen.headline) ?? original.headline,
+    subtitle: expectOptionalString(screen.subtitle),
+    layout:
+      (expectOptionalString(screen.layout) as typeof original.layout)
+      ?? original.layout,
+    device: expectOptionalString(screen.frameId) ?? original.device,
+    background: buildBackgroundString(screen, original.background),
+    ...(backgroundType && backgroundType !== 'preset' ? { backgroundType } : {}),
+    ...(backgroundType === 'solid' && backgroundColor ? { backgroundColor } : {}),
+    ...(backgroundType === 'gradient' && backgroundGradient ? { backgroundGradient } : {}),
+    ...(backgroundType === 'image' && backgroundImage ? { backgroundImage } : {}),
+    ...(backgroundType === 'image' && backgroundImageFit ? { backgroundImageFit } : {}),
+    ...(backgroundType === 'image' && backgroundImagePositionX != null ? { backgroundImagePositionX } : {}),
+    ...(backgroundType === 'image' && backgroundImagePositionY != null ? { backgroundImagePositionY } : {}),
+    ...(backgroundType === 'image' && backgroundImageScale != null ? { backgroundImageScale } : {}),
+    ...(backgroundOverlay ? { backgroundOverlay } : {}),
+    composition:
+      (expectOptionalString(screen.composition) as typeof original.composition)
+      ?? original.composition,
+    spotlight: isRecord(screen.spotlight)
+      ? screen.spotlight as typeof original.spotlight
+      : original.spotlight,
+    annotations: Array.isArray(screen.annotations)
+      ? screen.annotations as typeof original.annotations
+      : original.annotations ?? [],
+    deviceShadow: isRecord(screen.deviceShadow)
+      ? screen.deviceShadow as typeof original.deviceShadow
+      : original.deviceShadow,
+    borderSimulation: isRecord(screen.borderSimulation)
+      ? screen.borderSimulation as typeof original.borderSimulation
+      : original.borderSimulation,
+    cornerRadius:
+      typeof screen.cornerRadius === 'number'
+        ? screen.cornerRadius
+        : original.cornerRadius,
+    loupe: isRecord(screen.loupe)
+      ? screen.loupe as typeof original.loupe
+      : original.loupe,
+    callouts: Array.isArray(screen.callouts)
+      ? screen.callouts as typeof original.callouts
+      : original.callouts,
+    overlays: Array.isArray(screen.overlays)
+      ? screen.overlays as typeof original.overlays
+      : original.overlays,
+    ...(expectOptionalString(screen.headlineFont)
+      ? { headlineFont: expectOptionalString(screen.headlineFont) as typeof original.headlineFont }
+      : {}),
+    ...(typeof screen.headlineFontWeight === 'number'
+      ? { headlineFontWeight: screen.headlineFontWeight }
+      : {}),
+    ...(expectOptionalString(screen.subtitleFont)
+      ? { subtitleFont: expectOptionalString(screen.subtitleFont) as typeof original.subtitleFont }
+      : {}),
+    ...(typeof screen.subtitleFontWeight === 'number'
+      ? { subtitleFontWeight: screen.subtitleFontWeight }
+      : {}),
+    ...(typeof screen.freeTextEnabled === 'boolean'
+      ? { freeTextEnabled: screen.freeTextEnabled }
+      : {}),
+    ...(expectOptionalString(screen.freeText)
+      ? { freeText: expectOptionalString(screen.freeText) as string }
+      : {}),
+    ...(typeof screen.freeTextSize === 'number' && screen.freeTextSize > 0
+      ? { freeTextSize: screen.freeTextSize }
+      : {}),
+    ...(expectOptionalString(screen.freeTextFont)
+      ? { freeTextFont: expectOptionalString(screen.freeTextFont) as typeof original.freeTextFont }
+      : {}),
+    ...(typeof screen.freeTextFontWeight === 'number'
+      ? { freeTextFontWeight: screen.freeTextFontWeight }
+      : {}),
+    ...(typeof screen.freeTextRotation === 'number' && screen.freeTextRotation !== 0
+      ? { freeTextRotation: screen.freeTextRotation }
+      : {}),
+    ...(typeof screen.freeTextLetterSpacing === 'number' && screen.freeTextLetterSpacing !== 0
+      ? { freeTextLetterSpacing: `${screen.freeTextLetterSpacing / 100}em` }
+      : {}),
+    ...(expectOptionalString(screen.freeTextTextTransform)
+      ? {
+          freeTextTextTransform:
+            expectOptionalString(screen.freeTextTextTransform) as typeof original.freeTextTextTransform,
+        }
+      : {}),
+  };
+}
+
 export function buildConfigFromEditorState(
   baseConfig: AppframeConfig,
   body: Record<string, unknown>,
@@ -56,12 +170,52 @@ export function buildConfigFromEditorState(
   const screens = Array.isArray(body.screens)
     ? body.screens.filter(isRecord)
     : [];
-  const locales = isRecord(body.sessionLocales)
-    ? body.sessionLocales
-    : next.locales;
+  const sessionLocales = isRecord(body.sessionLocales) ? body.sessionLocales : {};
+  const localeScreens = isRecord(body.localeScreens) ? body.localeScreens : {};
+  const localePanoramicElements = isRecord(body.localePanoramicElements)
+    ? body.localePanoramicElements
+    : {};
 
   next.mode = mode;
-  next.locales = locales as AppframeConfig['locales'];
+  // Merge per-locale snapshots into the locales map so the live
+  // /api/config reflects the editor's full state. Without this, agents
+  // polling /api/config see locale labels but no localized screen
+  // edits — both branches below copy through sessionLocales[code] as
+  // the metadata + screens / panoramic.elements layered on top.
+  const mergedLocales: Record<string, unknown> = {};
+  const allLocaleCodes = new Set<string>([
+    ...Object.keys(sessionLocales),
+    ...Object.keys(localeScreens),
+    ...Object.keys(localePanoramicElements),
+  ]);
+  for (const code of allLocaleCodes) {
+    const meta = isRecord(sessionLocales[code]) ? sessionLocales[code] : {};
+    const entry: Record<string, unknown> = { ...meta };
+    const localeScreenStates = localeScreens[code];
+    if (Array.isArray(localeScreenStates)) {
+      entry.screens = localeScreenStates
+        .filter(isRecord)
+        .map((screen, index) =>
+          buildScreenConfig(
+            screen,
+            (next.screens[index] ?? {
+              screenshot: `screenshots/screen-${index + 1}.png`,
+              headline: `Screen ${index + 1}`,
+              layout: 'center' as const,
+              composition: 'single' as const,
+              annotations: [],
+            }) as ScreenConfig,
+            index,
+          ),
+        );
+    }
+    const localeElements = localePanoramicElements[code];
+    if (Array.isArray(localeElements)) {
+      entry.panoramic = { elements: localeElements };
+    }
+    mergedLocales[code] = entry;
+  }
+  next.locales = mergedLocales as AppframeConfig['locales'];
 
   const firstScreen = screens[0];
   if (firstScreen && mode !== 'panoramic') {
@@ -174,113 +328,7 @@ export function buildConfigFromEditorState(
       composition: 'single' as const,
       annotations: [],
     };
-
-    const backgroundType = expectOptionalString(screen.backgroundType) as typeof original.backgroundType;
-    const backgroundColor = expectOptionalString(screen.backgroundColor);
-    const backgroundGradient = isRecord(screen.backgroundGradient)
-      ? screen.backgroundGradient as typeof original.backgroundGradient
-      : undefined;
-    const backgroundImage = expectOptionalString(screen.backgroundImageDataUrl);
-    const backgroundImageFit = expectOptionalString(screen.backgroundImageFit) as typeof original.backgroundImageFit;
-    const backgroundImagePositionX = typeof screen.backgroundImagePositionX === 'number' ? screen.backgroundImagePositionX : undefined;
-    const backgroundImagePositionY = typeof screen.backgroundImagePositionY === 'number' ? screen.backgroundImagePositionY : undefined;
-    const backgroundImageScale = typeof screen.backgroundImageScale === 'number' ? screen.backgroundImageScale : undefined;
-    const backgroundOverlay = isRecord(screen.backgroundOverlay)
-      ? screen.backgroundOverlay as typeof original.backgroundOverlay
-      : undefined;
-
-    return {
-      ...original,
-      screenshot: normalizeScreenshotPath(original.screenshot, screen.screenshotName, index),
-      headline: expectOptionalString(screen.headline) ?? original.headline,
-      subtitle: expectOptionalString(screen.subtitle),
-      layout:
-        (expectOptionalString(screen.layout) as typeof original.layout)
-        ?? original.layout,
-      device: expectOptionalString(screen.frameId) ?? original.device,
-      background: buildBackgroundString(screen, original.background),
-      // Typed per-screen background overrides — honored by the renderer's
-      // screen→theme merge. Only set when the screen explicitly chose a type
-      // other than preset, otherwise leave undefined so the theme fills in.
-      ...(backgroundType && backgroundType !== 'preset' ? { backgroundType } : {}),
-      ...(backgroundType === 'solid' && backgroundColor ? { backgroundColor } : {}),
-      ...(backgroundType === 'gradient' && backgroundGradient ? { backgroundGradient } : {}),
-      ...(backgroundType === 'image' && backgroundImage ? { backgroundImage } : {}),
-      ...(backgroundType === 'image' && backgroundImageFit ? { backgroundImageFit } : {}),
-      ...(backgroundType === 'image' && backgroundImagePositionX != null ? { backgroundImagePositionX } : {}),
-      ...(backgroundType === 'image' && backgroundImagePositionY != null ? { backgroundImagePositionY } : {}),
-      ...(backgroundType === 'image' && backgroundImageScale != null ? { backgroundImageScale } : {}),
-      ...(backgroundOverlay ? { backgroundOverlay } : {}),
-      composition:
-        (expectOptionalString(screen.composition) as typeof original.composition)
-        ?? original.composition,
-      spotlight: isRecord(screen.spotlight)
-        ? screen.spotlight as typeof original.spotlight
-        : original.spotlight,
-      annotations: Array.isArray(screen.annotations)
-        ? screen.annotations as typeof original.annotations
-        : original.annotations ?? [],
-      deviceShadow: isRecord(screen.deviceShadow)
-        ? screen.deviceShadow as typeof original.deviceShadow
-        : original.deviceShadow,
-      borderSimulation: isRecord(screen.borderSimulation)
-        ? screen.borderSimulation as typeof original.borderSimulation
-        : original.borderSimulation,
-      cornerRadius:
-        typeof screen.cornerRadius === 'number'
-          ? screen.cornerRadius
-          : original.cornerRadius,
-      loupe: isRecord(screen.loupe)
-        ? screen.loupe as typeof original.loupe
-        : original.loupe,
-      callouts: Array.isArray(screen.callouts)
-        ? screen.callouts as typeof original.callouts
-        : original.callouts,
-      overlays: Array.isArray(screen.overlays)
-        ? screen.overlays as typeof original.overlays
-        : original.overlays,
-      ...(expectOptionalString(screen.headlineFont)
-        ? { headlineFont: expectOptionalString(screen.headlineFont) as typeof original.headlineFont }
-        : {}),
-      ...(typeof screen.headlineFontWeight === 'number'
-        ? { headlineFontWeight: screen.headlineFontWeight }
-        : {}),
-      ...(expectOptionalString(screen.subtitleFont)
-        ? { subtitleFont: expectOptionalString(screen.subtitleFont) as typeof original.subtitleFont }
-        : {}),
-      ...(typeof screen.subtitleFontWeight === 'number'
-        ? { subtitleFontWeight: screen.subtitleFontWeight }
-        : {}),
-      // Free text (third text slot) — only emit set fields so old configs
-      // round-trip cleanly without spurious empty values.
-      ...(typeof screen.freeTextEnabled === 'boolean'
-        ? { freeTextEnabled: screen.freeTextEnabled }
-        : {}),
-      ...(expectOptionalString(screen.freeText)
-        ? { freeText: expectOptionalString(screen.freeText) as string }
-        : {}),
-      ...(typeof screen.freeTextSize === 'number' && screen.freeTextSize > 0
-        ? { freeTextSize: screen.freeTextSize }
-        : {}),
-      ...(expectOptionalString(screen.freeTextFont)
-        ? { freeTextFont: expectOptionalString(screen.freeTextFont) as typeof original.freeTextFont }
-        : {}),
-      ...(typeof screen.freeTextFontWeight === 'number'
-        ? { freeTextFontWeight: screen.freeTextFontWeight }
-        : {}),
-      ...(typeof screen.freeTextRotation === 'number' && screen.freeTextRotation !== 0
-        ? { freeTextRotation: screen.freeTextRotation }
-        : {}),
-      ...(typeof screen.freeTextLetterSpacing === 'number' && screen.freeTextLetterSpacing !== 0
-        ? { freeTextLetterSpacing: `${screen.freeTextLetterSpacing / 100}em` }
-        : {}),
-      ...(expectOptionalString(screen.freeTextTextTransform)
-        ? {
-            freeTextTextTransform:
-              expectOptionalString(screen.freeTextTextTransform) as typeof original.freeTextTextTransform,
-          }
-        : {}),
-    };
+    return buildScreenConfig(screen, original as ScreenConfig, index);
   });
 
   return validateConfigOrThrow(next);

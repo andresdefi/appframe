@@ -263,6 +263,8 @@ export function App() {
   const isFirstSyncRef = useRef(true);
   const screens = usePreviewStore((s) => s.screens);
   const sessionLocales = usePreviewStore((s) => s.sessionLocales);
+  const localeScreens = usePreviewStore((s) => s.localeScreens);
+  const localePanoramicElements = usePreviewStore((s) => s.localePanoramicElements);
   const panoramicFrameCount = usePreviewStore((s) => s.panoramicFrameCount);
   const panoramicBackground = usePreviewStore((s) => s.panoramicBackground);
   const panoramicElements = usePreviewStore((s) => s.panoramicElements);
@@ -284,6 +286,12 @@ export function App() {
           __editorState: true,
           mode: isPanoramic ? 'panoramic' : 'individual',
           sessionLocales,
+          // Per-locale snapshots. Agents polling /api/config saw locale
+          // labels but no localized screen edits without these.
+          // buildConfigFromEditorState merges them into next.locales[code]
+          // alongside sessionLocales' label metadata.
+          localeScreens,
+          localePanoramicElements,
           screens,
           panoramicFrameCount,
           panoramicBackground,
@@ -299,7 +307,17 @@ export function App() {
       window.clearTimeout(handle);
       controller.abort();
     };
-  }, [config, isPanoramic, screens, sessionLocales, panoramicFrameCount, panoramicBackground, panoramicElements]);
+  }, [
+    config,
+    isPanoramic,
+    screens,
+    sessionLocales,
+    localeScreens,
+    localePanoramicElements,
+    panoramicFrameCount,
+    panoramicBackground,
+    panoramicElements,
+  ]);
 
   if (error) {
     return (

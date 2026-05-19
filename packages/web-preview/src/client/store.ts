@@ -574,14 +574,25 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       const stillHasData =
         !!localeScreens[code] || !!localePanoramicElements[code];
       const sessionLocales = { ...state.sessionLocales };
+      let localeVersions = state.localeVersions;
       if (!stillHasData) {
         delete sessionLocales[code];
+        // Clear the render-version entry too. Leaving it behind would
+        // accumulate dead entries across repeated add/remove cycles —
+        // negligible memory, but it also means a future re-add of the
+        // same code would resume the version counter mid-stream instead
+        // of starting fresh.
+        if (code in localeVersions) {
+          localeVersions = { ...localeVersions };
+          delete localeVersions[code];
+        }
       }
       const shouldResetActive = state.locale === code && !stillHasData;
       return {
         localeScreens,
         localePanoramicElements,
         sessionLocales,
+        localeVersions,
         locale: shouldResetActive ? 'default' : state.locale,
       };
     }),

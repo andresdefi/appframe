@@ -300,4 +300,60 @@ describe('slimProjectSnapshot', () => {
     slimProjectSnapshot(snapshot);
     expect(JSON.stringify(snapshot)).toBe(before);
   });
+
+  // Regression: slim used to walk only top-level `screens` and each
+  // variant's `snapshot.screens`. Multi-locale projects carry the bulk
+  // of their data in `localeScreens` (and each variant's snapshot has
+  // its own localeScreens too) — skipping those undid the slimming on
+  // disk for every multi-locale user.
+  it('slims top-level localeScreens for every locale', () => {
+    const snapshot = {
+      screens: [buildDefaultScreen({ id: 'd1' })],
+      localeScreens: {
+        'es-ES': [buildDefaultScreen({ id: 's1-es' })],
+        'ja-JP': [buildDefaultScreen({ id: 's1-ja' })],
+      },
+    };
+    const slimmed = slimProjectSnapshot(snapshot) as {
+      localeScreens: Record<string, Partial<ScreenState>[]>;
+    };
+    expect(slimmed.localeScreens['es-ES']?.[0]).not.toHaveProperty('headlineSize');
+    expect(slimmed.localeScreens['es-ES']?.[0]?.id).toBe('s1-es');
+    expect(slimmed.localeScreens['ja-JP']?.[0]).not.toHaveProperty('headlineSize');
+  });
+
+  it('slims each variant snapshot localeScreens too', () => {
+    const snapshot = {
+      screens: [buildDefaultScreen({ id: 'd1' })],
+      variants: [
+        {
+          id: 'v1',
+          snapshot: {
+            screens: [buildDefaultScreen({ id: 's1' })],
+            localeScreens: {
+              'es-ES': [buildDefaultScreen({ id: 's1-v1-es' })],
+            },
+          },
+        },
+      ],
+    };
+    const slimmed = slimProjectSnapshot(snapshot) as {
+      variants: {
+        snapshot: { localeScreens: Record<string, Partial<ScreenState>[]> };
+      }[];
+    };
+    expect(
+      slimmed.variants[0]!.snapshot.localeScreens['es-ES']?.[0],
+    ).not.toHaveProperty('headlineSize');
+    expect(slimmed.variants[0]!.snapshot.localeScreens['es-ES']?.[0]?.id).toBe('s1-v1-es');
+  });
+
+  it('leaves malformed localeScreens (non-record) untouched', () => {
+    const snapshot = {
+      screens: [buildDefaultScreen({ id: 's1' })],
+      localeScreens: 'not a record',
+    };
+    const slimmed = slimProjectSnapshot(snapshot) as { localeScreens: unknown };
+    expect(slimmed.localeScreens).toBe('not a record');
+  });
 });

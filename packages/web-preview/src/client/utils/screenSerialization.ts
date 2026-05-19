@@ -226,9 +226,36 @@ export function fattenScreen(saved: unknown): Partial<ScreenState> & Record<stri
 }
 
 /**
+ * Walk every record of locale screens (Record<code, ScreenState[]>)
+ * and slim each ScreenState inside. Returns a new record with the
+ * same keys, or the original value if it isn't a record-of-arrays
+ * shape (so malformed input passes through untouched).
+ */
+function slimLocaleScreens(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const input = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [code, screens] of Object.entries(input)) {
+    if (!Array.isArray(screens)) {
+      out[code] = screens;
+      continue;
+    }
+    out[code] = screens.map((s) =>
+      s && typeof s === 'object' ? slimScreen(s as ScreenState) : s,
+    );
+  }
+  return out;
+}
+
+/**
  * Walk a project snapshot and slim every screens array we find:
- * the top-level `screens` plus each variant's `snapshot.screens`. The
- * snapshot is treated structurally — we don't import the full
+ * the top-level `screens` and `localeScreens[code][]`, plus each
+ * variant's `snapshot.screens` and `snapshot.localeScreens[code][]`.
+ * Without slimming the locale arrays, multi-locale projects would
+ * carry full default-heavy ScreenState arrays on disk for every
+ * locale × screen — undermining the slim persistence model entirely.
+ *
+ * The snapshot is treated structurally — we don't import the full
  * ProjectSnapshot type here to keep this module independent of the
  * store circular-dependency tangle.
  */
@@ -241,6 +268,9 @@ export function slimProjectSnapshot(snapshot: unknown): unknown {
   if (Array.isArray(screens)) {
     out.screens = screens.map((s) => (s && typeof s === 'object' ? slimScreen(s as ScreenState) : s));
   }
+  if (out.localeScreens) {
+    out.localeScreens = slimLocaleScreens(out.localeScreens);
+  }
   const variants = out.variants;
   if (Array.isArray(variants)) {
     out.variants = variants.map((variant) => {
@@ -248,18 +278,17 @@ export function slimProjectSnapshot(snapshot: unknown): unknown {
       const v = variant as Record<string, unknown>;
       const innerSnapshot = v.snapshot;
       if (!innerSnapshot || typeof innerSnapshot !== 'object') return variant;
-      const inner = innerSnapshot as Record<string, unknown>;
+      const inner = { ...(innerSnapshot as Record<string, unknown>) };
       const innerScreens = inner.screens;
-      if (!Array.isArray(innerScreens)) return variant;
-      return {
-        ...v,
-        snapshot: {
-          ...inner,
-          screens: innerScreens.map((s) =>
-            s && typeof s === 'object' ? slimScreen(s as ScreenState) : s,
-          ),
-        },
-      };
+      if (Array.isArray(innerScreens)) {
+        inner.screens = innerScreens.map((s) =>
+          s && typeof s === 'object' ? slimScreen(s as ScreenState) : s,
+        );
+      }
+      if (inner.localeScreens) {
+        inner.localeScreens = slimLocaleScreens(inner.localeScreens);
+      }
+      return { ...v, snapshot: inner };
     });
   }
   return out;

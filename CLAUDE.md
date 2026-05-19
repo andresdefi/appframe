@@ -57,7 +57,7 @@ Snapshot-at-add-time model: `Add Locale` deep-clones the active mode's full stat
 
 ### Individual-mode UI inspection not yet done
 The 2026-04-20 pass reviewed Platform / Screenshot / Device Frame / Device Layout / Device Shadow / Composition / Background / Text tabs. Extras and Download were audited later. Still un-inspected in that depth:
-- **Variants tab** — never deeply reviewed. The variant cards / grid + the approval / artifact flow.
+- **Variants tab** — Phase 9 of `docs/codex-review-plan.md` landed two pieces (2026-05-19): `createVariant` now produces a blank canvas rather than silently snapshotting the active variant; `VariantRecord.thumbnail` carries a small composite render captured via modern-screenshot (multi-screen variants stitch every frame side-by-side; panoramic captures the full canvas). The approval / artifact flow + the variant card UX beyond thumbnails still hasn't been deeply reviewed.
 - **Panoramic mode** — entire mode untouched. Sidebar tabs differ (`PanoramicTab`, `PanoramicEffectsTab`).
 
 ### Background catalog is intentionally local-only

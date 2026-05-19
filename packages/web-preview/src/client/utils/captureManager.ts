@@ -12,7 +12,18 @@
  * cache is LRU-capped to avoid growth at very high locale counts.
  */
 
-import { domToPng } from 'modern-screenshot';
+// modern-screenshot is heavy (~200 KB) and only fires when the user adds a
+// locale (the inactive-row capture flow runs here). Dynamic-import keeps it
+// out of the initial bundle; the first capture pays a one-time chunk-load
+// cost that's invisible next to the rasterization itself.
+type DomToPng = typeof import('modern-screenshot').domToPng;
+let domToPngPromise: Promise<DomToPng> | null = null;
+function loadDomToPng(): Promise<DomToPng> {
+  if (!domToPngPromise) {
+    domToPngPromise = import('modern-screenshot').then((m) => m.domToPng);
+  }
+  return domToPngPromise;
+}
 
 export interface CaptureRequest {
   key: string;
@@ -179,6 +190,7 @@ async function runCapture(req: QueuedRequest): Promise<string> {
   await Promise.all([fontsReady, imagesDecoded]);
   if (req.cancelled) throw new Error('capture cancelled');
 
+  const domToPng = await loadDomToPng();
   const dataUrl = await domToPng(doc.documentElement, {
     scale: 1,
     width: req.width,

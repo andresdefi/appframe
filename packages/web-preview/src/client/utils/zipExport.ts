@@ -1,4 +1,7 @@
-import JSZip from 'jszip';
+// jszip is ~100 KB in the main bundle; we only need it at Download click.
+// Dynamic-import keeps it in its own lazy chunk so first-paint stays small.
+// Static `import type` is fine — types are erased at build time.
+import type JSZipType from 'jszip';
 
 export interface ZipEntry {
   /**
@@ -25,7 +28,8 @@ export interface ZipEntry {
  * and no other code in this module needs to change.
  */
 export async function bundleAsZip(entries: ZipEntry[]): Promise<Blob> {
-  const zip = new JSZip();
+  const { default: JSZip } = await import('jszip');
+  const zip: JSZipType = new JSZip();
   // Read each blob into an ArrayBuffer up front. JSZip accepts blobs
   // directly in browsers but its Node Blob detection is flaky in
   // test environments — passing the underlying buffer works

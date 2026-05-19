@@ -9,7 +9,19 @@
  * for the history.
  */
 
-import { domToPng } from 'modern-screenshot';
+// modern-screenshot is ~200 KB in the main bundle but only fires on the
+// Download path. Dynamic-import keeps it in its own lazy chunk so the
+// editor's initial load stays smaller. The first export pays a one-time
+// chunk-load cost (~50-200 ms on a slow connection) which is invisible
+// next to the rasterization itself.
+type DomToPng = typeof import('modern-screenshot').domToPng;
+let domToPngPromise: Promise<DomToPng> | null = null;
+function loadDomToPng(): Promise<DomToPng> {
+  if (!domToPngPromise) {
+    domToPngPromise = import('modern-screenshot').then((m) => m.domToPng);
+  }
+  return domToPngPromise;
+}
 
 // Reuse a single hidden iframe across renders instead of create + destroy
 // per export. doc.open() / doc.write() implicitly wipes the previous
@@ -89,6 +101,7 @@ export async function exportScreenClientSide(
 
   const iframe = await prepareIframeForRender(html, width, height);
   const doc = iframe.contentDocument!;
+  const domToPng = await loadDomToPng();
   const dataUrl = await domToPng(doc.documentElement, { scale: 1, width, height });
   return dataUrlToBlob(dataUrl);
 }
@@ -130,6 +143,7 @@ export async function exportPanoramicSlicesClientSide(
 
   const iframe = await prepareIframeForRender(html, totalWidth, frameHeight);
   const doc = iframe.contentDocument!;
+  const domToPng = await loadDomToPng();
   const dataUrl = await domToPng(doc.documentElement, {
     scale: 1,
     width: totalWidth,

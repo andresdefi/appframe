@@ -55,6 +55,15 @@ function ensureIframe(width: number, height: number): HTMLIFrameElement {
 // for the same variant id at the same time share one in-flight Promise.
 const inFlight = new Map<string, Promise<string>>();
 
+// Global queue. Captures run one at a time — both to prevent a render
+// storm when the Variants tab opens with N variants all missing
+// thumbnails, AND because the underlying hidden iframe is shared
+// across captures (`ensureIframe`). Concurrent doc.open/write/close
+// calls on the same iframe would race and produce stale or corrupted
+// PNGs. The work is background-fill anyway, so sequential is fine.
+const queue: Array<() => Promise<void>> = [];
+let processing = false;
+
 // scale=0.4 of the native preview keeps each per-screen PNG small enough
 // to stitch and embed in the project JSON without bloating it. Fonts /
 // images still render at full res inside the iframe so the downscale
@@ -73,11 +82,39 @@ export function captureVariantThumbnail(
 ): Promise<string> {
   const existing = inFlight.get(variant.id);
   if (existing) return existing;
-  const promise = runCapture(variant, ctx).finally(() => {
-    inFlight.delete(variant.id);
+
+  let resolveOuter!: (value: string) => void;
+  let rejectOuter!: (err: Error) => void;
+  const promise = new Promise<string>((resolve, reject) => {
+    resolveOuter = resolve;
+    rejectOuter = reject;
   });
   inFlight.set(variant.id, promise);
+
+  queue.push(async () => {
+    try {
+      const dataUrl = await runCapture(variant, ctx);
+      resolveOuter(dataUrl);
+    } catch (err) {
+      rejectOuter(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      inFlight.delete(variant.id);
+    }
+  });
+  void processQueue();
   return promise;
+}
+
+async function processQueue(): Promise<void> {
+  if (processing) return;
+  processing = true;
+  while (queue.length > 0) {
+    const job = queue.shift()!;
+    // The job catches its own errors and rejects the outer Promise —
+    // we just keep the queue moving.
+    await job();
+  }
+  processing = false;
 }
 
 async function runCapture(variant: VariantRecord, ctx: CaptureContext): Promise<string> {

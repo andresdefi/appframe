@@ -1,0 +1,25 @@
+{
+  "description": "Linear gradient background.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 110,
+    "subtitleSize": 55,
+    "headline": "Gradient",
+    "subtitle": "Linear, three colors",
+    "colors": { "text": "#ffffff", "subtitle": "#fef3c7" },
+    "backgroundType": "gradient",
+    "backgroundGradient": {
+      "type": "linear",
+      "colors": ["#6366f1", "#ec4899", "#f59e0b"],
+      "direction": 135
+    },
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45
+  }
+}

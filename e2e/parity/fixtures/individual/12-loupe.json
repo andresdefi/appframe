@@ -1,0 +1,38 @@
+{
+  "description": "Loupe overlay magnifying a region of the device screen.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 100,
+    "subtitleSize": 50,
+    "headline": "Zoom in",
+    "subtitle": "Loupe overlay",
+    "colors": { "text": "#ffffff", "subtitle": "#e2e8f0" },
+    "backgroundType": "solid",
+    "backgroundColor": "#064e3b",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45,
+    "loupe": {
+      "sourceX": 0,
+      "sourceY": 0,
+      "displayX": 50,
+      "displayY": 75,
+      "width": 0.45,
+      "height": 0.3,
+      "zoom": 2.5,
+      "cornerRadius": 24,
+      "borderWidth": 3,
+      "borderColor": "#ffffff",
+      "shadow": true,
+      "shadowColor": "#000000",
+      "shadowRadius": 30,
+      "shadowOffsetX": 0,
+      "shadowOffsetY": 8
+    }
+  }
+}

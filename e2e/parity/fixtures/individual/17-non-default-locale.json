@@ -1,0 +1,32 @@
+{
+  "description": "Non-default locale row; headline and subtitle are pulled from localeConfig.screens[0] rather than the body's top-level text fields. Mirrors how InactiveLocaleRow.tsx renders a Spanish row.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 100,
+    "subtitleSize": 50,
+    "locale": "es-MX",
+    "preferLocaleText": true,
+    "localeConfig": {
+      "label": "Español (México)",
+      "screens": [
+        {
+          "headline": "Mantén el enfoque",
+          "subtitle": "Una aplicación simple para terminar lo que importa"
+        }
+      ]
+    },
+    "headline": "Stay focused",
+    "subtitle": "A simple app to finish what matters",
+    "colors": { "text": "#ffffff", "subtitle": "#e2e8f0" },
+    "backgroundType": "solid",
+    "backgroundColor": "#5b21b6",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45
+  }
+}

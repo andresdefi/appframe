@@ -1,0 +1,21 @@
+{
+  "description": "Plain solid background — control fixture for the background-type axis.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 110,
+    "subtitleSize": 55,
+    "headline": "Solid",
+    "subtitle": "One flat color",
+    "colors": { "text": "#0f172a", "subtitle": "#334155" },
+    "backgroundType": "solid",
+    "backgroundColor": "#f59e0b",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45
+  }
+}

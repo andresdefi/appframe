@@ -1,0 +1,52 @@
+{
+  "description": "Two callout cards anchored to device-screen regions.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 100,
+    "subtitleSize": 50,
+    "headline": "See the details",
+    "subtitle": "Callout cards",
+    "colors": { "text": "#ffffff", "subtitle": "#e2e8f0" },
+    "backgroundType": "solid",
+    "backgroundColor": "#1e3a8a",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45,
+    "callouts": [
+      {
+        "id": "c1",
+        "sourceX": 25,
+        "sourceY": 30,
+        "sourceW": 30,
+        "sourceH": 20,
+        "displayX": 12,
+        "displayY": 6,
+        "displayScale": 1.4,
+        "rotation": 0,
+        "borderRadius": 12,
+        "shadow": true,
+        "borderWidth": 2,
+        "borderColor": "#ffffff"
+      },
+      {
+        "id": "c2",
+        "sourceX": 55,
+        "sourceY": 65,
+        "sourceW": 35,
+        "sourceH": 18,
+        "displayX": 55,
+        "displayY": 85,
+        "displayScale": 1.6,
+        "rotation": -4,
+        "borderRadius": 10,
+        "shadow": false,
+        "borderWidth": 1
+      }
+    ]
+  }
+}

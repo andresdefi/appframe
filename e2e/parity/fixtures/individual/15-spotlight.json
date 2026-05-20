@@ -1,0 +1,30 @@
+{
+  "description": "Spotlight effect: dimmed canvas with a bright circular cutout.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 100,
+    "subtitleSize": 50,
+    "headline": "Focus",
+    "subtitle": "Spotlight cutout",
+    "colors": { "text": "#ffffff", "subtitle": "#e2e8f0" },
+    "backgroundType": "solid",
+    "backgroundColor": "#0c0a09",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45,
+    "spotlight": {
+      "x": 50,
+      "y": 55,
+      "w": 45,
+      "h": 32,
+      "shape": "circle",
+      "dimOpacity": 0.7,
+      "blur": 6
+    }
+  }
+}

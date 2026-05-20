@@ -1,0 +1,21 @@
+{
+  "description": "Right-to-left Arabic text. Verifies the renderer doesn't latin-bias.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 100,
+    "subtitleSize": 50,
+    "headline": "ابقَ مُركّزًا على ما يهم",
+    "subtitle": "تطبيق بسيط يساعدك على إنجاز المهام اليومية بكفاءة وسرعة",
+    "colors": { "text": "#ffffff", "subtitle": "#e0e0e0" },
+    "backgroundType": "solid",
+    "backgroundColor": "#7c2d12",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45
+  }
+}

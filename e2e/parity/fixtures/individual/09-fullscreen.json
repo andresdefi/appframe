@@ -1,0 +1,10 @@
+{
+  "description": "Fullscreen screenshot mode (isFullscreen=true). No frame, no text, just the screenshot stretched to the canvas. Uses a 4x4 inline PNG as the stand-in screenshot.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "isFullscreen": true,
+    "screenshotUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFklEQVQIW2P8z8DwHwgZGRgYGP8DABbCAr2D6agcAAAAAElFTkSuQmCC"
+  }
+}

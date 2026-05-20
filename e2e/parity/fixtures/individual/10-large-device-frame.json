@@ -1,0 +1,21 @@
+{
+  "description": "iPad-class frame on a tablet-sized canvas (1668x2388 ~ iPad 12.9). Large-frame axis of the fixture grid.",
+  "body": {
+    "screenIndex": 0,
+    "width": 600,
+    "height": 800,
+    "frameId": "ipad-pro-13",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 130,
+    "subtitleSize": 60,
+    "headline": "Big screens, bigger ideas",
+    "subtitle": "iPad Pro 13\" frame",
+    "colors": { "text": "#ffffff", "subtitle": "#e0e7ff" },
+    "backgroundType": "solid",
+    "backgroundColor": "#1e1b4b",
+    "composition": "single",
+    "deviceScale": 80,
+    "deviceTop": 40
+  }
+}

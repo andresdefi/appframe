@@ -1,0 +1,78 @@
+{
+  "description": "Overlay layer with one of each variant: shape (circle), icon (inline PNG), star-rating, custom image, line shape.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 100,
+    "subtitleSize": 50,
+    "headline": "Layered",
+    "subtitle": "Overlays + shapes + icons",
+    "colors": { "text": "#ffffff", "subtitle": "#e2e8f0" },
+    "backgroundType": "solid",
+    "backgroundColor": "#082f49",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45,
+    "overlays": [
+      {
+        "id": "o-shape-circle",
+        "type": "shape",
+        "shapeType": "circle",
+        "shapeColor": "#fbbf24",
+        "shapeOpacity": 0.6,
+        "shapeBlur": 0,
+        "x": 12,
+        "y": 70,
+        "size": 80,
+        "rotation": 0,
+        "opacity": 1
+      },
+      {
+        "id": "o-icon",
+        "type": "icon",
+        "imageDataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAIklEQVR42mPYUsHwnxLMACJ+71chC48aMGrAqAHUNoASDACrBLNn7+rLwAAAAABJRU5ErkJggg==",
+        "x": 75,
+        "y": 8,
+        "size": 60,
+        "rotation": 0,
+        "opacity": 0.9
+      },
+      {
+        "id": "o-star",
+        "type": "star-rating",
+        "x": 30,
+        "y": 90,
+        "size": 120,
+        "rotation": 0,
+        "opacity": 1
+      },
+      {
+        "id": "o-custom",
+        "type": "custom",
+        "imageDataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFklEQVQIW2P8z8DwHwgZGRgYGP8DABbCAr2D6agcAAAAAElFTkSuQmCC",
+        "x": 65,
+        "y": 85,
+        "size": 70,
+        "rotation": 12,
+        "opacity": 0.85
+      },
+      {
+        "id": "o-shape-line",
+        "type": "shape",
+        "shapeType": "line",
+        "shapeColor": "#22d3ee",
+        "shapeOpacity": 0.7,
+        "shapeBlur": 0,
+        "x": 10,
+        "y": 40,
+        "size": 200,
+        "rotation": 30,
+        "opacity": 1
+      }
+    ]
+  }
+}

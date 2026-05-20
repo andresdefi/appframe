@@ -1,0 +1,23 @@
+{
+  "description": "Image background using a tiny inline data URL (4x4 PNG). Exercises the image branch of the renderer; pixel-perfect parity isn't the goal here.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 110,
+    "subtitleSize": 55,
+    "headline": "Image",
+    "subtitle": "Custom photo backdrop",
+    "colors": { "text": "#ffffff", "subtitle": "#f1f5f9" },
+    "backgroundType": "image",
+    "backgroundImageDataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFklEQVQIW2NkYGD4D8RIgJGRkfE/AB4wAv2AbZjwAAAAAElFTkSuQmCC",
+    "backgroundImageFit": "cover",
+    "backgroundOverlay": { "color": "#000000", "opacity": 0.35 },
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45
+  }
+}

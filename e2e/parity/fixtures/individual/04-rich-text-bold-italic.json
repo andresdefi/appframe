@@ -1,0 +1,21 @@
+{
+  "description": "Headline with <b>/<i>/<u>/<span style='color'> rich-text mixed in (TipTap allowlist).",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 110,
+    "subtitleSize": 55,
+    "headline": "Stay <b>focused</b> on what <i>truly</i> <span style=\"color:#fbbf24\">matters</span>",
+    "subtitle": "<b>Bold</b> + <i>italic</i> + <u>underline</u> in the subtitle too.",
+    "colors": { "text": "#ffffff", "subtitle": "#e0e0e0" },
+    "backgroundType": "solid",
+    "backgroundColor": "#312e81",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45
+  }
+}

@@ -31,6 +31,7 @@ coverage/
 # Playwright
 playwright-report/
 test-results/
+e2e/parity/snapshots/
 
 # Build artifacts
 *.tgz

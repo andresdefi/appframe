@@ -1,0 +1,44 @@
+{
+  "description": "Two annotation shapes — rectangle and arrow — drawn over the canvas.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 100,
+    "subtitleSize": 50,
+    "headline": "Notice this",
+    "subtitle": "Annotations layer",
+    "colors": { "text": "#ffffff", "subtitle": "#e2e8f0" },
+    "backgroundType": "solid",
+    "backgroundColor": "#4c0519",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45,
+    "annotations": [
+      {
+        "id": "a1",
+        "shape": "rectangle",
+        "x": 20,
+        "y": 30,
+        "w": 50,
+        "h": 15,
+        "strokeColor": "#facc15",
+        "strokeWidth": 4,
+        "borderRadius": 8
+      },
+      {
+        "id": "a2",
+        "shape": "arrow",
+        "x": 30,
+        "y": 60,
+        "w": 40,
+        "h": 12,
+        "strokeColor": "#22d3ee",
+        "strokeWidth": 5
+      }
+    ]
+  }
+}

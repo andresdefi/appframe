@@ -1,0 +1,21 @@
+{
+  "description": "Phone-class frame at a smaller canvas; pairs with 10 to cover the small/large axis.",
+  "body": {
+    "screenIndex": 0,
+    "width": 320,
+    "height": 693,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 90,
+    "subtitleSize": 45,
+    "headline": "Pocket-sized",
+    "subtitle": "Compact phone preview",
+    "colors": { "text": "#ffffff", "subtitle": "#fde68a" },
+    "backgroundType": "solid",
+    "backgroundColor": "#9a3412",
+    "composition": "single",
+    "deviceScale": 88,
+    "deviceTop": 45
+  }
+}

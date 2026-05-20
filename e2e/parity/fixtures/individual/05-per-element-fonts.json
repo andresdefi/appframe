@@ -1,0 +1,30 @@
+{
+  "description": "Different font per text element: headline=playfair-display, subtitle=inter, free-text=jetbrains-mono.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 100,
+    "subtitleSize": 50,
+    "freeTextSize": 40,
+    "headline": "Designed for delight",
+    "subtitle": "Three text slots, three typefaces",
+    "headlineFont": "playfair-display",
+    "headlineFontWeight": 700,
+    "subtitleFont": "inter",
+    "subtitleFontWeight": 400,
+    "freeText": "// free text in mono",
+    "freeTextEnabled": true,
+    "freeTextFont": "jetbrains-mono",
+    "freeTextFontWeight": 400,
+    "colors": { "text": "#ffffff", "subtitle": "#e2e8f0", "freeText": "#94a3b8" },
+    "backgroundType": "solid",
+    "backgroundColor": "#0c0a09",
+    "composition": "single",
+    "deviceScale": 88,
+    "deviceTop": 50
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "description": "Short headline + a subtitle that explicitly wraps across multiple lines.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 110,
+    "subtitleSize": 55,
+    "headline": "Stay focused",
+    "subtitle": "A subtitle long enough to wrap across at least three lines on a 400px-wide preview card, exercising the line-height and color rules.",
+    "subtitleOpacity": 80,
+    "colors": { "text": "#ffffff", "subtitle": "#cbd5f5" },
+    "backgroundType": "solid",
+    "backgroundColor": "#0f172a",
+    "composition": "single",
+    "deviceScale": 90,
+    "deviceTop": 45
+  }
+}

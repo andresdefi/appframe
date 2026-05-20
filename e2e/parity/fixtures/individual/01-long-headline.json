@@ -1,0 +1,21 @@
+{
+  "description": "Single very long headline; exercises wrap behavior and headline size.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 110,
+    "subtitleSize": 55,
+    "headline": "The single longest possible headline you can imagine for an app store screenshot card",
+    "subtitle": "",
+    "colors": { "text": "#ffffff", "subtitle": "#e0e0e0" },
+    "backgroundType": "solid",
+    "backgroundColor": "#1e3a8a",
+    "composition": "single",
+    "deviceScale": 92,
+    "deviceTop": 38
+  }
+}

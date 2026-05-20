@@ -1,0 +1,38 @@
+{
+  "description": "Minimal 3-frame panoramic canvas with one text element. Exercises the panoramic renderer end-to-end without depending on project screenshots.",
+  "endpoint": "/api/panoramic-preview-html",
+  "body": {
+    "frameCount": 3,
+    "frameWidth": 400,
+    "frameHeight": 868,
+    "font": "inter",
+    "fontWeight": 700,
+    "frameStyle": "flat",
+    "background": {
+      "type": "gradient",
+      "gradient": {
+        "type": "linear",
+        "colors": ["#0f172a", "#1e3a8a", "#0c4a6e"],
+        "direction": 90
+      }
+    },
+    "elements": [
+      {
+        "type": "text",
+        "content": "A wide panoramic canvas",
+        "x": 4,
+        "y": 8,
+        "fontSize": 4,
+        "color": "#ffffff",
+        "fontWeight": 700,
+        "fontStyle": "normal",
+        "textAlign": "left",
+        "lineHeight": 1.15,
+        "letterSpacing": 0,
+        "textTransform": "",
+        "rotation": 0,
+        "z": 10
+      }
+    ]
+  }
+}

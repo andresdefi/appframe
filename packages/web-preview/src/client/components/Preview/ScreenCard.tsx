@@ -5,6 +5,8 @@ import { buildPreviewBody } from '../../utils/previewBody';
 import { useDragPosition } from '../../hooks/useDragPosition';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { registerIframe } from '../../utils/iframeRegistry';
+import { iframePreviewSurface } from '../../utils/previewSurface';
+import { registerPreviewSurface, getPreviewSurface } from '../../utils/previewSurfaceRegistry';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
 import { dataTransferHasFiles } from '../../utils/dragUtils';
 import type { TextPosition } from '../../types';
@@ -90,10 +92,20 @@ export function ScreenCard({
   const localeConfig = usePreviewStore((s) => s.sessionLocales[s.locale]);
   const updateScreen = usePreviewStore((s) => s.updateScreen);
 
-  // Register iframe in the shared registry for instant patching
+  // Register both the raw iframe (legacy consumers) and the
+  // PreviewSurface adapter. Phase 1 hooks should read from the adapter;
+  // the iframe registry stays for any consumer that hasn't migrated yet
+  // and will be removed at the end of the phase.
   useEffect(() => {
     registerIframe(index, iframeRef.current);
-    return () => registerIframe(index, null);
+    const surface = iframeRef.current
+      ? iframePreviewSurface(iframeRef.current)
+      : null;
+    registerPreviewSurface(index, surface);
+    return () => {
+      registerIframe(index, null);
+      registerPreviewSurface(index, null);
+    };
   }, [index]);
 
   const { patchLoupe, patchCallout } = useInstantPatch();
@@ -203,9 +215,13 @@ export function ScreenCard({
         : ['text'],
     [locale],
   );
+  // Stable callback that returns the surface registered for this card.
+  // useDragPosition uses it instead of reaching for iframeRef.current
+  // directly, so Phase 3 can swap in a shadow surface with zero changes
+  // to either the hook or this component.
+  const dragGetSurface = useCallback(() => getPreviewSurface(index), [index]);
   const { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget } = useDragPosition(
-    iframeRef,
-    containerRef,
+    dragGetSurface,
     screen,
     scale,
     previewW,
@@ -317,13 +333,12 @@ export function ScreenCard({
       setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
     }
-    const iframe = iframeRef.current;
-    const doc = iframe?.contentDocument;
-    if (!doc) {
+    const surface = getPreviewSurface(index);
+    if (!surface) {
       setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
     }
-    const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+    const canvas = surface.querySelector('.canvas') as HTMLElement | null;
     if (!canvas) {
       setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
@@ -337,7 +352,6 @@ export function ScreenCard({
     // step in either direction.
     const tolerancePxX = cRect.width / 200;
     const tolerancePxY = cRect.height / 200;
-    const view = doc.defaultView;
 
     // Pick the single element being dragged. Anything else has no bearing
     // on alignment feedback right now — checking all draggables would light
@@ -362,7 +376,7 @@ export function ScreenCard({
       // callout
       selector = `.callout-card[data-idx="${target.idx}"]`;
     }
-    const el = doc.querySelector(selector) as HTMLElement | null;
+    const el = surface.querySelector(selector) as HTMLElement | null;
     if (!el) {
       setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
@@ -371,7 +385,7 @@ export function ScreenCard({
     // position:fixed is applied (set by useDragPosition on drag start). In
     // normal flow the block spans the entire text-area and would always
     // read as X-centered.
-    if (target.kind === 'text' && view?.getComputedStyle(el).position !== 'fixed') {
+    if (target.kind === 'text' && surface.getComputedStyle(el).position !== 'fixed') {
       setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
     }
@@ -396,7 +410,7 @@ export function ScreenCard({
     }
     const trio: Array<{ key: string; cx: number; cy: number; isSelf: boolean }> = [];
     const collect = (sel: string, isSelf: boolean) => {
-      const node = doc.querySelector(sel) as HTMLElement | null;
+      const node = surface.querySelector(sel) as HTMLElement | null;
       if (!node) return;
       // Text nodes only have a meaningful centre once dragged to
       // position:fixed (or after the user has dropped them, when
@@ -404,7 +418,7 @@ export function ScreenCard({
       // block text spans the whole text area and its centre would
       // be misleading.
       if ((sel === '.headline' || sel === '.subtitle' || sel === '.free-text')) {
-        const cs = view?.getComputedStyle(node).position;
+        const cs = surface.getComputedStyle(node).position;
         if (cs !== 'fixed' && cs !== 'absolute') return;
       }
       const r = node.getBoundingClientRect();
@@ -447,7 +461,7 @@ export function ScreenCard({
       }
     }
     setEqualSpacingIfChanged({ vertical: verticalMatch, horizontal: horizontalMatch });
-  }, []);
+  }, [index]);
 
   // MutationObserver fires only on style mutations, so drag-start (which
   // changes dragTarget but may not yet have moved the element) wouldn't
@@ -465,9 +479,8 @@ export function ScreenCard({
   const attachGuideObserver = useCallback(() => {
     guideObserverRef.current?.disconnect();
     guideObserverRef.current = null;
-    const iframe = iframeRef.current;
-    const doc = iframe?.contentDocument;
-    if (!doc) return;
+    const surface = getPreviewSurface(index);
+    if (!surface) return;
     // Same callback handles two responsibilities: keep center guides in
     // sync with the dragged element, and re-sample the loupe whenever the
     // device-wrapper position/size changes so the magnifier tracks live.
@@ -489,7 +502,7 @@ export function ScreenCard({
     const selectors = ['.device-wrapper', '.headline', '.subtitle', '.free-text'];
     let attached = 0;
     for (const selector of selectors) {
-      const el = doc.querySelector(selector) as HTMLElement | null;
+      const el = surface.querySelector(selector) as HTMLElement | null;
       if (!el) continue;
       observer.observe(el, { attributes: true, attributeFilter: ['style'] });
       attached++;
@@ -497,7 +510,7 @@ export function ScreenCard({
     // Annotations and overlays (elements) are dynamic — observe every shape
     // that exists in the current render. The guide check filters by
     // dragTarget so only the active one matters.
-    for (const el of Array.from(doc.querySelectorAll('.annotation-shape, .overlay-item, .loupe-wrapper, .spotlight-cutout, .callout-card'))) {
+    for (const el of surface.querySelectorAll('.annotation-shape, .overlay-item, .loupe-wrapper, .spotlight-cutout, .callout-card')) {
       observer.observe(el, { attributes: true, attributeFilter: ['style'] });
       attached++;
     }
@@ -507,7 +520,7 @@ export function ScreenCard({
     }
     recomputeGuides();
     guideObserverRef.current = observer;
-  }, [recomputeGuides, refreshLoupe]);
+  }, [index, recomputeGuides, refreshLoupe]);
 
   useEffect(() => () => {
     guideObserverRef.current?.disconnect();
@@ -549,17 +562,9 @@ export function ScreenCard({
 
       fetchPreviewHtml(body, controller.signal)
         .then((html) => {
-          const iframe = iframeRef.current;
-          if (!iframe) return;
-          // Write directly to avoid srcdoc navigation flash
-          const doc = iframe.contentDocument;
-          if (doc) {
-            doc.open();
-            doc.write(html);
-            doc.close();
-          } else {
-            iframe.srcdoc = html;
-          }
+          const surface = getPreviewSurface(index);
+          if (!surface) return;
+          surface.replaceContent(html);
           setInitialLoad(false);
           // The wrapper element is brand new after rewrite — re-target the
           // observer so slider + mouse drags keep firing guide updates.

@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ScreenState, TextPosition } from '../types';
+import type { PreviewSurface } from '../utils/previewSurface';
 
 type DragKind = 'device' | 'text' | 'annotation' | 'overlay' | 'loupe' | 'spotlight' | 'callout';
 
@@ -74,8 +75,7 @@ function getViewportRect(el: HTMLElement) {
  * - onOverlayMouseDown: attach to the overlay div's onMouseDown
  */
 export function useDragPosition(
-  iframeRef: React.RefObject<HTMLIFrameElement | null>,
-  containerRef: React.RefObject<HTMLDivElement | null>,
+  getSurface: () => PreviewSurface | null,
   screen: ScreenState | undefined,
   scale: number,
   canvasW: number,
@@ -126,8 +126,8 @@ export function useDragPosition(
 
   const hitTest = useCallback(
     (
-      ix: number,
-      iy: number,
+      clientX: number,
+      clientY: number,
     ):
       | { cls: string; el: HTMLElement; kind: 'device' | 'text' }
       | { cls: string; el: HTMLElement; kind: 'annotation'; annotationIdx: number }
@@ -137,13 +137,18 @@ export function useDragPosition(
       | { cls: string; el: HTMLElement; kind: 'callout'; calloutIdx: number }
       | null => {
       try {
-        const doc = iframeRef.current?.contentDocument;
-        if (!doc) return null;
+        const surface = getSurface();
+        if (!surface) return null;
+
+        // Surface-internal y of the cursor — needed for the text-overlap
+        // disambiguation below, which compares against getViewportRect()
+        // results that are in surface-internal coords.
+        const { y: iy } = surface.clientToCanvasPoint(clientX, clientY);
 
         // Use elementsFromPoint to get ALL elements at the click position,
-        // then walk ancestors of each to classify the hit.
-        // Collect unique text/device hits and prefer the closest text element.
-        const allEls = doc.elementsFromPoint(ix, iy) as HTMLElement[];
+        // then walk ancestors of each to classify the hit. The adapter
+        // takes parent client coords and converts internally.
+        const allEls = surface.elementsFromPoint(clientX, clientY) as HTMLElement[];
         let headlineEl: HTMLElement | null = null;
         let subtitleEl: HTMLElement | null = null;
         let freeTextEl: HTMLElement | null = null;
@@ -156,7 +161,7 @@ export function useDragPosition(
 
         for (const startEl of allEls) {
           let el: HTMLElement | null = startEl;
-          while (el && el !== doc.documentElement) {
+          while (el && el !== surface.boundary) {
             if (!headlineEl && el.classList?.contains('headline')) headlineEl = el;
             if (!subtitleEl && el.classList?.contains('subtitle')) subtitleEl = el;
             if (!freeTextEl && el.classList?.contains('free-text')) freeTextEl = el;
@@ -225,27 +230,16 @@ export function useDragPosition(
       }
       return null;
     },
-    [iframeRef],
-  );
-
-  const toIframe = useCallback(
-    (clientX: number, clientY: number): { x: number; y: number } => {
-      const container = containerRef.current;
-      if (!container) return { x: 0, y: 0 };
-      const rect = container.getBoundingClientRect();
-      return {
-        x: (clientX - rect.left) / scale,
-        y: (clientY - rect.top) / scale,
-      };
-    },
-    [containerRef, scale],
+    [getSurface],
   );
 
   const onOverlayMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (!screen) return;
-      const pos = toIframe(e.clientX, e.clientY);
-      const hit = hitTest(pos.x, pos.y);
+      const surface = getSurface();
+      if (!surface) return;
+      const pos = surface.clientToCanvasPoint(e.clientX, e.clientY);
+      const hit = hitTest(e.clientX, e.clientY);
       if (!hit) return;
       // Filter by the kinds the caller has allowed. For non-default
       // locales the caller passes ['text'] only — clicks on the device
@@ -351,7 +345,7 @@ export function useDragPosition(
         const onMove = (ev: MouseEvent) => {
           const drag = dragRef.current;
           if (!drag || drag.kind !== 'text') return;
-          const p = toIframe(ev.clientX, ev.clientY);
+          const p = surface.clientToCanvasPoint(ev.clientX, ev.clientY);
           drag.el.style.top = (p.y - drag.offsetY) + 'px';
           drag.el.style.left = (p.x - drag.offsetX) + 'px';
         };
@@ -618,9 +612,7 @@ export function useDragPosition(
         const co = screen.callouts[idx];
         if (!co) return;
         const el = hit.el;
-        const ssEl = iframeRef.current?.contentDocument?.querySelector('.screenshot-clip') as
-          | HTMLElement
-          | null;
+        const ssEl = surface.querySelector('.screenshot-clip') as HTMLElement | null;
         if (!ssEl) return;
         // getBoundingClientRect inside an iframe returns coords in the
         // iframe's own viewport — i.e. canvas px — already unaffected by
@@ -700,13 +692,12 @@ export function useDragPosition(
         document.addEventListener('mouseup', onUp);
       }
     },
-    [screen, scale, toIframe, hitTest, onDeviceDrop, onTextDrop, onAnnotationDrop, onOverlayDrop, onLoupeDrop, onLoupeInstant, onSpotlightDrop, onCalloutDrop, onCalloutInstant, canvasW, canvasH, allowedKinds, iframeRef],
+    [screen, scale, getSurface, hitTest, onDeviceDrop, onTextDrop, onAnnotationDrop, onOverlayDrop, onLoupeDrop, onLoupeInstant, onSpotlightDrop, onCalloutDrop, onCalloutInstant, canvasW, canvasH, allowedKinds],
   );
 
   const getCursorForPosition = useCallback(
     (clientX: number, clientY: number): string => {
-      const pos = toIframe(clientX, clientY);
-      const hit = hitTest(pos.x, pos.y);
+      const hit = hitTest(clientX, clientY);
       if (!hit) return 'default';
       if (!allowedKinds.includes(hit.kind)) return 'default';
       if (
@@ -721,7 +712,7 @@ export function useDragPosition(
       }
       return 'grab';
     },
-    [toIframe, hitTest, allowedKinds],
+    [hitTest, allowedKinds],
   );
 
   return { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget };

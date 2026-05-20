@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { sanitizeRichHtml } from '@appframe/core/sanitize';
-import { getIframe } from '../utils/iframeRegistry';
+import { getPreviewSurface } from '../utils/previewSurfaceRegistry';
+import type { PreviewSurface } from '../utils/previewSurface';
 import { usePreviewStore } from '../store';
 
 /**
@@ -15,13 +16,8 @@ export function useInstantPatch() {
   const selectedScreen = usePreviewStore((s) => s.selectedScreen);
   const previewW = usePreviewStore((s) => s.previewW);
 
-  const getDoc = useCallback((): Document | null => {
-    try {
-      const iframe = getIframe(selectedScreen);
-      return iframe?.contentDocument ?? null;
-    } catch {
-      return null;
-    }
+  const getSurface = useCallback((): PreviewSurface | null => {
+    return getPreviewSurface(selectedScreen);
   }, [selectedScreen]);
 
   /**
@@ -36,14 +32,14 @@ export function useInstantPatch() {
       deviceAngle?: number;
       deviceTilt?: number;
     }) => {
-      const doc = getDoc();
-      if (!doc) return;
+      const s = getSurface();
+      if (!s) return;
 
-      const wrapper = doc.querySelector('.device-wrapper') as HTMLElement | null;
+      const wrapper = s.querySelector('.device-wrapper') as HTMLElement | null;
       if (!wrapper) return;
 
       if (partial.deviceScale !== undefined) {
-        const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+        const canvas = s.querySelector('.canvas') as HTMLElement | null;
         if (canvas) {
           const canvasWidth = canvas.getBoundingClientRect().width;
           // Store original server-rendered dw on first patch to avoid cumulative drift
@@ -83,7 +79,7 @@ export function useInstantPatch() {
         wrapper.style.top = partial.deviceTop + '%';
         // Also patch decorations
         for (const sel of ['.glow-1', '.glow-2', '.orb-1', '.orb-2', '.bg-glow', '.shape-1', '.shape-3', '.bg-shape-1']) {
-          const el = doc.querySelector(sel) as HTMLElement | null;
+          const el = s.querySelector(sel) as HTMLElement | null;
           if (el) el.style.top = partial.deviceTop + '%';
         }
       }
@@ -96,7 +92,7 @@ export function useInstantPatch() {
       if (partial.deviceAngle !== undefined) wrapper.style.setProperty('--device-angle', `${partial.deviceAngle}deg`);
       if (partial.deviceTilt !== undefined) wrapper.style.setProperty('--device-tilt', `${partial.deviceTilt}deg`);
     },
-    [getDoc, previewW],
+    [getSurface, previewW],
   );
 
   /**
@@ -116,10 +112,10 @@ export function useInstantPatch() {
       imagePositionY?: number;
       imageScale?: number;
     }) => {
-      const doc = getDoc();
-      if (!doc) return;
+      const s = getSurface();
+      if (!s) return;
 
-      const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+      const canvas = s.querySelector('.canvas') as HTMLElement | null;
       if (!canvas) return;
 
       if (bg.type === 'solid' && bg.color) {
@@ -135,7 +131,7 @@ export function useInstantPatch() {
         // Update the canvas-bg-image <img> element's style directly.
         // Object-fit handles fit, object-position handles pan, transform
         // scale handles zoom — all orthogonal.
-        const img = doc.querySelector('.canvas-bg-image') as HTMLImageElement | null;
+        const img = s.querySelector('.canvas-bg-image') as HTMLImageElement | null;
         if (!img) {
           // No img element yet (e.g. user just switched to image type and
           // the full re-render hasn't landed). Skip the instant patch; the
@@ -157,20 +153,20 @@ export function useInstantPatch() {
         }
       }
     },
-    [getDoc],
+    [getSurface],
   );
 
   /** Patch the image-background dim overlay (color + opacity) live. */
   const patchBgOverlay = useCallback(
     (overlay: { color?: string; opacity?: number }) => {
-      const doc = getDoc();
-      if (!doc) return;
-      const el = doc.querySelector('.bg-overlay') as HTMLElement | null;
+      const s = getSurface();
+      if (!s) return;
+      const el = s.querySelector('.bg-overlay') as HTMLElement | null;
       if (!el) return;
       if (overlay.color !== undefined) el.style.background = overlay.color;
       if (overlay.opacity !== undefined) el.style.opacity = String(overlay.opacity);
     },
-    [getDoc],
+    [getSurface],
   );
 
   /**
@@ -193,8 +189,8 @@ export function useInstantPatch() {
       freeTextHtml?: string;
       freeTextColor?: string;
     }) => {
-      const doc = getDoc();
-      if (!doc) return;
+      const s = getSurface();
+      if (!s) return;
 
       const scaleFactor = previewW / 1290;
 
@@ -203,14 +199,14 @@ export function useInstantPatch() {
         // via injectTextPositionCSS (position: fixed + left: X%). In normal
         // flow the block is full-width inside .text-area and translateX would
         // shift the whole block off-center.
-        const isFixed = doc.defaultView?.getComputedStyle(el).position === 'fixed';
+        const isFixed = s.getComputedStyle(el).position === 'fixed';
         const parts: string[] = [];
         if (isFixed) parts.push('translateX(-50%)');
         if (deg) parts.push(`rotate(${deg}deg)`);
         el.style.transform = parts.length > 0 ? parts.join(' ') : '';
       };
 
-      const headline = doc.querySelector('.headline') as HTMLElement | null;
+      const headline = s.querySelector('.headline') as HTMLElement | null;
       if (headline) {
         if (partial.headlineSize !== undefined) {
           headline.style.fontSize = `${Math.round(partial.headlineSize * scaleFactor)}px`;
@@ -230,7 +226,7 @@ export function useInstantPatch() {
         }
       }
 
-      const subtitle = doc.querySelector('.subtitle') as HTMLElement | null;
+      const subtitle = s.querySelector('.subtitle') as HTMLElement | null;
       if (subtitle) {
         if (partial.subtitleSize !== undefined) {
           subtitle.style.fontSize = `${Math.round(partial.subtitleSize * scaleFactor)}px`;
@@ -246,7 +242,7 @@ export function useInstantPatch() {
         }
       }
 
-      const freeText = doc.querySelector('.free-text') as HTMLElement | null;
+      const freeText = s.querySelector('.free-text') as HTMLElement | null;
       if (freeText) {
         if (partial.freeTextSize !== undefined) {
           freeText.style.fontSize = `${Math.round(partial.freeTextSize * scaleFactor)}px`;
@@ -262,7 +258,7 @@ export function useInstantPatch() {
         }
       }
     },
-    [getDoc, previewW],
+    [getSurface, previewW],
   );
 
   /**
@@ -270,9 +266,9 @@ export function useInstantPatch() {
    */
   const patchBorder = useCallback(
     (partial: { thickness?: number; radius?: number; color?: string }) => {
-      const doc = getDoc();
-      if (!doc) return;
-      const el = doc.querySelector('.border-sim') as HTMLElement | null;
+      const s = getSurface();
+      if (!s) return;
+      const el = s.querySelector('.border-sim') as HTMLElement | null;
       if (!el) return;
       if (partial.thickness !== undefined || partial.color !== undefined) {
         const currentColor = partial.color ?? el.style.borderColor ?? '#1a1a1a';
@@ -283,7 +279,7 @@ export function useInstantPatch() {
         el.style.borderRadius = `${partial.radius}px`;
       }
     },
-    [getDoc],
+    [getSurface],
   );
 
   /**
@@ -306,9 +302,9 @@ export function useInstantPatch() {
       blur: number;
       borderRadius?: number;
     }) => {
-      const doc = getDoc();
-      if (!doc) return;
-      const cutout = doc.querySelector('.spotlight-cutout') as HTMLElement | null;
+      const s = getSurface();
+      if (!s) return;
+      const cutout = s.querySelector('.spotlight-cutout') as HTMLElement | null;
       if (!cutout) return;
       cutout.style.left = `${spotlight.x - spotlight.w / 2}%`;
       cutout.style.top = `${spotlight.y - spotlight.h / 2}%`;
@@ -320,7 +316,7 @@ export function useInstantPatch() {
           : `${spotlight.borderRadius && spotlight.borderRadius > 0 ? spotlight.borderRadius : 0}px`;
       cutout.style.boxShadow = `0 0 ${spotlight.blur > 0 ? spotlight.blur : 0}px 9999px rgba(0,0,0,${spotlight.dimOpacity})`;
     },
-    [getDoc],
+    [getSurface],
   );
 
   /**
@@ -343,9 +339,9 @@ export function useInstantPatch() {
         borderRadius?: number;
       },
     ) => {
-      const doc = getDoc();
-      if (!doc) return;
-      const shapes = doc.querySelectorAll('.annotation-overlay .annotation-shape');
+      const s = getSurface();
+      if (!s) return;
+      const shapes = s.querySelectorAll('.annotation-overlay .annotation-shape');
       const el = shapes[index] as HTMLElement | undefined;
       if (!el) return;
       // x / y are center coords. We need the current w / h to position
@@ -376,7 +372,7 @@ export function useInstantPatch() {
         // Server uses scale = canvasWidth / 1290 (1290 is the reference
         // canvas width). Read the iframe-CSS width so the patched stroke
         // matches what the server would re-render on release.
-        const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+        const canvas = s.querySelector('.canvas') as HTMLElement | null;
         const canvasWidth = canvas?.clientWidth || 1290;
         const scale = canvasWidth / 1290;
         const sw =
@@ -394,7 +390,7 @@ export function useInstantPatch() {
         el.style.borderRadius = `${partial.borderRadius}px`;
       }
     },
-    [getDoc],
+    [getSurface],
   );
 
   /**
@@ -424,11 +420,11 @@ export function useInstantPatch() {
       shadowOffsetX?: number;
       shadowOffsetY?: number;
     }) => {
-      const doc = getDoc();
-      if (!doc) return;
-      const wrapper = doc.querySelector('.loupe-wrapper') as HTMLElement | null;
-      const img = doc.querySelector('.loupe-img') as HTMLElement | null;
-      const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+      const s = getSurface();
+      if (!s) return;
+      const wrapper = s.querySelector('.loupe-wrapper') as HTMLElement | null;
+      const img = s.querySelector('.loupe-img') as HTMLElement | null;
+      const canvas = s.querySelector('.canvas') as HTMLElement | null;
       if (!wrapper || !img || !canvas) return;
 
       const cRect = canvas.getBoundingClientRect();
@@ -446,8 +442,8 @@ export function useInstantPatch() {
       // (framed device); fall back to the device-wrapper for frameless
       // configurations where the screenshot fills the device area.
       const clip =
-        (doc.querySelector('.screenshot-clip') as HTMLElement | null) ??
-        (doc.querySelector('.device-wrapper') as HTMLElement | null);
+        (s.querySelector('.screenshot-clip') as HTMLElement | null) ??
+        (s.querySelector('.device-wrapper') as HTMLElement | null);
       if (!clip) return;
       const sRect = clip.getBoundingClientRect();
       const ssLeft = sRect.left - cRect.left;
@@ -488,7 +484,7 @@ export function useInstantPatch() {
       img.style.left = `${-imgLeft}px`;
       img.style.top = `${-imgTop}px`;
     },
-    [getDoc],
+    [getSurface],
   );
 
   /**
@@ -515,23 +511,23 @@ export function useInstantPatch() {
         cardScale?: number;
       },
     ) => {
-      const doc = getDoc();
-      if (!doc) return;
-      const card = doc.querySelector(`.callout-card[data-idx="${index}"]`) as HTMLElement | null;
+      const s = getSurface();
+      if (!s) return;
+      const card = s.querySelector(`.callout-card[data-idx="${index}"]`) as HTMLElement | null;
       if (!card) return;
       const clip = card.querySelector('.callout-clip') as HTMLElement | null;
       const img = card.querySelector('.callout-img') as HTMLElement | null;
       if (!clip || !img) return;
 
-      const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+      const canvas = s.querySelector('.canvas') as HTMLElement | null;
       if (!canvas) return;
       const cRect = canvas.getBoundingClientRect();
 
       // Resolve the screenshot's canvas-space rect so source/display coords
       // (both in screenshot-%) translate to the right pixels.
       const screenshotClip =
-        (doc.querySelector('.screenshot-clip') as HTMLElement | null) ??
-        (doc.querySelector('.device-wrapper') as HTMLElement | null);
+        (s.querySelector('.screenshot-clip') as HTMLElement | null) ??
+        (s.querySelector('.device-wrapper') as HTMLElement | null);
       if (!screenshotClip) return;
       const sRect = screenshotClip.getBoundingClientRect();
       const ssLeft = sRect.left - cRect.left;
@@ -587,7 +583,7 @@ export function useInstantPatch() {
       img.style.left = `${-Math.round(srcX * fullImgWRaw)}px`;
       img.style.top = `${-Math.round(srcY * fullImgHRaw)}px`;
     },
-    [getDoc],
+    [getSurface],
   );
 
   /**
@@ -614,11 +610,11 @@ export function useInstantPatch() {
         softBlur?: number;
       },
     ) => {
-      const doc = getDoc();
-      if (!doc) return;
-      const item = doc.querySelector(`.overlay-item[data-idx="${index}"]`) as HTMLElement | null;
+      const s = getSurface();
+      if (!s) return;
+      const item = s.querySelector(`.overlay-item[data-idx="${index}"]`) as HTMLElement | null;
       if (!item) return;
-      const canvas = doc.querySelector('.canvas') as HTMLElement | null;
+      const canvas = s.querySelector('.canvas') as HTMLElement | null;
       if (!canvas) return;
       const cRect = canvas.getBoundingClientRect();
       const canvasWidth = cRect.width;
@@ -695,7 +691,7 @@ export function useInstantPatch() {
         }
       }
     },
-    [getDoc],
+    [getSurface],
   );
 
   return { patchDevice, patchBackground, patchBgOverlay, patchText, patchBorder, patchSpotlight, patchAnnotation, patchLoupe, patchCallout, patchOverlay };

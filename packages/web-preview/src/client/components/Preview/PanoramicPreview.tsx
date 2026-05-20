@@ -2,6 +2,11 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePreviewStore } from '../../store';
 import { fetchPanoramicPreviewHtml } from '../../utils/api';
 import { setPanoramicIframe } from '../../utils/panoramicIframeRef';
+import { iframePreviewSurface } from '../../utils/previewSurface';
+import {
+  getPanoramicPreviewSurface,
+  setPanoramicPreviewSurface,
+} from '../../utils/previewSurfaceRegistry';
 import {
   rewritePanoramicBackgroundForPreview,
   rewritePanoramicElementsForPreview,
@@ -74,10 +79,19 @@ export function PanoramicPreview() {
     origY: number;
   } | null>(null);
 
-  // Register panoramic iframe for instant patching
+  // Register both the raw iframe (legacy consumers) and the
+  // PreviewSurface adapter. Phase 1 hooks should read from the adapter;
+  // the iframe ref stays for any consumer that hasn't migrated yet.
   useEffect(() => {
     setPanoramicIframe(iframeRef.current);
-    return () => setPanoramicIframe(null);
+    const surface = iframeRef.current
+      ? iframePreviewSurface(iframeRef.current)
+      : null;
+    setPanoramicPreviewSurface(surface);
+    return () => {
+      setPanoramicIframe(null);
+      setPanoramicPreviewSurface(null);
+    };
   }, []);
 
   const totalCanvasWidth = previewW * frameCount;
@@ -152,14 +166,9 @@ export function PanoramicPreview() {
 
         fetchPanoramicPreviewHtml(body as Record<string, unknown>, controller.signal)
           .then((html) => {
-            const iframe = iframeRef.current;
-            if (!iframe) return;
-            const doc = iframe.contentDocument;
-            if (doc) {
-              doc.open();
-              doc.write(html);
-              doc.close();
-            }
+            const surface = getPanoramicPreviewSurface();
+            if (!surface) return;
+            surface.replaceContent(html);
             setLoading(false);
           })
           .catch((err) => {
@@ -300,12 +309,11 @@ export function PanoramicPreview() {
 
       // Use transform: translate() instead of left/top to avoid ghost artifacts
       // (transform is compositor-only, doesn't trigger layout/repaint of vacated area)
-      const iframe = iframeRef.current;
-      const doc = iframe?.contentDocument;
-      if (doc) {
+      const surface = getPanoramicPreviewSurface();
+      if (surface) {
         const sorted = [...elements].map((el, i) => ({ z: el.z, i })).sort((a, b) => a.z - b.z);
         const sortedIdx = sorted.findIndex((s) => s.i === drag.elementIndex);
-        const domEl = doc.querySelector(`[data-index="${sortedIdx}"]`) as HTMLElement | null;
+        const domEl = surface.querySelector(`[data-index="${sortedIdx}"]`) as HTMLElement | null;
         if (domEl) {
           const el = elements[drag.elementIndex]!;
           const rotation = 'rotation' in el && el.rotation ? el.rotation : 0;

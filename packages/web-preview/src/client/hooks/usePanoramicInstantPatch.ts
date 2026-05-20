@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { getPanoramicIframe } from '../utils/panoramicIframeRef';
+import { getPanoramicPreviewSurface } from '../utils/previewSurfaceRegistry';
+import type { PreviewSurface } from '../utils/previewSurface';
 import { usePreviewStore } from '../store';
 
 /**
@@ -12,13 +13,8 @@ export function usePanoramicInstantPatch() {
   const previewH = usePreviewStore((s) => s.previewH);
   const frameCount = usePreviewStore((s) => s.panoramicFrameCount);
 
-  const getDoc = useCallback((): Document | null => {
-    try {
-      const iframe = getPanoramicIframe();
-      return iframe?.contentDocument ?? null;
-    } catch {
-      return null;
-    }
+  const getSurface = useCallback((): PreviewSurface | null => {
+    return getPanoramicPreviewSurface();
   }, []);
 
   const totalWidth = previewW * frameCount;
@@ -35,9 +31,9 @@ export function usePanoramicInstantPatch() {
       direction?: number;
       radialPosition?: string;
     }) => {
-      const doc = getDoc();
-      if (!doc) return;
-      const canvas = doc.querySelector('.panoramic-canvas') as HTMLElement | null;
+      const s = getSurface();
+      if (!s) return;
+      const canvas = s.querySelector('.panoramic-canvas') as HTMLElement | null;
       if (!canvas) return;
 
       if (bg.type === 'solid' && bg.color) {
@@ -51,7 +47,7 @@ export function usePanoramicInstantPatch() {
         }
       }
     },
-    [getDoc],
+    [getSurface],
   );
 
   /**
@@ -74,10 +70,10 @@ export function usePanoramicInstantPatch() {
         fontWeight?: number;
       },
     ) => {
-      const doc = getDoc();
-      if (!doc) return;
+      const s = getSurface();
+      if (!s) return;
 
-      const el = doc.querySelector(`[data-index="${sortedIndex}"]`) as HTMLElement | null;
+      const el = s.querySelector(`[data-index="${sortedIndex}"]`) as HTMLElement | null;
       if (!el) return;
 
       if (partial.x !== undefined) {
@@ -113,7 +109,7 @@ export function usePanoramicInstantPatch() {
         el.style.fontWeight = String(partial.fontWeight);
       }
     },
-    [getDoc, totalWidth, previewH],
+    [getSurface, totalWidth, previewH],
   );
 
   return { patchBackground, patchElement };

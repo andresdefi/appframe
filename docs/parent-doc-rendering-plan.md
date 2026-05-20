@@ -373,60 +373,118 @@ the fixture set.
 
 ## Build Order
 
-### Phase 0 - Audit And Harness
+### Phase 0 - Audit And Harness ✅ done 2026-05-20
 
 No production behavior change.
 
 Tasks:
 
-- Add the parity harness.
-- Add fixture generation helpers.
+- Add the parity harness. ✅ `e2e/parity/parity.spec.ts` + `helpers.ts`.
+- Add fixture generation helpers. ✅ `loadIndividualFixtures` /
+  `loadPanoramicFixtures` in `e2e/parity/helpers.ts`; fixtures are POST-body
+  JSON files under `e2e/parity/fixtures/{individual,panoramic}/`.
 - Add an audit report for template `body`, `html`, `:root`, viewport units,
-  and `position: fixed`.
+  and `position: fixed`. ✅ `docs/parent-doc-rendering-audit.md`.
 - Add a short note listing every iframe-based path that stays out of scope.
+  ✅ audit §4 ("Iframe-document reach-through").
 
 Done when:
 
-- `pnpm test:parity` or equivalent runs locally.
-- The current iframe backend can render the fixture set.
-- The audit output is committed or summarized in this doc.
+- `pnpm test:parity` runs locally. ✅ Playwright auto-starts the preview
+  server via `webServer` config; reuses an existing `pnpm preview` if one
+  is up.
+- The current iframe backend can render the fixture set. ✅ 18/18 fixtures
+  (17 individual + 1 panoramic) pass against the iframe backend.
+- The audit output is committed or summarized in this doc. ✅ committed.
 
-### Phase 1 - Preview Surface Adapter
+Notes for Phase 3 (shadow backend):
+
+- The spec already iterates `BACKENDS: ['iframe', 'shadow']`; shadow tests
+  currently call `test.skip` with a TODO. Wire `mountFixture(..., 'shadow')`
+  in `e2e/parity/helpers.ts` when the renderer lands and the skip becomes
+  a real pixel-diff (pixelmatch or equivalent).
+- Snapshots are written to `e2e/parity/snapshots/<backend>/<name>.png` so
+  iframe-vs-shadow diffing is a straight per-file compare.
+
+### Phase 1 - Preview Surface Adapter ✅ code done 2026-05-21 (manual smoke pending)
 
 Introduce the abstraction before introducing shadow DOM.
 
 Tasks:
 
-- Create a `PreviewSurface` adapter for current iframe previews.
-- Migrate `useDragPosition`, `useInstantPatch`, and guide/loupe observer code
-  to use the adapter while still rendering iframes.
-- Keep behavior unchanged.
+- Create a `PreviewSurface` adapter for current iframe previews. ✅
+  `packages/web-preview/src/client/utils/previewSurface.ts` defines the
+  interface + `iframePreviewSurface(iframe)` factory. Registry lives at
+  `previewSurfaceRegistry.ts` (per-screen map + panoramic singleton). The
+  legacy `iframeRegistry.ts` / `panoramicIframeRef.ts` are still populated
+  alongside during Phase 1 for any consumer that hasn't migrated; they'll
+  be deleted at the end of Phase 7.
+- Migrate `useDragPosition`, `useInstantPatch`, `usePanoramicInstantPatch`,
+  `ScreenCard` (guide/loupe observer + render write), and `PanoramicPreview`
+  (render write + drag onMove) to use the adapter. ✅ all 5 files done.
+- Keep behavior unchanged. ✅ `pnpm test` (414/414) and `pnpm test:parity`
+  (18/18) green; rendered HTML is byte-identical to pre-migration.
 
-Reason:
+Notable signature change: `useDragPosition` now takes `getSurface: () =>
+PreviewSurface | null` instead of `iframeRef` + `containerRef`. ScreenCard
+wraps it as `useCallback(() => getPreviewSurface(index), [index])`.
 
-This reduces risk by separating "stop reaching through iframe refs directly"
-from "change the renderer."
+`hitTest` now takes parent client coords (not iframe-local) and lets the
+adapter convert internally via `clientToCanvasPoint`. The old `toIframe`
+helper inside the hook is gone.
 
 Done when:
 
-- Existing tests pass.
-- Manual drag, guides, loupe, callout, text, annotation, and overlay instant
-  patches still work in iframe mode.
+- Existing tests pass. ✅
+- Manual drag, guides, loupe, callout, text, annotation, and overlay
+  instant patches still work in iframe mode. ⏳ requires user-driven
+  smoke in the editor; parity harness only validates rendered HTML, not
+  slider/drag interactivity.
 
-### Phase 2 - Font Mode And Parent Font Registry
+### Phase 2 - Font Mode And Parent Font Registry ✅ code done 2026-05-21 (manual export smoke pending)
 
 Tasks:
 
-- Add explicit font-face mode to the template engine.
-- Keep existing iframe/export behavior unchanged.
-- Add client-side parent document font registration.
-- Wire only the future shadow path to request no template font CSS.
+- Add explicit font-face mode to the template engine. ✅ `type FontFaceMode
+  = 'inline' | 'url' | 'none'` exported from `@appframe/core`. Both
+  `render()` and `renderPanoramic()` now take an optional
+  `{ fontFaceMode }`. Default (no override) falls back to the
+  constructor's behavior (`url` when `fontBaseUrl` was supplied, else
+  `inline`). Explicit `'url'` without `fontBaseUrl` throws.
+- Keep existing iframe/export behavior unchanged. ✅ No caller passes
+  `fontFaceMode` yet; everyone still gets the default `'url'` against
+  `/preview-fonts/`. Parity harness 18/18 byte-identical to before.
+- Add client-side parent document font registration. ✅
+  `packages/web-preview/src/client/utils/parentFontRegistry.ts` exports
+  `ensurePreviewFontsRegistered(ids)`. Idempotent across calls, coalesces
+  concurrent requests for the same id, injects into a single shared
+  `<style id="appframe-preview-fonts">` in `document.head`.
+- Wire only the future shadow path to request no template font CSS. ✅
+  Both `/api/preview-html` and `/api/panoramic-preview-html` now parse an
+  optional `fontFaceMode` from the request body and thread it to the
+  engine. Phase 3's shadow client will send `'none'`.
+
+Supporting changes:
+
+- New endpoint `GET /api/preview-font-faces?ids=inter,playfair-display`
+  returns the URL-mode CSS for the requested ids. The client helper
+  fetches from here (same origin as the preview server, same
+  `/preview-fonts/` static path the URL-mode CSS references).
+- Font cache key in `TemplateEngine` is now `${mode}:${fontKey}` instead
+  of just `fontKey`, so an `'inline'` call after a `'url'` call doesn't
+  return the wrong format.
 
 Done when:
 
-- Export still waits on iframe fonts and renders correctly.
-- Current live iframe preview remains unchanged.
-- A test proves `fontFaceCss` can be omitted only when requested.
+- Export still waits on iframe fonts and renders correctly. ⏳ requires
+  manual export smoke (Download tab → ZIP). Vitest can't exercise the
+  modern-screenshot path.
+- Current live iframe preview remains unchanged. ✅ parity 18/18.
+- A test proves `fontFaceCss` can be omitted only when requested. ✅
+  `engine.test.ts` "FontFaceMode" block (5 cases including the throw on
+  invalid `'url'` use). Plus 7 cases in `parentFontRegistry.test.ts`
+  covering idempotency, coalescing, parallel ids, empty responses, input
+  validation, server errors.
 
 ### Phase 3 - Shadow Renderer For Individual Mode, Flagged Off
 

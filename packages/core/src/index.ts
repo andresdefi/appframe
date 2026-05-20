@@ -62,6 +62,8 @@ export type {
 export { TemplateEngine } from './templates/index.js';
 export type {
   TemplateContext,
+  RenderOptions,
+  FontFaceMode,
   DeviceContext,
   PanoramicTemplateContext,
   PanoramicRenderedBackgroundLayer,

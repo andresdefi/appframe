@@ -8,6 +8,7 @@ import {
   getDeviceFramePath,
   COMPOSITION_PRESETS,
   injectEffectsHTML,
+  loadFontFacesUrl,
 } from '@appframe/core';
 import type {
   CompositionPreset,
@@ -628,6 +629,17 @@ async function resolveContext(
   return { context };
 }
 
+/**
+ * Validate an optional `fontFaceMode` body field. Defaults to undefined so
+ * the engine falls back to its construction-time default (url or inline).
+ */
+function parseFontFaceMode(
+  raw: unknown,
+): import('@appframe/core').FontFaceMode | undefined {
+  if (raw === 'inline' || raw === 'url' || raw === 'none') return raw;
+  return undefined;
+}
+
 function injectTextPositionCSS(
   html: string,
   positions: {
@@ -674,10 +686,18 @@ export function registerPreviewRoutes(app: Express, ctx: RouteContext): void {
   // API: Render HTML only (no Playwright screenshot — used by iframe preview)
   app.post('/api/preview-html', async (req, res) => {
     try {
-      const p = clampPreviewParams(parseBody(req.body as Record<string, unknown>));
+      const body = req.body as Record<string, unknown>;
+      const p = clampPreviewParams(parseBody(body));
       const { context } = await resolveContext(p, ctx);
 
-      let html = await ctx.templateEngine.render(context);
+      // Optional override for how @font-face declarations are emitted in
+      // the response. Defaults to the engine's construction-time mode
+      // (`url` against /preview-fonts/). Phase 3's shadow-DOM client
+      // path passes 'none' to skip them — the parent document has the
+      // fonts registered already and re-injecting per render wastes work.
+      const fontFaceMode = parseFontFaceMode(body.fontFaceMode);
+
+      let html = await ctx.templateEngine.render(context, { fontFaceMode });
       html = injectTextPositionCSS(html, {
         headlineTop: p.headlineTop,
         headlineLeft: p.headlineLeft,
@@ -703,6 +723,42 @@ export function registerPreviewRoutes(app: Express, ctx: RouteContext): void {
       );
       res.set('Content-Type', 'text/html');
       res.send(html);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // GET /api/preview-font-faces?ids=inter,playfair-display
+  //
+  // Returns URL-mode @font-face CSS for the requested font ids, joined.
+  // The shadow-DOM live preview (Phase 3+) calls this so the parent
+  // document can register the fonts once instead of having every preview
+  // surface inject duplicate @font-face declarations. Unknown ids are
+  // dropped silently (an unknown id produces an empty CSS block on the
+  // server side too — the loader returns '' when readdir fails).
+  app.get('/api/preview-font-faces', async (req, res) => {
+    try {
+      const idsParam = typeof req.query.ids === 'string' ? req.query.ids : '';
+      const ids = idsParam
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => /^[a-z0-9-]+$/.test(s));
+      if (ids.length === 0) {
+        res.set('Content-Type', 'text/css');
+        res.send('');
+        return;
+      }
+      const unique = Array.from(new Set(ids));
+      const cssParts = await Promise.all(
+        unique.map((id) => loadFontFacesUrl(id, '/preview-fonts')),
+      );
+      res.set('Content-Type', 'text/css');
+      // Match the /preview-fonts static cache — font URLs are content-
+      // addressed by filename, so the resolved CSS block for an id is
+      // stable across server restarts.
+      res.set('Cache-Control', 'public, max-age=86400');
+      res.send(cssParts.filter((s) => s.length > 0).join('\n\n'));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       res.status(500).json({ error: message });

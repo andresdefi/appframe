@@ -5,7 +5,12 @@ vi.mock('../fonts/loader.js', async () => {
   const actual = await vi.importActual<typeof FontsLoader>('../fonts/loader.js');
   return {
     ...actual,
-    loadFontFaces: vi.fn().mockResolvedValue('@font-face { font-family: "Inter"; }'),
+    loadFontFaces: vi
+      .fn()
+      .mockResolvedValue('@font-face { font-family: "Inter"; src: url("data:..."); }'),
+    loadFontFacesUrl: vi
+      .fn()
+      .mockResolvedValue('@font-face { font-family: "Inter"; src: url("/preview-fonts/inter/Inter-Regular.woff2"); }'),
   };
 });
 
@@ -68,5 +73,47 @@ describe('TemplateEngine', () => {
   it('includes font CSS', async () => {
     const html = await engine.render(makeContext());
     expect(html).toContain('@font-face');
+  });
+
+  describe('FontFaceMode', () => {
+    it("emits inline data-URI faces when constructed without fontBaseUrl (default = 'inline')", async () => {
+      const html = await new TemplateEngine().render(makeContext());
+      expect(html).toContain('@font-face');
+      expect(html).toContain('data:');
+    });
+
+    it("emits URL-based faces when constructed with fontBaseUrl (default = 'url')", async () => {
+      const html = await new TemplateEngine({ fontBaseUrl: '/preview-fonts' }).render(
+        makeContext(),
+      );
+      expect(html).toContain('@font-face');
+      expect(html).toContain('/preview-fonts/');
+    });
+
+    it("emits NO @font-face when fontFaceMode='none'", async () => {
+      const html = await new TemplateEngine({ fontBaseUrl: '/preview-fonts' }).render(
+        makeContext(),
+        { fontFaceMode: 'none' },
+      );
+      expect(html).not.toContain('@font-face');
+      // Sanity — the rest of the document still renders.
+      expect(html).toContain('Test Headline');
+    });
+
+    it("explicit 'inline' overrides the URL default at the call site", async () => {
+      const html = await new TemplateEngine({ fontBaseUrl: '/preview-fonts' }).render(
+        makeContext(),
+        { fontFaceMode: 'inline' },
+      );
+      expect(html).toContain('@font-face');
+      expect(html).toContain('data:');
+      expect(html).not.toContain('/preview-fonts/');
+    });
+
+    it("throws when 'url' is requested without a constructor fontBaseUrl", async () => {
+      await expect(
+        new TemplateEngine().render(makeContext(), { fontFaceMode: 'url' }),
+      ).rejects.toThrow(/fontBaseUrl/);
+    });
   });
 });

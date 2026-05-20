@@ -386,6 +386,28 @@ export interface TemplateRenderOptions {
   fontBaseUrl?: string;
 }
 
+/**
+ * Per-call override for how the engine emits @font-face declarations.
+ *
+ * - `inline`: base64 data URI font CSS. Self-contained — works without an
+ *   HTTP server. Used by the export pipeline.
+ * - `url`: `src: url(<fontBaseUrl>/<family>/<file>)` declarations. Tiny
+ *   payload but the consumer must serve the font files. Used by the live
+ *   preview server's iframes.
+ * - `none`: emit no @font-face at all. The consumer is expected to have
+ *   already registered the required fonts on the parent document — the
+ *   shadow-DOM live preview (Phase 3+) uses this path so fonts aren't
+ *   duplicated per card.
+ *
+ * When undefined, falls back to the construction-time default: `url` when
+ * `fontBaseUrl` was provided to the constructor, otherwise `inline`.
+ */
+export type FontFaceMode = 'inline' | 'url' | 'none';
+
+export interface RenderOptions {
+  fontFaceMode?: FontFaceMode;
+}
+
 function buildShadowCss(preset: StylePreset, context: TemplateContext): string {
   const cw = context.canvasWidth;
   const layout = context.layout;
@@ -457,17 +479,41 @@ export class TemplateEngine {
     return compiled;
   }
 
-  private async getFontFaceCss(fontKey: string): Promise<string> {
-    const cached = this.fontFaceCache.get(fontKey);
+  /**
+   * Resolve the effective FontFaceMode for a call. Explicit override wins;
+   * otherwise fall back to the constructor's setup (url when fontBaseUrl is
+   * set, else inline). `none` is never the default — callers opt in.
+   */
+  private resolveFontFaceMode(override: FontFaceMode | undefined): FontFaceMode {
+    if (override) return override;
+    return this.fontBaseUrl ? 'url' : 'inline';
+  }
+
+  /**
+   * Cache key includes mode because the same fontKey produces different
+   * CSS under 'inline' vs 'url'. Without this, an 'inline' call after a
+   * 'url' call returns the wrong format.
+   */
+  private async getFontFaceCss(fontKey: string, mode: FontFaceMode): Promise<string> {
+    if (mode === 'none') return '';
+    if (mode === 'url' && !this.fontBaseUrl) {
+      throw new Error(
+        "TemplateEngine: fontFaceMode='url' requires a fontBaseUrl in the constructor",
+      );
+    }
+    const cacheKey = `${mode}:${fontKey}`;
+    const cached = this.fontFaceCache.get(cacheKey);
     if (cached !== undefined) return cached;
-    const css = this.fontBaseUrl
-      ? await loadFontFacesUrl(fontKey, this.fontBaseUrl, this.fontsDir)
-      : await loadFontFaces(fontKey, this.fontsDir);
-    this.fontFaceCache.set(fontKey, css);
+    const css =
+      mode === 'url'
+        ? await loadFontFacesUrl(fontKey, this.fontBaseUrl!, this.fontsDir)
+        : await loadFontFaces(fontKey, this.fontsDir);
+    this.fontFaceCache.set(cacheKey, css);
     return css;
   }
 
-  async render(context: TemplateContext): Promise<string> {
+  async render(context: TemplateContext, options?: RenderOptions): Promise<string> {
+    const mode = this.resolveFontFaceMode(options?.fontFaceMode);
     const fontKey = context.font || 'inter';
 
     const fontKeys = Array.from(
@@ -481,8 +527,13 @@ export class TemplateEngine {
       ),
     );
 
-    const faceCssList = await Promise.all(fontKeys.map((k) => this.getFontFaceCss(k)));
-    const combinedFontFaceCss = faceCssList.join('\n\n');
+    // Skip font-face loading entirely in 'none' mode — saves the disk read
+    // for the shadow-DOM path where the parent document already has the
+    // fonts registered.
+    const combinedFontFaceCss =
+      mode === 'none'
+        ? ''
+        : (await Promise.all(fontKeys.map((k) => this.getFontFaceCss(k, mode)))).join('\n\n');
 
     const presetContext = resolvePresetContext(BASELINE, context);
 
@@ -510,15 +561,14 @@ export class TemplateEngine {
     });
   }
 
-  async renderPanoramic(context: PanoramicTemplateContext): Promise<string> {
+  async renderPanoramic(
+    context: PanoramicTemplateContext,
+    options?: RenderOptions,
+  ): Promise<string> {
+    const mode = this.resolveFontFaceMode(options?.fontFaceMode);
     const fontKey = context.font || 'inter';
 
-    if (!this.fontFaceCache.has(fontKey)) {
-      const css = this.fontBaseUrl
-        ? await loadFontFacesUrl(fontKey, this.fontBaseUrl, this.fontsDir)
-        : await loadFontFaces(fontKey, this.fontsDir);
-      this.fontFaceCache.set(fontKey, css);
-    }
+    const fontFaceCss = mode === 'none' ? '' : await this.getFontFaceCss(fontKey, mode);
 
     const templatePath = join(this.templateDir, 'panoramic', 'base.html');
     const compiled = await this.getCompiledTemplate(templatePath);
@@ -529,7 +579,7 @@ export class TemplateEngine {
     return compiled.render({
       ...context,
       elements: sortedElements,
-      fontFaceCss: this.fontFaceCache.get(fontKey),
+      fontFaceCss,
       fontFamily: getFontName(fontKey),
     });
   }

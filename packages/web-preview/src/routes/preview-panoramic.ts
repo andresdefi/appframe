@@ -44,6 +44,13 @@ export function registerPanoramicPreviewRoute(app: Express, ctx: RouteContext): 
       const fontWeight = (body.fontWeight as number) ?? config.theme.fontWeight;
       const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
       const previewMode = body.previewMode === true;
+      // See routes/preview.ts for the rationale on fontFaceMode.
+      const fontFaceMode: import('@appframe/core').FontFaceMode | undefined =
+        body.fontFaceMode === 'inline' ||
+        body.fontFaceMode === 'url' ||
+        body.fontFaceMode === 'none'
+          ? body.fontFaceMode
+          : undefined;
 
       const totalWidth = frameWidth * frameCount;
       const renderedElements: PanoramicRenderedElement[] = await Promise.all(
@@ -108,7 +115,7 @@ export function registerPanoramicPreviewRoute(app: Express, ctx: RouteContext): 
         elements: renderedElements,
       };
 
-      let html = await ctx.templateEngine.renderPanoramic(panoramicContext);
+      let html = await ctx.templateEngine.renderPanoramic(panoramicContext, { fontFaceMode });
 
       // Single pass — one </head> + </body> replace for all effects.
       const effects = body.effects as

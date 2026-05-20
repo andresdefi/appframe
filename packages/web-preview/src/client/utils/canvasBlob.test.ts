@@ -13,12 +13,21 @@ describe('canvasToPngBlob', () => {
     vi.useRealTimers();
   });
 
-  it('resolves the blob returned by canvas.toBlob', async () => {
-    const expected = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
+  it('resolves a parent-realm blob with the same bytes as canvas.toBlob', async () => {
+    // The blob returned by canvas.toBlob inside the hidden export iframe
+    // is realm-bound to that iframe; JSZip's instanceof checks fail on
+    // it (Safari is strict). canvasToPngBlob now copies the bytes into
+    // a parent-realm Blob — the test asserts identity is NOT preserved
+    // (the wrap happened) and that the contents match byte-for-byte.
+    const source = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
     const toDataURL = vi.fn(() => 'data:image/png;base64,QUJD');
-    const canvas = fakeCanvas((callback) => callback(expected), toDataURL);
+    const canvas = fakeCanvas((callback) => callback(source), toDataURL);
 
-    await expect(canvasToPngBlob(canvas)).resolves.toBe(expected);
+    const out = await canvasToPngBlob(canvas);
+    expect(out).not.toBe(source);
+    expect(out.type).toBe('image/png');
+    expect(out.size).toBe(3);
+    expect(new Uint8Array(await out.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
     expect(toDataURL).not.toHaveBeenCalled();
   });
 

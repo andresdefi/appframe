@@ -4,10 +4,8 @@ import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
 import { useDragPosition } from '../../hooks/useDragPosition';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
-import { registerIframe } from '../../utils/iframeRegistry';
-import { iframePreviewSurface, shadowPreviewSurface } from '../../utils/previewSurface';
+import { shadowPreviewSurface } from '../../utils/previewSurface';
 import { registerPreviewSurface, getPreviewSurface } from '../../utils/previewSurfaceRegistry';
-import { isShadowPreviewEnabled } from '../../utils/previewBackendFlag';
 import { ensurePreviewFontsRegistered } from '../../utils/parentFontRegistry';
 import { useConfirmDialog } from '../Controls/ConfirmDialog';
 import { dataTransferHasFiles } from '../../utils/dragUtils';
@@ -79,15 +77,9 @@ export function ScreenCard({
   locale,
   deviceFamilies,
 }: ScreenCardProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const shadowHostRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  // Captured once per render so the JSX (which picks iframe vs shadow
-  // host) and the effects (which build the matching surface) agree on
-  // the backend within a single render pass. Flipping the URL requires
-  // a reload, which re-evaluates everything.
-  const useShadow = isShadowPreviewEnabled();
   const { confirm, dialog } = useConfirmDialog();
   const [initialLoad, setInitialLoad] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
@@ -100,29 +92,18 @@ export function ScreenCard({
   const localeConfig = usePreviewStore((s) => s.sessionLocales[s.locale]);
   const updateScreen = usePreviewStore((s) => s.updateScreen);
 
-  // Register the surface that matches the chosen backend. Phase 1
-  // hooks read from the PreviewSurface registry; the legacy
-  // registerIframe call also runs in iframe mode so any not-yet-migrated
-  // consumer (none in scope today, but defensive) still works.
+  // Register a shadow surface for this card. Hooks (useInstantPatch,
+  // useDragPosition) and ScreenCard's own observers all read from the
+  // registry. Phase 7 removed the iframe alternative — there's only
+  // one preview path now.
   useEffect(() => {
-    if (useShadow) {
-      const host = shadowHostRef.current;
-      const surface = host ? shadowPreviewSurface(host) : null;
-      registerPreviewSurface(index, surface);
-      return () => {
-        registerPreviewSurface(index, null);
-      };
-    }
-    registerIframe(index, iframeRef.current);
-    const surface = iframeRef.current
-      ? iframePreviewSurface(iframeRef.current)
-      : null;
+    const host = shadowHostRef.current;
+    const surface = host ? shadowPreviewSurface(host) : null;
     registerPreviewSurface(index, surface);
     return () => {
-      registerIframe(index, null);
       registerPreviewSurface(index, null);
     };
-  }, [index, useShadow]);
+  }, [index]);
 
   const { patchLoupe, patchCallout } = useInstantPatch();
 
@@ -231,10 +212,9 @@ export function ScreenCard({
         : ['text'],
     [locale],
   );
-  // Stable callback that returns the surface registered for this card.
-  // useDragPosition uses it instead of reaching for iframeRef.current
-  // directly, so Phase 3 can swap in a shadow surface with zero changes
-  // to either the hook or this component.
+  // Stable callback that returns the surface registered for this
+  // card. useDragPosition resolves the active PreviewSurface through
+  // this rather than touching DOM refs directly.
   const dragGetSurface = useCallback(() => getPreviewSurface(index), [index]);
   const { onOverlayMouseDown, getCursorForPosition, isDragging, dragTarget } = useDragPosition(
     dragGetSurface,
@@ -579,27 +559,21 @@ export function ScreenCard({
         true,
       );
 
-      // Shadow path: register the fonts this screen needs on the parent
-      // document, and tell the server to skip emitting @font-face into
-      // the rendered HTML. Iframe path: server keeps its default URL-
-      // mode @font-face emission.
-      if (useShadow) {
-        const fontIds = [screen.font, screen.headlineFont, screen.subtitleFont, screen.freeTextFont].filter(
-          (id): id is string => typeof id === 'string' && id.length > 0,
-        );
-        // Awaited so the @font-face declarations exist on the parent
-        // before the shadow content references them. document.fonts.ready
-        // does the rest after replaceContent.
-        try {
-          await ensurePreviewFontsRegistered(fontIds);
-        } catch {
-          // Font registration is best-effort; if it fails we fall
-          // through to render anyway and let the browser substitute
-          // system fonts. The full-render path will surface the network
-          // error on its own.
-        }
-        body.fontFaceMode = 'none';
+      // Register the fonts this screen needs on the parent document
+      // before mounting the shadow content, and tell the server to
+      // skip @font-face emission since the parent has it covered.
+      const fontIds = [screen.font, screen.headlineFont, screen.subtitleFont, screen.freeTextFont].filter(
+        (id): id is string => typeof id === 'string' && id.length > 0,
+      );
+      try {
+        await ensurePreviewFontsRegistered(fontIds);
+      } catch {
+        // Font registration is best-effort; if it fails we fall
+        // through to render anyway and let the browser substitute
+        // system fonts. The full-render path will surface the
+        // network error on its own.
       }
+      body.fontFaceMode = 'none';
 
       if (controller.signal.aborted) return;
 
@@ -624,7 +598,7 @@ export function ScreenCard({
       abortRef.current?.abort();
     };
     // renderVersion forces re-render when triggerRender() is called
-  }, [screen, renderVersion, platform, previewW, previewH, locale, localeConfig, deviceFamilies, attachGuideObserver, useShadow, index]);
+  }, [screen, renderVersion, platform, previewW, previewH, locale, localeConfig, deviceFamilies, attachGuideObserver, index]);
 
   return (
     <>
@@ -831,42 +805,26 @@ export function ScreenCard({
             <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
           </div>
         )}
-        {useShadow ? (
-          <div
-            ref={shadowHostRef}
-            className="border-none block origin-top-left"
-            style={{
-              width: previewW,
-              height: previewH,
-              transform: `scale(${scale}) translateZ(0)`,
-              willChange: 'transform',
-              // Containment scopes layout/paint to this subtree so a
-              // bad template rule can't reflow the editor chrome. The
-              // iframe got this for free; the shadow host needs it
-              // explicit.
-              contain: 'layout style paint',
-            }}
-            title={`Screen ${index + 1} (shadow)`}
-            aria-label={`Screen ${index + 1}`}
-          />
-        ) : (
-          <iframe
-            ref={iframeRef}
-            className="border-none block origin-top-left"
-            style={{
-              width: previewW,
-              height: previewH,
-              // `translateZ(0)` forces a composited GPU layer; willChange
-              // tells the engine the layer is long-lived. Together they
-              // discourage Safari from purging the iframe's decoded image
-              // content during the ~30s inactivity window (the visible
-              // "reload" the user observed in Safari but not Chromium).
-              transform: `scale(${scale}) translateZ(0)`,
-              willChange: 'transform',
-            }}
-            title={`Screen ${index + 1}`}
-          />
-        )}
+        <div
+          ref={shadowHostRef}
+          className="border-none block origin-top-left"
+          style={{
+            width: previewW,
+            height: previewH,
+            // translateZ(0) is doing double duty: it's a no-op visual
+            // composite layer hint, and it makes this element a
+            // containing block for position:fixed descendants inside
+            // its shadow tree (see shadowPreviewSurface). willChange
+            // tells the compositor the layer is long-lived. contain
+            // scopes layout/paint to this subtree so a bad template
+            // rule can't reflow the editor chrome.
+            transform: `scale(${scale}) translateZ(0)`,
+            willChange: 'transform',
+            contain: 'layout style paint',
+          }}
+          title={`Screen ${index + 1}`}
+          aria-label={`Screen ${index + 1}`}
+        />
         {/* Center guides — only while actively dragging, and only when the
             dragged element's center exactly hits a canvas axis. */}
         {/* Guide style: each line gets a 1px halo via box-shadow on both

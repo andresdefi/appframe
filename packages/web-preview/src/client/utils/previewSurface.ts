@@ -1,72 +1,53 @@
 /**
- * Backend-agnostic interface over the editor's active preview surface.
- *
- * Every consumer that used to reach for `iframe.contentDocument` (drag,
- * instant-patch, guide observer, render write) goes through this. Phase 1
- * ships only the iframe implementation; Phase 3 adds a shadow-DOM one and
- * flips a single factory call.
+ * Editor's active preview surface — a shadow-DOM host with helpers
+ * for the drag, instant-patch, guide observer, and render-write code
+ * to interact with the preview's internal DOM without reaching into
+ * implementation details. Single-implementation since Phase 7 (the
+ * legacy iframe alternative was removed); the interface stays for
+ * the type contract and to keep dependency-direction clean.
  *
  * Design notes:
- * - `elementsFromPoint` takes parent client coords. The iframe impl
- *   converts to iframe-local coords using the host rect; the shadow impl
- *   calls `document.elementsFromPoint` and filters to the surface's
- *   shadow descendants. Callers stop needing their own coordinate
- *   helpers.
- * - `clientToCanvasPoint` derives the scale from the host element's
- *   bounding rect divided by its untransformed canvas size, so callers
- *   don't have to thread the parent CSS transform through hooks.
- * - `boundary` is the element that marks "you've walked out of the
- *   surface" during ancestor traversal. Iframe: documentElement. Shadow:
- *   the host (since the shadow root is its descendant subtree).
- * - `replaceContent` is the renderer write. Iframe: doc.open/write/close.
- *   Shadow: parse → extract → shadowRoot.replaceChildren (Phase 3).
+ * - `elementsFromPoint` takes parent client coords; the adapter
+ *   handles the shadow-internal lookup (`ShadowRoot.elementsFromPoint`,
+ *   which `document.elementsFromPoint` doesn't substitute for —
+ *   `document.elementsFromPoint` returns the host, not its
+ *   descendants).
+ * - `clientToCanvasPoint` derives scale from the host's bounding rect
+ *   divided by its untransformed canvas size, so callers don't have
+ *   to thread the parent CSS transform through hooks.
+ * - `replaceContent` parses the engine-produced HTML, extracts the
+ *   `<style>` + `<body>` children, and mounts under a
+ *   `.preview-document` wrapper carrying `transform: translateZ(0)`
+ *   so the wrapper becomes a containing block for `position: fixed`
+ *   text positions inside the shadow tree.
  */
 export interface PreviewSurface {
-  readonly kind: 'iframe' | 'shadow';
-  /** Element living in the parent document that owns the surface. The
-   *  iframe element, or the shadow host div. Used for parent-side rect
-   *  reads and scale derivation. */
+  /** The shadow host div living in the parent document. Used for
+   *  parent-side rect reads and scale derivation. */
   readonly host: HTMLElement;
-  /** Root inside which all queries are scoped. */
-  readonly root: Document | ShadowRoot;
-  /** Parent-walk boundary — stop climbing parents once you hit this. */
-  readonly boundary: Element;
+  /** The open shadow root attached to the host — query scope for
+   *  everything inside the preview. */
+  readonly root: ShadowRoot;
 
   querySelector<T extends Element = Element>(selector: string): T | null;
   querySelectorAll<T extends Element = Element>(selector: string): T[];
-  /** Hit-test scoped to this surface. clientX/clientY are PARENT client
-   *  coords; the adapter handles the surface-specific conversion. */
+  /** Hit-test scoped to this surface's shadow tree. clientX/clientY
+   *  are PARENT client coords. */
   elementsFromPoint(clientX: number, clientY: number): Element[];
   /** Translate parent client coords into surface-internal canvas coords. */
   clientToCanvasPoint(clientX: number, clientY: number): { x: number; y: number };
-  /** Computed style of an element inside this surface, resolved against
-   *  the surface's own window (iframe.contentWindow for iframes, the
-   *  parent window for shadow). */
+  /** Computed style of an element inside the shadow tree. */
   getComputedStyle(el: Element): CSSStyleDeclaration;
-  /** Bounding rect of the `.canvas` element in surface-internal coords.
-   *  Matches the historical behavior of calling getBoundingClientRect on
-   *  iframe-internal elements. */
+  /** Bounding rect of the `.canvas` element in surface-internal coords. */
   getCanvasRect(): DOMRect | null;
   /**
    * An element's bounding rect in surface-internal (unscaled, host-
-   * relative) coords. Use this anywhere the existing code calls
-   * `el.getBoundingClientRect()` on a child of the preview content and
-   * uses the result as a positional input for either a write back to
-   * inline styles or relative math against another such rect.
-   *
-   * - iframe: passthrough — iframe-internal getBoundingClientRect is
-   *   already canvas-local because the iframe is its own coordinate
-   *   system unaffected by the parent's CSS transform.
-   * - shadow: translates the rect so its origin is the host's top-left,
-   *   then divides by the host's effective scale (read from the host's
-   *   bounding rect / clientWidth ratio). The result matches what the
-   *   iframe path would have returned for the same DOM element.
-   *
-   * Without this, instant-patch math that reads
-   * `canvas.getBoundingClientRect().width` and writes
-   * `wrapper.style.width = (width * scale) + 'px'` collapses the
-   * wrapper toward the top-left in shadow mode (writes 67px instead
-   * of 224px).
+   * relative) coords. Use anywhere existing code calls
+   * `el.getBoundingClientRect()` on a child of the preview content
+   * and uses the result as a positional input. Without this,
+   * instant-patch math that reads `canvas.getBoundingClientRect().width`
+   * and writes `wrapper.style.width = …` collapses the wrapper toward
+   * the top-left because the host's CSS transform scales the raw rect.
    */
   getInternalRect(el: Element): DOMRect;
   /** Replace the surface's rendered HTML. */
@@ -81,92 +62,9 @@ export interface PreviewSurface {
 export const SHADOW_PREVIEW_DOCUMENT_CLASS = 'preview-document';
 
 /**
- * Adapter wrapping an iframe element. Phase 1 implementation.
- */
-export function iframePreviewSurface(iframe: HTMLIFrameElement): PreviewSurface {
-  const getDoc = (): Document | null => {
-    try {
-      return iframe.contentDocument ?? null;
-    } catch {
-      return null;
-    }
-  };
-
-  return {
-    kind: 'iframe',
-    host: iframe,
-    // Lazy reads — contentDocument can be replaced by doc.open/write/close
-    // and the consumer needs the fresh reference each call. Returning the
-    // current value via a getter would complicate the interface; readers
-    // rarely hold these long-term anyway. Throwing null-doc surfaces an
-    // empty surface that no-ops gracefully through the methods below.
-    get root() {
-      return getDoc() ?? document;
-    },
-    get boundary() {
-      return getDoc()?.documentElement ?? iframe;
-    },
-
-    querySelector<T extends Element = Element>(selector: string): T | null {
-      return getDoc()?.querySelector<T>(selector) ?? null;
-    },
-    querySelectorAll<T extends Element = Element>(selector: string): T[] {
-      const doc = getDoc();
-      if (!doc) return [];
-      return Array.from(doc.querySelectorAll<T>(selector));
-    },
-    elementsFromPoint(clientX, clientY) {
-      const doc = getDoc();
-      if (!doc) return [];
-      const { x, y } = this.clientToCanvasPoint(clientX, clientY);
-      return doc.elementsFromPoint(x, y) as Element[];
-    },
-    clientToCanvasPoint(clientX, clientY) {
-      const rect = iframe.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
-      // The iframe element's bounding rect reflects any parent CSS
-      // transform; its `clientWidth` is the untransformed inner width.
-      // Their ratio is the parent's effective scale on this axis. Doing
-      // it per-axis tolerates non-uniform scales the editor doesn't ship
-      // today but might later.
-      const scaleX = rect.width / iframe.clientWidth;
-      const scaleY = rect.height / iframe.clientHeight;
-      return {
-        x: scaleX > 0 ? (clientX - rect.left) / scaleX : 0,
-        y: scaleY > 0 ? (clientY - rect.top) / scaleY : 0,
-      };
-    },
-    getComputedStyle(el) {
-      const view = getDoc()?.defaultView;
-      return view ? view.getComputedStyle(el) : window.getComputedStyle(el);
-    },
-    getCanvasRect() {
-      const canvas = getDoc()?.querySelector('.canvas') as HTMLElement | null;
-      return canvas?.getBoundingClientRect() ?? null;
-    },
-    getInternalRect(el) {
-      // Iframe-internal getBoundingClientRect is already in the iframe's
-      // own coord system, unaffected by any parent CSS transform.
-      return el.getBoundingClientRect();
-    },
-    replaceContent(html) {
-      const doc = getDoc();
-      if (doc) {
-        doc.open();
-        doc.write(html);
-        doc.close();
-      } else {
-        // Fallback: contentDocument may be temporarily null right after
-        // mount; srcdoc triggers a navigation that re-creates it.
-        iframe.srcdoc = html;
-      }
-    },
-  };
-}
-
-/**
  * Adapter wrapping a parent-document element with an attached shadow
- * root. Phase 3 implementation — used when the `?shadow=1` flag is on.
+ * root. The only PreviewSurface implementation since Phase 7 deleted
+ * the iframe alternative.
  *
  * The host element is owned by ScreenCard's JSX and lives in the parent
  * document tree (no iframe, no nested browsing context). Constructor
@@ -181,15 +79,9 @@ export function shadowPreviewSurface(host: HTMLElement): PreviewSurface {
   const root: ShadowRoot = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
 
   return {
-    kind: 'shadow',
     host,
     get root() {
       return root;
-    },
-    // Walking ancestors of an element inside the shadow tree stops once
-    // it hits the host — beyond that we're back in the parent document.
-    get boundary() {
-      return host;
     },
 
     querySelector<T extends Element = Element>(selector: string): T | null {

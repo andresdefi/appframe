@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePreviewStore } from '../../store';
 import { fetchPanoramicPreviewHtml } from '../../utils/api';
-import { setPanoramicIframe } from '../../utils/panoramicIframeRef';
-import { iframePreviewSurface, shadowPreviewSurface } from '../../utils/previewSurface';
+import { shadowPreviewSurface } from '../../utils/previewSurface';
 import {
   getPanoramicPreviewSurface,
   setPanoramicPreviewSurface,
 } from '../../utils/previewSurfaceRegistry';
-import { isShadowPreviewEnabled } from '../../utils/previewBackendFlag';
 import { ensurePreviewFontsRegistered } from '../../utils/parentFontRegistry';
 import {
   rewritePanoramicBackgroundForPreview,
@@ -20,12 +18,7 @@ import { useConfirmDialog } from '../Controls/ConfirmDialog';
 
 export function PanoramicPreview() {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const shadowHostRef = useRef<HTMLDivElement>(null);
-  // Captured once per render so the JSX and the registration / fetch
-  // effects all pick the same backend. Flipping the URL requires a
-  // reload (same as ScreenCard).
-  const useShadow = isShadowPreviewEnabled();
   const areaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -86,29 +79,18 @@ export function PanoramicPreview() {
     origY: number;
   } | null>(null);
 
-  // Register the surface that matches the chosen backend. Iframe path
-  // also populates the legacy panoramic iframe ref; shadow path skips
-  // it (no panoramic consumer reads from the iframe ref directly any
-  // more after Phase 1).
+  // Register a shadow surface for the panoramic preview. Hooks and
+  // PanoramicPreview's custom drag handler all read through
+  // getPanoramicPreviewSurface(). Phase 7 removed the iframe
+  // alternative.
   useEffect(() => {
-    if (useShadow) {
-      const host = shadowHostRef.current;
-      const surface = host ? shadowPreviewSurface(host) : null;
-      setPanoramicPreviewSurface(surface);
-      return () => {
-        setPanoramicPreviewSurface(null);
-      };
-    }
-    setPanoramicIframe(iframeRef.current);
-    const surface = iframeRef.current
-      ? iframePreviewSurface(iframeRef.current)
-      : null;
+    const host = shadowHostRef.current;
+    const surface = host ? shadowPreviewSurface(host) : null;
     setPanoramicPreviewSurface(surface);
     return () => {
-      setPanoramicIframe(null);
       setPanoramicPreviewSurface(null);
     };
-  }, [useShadow]);
+  }, []);
 
   const totalCanvasWidth = previewW * frameCount;
 
@@ -180,23 +162,20 @@ export function PanoramicPreview() {
           previewMode: true,
         };
 
-        // Shadow path: register the panoramic global font on the
-        // parent document and tell the server not to emit @font-face.
-        // Panoramic's renderPanoramic only loads the single global
-        // font (per-element fonts in the elements array aren't
-        // currently loaded by the engine in either backend), so the
+        // Register the panoramic global font on the parent document
+        // and tell the server not to emit @font-face. renderPanoramic
+        // only loads the single global font (per-element fonts in the
+        // elements array aren't loaded by the engine today), so the
         // ids list is just `[config.theme.font]`.
-        if (useShadow) {
-          const fontIds = [config.theme.font].filter(
-            (id): id is string => typeof id === 'string' && id.length > 0,
-          );
-          try {
-            await ensurePreviewFontsRegistered(fontIds);
-          } catch {
-            // best-effort, fall through to render with system fallback
-          }
-          body.fontFaceMode = 'none';
+        const fontIds = [config.theme.font].filter(
+          (id): id is string => typeof id === 'string' && id.length > 0,
+        );
+        try {
+          await ensurePreviewFontsRegistered(fontIds);
+        } catch {
+          // best-effort, fall through to render with system fallback
         }
+        body.fontFaceMode = 'none';
 
         if (controller.signal.aborted) return;
 
@@ -231,7 +210,6 @@ export function PanoramicPreview() {
     elements,
     panoramicEffects,
     renderVersion,
-    useShadow,
   ]);
 
   // --- Drag-to-reposition ---
@@ -449,34 +427,24 @@ export function PanoramicPreview() {
         className="relative overflow-hidden rounded border border-border/30"
         style={{ width: totalCanvasWidth * scale, height: previewH * scale }}
       >
-        {useShadow ? (
-          <div
-            ref={shadowHostRef}
-            className="border-none block origin-top-left"
-            style={{
-              width: totalCanvasWidth,
-              height: previewH,
-              transform: `scale(${scale})`,
-              // Match ScreenCard's shadow host — containment scopes
-              // any heavy panoramic CSS to this subtree.
-              contain: 'layout style paint',
-            }}
-            title="Panoramic Preview (shadow)"
-            aria-label="Panoramic Preview"
-          />
-        ) : (
-          <iframe
-            ref={iframeRef}
-            className="border-none block origin-top-left"
-            style={{
-              width: totalCanvasWidth,
-              height: previewH,
-              transform: `scale(${scale})`,
-            }}
-            title="Panoramic Preview"
-          />
-        )}
-        {/* Drag overlay — captures mouse events above the iframe */}
+        <div
+          ref={shadowHostRef}
+          className="border-none block origin-top-left"
+          style={{
+            width: totalCanvasWidth,
+            height: previewH,
+            transform: `scale(${scale}) translateZ(0)`,
+            // Containment scopes layout/paint to this subtree so
+            // a bad template rule can't reflow the editor chrome.
+            // translateZ(0) on the transform makes the host a
+            // containing block for any position:fixed descendants
+            // inside its shadow tree (see shadowPreviewSurface).
+            contain: 'layout style paint',
+          }}
+          title="Panoramic Preview"
+          aria-label="Panoramic Preview"
+        />
+        {/* Drag overlay — captures mouse events above the preview host */}
         <div
           className="absolute inset-0 z-10"
           style={{ cursor: isDragging ? 'grabbing' : hoverCursor }}

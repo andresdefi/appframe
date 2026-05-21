@@ -1,13 +1,10 @@
 import type { PreviewSurface } from './previewSurface';
 
 /**
- * Registry mirroring `iframeRegistry`/`panoramicIframeRef` but holding
- * the backend-agnostic surface. Phase 1 consumers read from here instead
- * of reaching for the iframe element directly. Phase 3 will register a
- * shadow surface in the same slot and the consumers won't notice.
- *
- * Per-screen entries for individual mode, plus a singleton slot for the
- * panoramic surface.
+ * Module-level registry of the active editor's PreviewSurface
+ * instances. ScreenCard registers a surface per card index; hooks
+ * (useInstantPatch, useDragPosition) look up by index. PanoramicPreview
+ * uses the singleton slot.
  */
 const surfaces = new Map<number, PreviewSurface>();
 let panoramicSurface: PreviewSurface | null = null;

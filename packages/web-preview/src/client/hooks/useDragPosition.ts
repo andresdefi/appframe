@@ -43,29 +43,18 @@ interface DragState {
 /**
  * Drag-end position read.
  *
- * Iframe: offsetTop/offsetLeft work — for a fixed-positioned element
- * the offsetParent is the body, and offsetLeft = box-left (which
- * equals the visual center because we apply translateX(-50%)).
- *
- * Shadow: offsetTop/offsetLeft don't work — for a fixed-positioned
- * element in shadow the offsetParent is null (per spec), so both
- * return 0. Use getInternalRect (unscaled, host-relative bounding
- * rect) and reconstruct the box-left by adding offsetWidth/2 back to
- * the visual left.
+ * `offsetTop`/`offsetLeft` are unreliable here: for a position:fixed
+ * element inside a shadow tree the offsetParent is null per spec, so
+ * both return 0. Use the adapter's `getInternalRect` (unscaled,
+ * host-relative bounding rect) instead, and reconstruct box-left by
+ * adding `offsetWidth / 2` back to the visual left — the inverse of
+ * the `translateX(-50%)` applied during drag.
  */
 function getElPos(el: HTMLElement, surface: PreviewSurface) {
-  if (surface.kind === 'shadow') {
-    const r = surface.getInternalRect(el);
-    return {
-      top: r.top,
-      left: r.left + el.offsetWidth / 2,
-      width: el.offsetWidth,
-      height: el.offsetHeight,
-    };
-  }
+  const r = surface.getInternalRect(el);
   return {
-    top: el.offsetTop,
-    left: el.offsetLeft,
+    top: r.top,
+    left: r.left + el.offsetWidth / 2,
     width: el.offsetWidth,
     height: el.offsetHeight,
   };
@@ -73,40 +62,22 @@ function getElPos(el: HTMLElement, surface: PreviewSurface) {
 
 /**
  * Compute an element's position in surface-internal (canvas-local)
- * coords.
+ * coords. Defers to the adapter's `getInternalRect` which delivers
+ * a host-relative, unscaled rect. Width/height come from
+ * offsetWidth/Height so the locked-width drag preserves the element's
+ * layout box (matters for rotated text — getBoundingClientRect would
+ * give the AABB instead).
  *
- * Iframe: walk the offsetParent chain. The walk stops at the iframe
- * document boundary so the accumulated offset stays canvas-local, and
- * it doesn't pick up the iframe element's own CSS transform in the
- * parent page (which getBoundingClientRect would).
- *
- * Shadow: defer to the adapter's getInternalRect, which already
- * delivers a host-relative, unscaled rect. The offsetParent chain
- * isn't reliable here: depending on the browser it may either stop at
- * the shadow root (giving canvas-local coords) or continue into the
- * parent document (adding the host's editor-page offset). The latter
- * causes position:fixed text drags to leap off-screen — the text
- * inherits a left of e.g. 900px relative to a 400px-wide host
+ * The offsetParent chain isn't a viable alternative: depending on
+ * browser it may either stop at the shadow root or continue into the
+ * parent document (adding the host's editor-page offset to every
+ * read). The latter sends position:fixed text drags off-screen — the
+ * text inherits a left of e.g. 900px relative to a 400px-wide host
  * containing block.
- *
- * Width/height come from offsetWidth/Height in both backends so the
- * locked-width drag preserves the element's layout box (matters for
- * rotated text — getBoundingClientRect gives the AABB instead).
  */
 function getViewportRect(el: HTMLElement, surface: PreviewSurface) {
-  if (surface.kind === 'shadow') {
-    const r = surface.getInternalRect(el);
-    return { left: r.left, top: r.top, width: el.offsetWidth, height: el.offsetHeight };
-  }
-  let left = el.offsetLeft;
-  let top = el.offsetTop;
-  let parent = el.offsetParent as HTMLElement | null;
-  while (parent) {
-    left += parent.offsetLeft - parent.scrollLeft;
-    top += parent.offsetTop - parent.scrollTop;
-    parent = parent.offsetParent as HTMLElement | null;
-  }
-  return { left, top, width: el.offsetWidth, height: el.offsetHeight };
+  const r = surface.getInternalRect(el);
+  return { left: r.left, top: r.top, width: el.offsetWidth, height: el.offsetHeight };
 }
 
 /**
@@ -203,7 +174,11 @@ export function useDragPosition(
 
         for (const startEl of allEls) {
           let el: HTMLElement | null = startEl;
-          while (el && el !== surface.boundary) {
+          // Stop climbing once we hit the shadow host — beyond it
+          // we're back in the parent document and the classnames we
+          // match below would no longer be referring to preview
+          // elements.
+          while (el && el !== surface.host) {
             if (!headlineEl && el.classList?.contains('headline')) headlineEl = el;
             if (!subtitleEl && el.classList?.contains('subtitle')) subtitleEl = el;
             if (!freeTextEl && el.classList?.contains('free-text')) freeTextEl = el;
@@ -344,21 +319,11 @@ export function useDragPosition(
         const cls = hit.cls as 'headline' | 'subtitle' | 'freeText';
         const vr = getViewportRect(el, surface);
         const alreadyPositioned = !!screen.textPositions[cls];
-        // Iframe path: vr.left comes from the offsetLeft chain, which
-        // ignores CSS transforms. For an already-positioned element
-        // with translateX(-50%) the value IS the visual center, so
-        // centerX = vr.left.
-        //
-        // Shadow path: vr.left comes from getInternalRect (= post-
-        // transform bounding rect, unscaled), which is the visual
-        // LEFT, not the visual center. Whether the text is in flow
-        // or already translated, `visual_left + width/2 = visual_center`,
-        // so the formula is uniform.
-        const centerX = surface.kind === 'shadow'
-          ? vr.left + vr.width / 2
-          : alreadyPositioned
-            ? vr.left
-            : vr.left + vr.width / 2;
+        // vr.left comes from getInternalRect (post-transform bounding
+        // rect, unscaled) which is the visual LEFT. Whether the text
+        // is in flow or already translated by drag, `visual_left +
+        // width/2 = visual_center`, so the formula is uniform.
+        const centerX = vr.left + vr.width / 2;
         const origWidth = vr.width;
 
         if (!alreadyPositioned) {

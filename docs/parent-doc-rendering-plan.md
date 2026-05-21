@@ -583,24 +583,72 @@ Done when:
   in user-driven smoke (the four bugs above were caught and fixed).
 - Parity harness passes for individual-mode fixtures. ✅ 17/17.
 
-### Phase 4 - Template Compatibility Cleanup
+### Phase 4 - Template Compatibility Cleanup ✅ done 2026-05-21
 
 Tasks:
 
-- Convert or adapt `body` / `html` styling.
-- Remove any live-shadow dependency on viewport units.
-- Replace drag-time `position: fixed` behavior with absolute positioning in
-  the preview wrapper.
-- Make the "is this text drag-positioned" checks explicit rather than tied to
-  computed `position === 'fixed'`.
+- Convert or adapt `body` / `html` styling. ✅ Three templates
+  (`_base/layout.html`, `universal/base.html` × 2 blocks, `panoramic/
+  base.html`) now use grouped selectors `body, .preview-document { ... }`.
+  Iframe matches via `body`; shadow matches via the `.preview-document`
+  wrapper. Same rule contributes font-family, font-smoothing, overflow,
+  etc. in both backends. Canvas dims continue to come from the host's
+  inline CSS in shadow (the wrapper's `width:100%` overrides the rule's
+  `width:Xpx`, which is fine — the host controls canvas size).
+- Remove any live-shadow dependency on viewport units. ✅ no-op,
+  templates have zero viewport units (confirmed in audit §2).
+- Replace drag-time `position: fixed` behavior so saved positions
+  resolve against canvas dimensions in shadow. ✅ done — but NOT via
+  the audit's original proposal (switch to `position: absolute`).
+  Instead the shadow renderer's wrapper now carries
+  `transform: translateZ(0)`, which per CSS Transforms 1 makes the
+  wrapper a containing block for `position: fixed` descendants inside
+  the shadow tree. The wrapper is canvas-sized, so `top: X%` resolves
+  against canvas dimensions — same as the iframe viewport. Both
+  backends keep `position: fixed` everywhere
+  (`injectTextPositionCSS`, `useDragPosition`).
+- Make the "is this text drag-positioned" checks explicit rather than
+  tied to computed `position === 'fixed'`. ✅ probes in
+  `useInstantPatch.applyRotation` and `ScreenCard.recomputeGuides`
+  accept both `'fixed'` and `'absolute'`. Defensive — current code
+  only emits `fixed`, but the broadened probes survived from the
+  Phase 4 experiment and harmlessly tolerate either.
 
-This phase may happen partly before Phase 3 if the audit reveals obvious
-template changes that are safe for iframe rendering too.
+Supporting changes:
+
+- `getElPos` and `getViewportRect` in `useDragPosition` keep a shadow
+  branch that uses `surface.getInternalRect(el)` instead of the
+  `offsetLeft`/`offsetTop` chain. Reason: for a `position: fixed`
+  element in a shadow tree, the spec leaves `offsetParent` as null,
+  so the offset values are zero. The internal-rect path translates
+  the bounding rect into canvas coords and reconstructs box-left from
+  visual-left + offsetWidth/2 (the inverse of the `translateX(-50%)`
+  the code applies during drag).
+- New parity fixture `18-saved-text-positions.json` exercises
+  `injectTextPositionCSS` end-to-end in both backends. Snapshots match
+  within 0.15% file size.
+
+What we tried first and reverted:
+
+- Switching `injectTextPositionCSS` and `useDragPosition` to
+  `position: absolute` in shadow mode. Looked clean in fixtures, broke
+  in the real editor: the template's `.text-area` rule is
+  `position: absolute` (universal/base.html:212-219). With the
+  headline also absolute, the headline's containing block became
+  `.text-area`. When both headline and subtitle were saved-positioned,
+  `.text-area` had no in-flow content and collapsed to near-zero
+  width — saved `width: 50%` resolved to ~8px → re-drag captured the
+  8px element → saved as `2%` → feedback loop. The
+  wrapper-as-containing-block approach above sidesteps this by giving
+  fixed text a deterministic CB that's always canvas-sized.
 
 Done when:
 
-- Iframe and shadow parity still pass.
-- No known template CSS relies on iframe-only semantics in the shadow path.
+- Iframe and shadow parity still pass. ✅ 37/37.
+- No known template CSS relies on iframe-only semantics in the shadow
+  path. ✅ audit items all addressed.
+- Manual save-text-drag smoke at `?shadow=1` — drag text, release to
+  save, confirm the next re-render keeps it in place. ✅ confirmed.
 
 ### Phase 5 - Panoramic Shadow Preview, Flagged
 

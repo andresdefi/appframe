@@ -1,0 +1,27 @@
+{
+  "description": "Headline and subtitle have saved drag positions — exercises the server-side injectTextPositionCSS path. Iframe renders position:fixed (relative to iframe viewport); shadow renders position:absolute (relative to .canvas) thanks to fontFaceMode='none' switching. Visual result must match.",
+  "body": {
+    "screenIndex": 0,
+    "width": 400,
+    "height": 868,
+    "frameId": "generic-phone",
+    "font": "inter",
+    "fontWeight": 700,
+    "headlineSize": 90,
+    "subtitleSize": 45,
+    "headline": "Dragged",
+    "subtitle": "Both texts have explicit positions",
+    "colors": { "text": "#ffffff", "subtitle": "#fde68a" },
+    "backgroundType": "solid",
+    "backgroundColor": "#1e293b",
+    "composition": "single",
+    "deviceScale": 88,
+    "deviceTop": 55,
+    "headlineTop": 8,
+    "headlineLeft": 30,
+    "headlineWidth": 60,
+    "subtitleTop": 28,
+    "subtitleLeft": 70,
+    "subtitleWidth": 55
+  }
+}

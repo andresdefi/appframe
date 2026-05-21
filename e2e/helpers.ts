@@ -25,9 +25,15 @@ export function modeToggle(page: Page): Locator {
 
 // ─── Navigation helpers ───
 
-/** Wait for the preview server to be fully loaded */
+/** Wait for the preview server to be fully loaded. Phase 6 flipped the
+ *  default preview backend to shadow DOM; the existing e2e suite still
+ *  asserts against iframe-specific selectors (functional + ux-audit
+ *  count `<iframe>` elements; export rasterizes the preview), so the
+ *  navigation pins to `?shadow=0` to keep exercising the iframe path
+ *  these tests were written for. The shadow path has its own dedicated
+ *  parity harness under `e2e/parity/`. */
 export async function waitForApp(page: Page) {
-  await page.goto('/');
+  await page.goto('/?shadow=0');
   await page.getByText('appframe').first().waitFor({ timeout: 10_000 });
   await page.locator('iframe').first().waitFor({ state: 'attached', timeout: 10_000 });
 }

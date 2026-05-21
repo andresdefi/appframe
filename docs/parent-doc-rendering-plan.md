@@ -650,23 +650,71 @@ Done when:
 - Manual save-text-drag smoke at `?shadow=1` — drag text, release to
   save, confirm the next re-render keeps it in place. ✅ confirmed.
 
-### Phase 5 - Panoramic Shadow Preview, Flagged
+### Phase 5 - Panoramic Shadow Preview, Flagged ✅ render done 2026-05-21 (interactivity ⏳ deferred to Phase 5b)
 
 Tasks:
 
-- Reuse the shadow renderer and adapter for `PanoramicPreview.tsx`.
-- Migrate panoramic drag and instant-patch code.
-- Add panoramic parity fixture.
+- Reuse the shadow renderer and adapter for `PanoramicPreview.tsx`. ✅
+  Same JSX-swap, registration-effect-swap, and render-fetch wiring
+  pattern as ScreenCard. shadowPreviewSurface + isShadowPreviewEnabled
+  + ensurePreviewFontsRegistered already existed from Phase 3.
+- Migrate panoramic drag and instant-patch code. ⏳ the existing code
+  was already routing through `getPanoramicPreviewSurface()` (Phase 1)
+  but interactive behavior in shadow mode is broken — drag doesn't
+  follow the cursor (commits only on release), several sliders don't
+  patch live. Same class of bug as Phase 3 individual mode before
+  the `getInternalRect` / `elementsFromPoint` / `position: fixed`
+  fixes were threaded through. The render path is unaffected
+  (parity passes); only live interactivity needs a similar pass for
+  the panoramic-specific drag handler and `usePanoramicInstantPatch`.
+- Add panoramic parity fixture. ✅ `panoramic/01-basic.json` shipped
+  in Phase 0; the shadow-side was skipped until now. Lifted the skip
+  in `parity.spec.ts`. Iframe and shadow snapshots are byte-identical
+  for the panoramic fixture (1520066 bytes each).
 
-Reason:
-
-Panoramic has different coordinate math and one wide canvas, so it should not
-be bundled into the first individual-mode migration.
+Font registration for panoramic: only the single global
+`config.theme.font` is registered. Per-element fonts inside the
+panoramic elements array aren't loaded by the engine in either backend
+today (pre-existing limitation in `renderPanoramic`); the shadow path
+mirrors that.
 
 Done when:
 
-- Panoramic works behind the same flag.
-- Panoramic parity passes.
+- Panoramic works behind the same flag. ⚠️ partial — renders behind
+  the flag, but interactive controls are broken in shadow mode.
+- Panoramic parity passes. ✅ 38/38 (panoramic-shadow combination
+  no longer skipped).
+
+### Phase 5b - Panoramic Shadow Interactivity (deferred)
+
+Catalog of what's broken when toggling `?shadow=1` in panoramic mode:
+
+- Device-frame drag doesn't follow the cursor during the drag — the
+  visual position only commits on release. Suggests the drag handler's
+  `mousemove` write isn't reaching the right shadow element, OR is
+  reading coords from the wrong frame.
+- Most other interactive controls don't take effect live.
+
+Likely investigation paths (mirroring the Phase 3 fix sequence):
+
+- `PanoramicPreview.tsx` has a CUSTOM drag handler (not
+  `useDragPosition`). Its `handleMouseMove` uses `surface.querySelector`
+  with `[data-index="..."]` selectors AND raw mouse-coord-to-canvas
+  math via `mouseToCanvasPercent`. Check that the shadow path's coord
+  conversions are equivalent to iframe's.
+- `usePanoramicInstantPatch` uses `s.querySelector` which routes
+  through the adapter — but if any patch reads
+  `el.getBoundingClientRect()` (like the individual-mode patches did),
+  it'll be scaled-down in shadow and write wrong values. Audit each
+  panoramic patch function for `getBoundingClientRect` usage and
+  swap to `s.getInternalRect` (the helper added in Phase 4).
+- Run parity for the panoramic mode while interacting via the
+  harness if possible, or add a "drag-end position" fixture similar
+  to `18-saved-text-positions`.
+
+Until Phase 5b lands, `?shadow=1` should not be flipped to default
+for panoramic mode. Phase 6 may proceed for individual mode only,
+keeping panoramic on iframe by default.
 
 ### Phase 6 - Default Shadow DOM For Active Preview
 

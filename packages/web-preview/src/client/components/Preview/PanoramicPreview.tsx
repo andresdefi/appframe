@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePreviewStore } from '../../store';
 import { fetchPanoramicPreviewHtml } from '../../utils/api';
 import { setPanoramicIframe } from '../../utils/panoramicIframeRef';
-import { iframePreviewSurface } from '../../utils/previewSurface';
+import { iframePreviewSurface, shadowPreviewSurface } from '../../utils/previewSurface';
 import {
   getPanoramicPreviewSurface,
   setPanoramicPreviewSurface,
 } from '../../utils/previewSurfaceRegistry';
+import { isShadowPreviewEnabled } from '../../utils/previewBackendFlag';
+import { ensurePreviewFontsRegistered } from '../../utils/parentFontRegistry';
 import {
   rewritePanoramicBackgroundForPreview,
   rewritePanoramicElementsForPreview,
@@ -19,6 +21,11 @@ import { useConfirmDialog } from '../Controls/ConfirmDialog';
 export function PanoramicPreview() {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const shadowHostRef = useRef<HTMLDivElement>(null);
+  // Captured once per render so the JSX and the registration / fetch
+  // effects all pick the same backend. Flipping the URL requires a
+  // reload (same as ScreenCard).
+  const useShadow = isShadowPreviewEnabled();
   const areaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -79,10 +86,19 @@ export function PanoramicPreview() {
     origY: number;
   } | null>(null);
 
-  // Register both the raw iframe (legacy consumers) and the
-  // PreviewSurface adapter. Phase 1 hooks should read from the adapter;
-  // the iframe ref stays for any consumer that hasn't migrated yet.
+  // Register the surface that matches the chosen backend. Iframe path
+  // also populates the legacy panoramic iframe ref; shadow path skips
+  // it (no panoramic consumer reads from the iframe ref directly any
+  // more after Phase 1).
   useEffect(() => {
+    if (useShadow) {
+      const host = shadowHostRef.current;
+      const surface = host ? shadowPreviewSurface(host) : null;
+      setPanoramicPreviewSurface(surface);
+      return () => {
+        setPanoramicPreviewSurface(null);
+      };
+    }
     setPanoramicIframe(iframeRef.current);
     const surface = iframeRef.current
       ? iframePreviewSurface(iframeRef.current)
@@ -92,7 +108,7 @@ export function PanoramicPreview() {
       setPanoramicIframe(null);
       setPanoramicPreviewSurface(null);
     };
-  }, []);
+  }, [useShadow]);
 
   const totalCanvasWidth = previewW * frameCount;
 
@@ -137,7 +153,7 @@ export function PanoramicPreview() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(
-      () => {
+      async () => {
         abortRef.current?.abort();
         const controller = new AbortController();
         abortRef.current = controller;
@@ -147,7 +163,7 @@ export function PanoramicPreview() {
         // device-frame URL too. Export goes through its own pipeline and
         // keeps full-res URLs — only the on-screen panoramic preview
         // gets the smaller bitmaps.
-        const body = {
+        const body: Record<string, unknown> = {
           locale: activeLocale,
           localeConfig,
           frameCount,
@@ -164,7 +180,27 @@ export function PanoramicPreview() {
           previewMode: true,
         };
 
-        fetchPanoramicPreviewHtml(body as Record<string, unknown>, controller.signal)
+        // Shadow path: register the panoramic global font on the
+        // parent document and tell the server not to emit @font-face.
+        // Panoramic's renderPanoramic only loads the single global
+        // font (per-element fonts in the elements array aren't
+        // currently loaded by the engine in either backend), so the
+        // ids list is just `[config.theme.font]`.
+        if (useShadow) {
+          const fontIds = [config.theme.font].filter(
+            (id): id is string => typeof id === 'string' && id.length > 0,
+          );
+          try {
+            await ensurePreviewFontsRegistered(fontIds);
+          } catch {
+            // best-effort, fall through to render with system fallback
+          }
+          body.fontFaceMode = 'none';
+        }
+
+        if (controller.signal.aborted) return;
+
+        fetchPanoramicPreviewHtml(body, controller.signal)
           .then((html) => {
             const surface = getPanoramicPreviewSurface();
             if (!surface) return;
@@ -195,6 +231,7 @@ export function PanoramicPreview() {
     elements,
     panoramicEffects,
     renderVersion,
+    useShadow,
   ]);
 
   // --- Drag-to-reposition ---
@@ -412,16 +449,33 @@ export function PanoramicPreview() {
         className="relative overflow-hidden rounded border border-border/30"
         style={{ width: totalCanvasWidth * scale, height: previewH * scale }}
       >
-        <iframe
-          ref={iframeRef}
-          className="border-none block origin-top-left"
-          style={{
-            width: totalCanvasWidth,
-            height: previewH,
-            transform: `scale(${scale})`,
-          }}
-          title="Panoramic Preview"
-        />
+        {useShadow ? (
+          <div
+            ref={shadowHostRef}
+            className="border-none block origin-top-left"
+            style={{
+              width: totalCanvasWidth,
+              height: previewH,
+              transform: `scale(${scale})`,
+              // Match ScreenCard's shadow host — containment scopes
+              // any heavy panoramic CSS to this subtree.
+              contain: 'layout style paint',
+            }}
+            title="Panoramic Preview (shadow)"
+            aria-label="Panoramic Preview"
+          />
+        ) : (
+          <iframe
+            ref={iframeRef}
+            className="border-none block origin-top-left"
+            style={{
+              width: totalCanvasWidth,
+              height: previewH,
+              transform: `scale(${scale})`,
+            }}
+            title="Panoramic Preview"
+          />
+        )}
         {/* Drag overlay — captures mouse events above the iframe */}
         <div
           className="absolute inset-0 z-10"

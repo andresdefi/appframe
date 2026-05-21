@@ -31,14 +31,7 @@ for (const backend of BACKENDS) {
     for (const fixture of [...individualFixtures, ...panoramicFixtures]) {
       const title = `${fixture.name}`;
       test(title, async ({ page, baseURL }, testInfo) => {
-        // Phase 3 lands the shadow backend for individual mode only.
-        // Panoramic stays on iframe until Phase 5.
-        if (backend === 'shadow' && fixture.endpoint === '/api/panoramic-preview-html') {
-          test.skip(true, 'panoramic shadow backend lands in Phase 5');
-          return;
-        }
         if (!baseURL) throw new Error('baseURL must be set in playwright.config.ts');
-
         await runFixture(page, fixture, backend, baseURL, testInfo);
       });
     }

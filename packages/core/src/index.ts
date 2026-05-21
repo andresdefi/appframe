@@ -79,6 +79,14 @@ export type { ScreenshotSize } from './renderer/types.js';
 
 export { sanitizeRichHtml } from './sanitize/richHtml.js';
 
+export {
+  hexToDisplayP3,
+  displayP3ToHex,
+  parseDisplayP3,
+  isColorValue,
+  toDisplayP3,
+} from './color/p3.js';
+
 export { COMPOSITION_PRESETS } from './composer/presets.js';
 export type { CompositionDefinition, DeviceSlotPreset } from './composer/presets.js';
 

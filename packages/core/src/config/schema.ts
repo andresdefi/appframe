@@ -3,9 +3,18 @@ import { FONT_IDS } from '../fonts/loader.js';
 
 // --- Shared enums/primitives ---
 
+// Colour storage accepts either CSS hex notation or
+// `color(display-p3 r g b)`. The app converts hex → P3 losslessly at
+// the load boundary (see `color/p3.ts`), but legacy projects on disk
+// still hold hex strings and YAML configs can use either form. The
+// regex is intentionally permissive on whitespace and decimal format
+// for the P3 branch so hand-edited config files stay readable.
 const hexColor = z
   .string()
-  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Must be a valid hex color');
+  .regex(
+    /^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|color\(\s*display-p3\s+-?\d*\.?\d+(?:e[+-]?\d+)?\s+-?\d*\.?\d+(?:e[+-]?\d+)?\s+-?\d*\.?\d+(?:e[+-]?\d+)?(?:\s*\/\s*[\d.]+)?\s*\))$/i,
+    'Must be a valid hex or color(display-p3 ...) value',
+  );
 
 export const fontIdSchema = z.enum(FONT_IDS as [string, ...string[]]);
 

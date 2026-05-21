@@ -486,29 +486,102 @@ Done when:
   covering idempotency, coalescing, parallel ids, empty responses, input
   validation, server errors.
 
-### Phase 3 - Shadow Renderer For Individual Mode, Flagged Off
+### Phase 3 - Shadow Renderer For Individual Mode, Flagged Off ✅ code done 2026-05-21 (manual smoke pending)
 
 Tasks:
 
-- Add `ShadowScreen` or equivalent.
-- Parse full template HTML into style nodes plus body children.
-- Mount into an open shadow root under `.preview-document`.
-- Apply containment and fixed dimensions on the host/wrapper.
-- Strip scripts and avoid direct raw HTML assignment.
-- Implement shadow version of `PreviewSurface`.
-- Add a feature flag: `?shadow=1` or localStorage.
+- Add `ShadowScreen` or equivalent. ✅ implemented as
+  `shadowPreviewSurface(host)` in `previewSurface.ts`. No new component;
+  ScreenCard's JSX switches between rendering an `<iframe>` and a
+  `<div ref={shadowHostRef}>` based on `useShadow`.
+- Parse full template HTML into style nodes plus body children. ✅
+  `DOMParser` in `replaceContent` — extracts `<style>` nodes from
+  `<head>` and children from `<body>`, mounts them under a
+  `.preview-document` wrapper. Scripts stripped defensively (templates
+  don't emit any today).
+- Mount into an open shadow root under `.preview-document`. ✅ wrapper
+  takes `width:100%;height:100%` so the host's explicit CSS dimensions
+  control canvas size — same control the iframe had via its `width`/
+  `height` style props.
+- Apply containment and fixed dimensions on the host/wrapper. ✅ host
+  div carries `contain: layout style paint` so a runaway template rule
+  can't reflow the editor chrome.
+- Strip scripts and avoid direct raw HTML assignment. ✅ no `innerHTML`
+  assignment anywhere; everything goes through `DOMParser` + `cloneNode`
+  + `replaceChildren`.
+- Implement shadow version of `PreviewSurface`. ✅ `shadowPreviewSurface`
+  exports the same interface as `iframePreviewSurface`.
+  `elementsFromPoint` uses `document.elementsFromPoint` filtered to
+  shadow descendants; `clientToCanvasPoint` derives scale from the
+  host's rect / clientWidth ratio (matches the iframe formula).
+- Add a feature flag: `?shadow=1` or localStorage. ✅
+  `previewBackendFlag.ts` exports `isShadowPreviewEnabled()` reading
+  `?shadow=1` from `window.location.search`. Off by default. Flip
+  requires a reload (no hot-swap).
 
-Important:
+Parity harness now exercises BOTH backends:
 
-Individual mode only in this phase. Leave panoramic on iframe until the
-surface abstraction and shadow renderer are proven.
+- `e2e/parity/helpers.ts` `mountFixture(backend)` branches: iframe
+  writes via `doc.open/write/close`; shadow does `DOMParser` + mount
+  under `.preview-document`, prefixed by a Node-side fetch of
+  `/api/preview-font-faces` injected into the parent page (CORS-safe).
+- Spec skips the panoramic shadow combination — panoramic stays on
+  iframe until Phase 5.
+- Result: 35/35 fixtures pass (17 individual × 2 backends, 1 panoramic
+  iframe; 1 panoramic shadow skipped). Per-file PNG sizes are within
+  0.3% between the two backends across all 17 — the render is
+  essentially byte-for-byte equivalent.
+
+Interactivity follow-ups (caught by manual smoke, fixed in Phase 3):
+
+- **Drag didn't initiate at all** — `document.elementsFromPoint` doesn't
+  pierce shadow roots; it returns the host, not the descendants. Fixed
+  by switching `shadowPreviewSurface.elementsFromPoint` to
+  `root.elementsFromPoint` (ShadowRoot's own scoped method).
+- **Slider patches collapsed device/loupe toward top-left during drag**
+  — `el.getBoundingClientRect()` on shadow children returns
+  parent-viewport coords AFTER the host's CSS transform; the patches
+  treat the value as canvas coords and write a scaled-down width back.
+  Fixed by adding `getInternalRect(el)` to the adapter (iframe:
+  passthrough; shadow: shift to host origin + divide by transform
+  ratio). Patches and the callout-drag branch now use it.
+- **Text drag flew off-screen because `position: fixed` escapes the
+  host containing block in shadow** — browsers don't reliably honor
+  "host transform creates fixed containing block" across the shadow
+  boundary. Fixed by using `position: absolute` instead in shadow mode
+  (`.canvas` is the nearest positioned ancestor); probes in
+  `useInstantPatch` and `ScreenCard.recomputeGuides` now accept both
+  `'fixed'` and `'absolute'`.
+- **Re-dragging an already-positioned text shot it off-screen by
+  exactly `width/2`** — the existing `centerX = alreadyPositioned ?
+  vr.left : vr.left + vr.width/2` ternary was written for `offsetLeft`
+  semantics (pre-transform = box left = visual center for a
+  `translateX(-50%)` element). `getInternalRect` returns the visual
+  rect (post-transform), so the same formula picked the wrong value.
+  Fixed by using `vr.left + vr.width/2` uniformly in shadow path
+  (works for both in-flow and translated cases because visual_left +
+  width/2 = visual_center either way).
+
+Remaining Phase 4 gaps:
+
+- The template's `body { -webkit-font-smoothing: antialiased }` doesn't
+  apply in shadow (there's no body). Hard to see in screenshots; per-
+  element font-family rules carry through fine.
+- The server-side `injectTextPositionCSS` still emits `position: fixed`
+  for SAVED dragged-text positions. Live drag works (uses
+  `position: absolute` per the fix above), but releasing the mouse
+  commits to state → the next full re-render fetches HTML containing
+  `position: fixed` again → text jumps off-screen. Avoid saving text
+  drags in shadow mode for now; Phase 4 will switch this branch to
+  `absolute` when `fontFaceMode: 'none'` is requested.
 
 Done when:
 
-- Shadow individual previews render behind the flag.
-- Drag, guides, text positioning, loupe refresh, instant patches, file drops,
-  and locale text-only constraints work.
-- Parity harness passes for individual-mode fixtures.
+- Shadow individual previews render behind the flag. ✅
+- Drag, guides, text positioning, loupe refresh, instant patches,
+  file drops, and locale text-only constraints work. ✅ all confirmed
+  in user-driven smoke (the four bugs above were caught and fixed).
+- Parity harness passes for individual-mode fixtures. ✅ 17/17.
 
 ### Phase 4 - Template Compatibility Cleanup
 

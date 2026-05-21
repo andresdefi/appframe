@@ -322,10 +322,23 @@ export function useDragPosition(
         const cls = hit.cls as 'headline' | 'subtitle' | 'freeText';
         const vr = getViewportRect(el, surface);
         const alreadyPositioned = !!screen.textPositions[cls];
-        // When already positioned, the element has transform: translateX(-50%),
-        // so offsetLeft IS the visual center. In normal flow, the visual center
-        // is left + width/2.
-        const centerX = alreadyPositioned ? vr.left : vr.left + vr.width / 2;
+        // Iframe path uses offsetLeft chain in vr.left, which ignores
+        // CSS transforms — so for a re-drag with translateX(-50%) the
+        // value IS the visual center (box left = visual center for a
+        // -50% translated element). centerX = vr.left.
+        //
+        // Shadow path uses getInternalRect in vr.left, which RESPECTS
+        // transforms — so for a re-drag vr.left is the visual left
+        // (NOT center). Whether the text is in flow or already
+        // translated, `visual_left + width/2 = visual_center`, so the
+        // formula is uniform. Without this fix, re-dragging an already-
+        // positioned text in shadow mode launches it off-screen by
+        // exactly width/2.
+        const centerX = surface.kind === 'shadow'
+          ? vr.left + vr.width / 2
+          : alreadyPositioned
+            ? vr.left
+            : vr.left + vr.width / 2;
         const origWidth = vr.width;
 
         if (!alreadyPositioned) {

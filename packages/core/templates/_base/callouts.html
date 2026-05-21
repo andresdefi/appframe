@@ -42,14 +42,23 @@
 <div class="callout-card" data-idx="{{ calloutIdx }}" style="
   position: absolute;
   z-index: 10;
-  left: {{ centerCanvasX }}px;
-  top: {{ centerCanvasY }}px;
+  left: 0;
+  top: 0;
   width: {{ cardW }}px;
   height: {{ cardH }}px;
   padding: {{ padPx }}px;
   box-sizing: border-box;
   border-radius: {{ callout.borderRadius }}px;
-  transform: translate(-50%, -50%) rotate({{ callout.rotation }}deg);
+  {# Position via transform (not left/top) so per-tick slider / drag
+     updates are GPU-composited — no layout, no paint of the card +
+     children. Matches the spotlight's smoothness profile. The
+     translate(-50%, -50%) keeps the card centred on its anchor;
+     rotate composes around the same point. will-change pins the
+     layer so the bitmap inside (callout-img) stays warm across
+     transform changes. #}
+  transform: translate3d({{ centerCanvasX }}px, {{ centerCanvasY }}px, 0) translate(-50%, -50%) rotate({{ callout.rotation }}deg);
+  will-change: transform;
+  backface-visibility: hidden;
   {% if callout.background %}background: {{ callout.background }};{% endif %}
   {% if callout.shadow %}box-shadow: 0 8px 30px rgba(0,0,0,0.25);{% endif %}
   {% if callout.borderWidth > 0 %}border: {{ callout.borderWidth }}px solid {{ callout.borderColor | default('#ffffff') }};{% endif %}
@@ -63,13 +72,23 @@
   ">
     {# Image at fullW × fullH where fullW = contentW / srcW. With srcW =
        cw / zoom, fullW = ssWidth * zoom, so zoom controls the apparent
-       magnification of the content without touching the card size. #}
+       magnification of the content without touching the card size.
+       Position via transform: translate3d() (not left/top) so per-tick
+       moves during slider / drag are GPU-composited — no layout, no
+       paint of the image's pixels — same treatment used on the device
+       screenshot in base.html. Without this, the cropped bitmap
+       visibly re-paints / flickers on every tick because moving an
+       <img> via left/top in a clipped container forces a paint of the
+       full clipped region per frame. #}
     <img class="callout-img" src="{{ screenshotUrl }}" style="
       position: absolute;
       width: {{ (contentW / srcW) | round }}px;
       height: {{ (contentH / srcH) | round }}px;
-      left: {{ (0 - srcX * contentW / srcW) | round }}px;
-      top: {{ (0 - srcY * contentH / srcH) | round }}px;
+      left: 0;
+      top: 0;
+      transform: translate3d({{ (0 - srcX * contentW / srcW) | round }}px, {{ (0 - srcY * contentH / srcH) | round }}px, 0);
+      will-change: transform;
+      backface-visibility: hidden;
       object-fit: cover;
     ">
   </div>

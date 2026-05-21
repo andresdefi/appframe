@@ -1,8 +1,36 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { sanitizeRichHtml } from '@appframe/core/sanitize';
 import { getPreviewSurface } from '../utils/previewSurfaceRegistry';
 import type { PreviewSurface } from '../utils/previewSurface';
 import { usePreviewStore } from '../store';
+
+type CalloutStyleMemo = {
+  cardWidth: string;
+  cardHeight: string;
+  cardPadding: string;
+  cardRadius: string;
+  cardTransform: string;
+  clipWidth: string;
+  clipHeight: string;
+  clipRadius: string;
+  imgWidth: string;
+  imgHeight: string;
+  imgTransform: string;
+};
+
+type CalloutPatchPayload = {
+  sourceX: number;
+  sourceY: number;
+  sourceW: number;
+  sourceH: number;
+  displayX: number;
+  displayY: number;
+  displayScale: number;
+  rotation: number;
+  borderRadius: number;
+  padding?: number;
+  cardScale?: number;
+};
 
 /**
  * Returns patch functions that directly manipulate iframe DOM for smooth slider
@@ -501,24 +529,35 @@ export function useInstantPatch() {
    * `_base/callouts.html`. Background colour, shadow toggle, and border
    * style still go through full re-renders since they aren't slider
    * targets in the current UI.
+   *
+   * Calls are rAF-coalesced per index: the latest payload for each
+   * callout wins, and DOM writes happen at most once per animation
+   * frame. Two reasons this matters. (1) Each invocation writes 14
+   * styles across three nested nodes (card / clip / img) and resizes a
+   * potentially large bitmap — running every onInput tick at slider /
+   * mousemove rate (often 60-120 Hz) overcommits the main thread. (2)
+   * Browsers batch style changes per frame anyway, so any intermediate
+   * payloads are wasted work the user never sees.
    */
-  const patchCallout = useCallback(
-    (
-      index: number,
-      callout: {
-        sourceX: number;
-        sourceY: number;
-        sourceW: number;
-        sourceH: number;
-        displayX: number;
-        displayY: number;
-        displayScale: number;
-        rotation: number;
-        borderRadius: number;
-        padding?: number;
-        cardScale?: number;
-      },
-    ) => {
+  // Per-card memo of the last-applied inline style strings. Setting
+  // `el.style.width` to the same string can still invalidate the
+  // browser's decoded-bitmap cache on the inner `<img>` — and the
+  // bitmap re-decode shows up as content stutter inside the clipped
+  // card on every slider / drag tick, even when the image's
+  // mathematical size hasn't changed. Skipping the write entirely
+  // when the value hasn't changed keeps the cache warm. The loupe
+  // doesn't show this because its position drag mathematically
+  // doesn't touch img.width/height; for callouts, even pure-position
+  // sliders re-derive the img size from `contentW / srcW` which
+  // simplifies to a constant — but we still wrote the string. The
+  // server-side rounding order is preserved unchanged.
+  // Keyed on the card element (not the callout index) so a full
+  // re-render that replaces the .callout-card node naturally drops
+  // the stale memo via WeakMap GC.
+  const calloutMemoRef = useRef<WeakMap<HTMLElement, CalloutStyleMemo>>(new WeakMap());
+
+  const applyCalloutPatch = useCallback(
+    (index: number, callout: CalloutPatchPayload) => {
       const s = getSurface();
       if (!s) return;
       const card = s.querySelector(`.callout-card[data-idx="${index}"]`) as HTMLElement | null;
@@ -564,21 +603,6 @@ export function useInstantPatch() {
       const centerCanvasX = Math.round(ssLeft + ssWidth * cx);
       const centerCanvasY = Math.round(ssTop + ssHeight * cy);
 
-      // Position the card by its centre via translate(-50%, -50%). This
-      // keeps the visual centre fixed when width/height change, so
-      // resizing doesn't visibly shift the card.
-      card.style.left = `${centerCanvasX}px`;
-      card.style.top = `${centerCanvasY}px`;
-      card.style.width = `${cardW}px`;
-      card.style.height = `${cardH}px`;
-      card.style.padding = `${padPx}px`;
-      card.style.borderRadius = `${callout.borderRadius}px`;
-      card.style.transform = `translate(-50%, -50%) rotate(${callout.rotation}deg)`;
-
-      clip.style.width = `${contentW}px`;
-      clip.style.height = `${contentH}px`;
-      clip.style.borderRadius = `${callout.borderRadius}px`;
-
       // Mirror the rounding order of templates/_base/callouts.html exactly.
       // Server does NOT share a pre-rounded fullImg* between width and
       // offset — both rounds operate on the un-rounded `contentW / srcW`
@@ -586,12 +610,84 @@ export function useInstantPatch() {
       // displacement on slider release.
       const fullImgWRaw = srcW > 0 ? contentW / srcW : 0;
       const fullImgHRaw = srcH > 0 ? contentH / srcH : 0;
-      img.style.width = `${Math.round(fullImgWRaw)}px`;
-      img.style.height = `${Math.round(fullImgHRaw)}px`;
-      img.style.left = `${-Math.round(srcX * fullImgWRaw)}px`;
-      img.style.top = `${-Math.round(srcY * fullImgHRaw)}px`;
+
+      const next: CalloutStyleMemo = {
+        cardWidth: `${cardW}px`,
+        cardHeight: `${cardH}px`,
+        cardPadding: `${padPx}px`,
+        cardRadius: `${callout.borderRadius}px`,
+        // Combined transform: translate3d positions the card on
+        // canvas, translate(-50%, -50%) centres it on its anchor,
+        // rotate composes around the same point. Updating only the
+        // transform on each tick keeps the card layer composited
+        // (no layout / paint) — same shape as the spotlight.
+        cardTransform: `translate3d(${centerCanvasX}px, ${centerCanvasY}px, 0) translate(-50%, -50%) rotate(${callout.rotation}deg)`,
+        clipWidth: `${contentW}px`,
+        clipHeight: `${contentH}px`,
+        clipRadius: `${callout.borderRadius}px`,
+        imgWidth: `${Math.round(fullImgWRaw)}px`,
+        imgHeight: `${Math.round(fullImgHRaw)}px`,
+        // Position the cropped bitmap via translate3d so per-tick
+        // updates are GPU-composited (no layout, no per-pixel paint
+        // of the clipped region). Matches the template's emission.
+        imgTransform: `translate3d(${-Math.round(srcX * fullImgWRaw)}px, ${-Math.round(srcY * fullImgHRaw)}px, 0)`,
+      };
+      const prev: Partial<CalloutStyleMemo> = calloutMemoRef.current.get(card) ?? {};
+      if (prev.cardWidth !== next.cardWidth) card.style.width = next.cardWidth;
+      if (prev.cardHeight !== next.cardHeight) card.style.height = next.cardHeight;
+      if (prev.cardPadding !== next.cardPadding) card.style.padding = next.cardPadding;
+      if (prev.cardRadius !== next.cardRadius) card.style.borderRadius = next.cardRadius;
+      if (prev.cardTransform !== next.cardTransform) card.style.transform = next.cardTransform;
+      if (prev.clipWidth !== next.clipWidth) clip.style.width = next.clipWidth;
+      if (prev.clipHeight !== next.clipHeight) clip.style.height = next.clipHeight;
+      if (prev.clipRadius !== next.clipRadius) clip.style.borderRadius = next.clipRadius;
+      if (prev.imgWidth !== next.imgWidth) img.style.width = next.imgWidth;
+      if (prev.imgHeight !== next.imgHeight) img.style.height = next.imgHeight;
+      if (prev.imgTransform !== next.imgTransform) img.style.transform = next.imgTransform;
+      calloutMemoRef.current.set(card, next);
     },
     [getSurface],
+  );
+
+  // Pending payload per callout index. A Map keeps the latest payload
+  // per index across coalesced ticks; a single rAF id drives the flush.
+  const pendingCalloutsRef = useRef<Map<number, CalloutPatchPayload>>(new Map());
+  const calloutRafRef = useRef<number | null>(null);
+  const applyCalloutPatchRef = useRef(applyCalloutPatch);
+  useEffect(() => {
+    applyCalloutPatchRef.current = applyCalloutPatch;
+  }, [applyCalloutPatch]);
+  // Cancel any pending frame on unmount so we don't write into a torn-
+  // down surface.
+  useEffect(() => {
+    return () => {
+      if (calloutRafRef.current !== null) {
+        cancelAnimationFrame(calloutRafRef.current);
+        calloutRafRef.current = null;
+      }
+      pendingCalloutsRef.current.clear();
+      // WeakMap has no clear(); drop the reference and let GC reclaim it.
+      calloutMemoRef.current = new WeakMap();
+    };
+  }, []);
+
+  const patchCallout = useCallback(
+    (index: number, callout: CalloutPatchPayload) => {
+      pendingCalloutsRef.current.set(index, callout);
+      if (calloutRafRef.current !== null) return;
+      calloutRafRef.current = requestAnimationFrame(() => {
+        calloutRafRef.current = null;
+        const pending = pendingCalloutsRef.current;
+        if (pending.size === 0) return;
+        const entries = Array.from(pending.entries());
+        pending.clear();
+        const apply = applyCalloutPatchRef.current;
+        for (const [idx, payload] of entries) {
+          apply(idx, payload);
+        }
+      });
+    },
+    [],
   );
 
   /**

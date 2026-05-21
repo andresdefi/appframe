@@ -1,8 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
+import { displayP3ToHex, hexToDisplayP3, parseDisplayP3 } from '@appframe/core/color/p3';
 
 interface Rgb { r: number; g: number; b: number }
 interface Hsv { h: number; s: number; v: number }
+
+// Normalise the picker's input value (either a hex literal or a P3
+// expression) to a 6-char hex string the HSV maths can chew on. P3
+// values outside the sRGB gamut clamp to the nearest in-gamut hex.
+// Returns null for anything the picker can't understand.
+function valueToHex(value: string): string | null {
+  if (value.startsWith('#') || /^[0-9a-fA-F]{3,8}$/.test(value)) {
+    const m = /^#?([a-fA-F0-9]{3}|[a-fA-F0-9]{6})$/.exec(value.trim());
+    if (!m) return null;
+    let h = m[1]!;
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+    return '#' + h.toLowerCase();
+  }
+  if (parseDisplayP3(value) !== null) {
+    return displayP3ToHex(value);
+  }
+  return null;
+}
 
 function hsvToRgb(h: number, s: number, v: number): Rgb {
   const c = v * s;
@@ -74,12 +93,17 @@ export function ColorPickerPopover({
   const padRef = useRef<HTMLDivElement>(null);
   const hueRef = useRef<HTMLDivElement>(null);
 
-  const initialRgb = hexToRgb(value) ?? { r: 0, g: 0, b: 0 };
+  // Hex-equivalent of the current value drives the picker's HSV math
+  // and hex input field. Storage may be P3 — `valueToHex` bridges.
+  const initialHex = valueToHex(value);
+  const initialRgb: Rgb = (initialHex ? hexToRgb(initialHex) : null) ?? { r: 0, g: 0, b: 0 };
   const [hsv, setHsv] = useState<Hsv>(() => rgbToHsv(initialRgb.r, initialRgb.g, initialRgb.b));
-  const [hexInput, setHexInput] = useState(value.toUpperCase());
+  const [hexInput, setHexInput] = useState((initialHex ?? '#000000').toUpperCase());
 
   useEffect(() => {
-    const rgb = hexToRgb(value);
+    const hex = valueToHex(value);
+    if (!hex) return;
+    const rgb = hexToRgb(hex);
     if (!rgb) return;
     setHsv((prev) => {
       const next = rgbToHsv(rgb.r, rgb.g, rgb.b);
@@ -124,13 +148,16 @@ export function ColorPickerPopover({
     const rgb = hsvToRgb(nextHsv.h, nextHsv.s, nextHsv.v);
     const hex = rgbToHex(rgb);
     setHexInput(hex);
-    onChange(hex);
+    // Emit P3-form to the parent so storage stays in the canonical
+    // display-p3 format. The hex was just an internal HSV-friendly
+    // intermediate.
+    onChange(hexToDisplayP3(hex));
   }, [onChange]);
 
   const tickInstant = useCallback((nextHsv: Hsv) => {
     if (!onInstant) return;
     const rgb = hsvToRgb(nextHsv.h, nextHsv.s, nextHsv.v);
-    onInstant(rgbToHex(rgb));
+    onInstant(hexToDisplayP3(rgbToHex(rgb)));
   }, [onInstant]);
 
   const startDrag = useCallback((
@@ -176,10 +203,12 @@ export function ColorPickerPopover({
       setHsv(newHsv);
       const hex = rgbToHex(rgb);
       setHexInput(hex);
-      onChange(hex);
+      onChange(hexToDisplayP3(hex));
     } else {
-      const rgb2 = hexToRgb(value);
-      if (rgb2) setHexInput(rgbToHex(rgb2));
+      // Bad input — revert to whatever the parent currently holds,
+      // converted back to hex for display.
+      const fallback = valueToHex(value);
+      if (fallback) setHexInput(fallback.toUpperCase());
     }
   };
 

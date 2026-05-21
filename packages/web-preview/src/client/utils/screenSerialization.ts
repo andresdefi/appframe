@@ -10,6 +10,7 @@
 // the project theme. Stripping them and re-deriving on load would
 // surprise the user the moment they change a theme color.
 
+import { isColorValue, toDisplayP3 } from '@appframe/core/color/p3';
 import type {
   Annotation,
   BackgroundGradient,
@@ -331,11 +332,45 @@ function slimLocaleScreens(value: unknown): unknown {
  * ProjectSnapshot type here to keep this module independent of the
  * store circular-dependency tangle.
  */
+/**
+ * Walk an arbitrary value and rewrite any string that parses as a CSS
+ * colour into `color(display-p3 r g b)` notation. Used at the project
+ * hydration boundary so on-disk hex literals get migrated losslessly
+ * into the editor's P3 storage model. Non-colour strings (URLs, ids,
+ * etc.) pass through untouched — `isColorValue` is the precise gate.
+ *
+ * Idempotent — running it on an already-migrated tree is a no-op.
+ */
+export function migrateColorsToDisplayP3(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string') {
+    return isColorValue(value) ? toDisplayP3(value) : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => migrateColorsToDisplayP3(entry));
+  }
+  if (typeof value === 'object') {
+    const input = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(input)) {
+      out[k] = migrateColorsToDisplayP3(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 export function slimProjectSnapshot(snapshot: unknown): unknown {
   if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
     return snapshot;
   }
-  const out = { ...(snapshot as Record<string, unknown>) };
+  // Normalise every colour value to P3 storage form before slimming.
+  // Belt-and-braces alongside the load-boundary migration: catches any
+  // hex values introduced by createScreenState defaults or by code
+  // paths that bypass `hydrateProjectSnapshot`. Idempotent on
+  // already-P3 strings.
+  const normalised = migrateColorsToDisplayP3(snapshot);
+  const out = { ...(normalised as Record<string, unknown>) };
   const screens = out.screens;
   if (Array.isArray(screens)) {
     out.screens = screens.map((s) => (s && typeof s === 'object' ? slimScreen(s as ScreenState) : s));

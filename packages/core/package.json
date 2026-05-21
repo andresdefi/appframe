@@ -17,6 +17,10 @@
     "./sanitize": {
       "types": "./dist/sanitize/richHtml.d.ts",
       "import": "./dist/sanitize/richHtml.js"
+    },
+    "./color/p3": {
+      "types": "./dist/color/p3.d.ts",
+      "import": "./dist/color/p3.js"
     }
   },
   "scripts": {

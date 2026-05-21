@@ -1,10 +1,16 @@
+import { parseDisplayP3 } from '@appframe/core/color/p3';
 import type { TextShadow } from '../types';
 
 /**
  * Render a `TextShadow` config as the value for a CSS `text-shadow`
- * property — or `undefined` when the effect is disabled. Colour
- * arrives as a hex literal; opacity is 0..100 and becomes the alpha
- * channel.
+ * property — or `undefined` when the effect is disabled. Colour can
+ * arrive as either a hex literal or a `color(display-p3 ...)` string;
+ * opacity is 0..100 and becomes the alpha channel.
+ *
+ * P3 input emits a `color(display-p3 r g b / alpha)` value so wide-
+ * gamut shadow colours render at full fidelity on P3 displays. Hex
+ * input emits a classic `rgba(...)` so nothing regresses on stored
+ * projects that haven't been touched since the P3 migration.
  *
  * Returning `undefined` (instead of `''`) lets the server-side
  * template gate emission with `{% if textShadow... %}` and lets the
@@ -13,14 +19,18 @@ import type { TextShadow } from '../types';
  * Shared by `buildScreenRenderBody` (full re-render path) and
  * `useInstantPatch.patchText` (per-slider-tick DOM mutation) so the
  * live preview during slider drag stays consistent with the
- * canonical render on release — no jump-on-release when the values
- * are tuned correctly.
+ * canonical render on release.
  */
 export function buildTextShadowCss(shadow: TextShadow | undefined | null): string | undefined {
   if (!shadow || !shadow.enabled) return undefined;
-  const hex = (shadow.color || '#000000').replace(/^#/, '');
-  // Tolerate 3-char shorthand (`#abc` → `#aabbcc`). Out-of-range
-  // values fall back to black so we never emit `rgba(NaN, ...)`.
+  const alpha = Math.max(0, Math.min(1, (shadow.opacity ?? 0) / 100));
+  const offsets = `${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px`;
+  const color = shadow.color || '#000000';
+  const p3 = parseDisplayP3(color);
+  if (p3 !== null) {
+    return `${offsets} color(display-p3 ${p3.r} ${p3.g} ${p3.b} / ${alpha})`;
+  }
+  const hex = color.replace(/^#/, '');
   const norm = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
   const r = parseInt(norm.slice(0, 2), 16);
   const g = parseInt(norm.slice(2, 4), 16);
@@ -28,6 +38,5 @@ export function buildTextShadowCss(shadow: TextShadow | undefined | null): strin
   const safeR = Number.isFinite(r) ? r : 0;
   const safeG = Number.isFinite(g) ? g : 0;
   const safeB = Number.isFinite(b) ? b : 0;
-  const alpha = Math.max(0, Math.min(1, (shadow.opacity ?? 0) / 100));
-  return `${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px rgba(${safeR},${safeG},${safeB},${alpha})`;
+  return `${offsets} rgba(${safeR},${safeG},${safeB},${alpha})`;
 }

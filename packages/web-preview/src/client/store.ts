@@ -39,6 +39,7 @@ import {
   makeId,
 } from './storeSnapshots';
 import { deepCopy, isRecord } from './utils/cloneHelpers';
+import { migrateColorsToDisplayP3 } from './utils/screenSerialization';
 
 // Font info from /api/fonts
 export interface FontData {
@@ -1041,7 +1042,13 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     });
   },
 
-  hydrateProjectSnapshot: (snapshot) => {
+  hydrateProjectSnapshot: (rawSnapshot) => {
+    // Lossless migration of any legacy hex colours to P3 storage form
+    // at the load boundary. `isColorValue` (inside the walker) is
+    // precise, so non-colour strings (URLs, ids, sanitised HTML) pass
+    // through untouched. Next save naturally writes P3 because state
+    // already holds P3 strings after this pass.
+    const snapshot = migrateColorsToDisplayP3(rawSnapshot);
     resetHistory();
     const state = get();
     // Brand-new projects are persisted as literal `{}` on the server

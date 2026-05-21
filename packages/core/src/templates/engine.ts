@@ -169,6 +169,13 @@ export interface TemplateContext {
   subtitleOpacity?: number;
   subtitleLetterSpacing?: string;
   subtitleTextTransform?: string;
+  // Pre-computed CSS values for the per-element text-shadow / glow
+  // effect. The web-preview computes `Xpx Ypx Zpx rgba(...)` from
+  // the user's TextShadow config; the template emits the value
+  // verbatim. Absent / empty means no shadow.
+  headlineShadowCss?: string;
+  subtitleShadowCss?: string;
+  freeTextShadowCss?: string;
 
   // Background overrides
   backgroundType?: BackgroundType;

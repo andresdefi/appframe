@@ -28,7 +28,24 @@ import type {
   SpotlightConfig,
   TextGradient,
   TextPosition,
+  TextShadow,
 } from '../types';
+
+/**
+ * "Off but ready" shape used as the static default for each text
+ * shadow. When the user toggles enabled=true, these become the
+ * starting tuned values. Picked to render a clean, soft drop shadow
+ * (offsetY=4, blur=8, half-opacity black) — common-case enough that
+ * the first enable doesn't look broken.
+ */
+const TEXT_SHADOW_DEFAULT: TextShadow = {
+  enabled: false,
+  offsetX: 0,
+  offsetY: 4,
+  blur: 8,
+  color: '#000000',
+  opacity: 50,
+};
 
 /**
  * Fields whose default value is fixed (doesn't depend on the active
@@ -92,6 +109,9 @@ export const STATIC_SCREEN_DEFAULTS: {
   callouts: Callout[];
   overlays: Overlay[];
   extraDevices: ScreenState['extraDevices'];
+  headlineShadow: TextShadow;
+  subtitleShadow: TextShadow;
+  freeTextShadow: TextShadow;
 } = {
   isFullscreen: false,
   layout: 'center',
@@ -153,6 +173,9 @@ export const STATIC_SCREEN_DEFAULTS: {
   callouts: [],
   overlays: [],
   extraDevices: [],
+  headlineShadow: TEXT_SHADOW_DEFAULT,
+  subtitleShadow: TEXT_SHADOW_DEFAULT,
+  freeTextShadow: TEXT_SHADOW_DEFAULT,
 };
 
 // Deep equality for the small shapes carried by STATIC_SCREEN_DEFAULTS

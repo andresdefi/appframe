@@ -228,6 +228,7 @@
       {% if presetHeadlineTextTransform != 'none' %}text-transform: {{ presetHeadlineTextTransform }};{% endif %}
       {% if presetHeadlineFontStyle != 'normal' %}font-style: {{ presetHeadlineFontStyle }};{% endif %}
       {% if headlineRotation %}transform: rotate({{ headlineRotation }}deg);{% endif %}
+      {% if headlineShadowCss %}text-shadow: {{ headlineShadowCss }};{% endif %}
     }
 
     .subtitle {
@@ -242,6 +243,7 @@
       {% if presetSubtitleTextTransform != 'none' %}text-transform: {{ presetSubtitleTextTransform }};{% endif %}
       {% if presetHeadlineFontStyle != 'normal' %}font-style: normal;{% endif %}
       {% if subtitleRotation %}transform: rotate({{ subtitleRotation }}deg);{% endif %}
+      {% if subtitleShadowCss %}text-shadow: {{ subtitleShadowCss }};{% endif %}
     }
 
     .free-text {
@@ -254,6 +256,7 @@
       {% if freeTextLetterSpacing and freeTextLetterSpacing != '0' %}letter-spacing: {{ freeTextLetterSpacing }};{% endif %}
       {% if freeTextTextTransform and freeTextTextTransform != 'none' %}text-transform: {{ freeTextTextTransform }};{% endif %}
       {% if freeTextRotation %}transform: rotate({{ freeTextRotation }}deg);{% endif %}
+      {% if freeTextShadowCss %}text-shadow: {{ freeTextShadowCss }};{% endif %}
     }
 
     {# === Device wrapper === #}

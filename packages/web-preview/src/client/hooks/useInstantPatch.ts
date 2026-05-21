@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { sanitizeRichHtml } from '@appframe/core/sanitize';
 import { getPreviewSurface } from '../utils/previewSurfaceRegistry';
 import type { PreviewSurface } from '../utils/previewSurface';
+import type { TextShadow } from '../types';
+import { buildTextShadowCss } from '../utils/textShadow';
 import { usePreviewStore } from '../store';
 
 type CalloutStyleMemo = {
@@ -221,6 +223,13 @@ export function useInstantPatch() {
       freeTextRotation?: number;
       freeTextHtml?: string;
       freeTextColor?: string;
+      // Drop-shadow / glow per text element. Pass the full TextShadow
+      // shape; the hook computes the CSS string via the same helper
+      // the server-side render uses, so live preview during slider
+      // drag matches what lands on release.
+      headlineShadow?: TextShadow;
+      subtitleShadow?: TextShadow;
+      freeTextShadow?: TextShadow;
     }) => {
       const s = getSurface();
       if (!s) return;
@@ -260,6 +269,12 @@ export function useInstantPatch() {
         if (partial.headlineColor !== undefined) {
           headline.style.color = partial.headlineColor;
         }
+        if (partial.headlineShadow !== undefined) {
+          // Compute via the shared helper so live preview matches
+          // server-rendered output exactly. Empty string clears the
+          // property when the user toggles shadow off.
+          headline.style.textShadow = buildTextShadowCss(partial.headlineShadow) ?? '';
+        }
       }
 
       const subtitle = s.querySelector('.subtitle') as HTMLElement | null;
@@ -276,6 +291,9 @@ export function useInstantPatch() {
         if (partial.subtitleColor !== undefined) {
           subtitle.style.color = partial.subtitleColor;
         }
+        if (partial.subtitleShadow !== undefined) {
+          subtitle.style.textShadow = buildTextShadowCss(partial.subtitleShadow) ?? '';
+        }
       }
 
       const freeText = s.querySelector('.free-text') as HTMLElement | null;
@@ -291,6 +309,9 @@ export function useInstantPatch() {
         }
         if (partial.freeTextColor !== undefined) {
           freeText.style.color = partial.freeTextColor;
+        }
+        if (partial.freeTextShadow !== undefined) {
+          freeText.style.textShadow = buildTextShadowCss(partial.freeTextShadow) ?? '';
         }
       }
     },

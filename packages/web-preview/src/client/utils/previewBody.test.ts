@@ -143,6 +143,9 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
       },
     ],
     extraDevices: [],
+    headlineShadow: { enabled: false, offsetX: 0, offsetY: 4, blur: 8, color: '#000000', opacity: 50 },
+    subtitleShadow: { enabled: false, offsetX: 0, offsetY: 4, blur: 8, color: '#000000', opacity: 50 },
+    freeTextShadow: { enabled: false, offsetX: 0, offsetY: 4, blur: 8, color: '#000000', opacity: 50 },
     ...overrides,
   };
 }

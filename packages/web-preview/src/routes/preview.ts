@@ -118,6 +118,12 @@ interface PreviewParams {
   subtitleOpacity?: number;
   subtitleLetterSpacing?: string;
   subtitleTextTransform?: string;
+  // Pre-computed `text-shadow:` CSS values for each text element.
+  // Client (buildScreenRenderBody) does the hex→rgba math so the
+  // template just emits a ready string.
+  headlineShadowCss?: string;
+  subtitleShadowCss?: string;
+  freeTextShadowCss?: string;
   deviceColor?: string;
   backgroundType?: 'preset' | 'solid' | 'gradient' | 'image';
   backgroundColor?: string;
@@ -271,6 +277,9 @@ function parseBody(
     subtitleOpacity: expectNumber(body.subtitleOpacity),
     subtitleLetterSpacing: expectString(body.subtitleLetterSpacing),
     subtitleTextTransform: expectString(body.subtitleTextTransform),
+    headlineShadowCss: expectString(body.headlineShadowCss),
+    subtitleShadowCss: expectString(body.subtitleShadowCss),
+    freeTextShadowCss: expectString(body.freeTextShadowCss),
     deviceColor: expectString(body.deviceColor),
     backgroundType: expectString(body.backgroundType) as PreviewParams['backgroundType'],
     backgroundColor: expectString(body.backgroundColor),
@@ -453,6 +462,9 @@ async function resolveContext(
     subtitleOpacity: p.subtitleOpacity ?? config.theme.subtitleOpacity,
     subtitleLetterSpacing: p.subtitleLetterSpacing ?? config.theme.subtitleLetterSpacing,
     subtitleTextTransform: p.subtitleTextTransform ?? config.theme.subtitleTextTransform,
+    headlineShadowCss: p.headlineShadowCss,
+    subtitleShadowCss: p.subtitleShadowCss,
+    freeTextShadowCss: p.freeTextShadowCss,
     backgroundType: p.backgroundType ?? config.theme.backgroundType,
     backgroundColor: p.backgroundColor ?? config.theme.backgroundColor,
     backgroundGradient: p.backgroundGradient

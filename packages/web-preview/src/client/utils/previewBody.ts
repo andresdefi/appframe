@@ -1,4 +1,5 @@
 import type { LocaleConfig, PanoramicBackground, PanoramicElement, ScreenState } from '../types';
+import { buildTextShadowCss } from './textShadow';
 
 function previewIfMode(url: string | null | undefined, previewMode: boolean): string | undefined {
   if (!previewMode) return url || undefined;
@@ -126,6 +127,13 @@ export function buildScreenRenderBody(
       ? `${screen.subtitleLetterSpacing / 100}em`
       : undefined,
     subtitleTextTransform: screen.subtitleTextTransform || undefined,
+    // Per-text-element drop shadow / glow. Each value is either the
+    // ready-to-emit CSS string or undefined (when the effect is off
+    // or unconfigured). Templates emit them as inline `text-shadow:`
+    // declarations on the corresponding element.
+    headlineShadowCss: buildTextShadowCss(screen.headlineShadow),
+    subtitleShadowCss: buildTextShadowCss(screen.subtitleShadow),
+    freeTextShadowCss: buildTextShadowCss(screen.freeTextShadow),
     width: previewW,
     height: previewH,
     extraScreenshots:

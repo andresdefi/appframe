@@ -10,6 +10,116 @@ import { Checkbox } from '../Controls/Checkbox';
 import { RichTextEditor, richTextToPlain } from '../Controls/RichTextEditor';
 import { buildFontGroups } from '../../utils/fontGroups';
 import { getLocaleLabel } from '@appframe/core/locales';
+import type { TextShadow } from '../../types';
+
+/**
+ * "Off but ready" shape used as the starting tuned state when the
+ * user enables shadow for the first time. Matches the static default
+ * in `screenSerialization.STATIC_SCREEN_DEFAULTS` so the very first
+ * enable click produces a recognisable drop shadow with no further
+ * tweaks needed.
+ */
+const SHADOW_INITIAL: TextShadow = {
+  enabled: true,
+  offsetX: 0,
+  offsetY: 4,
+  blur: 8,
+  color: '#000000',
+  opacity: 50,
+};
+
+interface TextShadowControlsProps {
+  shadow: TextShadow;
+  /** Receives a full replacement TextShadow on every change. */
+  onChange: (next: TextShadow) => void;
+  /**
+   * Fires on every slider tick / live colour change. Used to patch the
+   * preview DOM directly so the user sees the result mid-drag without
+   * paying the cost of a full template re-render per tick. Optional —
+   * omit it for full-render-only behaviour.
+   */
+  onInstant?: (next: TextShadow) => void;
+}
+function TextShadowControls({ shadow, onChange, onInstant }: TextShadowControlsProps) {
+  // Same enabled-flag-separate-from-data pattern as Spotlight / Loupe:
+  // disabling keeps the tuned offsets / colour around so toggling back
+  // on returns to exactly what the user had. The Checkbox flips
+  // `enabled` only; subsequent slider edits flow into the live tuned
+  // values even while disabled (the renderer no-ops in that case).
+  return (
+    <>
+      <Checkbox
+        label="Enable shadow / glow"
+        checked={shadow.enabled}
+        onChange={(checked) =>
+          onChange(
+            checked
+              ? // First-time enable lands on the recognisable preset.
+                // Re-enable after disable keeps the user's tuned config.
+                shadow.offsetX === 0 &&
+                shadow.offsetY === 4 &&
+                shadow.blur === 8 &&
+                shadow.color === '#000000' &&
+                shadow.opacity === 50
+                ? { ...SHADOW_INITIAL, enabled: true }
+                : { ...shadow, enabled: true }
+              : { ...shadow, enabled: false },
+          )
+        }
+      />
+      {shadow.enabled && (
+        <div className="mt-1">
+          <RangeSlider
+            label="Offset X"
+            value={shadow.offsetX}
+            min={-20}
+            max={20}
+            formatValue={(v) => `${v}px`}
+            onChange={(v) => onChange({ ...shadow, offsetX: v })}
+            onInstant={onInstant ? (v) => onInstant({ ...shadow, offsetX: v }) : undefined}
+            resetTo={0}
+          />
+          <RangeSlider
+            label="Offset Y"
+            value={shadow.offsetY}
+            min={-20}
+            max={20}
+            formatValue={(v) => `${v}px`}
+            onChange={(v) => onChange({ ...shadow, offsetY: v })}
+            onInstant={onInstant ? (v) => onInstant({ ...shadow, offsetY: v }) : undefined}
+            resetTo={4}
+          />
+          <RangeSlider
+            label="Blur"
+            value={shadow.blur}
+            min={0}
+            max={30}
+            formatValue={(v) => `${v}px`}
+            onChange={(v) => onChange({ ...shadow, blur: v })}
+            onInstant={onInstant ? (v) => onInstant({ ...shadow, blur: v }) : undefined}
+            resetTo={8}
+          />
+          <RangeSlider
+            label="Opacity"
+            value={shadow.opacity}
+            min={0}
+            max={100}
+            formatValue={(v) => `${v}%`}
+            onChange={(v) => onChange({ ...shadow, opacity: v })}
+            onInstant={onInstant ? (v) => onInstant({ ...shadow, opacity: v }) : undefined}
+            resetTo={50}
+          />
+          <ColorPicker
+            label="Color"
+            value={shadow.color}
+            onChange={(v) => onChange({ ...shadow, color: v })}
+            onInstant={onInstant ? (v) => onInstant({ ...shadow, color: v }) : undefined}
+          />
+        </div>
+      )}
+    </>
+  );
+}
 
 const TEXT_TRANSFORM_OPTIONS = [
   { value: '', label: 'Auto' },
@@ -143,6 +253,11 @@ export function TextTab() {
               />
             </div>
           </div>
+          <TextShadowControls
+            shadow={screen.headlineShadow}
+            onChange={(next) => update({ headlineShadow: next })}
+            onInstant={(next) => patchText({ headlineShadow: next })}
+          />
         </div>
       </Section>
 
@@ -225,6 +340,11 @@ export function TextTab() {
               onChange={(v) => update({ subtitleTextTransform: v })}
               options={TEXT_TRANSFORM_OPTIONS}
             />
+            <TextShadowControls
+              shadow={screen.subtitleShadow}
+              onChange={(next) => update({ subtitleShadow: next })}
+              onInstant={(next) => patchText({ subtitleShadow: next })}
+            />
           </div>
         )}
       </Section>
@@ -305,6 +425,11 @@ export function TextTab() {
                 value={screen.freeTextTextTransform}
                 onChange={(v) => update({ freeTextTextTransform: v })}
                 options={TEXT_TRANSFORM_OPTIONS}
+              />
+              <TextShadowControls
+                shadow={screen.freeTextShadow}
+                onChange={(next) => update({ freeTextShadow: next })}
+                onInstant={(next) => patchText({ freeTextShadow: next })}
               />
             </div>
           </>

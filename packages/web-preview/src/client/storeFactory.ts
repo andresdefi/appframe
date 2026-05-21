@@ -108,5 +108,11 @@ export function createScreenState(
     callouts: [],
     overlays: [],
     extraDevices: [],
+    // Same "off but ready" shape as STATIC_SCREEN_DEFAULTS — keeps
+    // createScreenState aligned with the slim defaults so a fresh
+    // screen persists no shadow fields.
+    headlineShadow: { enabled: false, offsetX: 0, offsetY: 4, blur: 8, color: '#000000', opacity: 50 },
+    subtitleShadow: { enabled: false, offsetX: 0, offsetY: 4, blur: 8, color: '#000000', opacity: 50 },
+    freeTextShadow: { enabled: false, offsetX: 0, offsetY: 4, blur: 8, color: '#000000', opacity: 50 },
   };
 }

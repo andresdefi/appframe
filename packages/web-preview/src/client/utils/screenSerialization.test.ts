@@ -162,6 +162,56 @@ describe('fattenScreen', () => {
     expect(fat.headlineSize).toBe(110);
   });
 
+  it('round-trips text-shadow configs (slim + fatten)', () => {
+    // Static default = disabled with the standard tuned values.
+    // Slim should drop the field when it matches default; non-matching
+    // configs must persist (incl. the disabled-after-tuning case).
+    const emptySlim = slimScreen(buildDefaultScreen());
+    expect(emptySlim).not.toHaveProperty('headlineShadow');
+    expect(emptySlim).not.toHaveProperty('subtitleShadow');
+    expect(emptySlim).not.toHaveProperty('freeTextShadow');
+
+    const tuned = slimScreen(
+      buildDefaultScreen({
+        headlineShadow: {
+          enabled: true,
+          offsetX: 2,
+          offsetY: 6,
+          blur: 16,
+          color: '#ff00aa',
+          opacity: 80,
+        },
+        // Disabled-but-tuned: the tuned values must survive a save / load
+        // cycle so re-enabling preserves the user's configuration.
+        subtitleShadow: {
+          enabled: false,
+          offsetX: -4,
+          offsetY: 0,
+          blur: 12,
+          color: '#000000',
+          opacity: 50,
+        },
+      }),
+    );
+    expect(tuned.headlineShadow?.enabled).toBe(true);
+    expect(tuned.headlineShadow?.color).toBe('#ff00aa');
+    expect(tuned.subtitleShadow?.enabled).toBe(false);
+    expect(tuned.subtitleShadow?.offsetX).toBe(-4);
+
+    const fat = fattenScreen({ id: 'x', screenIndex: 0, headline: 'h', ...tuned });
+    expect(fat.headlineShadow).toEqual(tuned.headlineShadow);
+    expect(fat.subtitleShadow).toEqual(tuned.subtitleShadow);
+    // Missing field re-injects the static default.
+    expect(fat.freeTextShadow).toEqual({
+      enabled: false,
+      offsetX: 0,
+      offsetY: 4,
+      blur: 8,
+      color: '#000000',
+      opacity: 50,
+    });
+  });
+
   it('preserves spotlightEnabled=false when spotlight data is non-null (disable+reload roundtrip)', () => {
     // Regression: slim used to drop `spotlightEnabled: false` because
     // false matches the static default. With the spotlight shape still

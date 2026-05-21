@@ -51,6 +51,29 @@ export interface PanoramicEffects {
   overlays: Overlay[];
 }
 
+/**
+ * Drop-shadow / glow configuration for a single text element
+ * (headline / subtitle / free text). The on/off switch (`enabled`)
+ * lives on the same shape as the tuning values so that disabling
+ * the effect preserves the user's tweaks — toggling back on returns
+ * to exactly the previous state. Same pattern as Spotlight / Loupe.
+ *
+ * - offsetX / offsetY: px, range -20..20 in the UI.
+ * - blur: px, range 0..30. blur=0 + non-zero offset = hard drop shadow.
+ *   blur > 0 with offset=0 = a glow centred on the glyph.
+ * - color: hex `#rrggbb`. The renderer combines it with `opacity` into
+ *   a single rgba() for the CSS `text-shadow` value.
+ * - opacity: 0..100, divided by 100 when emitted as CSS alpha.
+ */
+export interface TextShadow {
+  enabled: boolean;
+  offsetX: number;
+  offsetY: number;
+  blur: number;
+  color: string;
+  opacity: number;
+}
+
 export interface TextPosition {
   x: number;
   y: number;
@@ -164,6 +187,14 @@ export interface ScreenState {
   callouts: Callout[];
   overlays: Overlay[];
   extraDevices: ExtraDeviceState[];
+  // Per-text-element drop-shadow / glow. Each field carries its own
+  // on/off switch alongside the tuning values; disabling preserves
+  // the tuned config. Slim-default = the static "off but ready"
+  // shape (see STATIC_SCREEN_DEFAULTS) so untouched screens persist
+  // no shadow fields.
+  headlineShadow: TextShadow;
+  subtitleShadow: TextShadow;
+  freeTextShadow: TextShadow;
 }
 
 export interface PlatformPreviewSize {

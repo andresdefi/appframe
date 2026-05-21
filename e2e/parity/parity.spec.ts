@@ -31,8 +31,10 @@ for (const backend of BACKENDS) {
     for (const fixture of [...individualFixtures, ...panoramicFixtures]) {
       const title = `${fixture.name}`;
       test(title, async ({ page, baseURL }, testInfo) => {
-        if (backend === 'shadow') {
-          test.skip(true, 'shadow backend lands in Phase 3 of the migration');
+        // Phase 3 lands the shadow backend for individual mode only.
+        // Panoramic stays on iframe until Phase 5.
+        if (backend === 'shadow' && fixture.endpoint === '/api/panoramic-preview-html') {
+          test.skip(true, 'panoramic shadow backend lands in Phase 5');
           return;
         }
         if (!baseURL) throw new Error('baseURL must be set in playwright.config.ts');

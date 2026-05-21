@@ -75,13 +75,19 @@ function loadDir(dir: string, defaultEndpoint: FixtureMeta['endpoint']): Fixture
 
 /**
  * Fetch the rendered HTML for a fixture from the running preview server,
- * mount it inside an iframe in the parent Playwright page, wait for fonts
- * and image decode, then return the iframe element handle so the caller
- * can screenshot it. The iframe sits at a fixed offset so the screenshot
- * isn't clipped by the test viewport.
+ * mount it inside the chosen backend, wait for fonts and image decode,
+ * then return a selector the caller can screenshot.
  *
- * Phase 0 covers only the iframe backend; `backend === 'shadow'` is a TODO
- * that will land alongside Phase 3.
+ * iframe backend: writes the full HTML into a hidden iframe via
+ *   doc.open/write/close. Matches the today-production path 1:1.
+ * shadow backend: parses the HTML, extracts <style> + <body> children,
+ *   mounts them under a `.preview-document` wrapper inside an open
+ *   shadow root on a host div. Parent-document font registration uses
+ *   the same /api/preview-font-faces endpoint the client helper hits.
+ *
+ * The selector returned points at the OUTER mount element (iframe or
+ * host div), not the inner content, so screenshots capture the full
+ * rendered surface for both backends consistently.
  */
 export async function mountFixture(
   page: Page,
@@ -89,12 +95,14 @@ export async function mountFixture(
   backend: PreviewBackend,
   baseURL: string,
 ): Promise<{ iframeSelector: string }> {
-  if (backend === 'shadow') {
-    throw new Error('Shadow backend not implemented yet — wired in Phase 3.');
-  }
+  // Shadow backend opts the engine into 'none' mode so it skips emitting
+  // @font-face declarations into the response. The parent-page font
+  // registration covers them instead.
+  const body =
+    backend === 'shadow' ? { ...fixture.body, fontFaceMode: 'none' } : fixture.body;
 
   const res = await page.request.post(`${baseURL}${fixture.endpoint}`, {
-    data: fixture.body,
+    data: body,
     headers: { 'Content-Type': 'application/json' },
   });
   if (!res.ok()) {
@@ -109,37 +117,123 @@ export async function mountFixture(
     width: Math.max(fixture.width + 40, 400),
     height: Math.max(fixture.height + 40, 400),
   });
+
+  if (backend === 'iframe') {
+    await page.setContent(
+      `<!doctype html><html><head><style>
+         html,body{margin:0;padding:0;background:#1a1a1a;}
+         iframe{display:block;border:0;width:${fixture.width}px;height:${fixture.height}px;}
+       </style></head><body><iframe id="preview"></iframe></body></html>`,
+    );
+
+    await page.evaluate(
+      ({ html, baseURL }) => {
+        const frame = document.getElementById('preview') as HTMLIFrameElement;
+        frame.src = `${baseURL}/about:blank`;
+        const doc = frame.contentDocument;
+        if (!doc) throw new Error('iframe contentDocument missing');
+        doc.open();
+        doc.write(html);
+        doc.close();
+      },
+      { html, baseURL },
+    );
+
+    await page.waitForFunction(
+      () => {
+        const f = document.getElementById('preview') as HTMLIFrameElement | null;
+        const doc = f?.contentDocument;
+        if (!doc) return false;
+        if (doc.readyState !== 'complete') return false;
+        const fonts = (doc as Document & { fonts?: FontFaceSet }).fonts;
+        if (fonts && fonts.status !== 'loaded') return false;
+        const imgs = Array.from(doc.images);
+        return imgs.every((img) => img.complete && (img.naturalWidth > 0 || img.src.length === 0));
+      },
+      null,
+      { timeout: 10_000 },
+    );
+
+    return { iframeSelector: '#preview' };
+  }
+
+  // Shadow backend. Collect the font ids referenced by the fixture body
+  // so the parent page can register them before mounting (mirrors
+  // ScreenCard's Phase 3 flow).
+  const fontIds: string[] = [];
+  const collect = (v: unknown) => {
+    if (typeof v === 'string' && v.length > 0) fontIds.push(v);
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const b = fixture.body as any;
+  collect(b.font);
+  collect(b.headlineFont);
+  collect(b.subtitleFont);
+  collect(b.freeTextFont);
+
   await page.setContent(
-    `<!doctype html><html><head><style>
+    `<!doctype html><html><head><base href="${baseURL}/"><style>
        html,body{margin:0;padding:0;background:#1a1a1a;}
-       iframe{display:block;border:0;width:${fixture.width}px;height:${fixture.height}px;}
-     </style></head><body><iframe id="preview"></iframe></body></html>`,
+       #preview{display:block;width:${fixture.width}px;height:${fixture.height}px;contain:layout style paint;}
+     </style></head><body><div id="preview"></div></body></html>`,
   );
 
+  // Fetch the @font-face CSS Node-side (page.request is not gated by
+  // the test page's CORS origin), then inject it into the parent
+  // document as a <style> block — mirrors ensurePreviewFontsRegistered
+  // without the in-browser fetch.
+  if (fontIds.length > 0) {
+    const fontsRes = await page.request.get(
+      `${baseURL}/api/preview-font-faces?ids=${encodeURIComponent(fontIds.join(','))}`,
+    );
+    if (!fontsRes.ok()) {
+      throw new Error(`fetching font-faces returned ${fontsRes.status()}`);
+    }
+    const fontCss = await fontsRes.text();
+    if (fontCss.trim().length > 0) {
+      await page.evaluate((css) => {
+        const style = document.createElement('style');
+        style.id = 'parity-fonts';
+        style.appendChild(document.createTextNode(css));
+        document.head.appendChild(style);
+      }, fontCss);
+    }
+  }
+
+  // Mount the HTML into a shadow root using the same logic as
+  // shadowPreviewSurface.replaceContent — duplicated here so the harness
+  // doesn't depend on the client build output.
   await page.evaluate(
-    ({ html, baseURL }) => {
-      const frame = document.getElementById('preview') as HTMLIFrameElement;
-      // Same origin as the preview server so relative URLs in the template
-      // (font CSS, frame SVGs, screenshot URLs) resolve correctly.
-      frame.src = `${baseURL}/about:blank`;
-      const doc = frame.contentDocument;
-      if (!doc) throw new Error('iframe contentDocument missing');
-      doc.open();
-      doc.write(html);
-      doc.close();
+    ({ html }) => {
+      const host = document.getElementById('preview') as HTMLElement;
+      const root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      parsed.querySelectorAll('script').forEach((s) => s.remove());
+      const styleNodes = Array.from(parsed.head.querySelectorAll('style'));
+      const bodyChildren = Array.from(parsed.body.children);
+      root.replaceChildren();
+      for (const style of styleNodes) {
+        root.appendChild(style.cloneNode(true));
+      }
+      const wrapper = document.createElement('div');
+      wrapper.className = 'preview-document';
+      wrapper.style.cssText = 'width:100%;height:100%;position:relative;overflow:hidden;';
+      for (const child of bodyChildren) {
+        wrapper.appendChild(child);
+      }
+      root.appendChild(wrapper);
     },
-    { html, baseURL },
+    { html },
   );
 
   await page.waitForFunction(
     () => {
-      const f = document.getElementById('preview') as HTMLIFrameElement | null;
-      const doc = f?.contentDocument;
-      if (!doc) return false;
-      if (doc.readyState !== 'complete') return false;
-      const fonts = (doc as Document & { fonts?: FontFaceSet }).fonts;
+      const host = document.getElementById('preview');
+      const root = host?.shadowRoot;
+      if (!root) return false;
+      const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
       if (fonts && fonts.status !== 'loaded') return false;
-      const imgs = Array.from(doc.images);
+      const imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
       return imgs.every((img) => img.complete && (img.naturalWidth > 0 || img.src.length === 0));
     },
     null,

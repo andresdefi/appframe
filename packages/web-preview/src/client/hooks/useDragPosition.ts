@@ -40,7 +40,29 @@ interface DragState {
   ssHeight?: number;
 }
 
-function getElPos(el: HTMLElement) {
+/**
+ * Drag-end position read.
+ *
+ * Iframe: offsetTop/offsetLeft work — for a fixed-positioned element
+ * the offsetParent is the body, and offsetLeft = box-left (which
+ * equals the visual center because we apply translateX(-50%)).
+ *
+ * Shadow: offsetTop/offsetLeft don't work — for a fixed-positioned
+ * element in shadow the offsetParent is null (per spec), so both
+ * return 0. Use getInternalRect (unscaled, host-relative bounding
+ * rect) and reconstruct the box-left by adding offsetWidth/2 back to
+ * the visual left.
+ */
+function getElPos(el: HTMLElement, surface: PreviewSurface) {
+  if (surface.kind === 'shadow') {
+    const r = surface.getInternalRect(el);
+    return {
+      top: r.top,
+      left: r.left + el.offsetWidth / 2,
+      width: el.offsetWidth,
+      height: el.offsetHeight,
+    };
+  }
   return {
     top: el.offsetTop,
     left: el.offsetLeft,
@@ -322,18 +344,16 @@ export function useDragPosition(
         const cls = hit.cls as 'headline' | 'subtitle' | 'freeText';
         const vr = getViewportRect(el, surface);
         const alreadyPositioned = !!screen.textPositions[cls];
-        // Iframe path uses offsetLeft chain in vr.left, which ignores
-        // CSS transforms — so for a re-drag with translateX(-50%) the
-        // value IS the visual center (box left = visual center for a
-        // -50% translated element). centerX = vr.left.
+        // Iframe path: vr.left comes from the offsetLeft chain, which
+        // ignores CSS transforms. For an already-positioned element
+        // with translateX(-50%) the value IS the visual center, so
+        // centerX = vr.left.
         //
-        // Shadow path uses getInternalRect in vr.left, which RESPECTS
-        // transforms — so for a re-drag vr.left is the visual left
-        // (NOT center). Whether the text is in flow or already
-        // translated, `visual_left + width/2 = visual_center`, so the
-        // formula is uniform. Without this fix, re-dragging an already-
-        // positioned text in shadow mode launches it off-screen by
-        // exactly width/2.
+        // Shadow path: vr.left comes from getInternalRect (= post-
+        // transform bounding rect, unscaled), which is the visual
+        // LEFT, not the visual center. Whether the text is in flow
+        // or already translated, `visual_left + width/2 = visual_center`,
+        // so the formula is uniform.
         const centerX = surface.kind === 'shadow'
           ? vr.left + vr.width / 2
           : alreadyPositioned
@@ -350,15 +370,13 @@ export function useDragPosition(
                 : screen.freeTextRotation;
           const parts = ['translateX(-50%)'];
           if (rotation) parts.push(`rotate(${rotation}deg)`);
-          // Iframe: position:fixed is relative to the iframe viewport
-          // (== canvas) — works correctly. Shadow: browsers don't
-          // reliably honor "host transform creates containing block"
-          // across the shadow boundary, so fixed positioning escapes
-          // to the browser viewport and the text leaps off-screen.
-          // Use absolute instead — .canvas has position:relative and
-          // becomes the nearest positioned ancestor, giving the same
-          // coordinate space the iframe path uses for fixed.
-          el.style.position = surface.kind === 'shadow' ? 'absolute' : 'fixed';
+          // Always position:fixed. Iframe: relative to iframe viewport
+          // (= canvas). Shadow: the wrapper has `transform: translateZ(0)`
+          // which makes it the containing block for fixed descendants
+          // inside the shadow tree (see shadowPreviewSurface) — so
+          // top/left in canvas pixels resolve against the canvas-sized
+          // wrapper, matching iframe behavior.
+          el.style.position = 'fixed';
           el.style.top = vr.top + 'px';
           el.style.left = centerX + 'px';
           el.style.transform = parts.join(' ');
@@ -395,7 +413,7 @@ export function useDragPosition(
           const drag = dragRef.current;
           if (!drag || drag.kind !== 'text') return;
           drag.el.style.outline = 'none';
-          const finalPos = getElPos(drag.el);
+          const finalPos = getElPos(drag.el, surface);
           const topPct = Math.round(((finalPos.top / canvasH) * 100) * 10) / 10;
           const leftPct = Math.round(((finalPos.left / canvasW) * 100) * 10) / 10;
           const widthPct = Math.round(((drag.origWidth / canvasW) * 100) * 10) / 10;

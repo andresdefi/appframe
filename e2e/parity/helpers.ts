@@ -217,7 +217,12 @@ export async function mountFixture(
       }
       const wrapper = document.createElement('div');
       wrapper.className = 'preview-document';
-      wrapper.style.cssText = 'width:100%;height:100%;position:relative;overflow:hidden;';
+      // See shadowPreviewSurface — translateZ(0) makes the wrapper a
+      // containing block for position:fixed descendants inside the
+      // shadow tree (so saved text positions resolve against the
+      // canvas-sized wrapper instead of the browser viewport).
+      wrapper.style.cssText =
+        'width:100%;height:100%;position:relative;overflow:hidden;transform:translateZ(0);';
       for (const child of bodyChildren) {
         wrapper.appendChild(child);
       }

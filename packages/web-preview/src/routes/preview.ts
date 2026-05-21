@@ -657,6 +657,19 @@ function injectTextPositionCSS(
     freeTextRotation?: number;
   },
 ): string {
+  // Always emits position:fixed. In iframe the containing block is the
+  // iframe viewport (= canvas dimensions). In shadow the wrapper has
+  // `transform: translateZ(0)`, which CSS Transforms 1 says makes it a
+  // containing block for fixed descendants — and the wrapper is also
+  // canvas-sized, so top/left % values resolve against the same
+  // dimensions in both backends.
+  //
+  // (An earlier attempt used position:absolute for shadow, but the
+  // template's `.text-area` is itself position:absolute and became the
+  // headline's containing block — when both texts had saved positions
+  // .text-area collapsed and saved percentages resolved against
+  // near-zero dimensions, producing 8px-wide headlines and a feedback
+  // loop on subsequent drags.)
   const rules: string[] = [];
   const transformWithRotation = (rotation?: number) =>
     rotation ? `translateX(-50%) rotate(${rotation}deg)` : 'translateX(-50%)';

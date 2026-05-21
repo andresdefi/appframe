@@ -277,15 +277,30 @@ export function shadowPreviewSurface(host: HTMLElement): PreviewSurface {
         root.appendChild(style.cloneNode(true));
       }
 
-      // Wrap the body content. The wrapper carries the canvas dimensions
-      // the iframe used to get from the template's body{} rule (which
-      // doesn't apply in shadow DOM — Phase 4 will transform body{} →
-      // .preview-document{} at the template level; until then the
-      // wrapper takes 100% of the host so the host's CSS width/height
-      // controls the canvas size).
+      // Wrap the body content. The wrapper:
+      // - takes 100% of host so the host's CSS width/height controls
+      //   the canvas size (the template's body{} rule doesn't apply
+      //   in shadow);
+      // - is position:relative so it's the containing block for any
+      //   absolute descendants;
+      // - has `transform: translateZ(0)` so it ALSO becomes the
+      //   containing block for any `position: fixed` descendants
+      //   inside the shadow tree (per CSS Transforms 1 spec). Without
+      //   this, the templates' position:fixed text positions (from
+      //   injectTextPositionCSS) walk the ancestor chain looking for
+      //   a transformed ancestor; some browsers don't reliably resolve
+      //   that across the shadow boundary and the text lands at the
+      //   browser viewport instead of the card. With the transform on
+      //   the wrapper, the lookup stops inside the shadow at a
+      //   canvas-sized element, so position:fixed top:X% resolves
+      //   against canvas dimensions — same as the iframe path.
+      //   translateZ(0) is visually a no-op (no rotation, no scale,
+      //   no offset); it just promotes the wrapper to a containing
+      //   block / stacking context.
       const wrapper = document.createElement('div');
       wrapper.className = SHADOW_PREVIEW_DOCUMENT_CLASS;
-      wrapper.style.cssText = 'width:100%;height:100%;position:relative;overflow:hidden;';
+      wrapper.style.cssText =
+        'width:100%;height:100%;position:relative;overflow:hidden;transform:translateZ(0);';
       for (const child of bodyChildren) {
         wrapper.appendChild(child);
       }

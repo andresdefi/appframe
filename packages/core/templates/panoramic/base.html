@@ -7,7 +7,11 @@
 
       * { margin: 0; padding: 0; box-sizing: border-box; }
 
-      body {
+      /* See _base/layout.html — grouped selector targets the shadow
+         wrapper too. Panoramic still renders via iframe through Phase 4
+         but the wrapper-friendly rule lands now so Phase 5 has nothing
+         to migrate at the template level. */
+      body, .preview-document {
         width: {{ canvasWidth }}px;
         height: {{ canvasHeight }}px;
         overflow: hidden;

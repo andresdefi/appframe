@@ -6,7 +6,9 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    body {
+    /* See _base/layout.html — grouped selector targets the shadow
+       wrapper too. */
+    body, .preview-document {
       width: {{ canvasWidth }}px;
       height: {{ canvasHeight }}px;
       overflow: hidden;
@@ -45,7 +47,9 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    body {
+    /* See _base/layout.html — grouped selector targets the shadow
+       wrapper too. */
+    body, .preview-document {
       width: {{ canvasWidth }}px;
       height: {{ canvasHeight }}px;
       overflow: hidden;

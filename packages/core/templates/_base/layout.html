@@ -7,7 +7,10 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    body {
+    /* Grouped selector so shadow-DOM renders pick up the canvas
+       dimensions and font defaults via .preview-document — the
+       shadow path has no body element. Iframe matches via body. */
+    body, .preview-document {
       width: {{ canvasWidth }}px;
       height: {{ canvasHeight }}px;
       overflow: hidden;

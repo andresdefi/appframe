@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePreviewStore, selectScreensForLocale } from '../../store';
 import { CalloutSelectionOverlay } from './CalloutSelectionOverlay';
-import { rectToCalloutSource } from '../../utils/calloutSelectionGeometry';
+import { rectToCalloutSource, DEFAULT_CARD_SCALE } from '../../utils/calloutSelectionGeometry';
 import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
 import { useDragPosition } from '../../hooks/useDragPosition';
@@ -219,11 +219,14 @@ export function ScreenCard({
         return;
       }
       if (calloutReselectIdx === null) {
-        // Create. Defaults mirror addCallout in EffectsTab for now; Phase 3
-        // will tune them (cardScale, offset placement, etc.) when the
-        // polished-pop-out work lands. `sourceLocked: true` opts this
-        // callout into the decoupled rendering: dragging the card later
-        // moves only the card on canvas, the cropped content stays put.
+        // Create. Polished defaults from the plan: a slightly enlarged
+        // card (cardScale 1.15) with shadow + radius, transparent
+        // background so the lifted screenshot fragment is the focal
+        // point. The card centre lands on the source centre — the user
+        // then drags it to its final spot. (An earlier auto-offset
+        // heuristic was tried and rejected as worse than manual
+        // placement.) sourceLocked: true keeps the card's cropped
+        // content pinned to the source rectangle when the card moves.
         const newCallout = {
           id: `callout-${crypto.randomUUID().slice(0, 8)}`,
           sourceX: src.sourceX,
@@ -238,9 +241,8 @@ export function ScreenCard({
           shadow: true,
           borderWidth: 0,
           borderColor: '#ffffff',
-          background: '#ffffff',
           padding: 0,
-          cardScale: 1,
+          cardScale: DEFAULT_CARD_SCALE,
           sourceLocked: true,
         };
         updateScreen(index, { callouts: [...(screen.callouts ?? []), newCallout] });

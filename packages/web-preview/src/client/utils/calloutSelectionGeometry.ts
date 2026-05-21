@@ -129,6 +129,11 @@ function round1(v: number): number {
   return Math.round(v * 10) / 10;
 }
 
+/** Default card-scale multiplier for new drag-selected callouts. Picked
+ *  small enough that the card reads as a lifted version of the source —
+ *  not a sticker. Matches the plan's "1.1 or 1.15" range. */
+export const DEFAULT_CARD_SCALE = 1.15;
+
 function clampUnit(v: number): number {
   if (Number.isNaN(v)) return 0;
   if (v < 0) return 0;

@@ -47,9 +47,38 @@ export interface PreviewSurface {
    *  Matches the historical behavior of calling getBoundingClientRect on
    *  iframe-internal elements. */
   getCanvasRect(): DOMRect | null;
+  /**
+   * An element's bounding rect in surface-internal (unscaled, host-
+   * relative) coords. Use this anywhere the existing code calls
+   * `el.getBoundingClientRect()` on a child of the preview content and
+   * uses the result as a positional input for either a write back to
+   * inline styles or relative math against another such rect.
+   *
+   * - iframe: passthrough — iframe-internal getBoundingClientRect is
+   *   already canvas-local because the iframe is its own coordinate
+   *   system unaffected by the parent's CSS transform.
+   * - shadow: translates the rect so its origin is the host's top-left,
+   *   then divides by the host's effective scale (read from the host's
+   *   bounding rect / clientWidth ratio). The result matches what the
+   *   iframe path would have returned for the same DOM element.
+   *
+   * Without this, instant-patch math that reads
+   * `canvas.getBoundingClientRect().width` and writes
+   * `wrapper.style.width = (width * scale) + 'px'` collapses the
+   * wrapper toward the top-left in shadow mode (writes 67px instead
+   * of 224px).
+   */
+  getInternalRect(el: Element): DOMRect;
   /** Replace the surface's rendered HTML. */
   replaceContent(html: string): void;
 }
+
+/**
+ * The class the shadow renderer wraps the parsed body content in. Kept
+ * in one place so the surface, the parity harness, and any future
+ * template transform reference the same name.
+ */
+export const SHADOW_PREVIEW_DOCUMENT_CLASS = 'preview-document';
 
 /**
  * Adapter wrapping an iframe element. Phase 1 implementation.
@@ -115,6 +144,11 @@ export function iframePreviewSurface(iframe: HTMLIFrameElement): PreviewSurface 
       const canvas = getDoc()?.querySelector('.canvas') as HTMLElement | null;
       return canvas?.getBoundingClientRect() ?? null;
     },
+    getInternalRect(el) {
+      // Iframe-internal getBoundingClientRect is already in the iframe's
+      // own coord system, unaffected by any parent CSS transform.
+      return el.getBoundingClientRect();
+    },
     replaceContent(html) {
       const doc = getDoc();
       if (doc) {
@@ -126,6 +160,136 @@ export function iframePreviewSurface(iframe: HTMLIFrameElement): PreviewSurface 
         // mount; srcdoc triggers a navigation that re-creates it.
         iframe.srcdoc = html;
       }
+    },
+  };
+}
+
+/**
+ * Adapter wrapping a parent-document element with an attached shadow
+ * root. Phase 3 implementation — used when the `?shadow=1` flag is on.
+ *
+ * The host element is owned by ScreenCard's JSX and lives in the parent
+ * document tree (no iframe, no nested browsing context). Constructor
+ * attaches an open shadow root if the host doesn't already have one;
+ * subsequent calls reuse it.
+ *
+ * Canvas dimensions on the wrapper are taken from the host's CSS
+ * width/height so the caller controls the unscaled canvas size the
+ * same way it sets the iframe's `width`/`height` style props.
+ */
+export function shadowPreviewSurface(host: HTMLElement): PreviewSurface {
+  const root: ShadowRoot = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+
+  return {
+    kind: 'shadow',
+    host,
+    get root() {
+      return root;
+    },
+    // Walking ancestors of an element inside the shadow tree stops once
+    // it hits the host — beyond that we're back in the parent document.
+    get boundary() {
+      return host;
+    },
+
+    querySelector<T extends Element = Element>(selector: string): T | null {
+      return root.querySelector<T>(selector) ?? null;
+    },
+    querySelectorAll<T extends Element = Element>(selector: string): T[] {
+      return Array.from(root.querySelectorAll<T>(selector));
+    },
+    elementsFromPoint(clientX, clientY) {
+      // ShadowRoot.elementsFromPoint() scopes the hit-test to this tree.
+      // Using document.elementsFromPoint + filter doesn't work because
+      // document.elementsFromPoint stops at the shadow host (it returns
+      // the host, not the descendants), so the filter yields [] and
+      // useDragPosition's hitTest finds nothing.
+      return root.elementsFromPoint(clientX, clientY);
+    },
+    clientToCanvasPoint(clientX, clientY) {
+      const rect = host.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
+      // The host carries the same parent CSS transform the iframe used
+      // to (e.g. scale(0.3)), so its bounding rect is the transformed
+      // size and its inline width/height are the untransformed canvas
+      // size. clientWidth on a div equals offsetWidth (no border-box
+      // surprises here because the wrapper isn't bordered), so the
+      // ratio is the same as in the iframe adapter.
+      const scaleX = rect.width / host.clientWidth;
+      const scaleY = rect.height / host.clientHeight;
+      return {
+        x: scaleX > 0 ? (clientX - rect.left) / scaleX : 0,
+        y: scaleY > 0 ? (clientY - rect.top) / scaleY : 0,
+      };
+    },
+    getComputedStyle(el) {
+      // Elements inside an open shadow root still resolve their styles
+      // through the parent window — there's no nested defaultView like
+      // in the iframe case.
+      return window.getComputedStyle(el);
+    },
+    getCanvasRect() {
+      const canvas = root.querySelector('.canvas') as HTMLElement | null;
+      return canvas?.getBoundingClientRect() ?? null;
+    },
+    getInternalRect(el) {
+      // Shadow children are subject to the host's CSS transform, so
+      // getBoundingClientRect on them returns scaled, parent-viewport
+      // coords. Unscale + translate to match what an iframe would have
+      // returned for the same element (canvas-internal coords with
+      // origin at the host's top-left).
+      const rect = el.getBoundingClientRect();
+      const hostRect = host.getBoundingClientRect();
+      if (host.clientWidth === 0 || host.clientHeight === 0) return rect;
+      const sx = hostRect.width / host.clientWidth;
+      const sy = hostRect.height / host.clientHeight;
+      if (sx <= 0 || sy <= 0) return rect;
+      return new DOMRect(
+        (rect.left - hostRect.left) / sx,
+        (rect.top - hostRect.top) / sy,
+        rect.width / sx,
+        rect.height / sy,
+      );
+    },
+    replaceContent(html) {
+      // Parse the full template HTML — the engine emits a complete
+      // <html><head>...<body>...</html>. A shadow root can't consume
+      // that directly, so we DOMParser it, extract the <style> nodes
+      // from <head>, and the children of <body>, then mount only those
+      // pieces under a wrapper.
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+
+      // Defensive: strip any <script> tags before mounting. Templates
+      // don't emit them today, but if a future template (or an HTML
+      // injector) ever does, we don't want them to execute in the
+      // parent document's origin.
+      parsed.querySelectorAll('script').forEach((s) => s.remove());
+
+      const styleNodes = Array.from(parsed.head.querySelectorAll('style'));
+      const bodyChildren = Array.from(parsed.body.children);
+
+      // Wipe the previous render. replaceChildren is atomic in one
+      // layout pass instead of N separate removeChild calls.
+      root.replaceChildren();
+
+      // Mount style first so child nodes get their rules on attach.
+      for (const style of styleNodes) {
+        root.appendChild(style.cloneNode(true));
+      }
+
+      // Wrap the body content. The wrapper carries the canvas dimensions
+      // the iframe used to get from the template's body{} rule (which
+      // doesn't apply in shadow DOM — Phase 4 will transform body{} →
+      // .preview-document{} at the template level; until then the
+      // wrapper takes 100% of the host so the host's CSS width/height
+      // controls the canvas size).
+      const wrapper = document.createElement('div');
+      wrapper.className = SHADOW_PREVIEW_DOCUMENT_CLASS;
+      wrapper.style.cssText = 'width:100%;height:100%;position:relative;overflow:hidden;';
+      for (const child of bodyChildren) {
+        wrapper.appendChild(child);
+      }
+      root.appendChild(wrapper);
     },
   };
 }

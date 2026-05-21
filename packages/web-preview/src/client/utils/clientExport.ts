@@ -15,7 +15,7 @@
 // chunk-load cost (~50-200 ms on a slow connection) which is invisible
 // next to the rasterization itself.
 import type { domToCanvas } from 'modern-screenshot';
-import { canvasToPngBlob } from './canvasBlob';
+import { canvasToPngBlob, ensureDisplayP3Canvas } from './canvasBlob';
 import { withTimeout } from './withTimeout';
 
 // Bounds. Picked generously enough that a slow data-URL decode or a
@@ -121,7 +121,12 @@ export async function exportScreenClientSide(
     RASTERIZE_TIMEOUT_MS,
     'export: rasterize screen',
   );
-  return canvasToPngBlob(canvas);
+  // Redraw into a display-p3 canvas so the PNG is tagged Display P3.
+  // modern-screenshot creates an sRGB canvas internally; we can't
+  // change that without forking, but a one-shot drawImage into a P3
+  // canvas preserves the pixels exactly and triggers the browser's
+  // automatic iCCP-chunk embedding on PNG export.
+  return canvasToPngBlob(ensureDisplayP3Canvas(canvas));
 }
 
 /**
@@ -170,7 +175,16 @@ export async function exportPanoramicSlicesClientSide(
     const canvas = document.createElement('canvas');
     canvas.width = frameWidth;
     canvas.height = frameHeight;
-    const ctx = canvas.getContext('2d');
+    // Create the slice in display-p3 so the resulting PNG carries
+    // the same colour-profile tag the single-screen path produces.
+    // Falls back to sRGB context when colourSpace isn't supported.
+    let ctx: CanvasRenderingContext2D | null = null;
+    try {
+      ctx = canvas.getContext('2d', { colorSpace: 'display-p3' });
+    } catch {
+      ctx = null;
+    }
+    if (!ctx) ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('failed to acquire 2d context for slice canvas');
     ctx.drawImage(
       wideCanvas,

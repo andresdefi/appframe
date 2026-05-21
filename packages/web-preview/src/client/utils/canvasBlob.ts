@@ -1,6 +1,39 @@
 const CANVAS_TO_BLOB_TIMEOUT_MS = 5000;
 
 /**
+ * Redraw the source canvas into a fresh `display-p3` canvas of the
+ * same size. When the resulting canvas is encoded as PNG via
+ * `toBlob('image/png')`, Chromium- and WebKit-based browsers embed an
+ * `iCCP` chunk that tags the file as Display P3 — so opening it on a
+ * P3 display (or in any colour-managed app like Preview.app) renders
+ * the wider gamut correctly. The drawImage step preserves the source
+ * pixels exactly when the source canvas is sRGB — only the output's
+ * declared colour space changes — so existing sRGB-only screenshots
+ * look the same on sRGB displays and on P3 displays.
+ *
+ * Falls back to the source canvas when the runtime doesn't accept the
+ * `colorSpace` option (older WebKit / Firefox). Export still works,
+ * just without the P3 tag.
+ */
+export function ensureDisplayP3Canvas(source: HTMLCanvasElement): HTMLCanvasElement {
+  const doc = source.ownerDocument ?? globalThis.document;
+  if (!doc) return source;
+  const canvas = doc.createElement('canvas');
+  canvas.width = source.width;
+  canvas.height = source.height;
+  let ctx: CanvasRenderingContext2D | null = null;
+  try {
+    ctx = canvas.getContext('2d', { colorSpace: 'display-p3' });
+  } catch {
+    // Older engines throw on the unknown option.
+    ctx = null;
+  }
+  if (!ctx) return source;
+  ctx.drawImage(source, 0, 0);
+  return canvas;
+}
+
+/**
  * The export iframe lives in its own JavaScript realm. A canvas created
  * inside it (modern-screenshot's domToCanvas) is an iframe-realm
  * HTMLCanvasElement; its .toBlob() yields an iframe-realm Blob, and

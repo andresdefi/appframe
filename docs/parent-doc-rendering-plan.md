@@ -783,6 +783,31 @@ that's headless-incompatible — but the structural deltas (six
 distinct documents collapsed to zero, ~40% lower heap) are exactly
 what predicts the fix.
 
+Quality findings (one-shot diagnostic; tests not retained):
+
+After the bench, a throwaway suite cross-validated the migration on
+four dimensions. The tests themselves weren't worth maintaining
+(most compare against the iframe code path that Phase 7 will
+delete), but the findings are:
+
+- **Visual parity** (pixelmatch diff of iframe vs shadow per fixture):
+  Chromium 0.0000% on every fixture (bit-perfect). WebKit 0.6-2.5%
+  on text-heavy fixtures only — irreducible sub-pixel AA noise from
+  Safari shaping text differently through an iframe document vs an
+  open shadow root. Same characters, same positions, different AA
+  edges. Invisible to the eye, only pixelmatch catches it. Graphics
+  / effects fixtures (overlays, callouts, spotlights) were
+  bit-perfect on WebKit too.
+- **Behavioral parity** (editor mount + headline edit triggers
+  preview-html fetch): identical in both backends on both engines.
+- **Render stability** (same fixture rendered 3× in a row): 0.0000%
+  drift on both backends, both engines. Render output is
+  deterministic once `document.fonts.ready` resolves.
+- **Memory under load** (30-iteration headline-edit workload,
+  Chromium only): baseline heap 16.3MB iframe / **7.7MB shadow**;
+  settled heap retention +10.1MB iframe / **+3.8MB shadow**. Shadow
+  GCs ~2.6× more cleanly after sustained editing.
+
 ### Phase 7 - Remove Iframe Active Preview Path
 
 Tasks:

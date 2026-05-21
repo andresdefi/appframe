@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePreviewStore, selectScreensForLocale } from '../../store';
+import { CalloutSelectionOverlay } from './CalloutSelectionOverlay';
+import { rectToCalloutSource } from '../../utils/calloutSelectionGeometry';
 import { fetchPreviewHtml } from '../../utils/api';
 import { buildPreviewBody } from '../../utils/previewBody';
 import { useDragPosition } from '../../hooks/useDragPosition';
@@ -91,6 +93,20 @@ export function ScreenCard({
   const screen = usePreviewStore((s) => selectScreensForLocale(s, s.locale)[index]);
   const localeConfig = usePreviewStore((s) => s.sessionLocales[s.locale]);
   const updateScreen = usePreviewStore((s) => s.updateScreen);
+  // Callout drag-to-select source mode. Only the active screen card at the
+  // default locale renders the overlay; the store auto-clears this on
+  // locale/screen switch.
+  const calloutSelectionActive = usePreviewStore(
+    (s) => s.calloutSelection !== null && s.selectedScreen === index && s.locale === 'default',
+  );
+  // Snapshot the in-flight selection's reselectIdx separately so we don't
+  // re-render every ScreenCard for an unrelated reselect toggle.
+  const calloutReselectIdx = usePreviewStore((s) =>
+    s.calloutSelection !== null && s.selectedScreen === index && s.locale === 'default'
+      ? s.calloutSelection.reselectIdx
+      : null,
+  );
+  const cancelCalloutSelection = usePreviewStore((s) => s.cancelCalloutSelection);
 
   // Register a shadow surface for this card. Hooks (useInstantPatch,
   // useDragPosition) and ScreenCard's own observers all read from the
@@ -184,6 +200,77 @@ export function ScreenCard({
       updateScreen(index, { callouts });
     },
     [index, screen, updateScreen],
+  );
+
+  // Pointer-up handler for the drag-to-select source flow. Converts the
+  // raw normalised rectangle into a callout source rectangle, then either
+  // creates a new callout (reselectIdx === null) or updates the source
+  // fields on callout `reselectIdx`. Tiny drags (below the threshold) and
+  // missing-state cases just cancel without creating anything.
+  const handleCalloutSelectionCommit = useCallback(
+    (rect: { u0: number; v0: number; u1: number; v1: number }) => {
+      if (!screen) {
+        cancelCalloutSelection();
+        return;
+      }
+      const src = rectToCalloutSource(rect.u0, rect.v0, rect.u1, rect.v1);
+      if (!src) {
+        cancelCalloutSelection();
+        return;
+      }
+      if (calloutReselectIdx === null) {
+        // Create. Defaults mirror addCallout in EffectsTab for now; Phase 3
+        // will tune them (cardScale, offset placement, etc.) when the
+        // polished-pop-out work lands. `sourceLocked: true` opts this
+        // callout into the decoupled rendering: dragging the card later
+        // moves only the card on canvas, the cropped content stays put.
+        const newCallout = {
+          id: `callout-${crypto.randomUUID().slice(0, 8)}`,
+          sourceX: src.sourceX,
+          sourceY: src.sourceY,
+          sourceW: src.sourceW,
+          sourceH: src.sourceH,
+          displayX: src.displayX,
+          displayY: src.displayY,
+          displayScale: 1,
+          rotation: 0,
+          borderRadius: 16,
+          shadow: true,
+          borderWidth: 0,
+          borderColor: '#ffffff',
+          background: '#ffffff',
+          padding: 0,
+          cardScale: 1,
+          sourceLocked: true,
+        };
+        updateScreen(index, { callouts: [...(screen.callouts ?? []), newCallout] });
+      } else {
+        // Reselect — preserve everything except the source rectangle and
+        // the card centre. Phase 4 wires the entry point that sets
+        // reselectIdx; the create path uses null. Reselecting also opts
+        // the callout into the decoupled model, since the user has just
+        // expressed an intent about the source region.
+        const existing = screen.callouts[calloutReselectIdx];
+        if (!existing) {
+          cancelCalloutSelection();
+          return;
+        }
+        const updated = {
+          ...existing,
+          sourceX: src.sourceX,
+          sourceY: src.sourceY,
+          sourceW: src.sourceW,
+          sourceH: src.sourceH,
+          displayX: src.displayX,
+          displayY: src.displayY,
+          sourceLocked: true,
+        };
+        const callouts = screen.callouts.map((c, i) => (i === calloutReselectIdx ? updated : c));
+        updateScreen(index, { callouts });
+      }
+      cancelCalloutSelection();
+    },
+    [screen, calloutReselectIdx, index, updateScreen, cancelCalloutSelection],
   );
 
   // Live callout patch — repositions the card AND re-crops the image
@@ -897,6 +984,17 @@ export function ScreenCard({
           onMouseDown={onOverlayMouseDown}
           onMouseMove={handleOverlayMouseMove}
         />
+        {/* Callout drag-to-select overlay. Z-30 to sit ABOVE the regular
+            drag overlay so the existing handlers don't intercept the
+            crosshair gesture. Mounted only on the active card at the
+            default locale; see store.calloutSelection. */}
+        {calloutSelectionActive && (
+          <CalloutSelectionOverlay
+            screenIndex={index}
+            layout={screen?.layout}
+            onCommit={handleCalloutSelectionCommit}
+          />
+        )}
       </div>
     </div>
     </>

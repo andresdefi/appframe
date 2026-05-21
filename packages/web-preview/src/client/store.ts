@@ -230,6 +230,13 @@ export interface PreviewStore {
   activeTab: string;
   locale: string;
   localeOtherMode: string;
+  /** Transient UI state for the drag-to-select callout source flow. Lives on
+   *  the store so the Effects sidebar can write it and the active ScreenCard
+   *  can render the selection overlay. Not persisted, not undo-tracked.
+   *  - null: no selection in progress.
+   *  - { reselectIdx: null }: drag will CREATE a new callout on release.
+   *  - { reselectIdx: N }: drag will UPDATE callout N's source rectangle. */
+  calloutSelection: { reselectIdx: number | null } | null;
   /** When true, the canvas shows every locale row stacked (legacy view).
    *  When false (default), shows at most two: Default plus the currently
    *  active non-default locale. Persisted in localStorage so the user's
@@ -279,6 +286,8 @@ export interface PreviewStore {
   setPreviewSize: (w: number, h: number) => void;
   setSelectedScreen: (index: number) => void;
   setActiveTab: (tab: string) => void;
+  beginCalloutSelection: (reselectIdx?: number | null) => void;
+  cancelCalloutSelection: () => void;
   setActiveProject: (project: string, displayName?: string) => void;
   setLocale: (locale: string) => void;
   setCanvasCompareAll: (value: boolean) => void;
@@ -469,6 +478,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     return window.localStorage.getItem('appframe.activeTab') ?? 'background';
   })(),
   locale: 'default',
+  calloutSelection: null,
   // Stash for the OTHER mode's active locale so toggling between Individual
   // and Panoramic restores each mode's last selection. Session-only — not
   // persisted in the project snapshot (the persisted `locale` field already
@@ -508,7 +518,16 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   setConfig: (config) => set({ config }),
   setPlatform: (platform) => set({ platform }),
   setPreviewSize: (w, h) => set({ previewW: w, previewH: h }),
-  setSelectedScreen: (index) => set({ selectedScreen: index }),
+  setSelectedScreen: (index) =>
+    set((state) =>
+      state.selectedScreen === index
+        ? { selectedScreen: index }
+        : { selectedScreen: index, calloutSelection: null },
+    ),
+  // `reselectIdx === null` (or omitted) → drag creates a new callout.
+  // `reselectIdx === N` → drag updates callout N's source rectangle.
+  beginCalloutSelection: (reselectIdx = null) => set({ calloutSelection: { reselectIdx } }),
+  cancelCalloutSelection: () => set({ calloutSelection: null }),
   setActiveTab: (tab) => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('appframe.activeTab', tab);
@@ -519,7 +538,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     resetHistory();
     set({ activeProject: project, activeProjectDisplayName: displayName ?? project });
   },
-  setLocale: (locale) => set({ locale }),
+  setLocale: (locale) => set({ locale, calloutSelection: null }),
   setCanvasCompareAll: (value) => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('appframe.canvasCompareAll', value ? 'true' : 'false');

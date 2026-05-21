@@ -155,6 +155,14 @@ export const calloutSchema = z.object({
   // device frame ("stand out") while Zoom still controls the content
   // magnification inside it.
   cardScale: z.number().min(0.5).max(3).optional(),
+  // Decouples the source crop from the card position. When true,
+  // `sourceX/sourceY` are treated as the actual top-left corner of the
+  // cropped region on the screenshot, independent of `displayX/displayY`
+  // (which then just positions the card on canvas). When false/undefined
+  // (legacy), the crop is centred on the card position — preserved so
+  // projects saved before drag-to-select existed keep rendering
+  // identically. Drag-to-select and Reselect Area always set this true.
+  sourceLocked: z.boolean().optional(),
 });
 export type Callout = z.infer<typeof calloutSchema>;
 

@@ -25,11 +25,23 @@
 {% set zoom = callout.displayScale or 1 %}
 {% set cardScale = callout.cardScale or 1 %}
 {# Source region size shrinks as zoom grows so the same card shows a
-   tighter crop without resizing the card itself. #}
+   tighter crop without resizing the card itself.
+   When `sourceLocked` is true (set by drag-to-select), the crop is
+   anchored on the source rectangle's own centre, so moving the card via
+   displayX/displayY pans only the card on canvas — not the cropped
+   content. Legacy callouts (no sourceLocked flag) keep the original
+   "crop follows card" model so existing projects render unchanged. #}
 {% set srcW = cw / zoom %}
 {% set srcH = ch / zoom %}
+{% if callout.sourceLocked %}
+{% set srcCenterU = (callout.sourceX + callout.sourceW / 2) / 100 %}
+{% set srcCenterV = (callout.sourceY + callout.sourceH / 2) / 100 %}
+{% set srcX = srcCenterU - srcW / 2 %}
+{% set srcY = srcCenterV - srcH / 2 %}
+{% else %}
 {% set srcX = cx - srcW / 2 %}
 {% set srcY = cy - srcH / 2 %}
+{% endif %}
 {# Card visual dimensions on canvas. cardScale multiplies the visible
    size so the card can extend past the device frame. #}
 {% set contentW = (ssWidth * cw * cardScale) | round %}

@@ -1,5 +1,6 @@
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
+import { usePreviewStore } from '../../store';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
 import { RangeSlider } from '../Controls/RangeSlider';
@@ -13,12 +14,43 @@ function nextId(prefix: string) {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
+// Clamp a sourceX/sourceY value so the source rectangle stays on the
+// screenshot. `maxOrigin` is `100 - sourceW` (or `100 - sourceH`) — the
+// rightmost origin that still keeps the right/bottom edge inside.
+function clampPct(v: number, maxOrigin: number): number {
+  if (v < 0) return 0;
+  if (v > maxOrigin) return maxOrigin < 0 ? 0 : maxOrigin;
+  return v;
+}
+
 export function EffectsTab() {
   const { screen, update } = useCurrentScreen();
   const { confirm, dialog } = useConfirmDialog();
   const { patchSpotlight, patchAnnotation, patchLoupe, patchCallout } = useInstantPatch();
+  const locale = usePreviewStore((s) => s.locale);
+  const calloutSelection = usePreviewStore((s) => s.calloutSelection);
+  const beginCalloutSelection = usePreviewStore((s) => s.beginCalloutSelection);
+  const cancelCalloutSelection = usePreviewStore((s) => s.cancelCalloutSelection);
 
   if (!screen) return null;
+
+  // v1 supports flat/front-facing devices only; angled layouts apply a
+  // perspective + rotateY that warps pointer-to-screenshot-% mapping.
+  // Composition modes other than 'single' aren't wired through the
+  // single-device source rect math yet — disable in those modes too so
+  // we don't silently produce wrong sourceX/Y.
+  const selectAreaDisabledReason: string | null = (() => {
+    if (locale !== 'default') return 'Switch to Default locale to edit callouts.';
+    if (screen.layout === 'angled-left' || screen.layout === 'angled-right') {
+      return 'Select Area is unavailable for angled layouts. Switch to a centred layout to use it.';
+    }
+    if (screen.composition && screen.composition !== 'single') {
+      return 'Select Area is unavailable in multi-device compositions.';
+    }
+    if (!screen.screenshotUrl) return 'Upload a screenshot to use Select Area.';
+    return null;
+  })();
+  const selectAreaActive = calloutSelection !== null && calloutSelection.reselectIdx === null;
 
   const instantSpotlight = (partial: Partial<NonNullable<typeof screen.spotlight>>) => {
     if (!screen.spotlight) return;
@@ -79,6 +111,25 @@ export function EffectsTab() {
       i === idx ? { ...c, ...partial } : c,
     );
     update({ callouts });
+  };
+
+  // Width/Height slider helpers — for `sourceLocked` callouts (the drag-
+  // to-select flow), growing the source rectangle should keep its centre
+  // pinned so the visible content stays put. Without this, the slider
+  // anchors growth on the top-left corner and the cropped content slides
+  // out of frame. For legacy callouts (no flag) sourceX/sourceY are
+  // ignored at render time, so we leave them untouched.
+  const resizeSourceX = (co: Callout, nextW: number): Partial<Callout> => {
+    if (!co.sourceLocked) return { sourceW: nextW };
+    const centerU = co.sourceX + co.sourceW / 2;
+    const nextX = clampPct(centerU - nextW / 2, 100 - nextW);
+    return { sourceW: nextW, sourceX: nextX };
+  };
+  const resizeSourceY = (co: Callout, nextH: number): Partial<Callout> => {
+    if (!co.sourceLocked) return { sourceH: nextH };
+    const centerV = co.sourceY + co.sourceH / 2;
+    const nextY = clampPct(centerV - nextH / 2, 100 - nextH);
+    return { sourceH: nextH, sourceY: nextY };
   };
 
   const removeCallout = async (idx: number) => {
@@ -270,6 +321,30 @@ export function EffectsTab() {
             Zoom into a specific area and display it as a floating card. Perfect for showcasing small UI details.
           </p>
         )}
+        {/* Drag-to-select source area. The primary creation path now —
+            Add Callout below stays as the slider-first fallback for
+            cases where Select Area is disabled (angled layouts,
+            multi-device compositions, non-default locale). */}
+        {selectAreaActive ? (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-2 py-1.5 text-[11px] text-text">
+            <span className="flex-1 leading-snug">Drag on the canvas to select an area, or press Esc to cancel.</span>
+            <button
+              className="shrink-0 rounded px-1.5 py-0.5 text-text-dim hover:text-text"
+              onClick={cancelCalloutSelection}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            className="w-full py-1.5 text-xs bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text mb-2 transition duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-dim"
+            onClick={() => beginCalloutSelection(null)}
+            disabled={selectAreaDisabledReason !== null}
+            title={selectAreaDisabledReason ?? 'Drag on the canvas to crop a callout source area'}
+          >
+            Select Area
+          </button>
+        )}
         <button
           className="w-full py-1.5 text-xs bg-surface-2 surface-card surface-card-hover rounded-lg text-text-dim hover:text-text mb-2 transition duration-150 active:scale-[0.97]"
           onClick={addCallout}
@@ -284,8 +359,8 @@ export function EffectsTab() {
           >
             <RangeSlider label="Position X" value={co.displayX} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayX: v })} onInstant={(v) => instantCallout(idx, { displayX: v })} resetTo={50} />
             <RangeSlider label="Position Y" value={co.displayY} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayY: v })} onInstant={(v) => instantCallout(idx, { displayY: v })} resetTo={50} />
-            <RangeSlider label="Width" value={co.sourceW} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceW: v })} onInstant={(v) => instantCallout(idx, { sourceW: v })} resetTo={80} />
-            <RangeSlider label="Height" value={co.sourceH} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { sourceH: v })} onInstant={(v) => instantCallout(idx, { sourceH: v })} resetTo={10} />
+            <RangeSlider label="Width" value={co.sourceW} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, resizeSourceX(co, v))} onInstant={(v) => instantCallout(idx, resizeSourceX(co, v))} resetTo={80} />
+            <RangeSlider label="Height" value={co.sourceH} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, resizeSourceY(co, v))} onInstant={(v) => instantCallout(idx, resizeSourceY(co, v))} resetTo={10} />
             <RangeSlider label="Zoom" value={Math.round(co.displayScale * 100)} min={50} max={300} step={1} formatValue={(v) => `${(v / 100).toFixed(2)}x`} onChange={(v) => updateCallout(idx, { displayScale: v / 100 })} onInstant={(v) => instantCallout(idx, { displayScale: v / 100 })} resetTo={100} />
             <RangeSlider label="Card Popout" value={Math.round((co.cardScale ?? 1) * 100)} min={50} max={300} step={1} formatValue={(v) => `${(v / 100).toFixed(2)}x`} onChange={(v) => updateCallout(idx, { cardScale: v / 100 })} onInstant={(v) => instantCallout(idx, { cardScale: v / 100 })} resetTo={100} />
             <RangeSlider label="Rotation" value={co.rotation} min={-45} max={45} formatValue={(v) => `${v}\u00B0`} onChange={(v) => updateCallout(idx, { rotation: v })} onInstant={(v) => instantCallout(idx, { rotation: v })} resetTo={0} />

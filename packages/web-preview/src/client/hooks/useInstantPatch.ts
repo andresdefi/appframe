@@ -32,6 +32,7 @@ type CalloutPatchPayload = {
   borderRadius: number;
   padding?: number;
   cardScale?: number;
+  sourceLocked?: boolean;
 };
 
 /**
@@ -611,10 +612,23 @@ export function useInstantPatch() {
       const cardScale = callout.cardScale ?? 1;
       // Source region shrinks as zoom grows; card visual size is set by
       // cw/ch and cardScale, so zoom no longer scales the card.
+      // Branch mirrors templates/_base/callouts.html: when sourceLocked,
+      // the crop is anchored on the source rectangle's own centre so
+      // dragging the card via displayX/Y only moves the card, not the
+      // content. Legacy callouts (no flag) keep crop-follows-card.
       const srcW = cw / zoom;
       const srcH = ch / zoom;
-      const srcX = cx - srcW / 2;
-      const srcY = cy - srcH / 2;
+      let srcX: number;
+      let srcY: number;
+      if (callout.sourceLocked) {
+        const srcCenterU = (callout.sourceX + callout.sourceW / 2) / 100;
+        const srcCenterV = (callout.sourceY + callout.sourceH / 2) / 100;
+        srcX = srcCenterU - srcW / 2;
+        srcY = srcCenterV - srcH / 2;
+      } else {
+        srcX = cx - srcW / 2;
+        srcY = cy - srcH / 2;
+      }
 
       const contentW = Math.round(ssWidth * cw * cardScale);
       const contentH = Math.round(ssHeight * ch * cardScale);

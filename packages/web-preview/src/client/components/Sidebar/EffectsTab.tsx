@@ -50,7 +50,14 @@ export function EffectsTab() {
     if (!screen.screenshotUrl) return 'Upload a screenshot to use Select Area.';
     return null;
   })();
-  const selectAreaActive = calloutSelection !== null && calloutSelection.reselectIdx === null;
+  // Selection mode is either "new callout" (reselectIdx === null) or
+  // "reselect existing callout N". The same overlay handles both — only
+  // the sidebar UI and the post-drag store mutation differ.
+  const reselectIdx =
+    calloutSelection !== null && calloutSelection.reselectIdx !== null
+      ? calloutSelection.reselectIdx
+      : null;
+  const inSelectionMode = calloutSelection !== null;
 
   const instantSpotlight = (partial: Partial<NonNullable<typeof screen.spotlight>>) => {
     if (!screen.spotlight) return;
@@ -324,10 +331,17 @@ export function EffectsTab() {
         {/* Drag-to-select source area. The primary creation path now —
             Add Callout below stays as the slider-first fallback for
             cases where Select Area is disabled (angled layouts,
-            multi-device compositions, non-default locale). */}
-        {selectAreaActive ? (
+            multi-device compositions, non-default locale). The same
+            banner also surfaces during Reselect Area for an existing
+            callout, with copy distinguishing which callout's source
+            is being redrawn. */}
+        {inSelectionMode ? (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-2 py-1.5 text-[11px] text-text">
-            <span className="flex-1 leading-snug">Drag on the canvas to select an area, or press Esc to cancel.</span>
+            <span className="flex-1 leading-snug">
+              {reselectIdx !== null
+                ? `Drag on the canvas to redraw Callout ${reselectIdx + 1}'s source, or press Esc to cancel.`
+                : 'Drag on the canvas to select an area, or press Esc to cancel.'}
+            </span>
             <button
               className="shrink-0 rounded px-1.5 py-0.5 text-text-dim hover:text-text"
               onClick={cancelCalloutSelection}
@@ -357,6 +371,21 @@ export function EffectsTab() {
             title={`Callout ${idx + 1}`}
             onRemove={() => removeCallout(idx)}
           >
+            {/* Reselect Area — redraw this callout's source rectangle by
+                dragging on the canvas, instead of nudging Width/Height
+                sliders by hand. Reselecting any callout also migrates it
+                into the decoupled sourceLocked rendering (see ScreenCard
+                commit handler), so legacy slider-only callouts get the
+                pop-out behaviour the moment the user expresses a fresh
+                intent about their source area. */}
+            <button
+              className="w-full py-1 mb-2 text-[11px] bg-surface-2 surface-card surface-card-hover rounded-md text-text-dim hover:text-text transition duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-dim"
+              onClick={() => beginCalloutSelection(idx)}
+              disabled={selectAreaDisabledReason !== null}
+              title={selectAreaDisabledReason ?? `Drag on the canvas to redraw Callout ${idx + 1}'s source area`}
+            >
+              Reselect Area
+            </button>
             <RangeSlider label="Position X" value={co.displayX} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayX: v })} onInstant={(v) => instantCallout(idx, { displayX: v })} resetTo={50} />
             <RangeSlider label="Position Y" value={co.displayY} min={0} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, { displayY: v })} onInstant={(v) => instantCallout(idx, { displayY: v })} resetTo={50} />
             <RangeSlider label="Width" value={co.sourceW} min={1} max={100} step={0.1} formatValue={(v) => `${v}%`} onChange={(v) => updateCallout(idx, resizeSourceX(co, v))} onInstant={(v) => instantCallout(idx, resizeSourceX(co, v))} resetTo={80} />

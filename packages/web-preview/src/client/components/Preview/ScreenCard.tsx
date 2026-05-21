@@ -269,10 +269,16 @@ export function ScreenCard({
         };
         const callouts = screen.callouts.map((c, i) => (i === calloutReselectIdx ? updated : c));
         updateScreen(index, { callouts });
+        // Patch the live DOM immediately so the visibility:hidden card
+        // (set by CalloutSelectionOverlay during reselect) reappears
+        // already showing the new source on unmount. Without this the
+        // user sees ~150ms of the old source as the debounced render
+        // pipeline catches up.
+        patchCallout(calloutReselectIdx, updated);
       }
       cancelCalloutSelection();
     },
-    [screen, calloutReselectIdx, index, updateScreen, cancelCalloutSelection],
+    [screen, calloutReselectIdx, index, updateScreen, cancelCalloutSelection, patchCallout],
   );
 
   // Live callout patch — repositions the card AND re-crops the image

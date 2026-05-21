@@ -60,6 +60,25 @@ export function CalloutSelectionOverlay({ screenIndex, layout, onCommit }: Props
   const containerRectRef = useRef<ClientRect | null>(null);
 
   const isActive = calloutSelection !== null;
+  const reselectIdx = calloutSelection?.reselectIdx ?? null;
+
+  // Hide the callout card being reselected so the user can see what's
+  // underneath when redrawing the source rectangle. Restored on overlay
+  // unmount; in the commit path the ScreenCard handler patches the DOM
+  // with the new source before the overlay unmounts, so the card reappears
+  // already showing the new content with no flash.
+  useEffect(() => {
+    if (!isActive || reselectIdx === null) return;
+    const surface = getPreviewSurface(screenIndex);
+    if (!surface) return;
+    const card = surface.querySelector<HTMLElement>(`.callout-card[data-idx="${reselectIdx}"]`);
+    if (!card) return;
+    const prev = card.style.visibility;
+    card.style.visibility = 'hidden';
+    return () => {
+      card.style.visibility = prev;
+    };
+  }, [isActive, reselectIdx, screenIndex]);
 
   // Escape cancels selection. Bound on window so it works even when the
   // overlay doesn't have focus (which it usually won't — the pointer

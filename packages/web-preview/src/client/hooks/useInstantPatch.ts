@@ -41,10 +41,15 @@ export function useInstantPatch() {
       if (partial.deviceScale !== undefined) {
         const canvas = s.querySelector('.canvas') as HTMLElement | null;
         if (canvas) {
-          const canvasWidth = canvas.getBoundingClientRect().width;
+          // getInternalRect because we use the width as the canvas-coord
+          // base for the wrapper's pixel width. In iframe that matches
+          // getBoundingClientRect; in shadow it un-scales the host's
+          // CSS transform so the wrapper doesn't shrink to (rect.width
+          // × scaleFactor) per patch.
+          const canvasWidth = s.getInternalRect(canvas).width;
           // Store original server-rendered dw on first patch to avoid cumulative drift
           if (!wrapper.dataset.origDw) {
-            wrapper.dataset.origDw = String(parseFloat(wrapper.style.width) || wrapper.getBoundingClientRect().width);
+            wrapper.dataset.origDw = String(parseFloat(wrapper.style.width) || s.getInternalRect(wrapper).width);
           }
           if (!wrapper.dataset.origPerspective) {
             const pVal = getComputedStyle(wrapper).getPropertyValue('--device-perspective');
@@ -195,13 +200,16 @@ export function useInstantPatch() {
       const scaleFactor = previewW / 1290;
 
       const applyRotation = (el: HTMLElement, deg: number) => {
-        // translateX(-50%) is only needed when the element has been repositioned
-        // via injectTextPositionCSS (position: fixed + left: X%). In normal
-        // flow the block is full-width inside .text-area and translateX would
-        // shift the whole block off-center.
-        const isFixed = s.getComputedStyle(el).position === 'fixed';
+        // translateX(-50%) is only needed when the element has been
+        // repositioned via injectTextPositionCSS (server-rendered as
+        // position:fixed + left: X%) OR by useDragPosition (set to
+        // position:absolute in shadow mode, position:fixed in iframe
+        // mode). In normal flow the block is full-width inside .text-
+        // area and translateX would shift the whole block off-center.
+        const pos = s.getComputedStyle(el).position;
+        const isDragPositioned = pos === 'fixed' || pos === 'absolute';
         const parts: string[] = [];
-        if (isFixed) parts.push('translateX(-50%)');
+        if (isDragPositioned) parts.push('translateX(-50%)');
         if (deg) parts.push(`rotate(${deg}deg)`);
         el.style.transform = parts.length > 0 ? parts.join(' ') : '';
       };
@@ -427,7 +435,7 @@ export function useInstantPatch() {
       const canvas = s.querySelector('.canvas') as HTMLElement | null;
       if (!wrapper || !img || !canvas) return;
 
-      const cRect = canvas.getBoundingClientRect();
+      const cRect = s.getInternalRect(canvas);
       const canvasWidth = cRect.width;
       const canvasHeight = cRect.height;
 
@@ -445,7 +453,7 @@ export function useInstantPatch() {
         (s.querySelector('.screenshot-clip') as HTMLElement | null) ??
         (s.querySelector('.device-wrapper') as HTMLElement | null);
       if (!clip) return;
-      const sRect = clip.getBoundingClientRect();
+      const sRect = s.getInternalRect(clip);
       const ssLeft = sRect.left - cRect.left;
       const ssTop = sRect.top - cRect.top;
       const ssWidth = sRect.width;
@@ -521,7 +529,7 @@ export function useInstantPatch() {
 
       const canvas = s.querySelector('.canvas') as HTMLElement | null;
       if (!canvas) return;
-      const cRect = canvas.getBoundingClientRect();
+      const cRect = s.getInternalRect(canvas);
 
       // Resolve the screenshot's canvas-space rect so source/display coords
       // (both in screenshot-%) translate to the right pixels.
@@ -529,7 +537,7 @@ export function useInstantPatch() {
         (s.querySelector('.screenshot-clip') as HTMLElement | null) ??
         (s.querySelector('.device-wrapper') as HTMLElement | null);
       if (!screenshotClip) return;
-      const sRect = screenshotClip.getBoundingClientRect();
+      const sRect = s.getInternalRect(screenshotClip);
       const ssLeft = sRect.left - cRect.left;
       const ssTop = sRect.top - cRect.top;
       const ssWidth = sRect.width;
@@ -616,7 +624,7 @@ export function useInstantPatch() {
       if (!item) return;
       const canvas = s.querySelector('.canvas') as HTMLElement | null;
       if (!canvas) return;
-      const cRect = canvas.getBoundingClientRect();
+      const cRect = s.getInternalRect(canvas);
       const canvasWidth = cRect.width;
       const canvasHeight = cRect.height;
 

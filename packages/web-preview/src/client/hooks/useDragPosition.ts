@@ -50,12 +50,32 @@ function getElPos(el: HTMLElement) {
 }
 
 /**
- * Compute element position relative to the iframe viewport using offset
- * properties. Unlike getBoundingClientRect(), this is not affected by CSS
- * transforms on the iframe element in the parent page, avoiding
- * progressive shrinking when the preview is scaled.
+ * Compute an element's position in surface-internal (canvas-local)
+ * coords.
+ *
+ * Iframe: walk the offsetParent chain. The walk stops at the iframe
+ * document boundary so the accumulated offset stays canvas-local, and
+ * it doesn't pick up the iframe element's own CSS transform in the
+ * parent page (which getBoundingClientRect would).
+ *
+ * Shadow: defer to the adapter's getInternalRect, which already
+ * delivers a host-relative, unscaled rect. The offsetParent chain
+ * isn't reliable here: depending on the browser it may either stop at
+ * the shadow root (giving canvas-local coords) or continue into the
+ * parent document (adding the host's editor-page offset). The latter
+ * causes position:fixed text drags to leap off-screen — the text
+ * inherits a left of e.g. 900px relative to a 400px-wide host
+ * containing block.
+ *
+ * Width/height come from offsetWidth/Height in both backends so the
+ * locked-width drag preserves the element's layout box (matters for
+ * rotated text — getBoundingClientRect gives the AABB instead).
  */
-function getViewportRect(el: HTMLElement) {
+function getViewportRect(el: HTMLElement, surface: PreviewSurface) {
+  if (surface.kind === 'shadow') {
+    const r = surface.getInternalRect(el);
+    return { left: r.left, top: r.top, width: el.offsetWidth, height: el.offsetHeight };
+  }
   let left = el.offsetLeft;
   let top = el.offsetTop;
   let parent = el.offsetParent as HTMLElement | null;
@@ -208,15 +228,15 @@ export function useDragPosition(
         // When multiple text elements overlap, pick the one whose vertical center is closest to the click.
         const textHits: Array<{ cls: 'headline' | 'subtitle' | 'freeText'; el: HTMLElement; dy: number }> = [];
         if (headlineEl) {
-          const vr = getViewportRect(headlineEl);
+          const vr = getViewportRect(headlineEl, surface);
           textHits.push({ cls: 'headline', el: headlineEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
         }
         if (subtitleEl) {
-          const vr = getViewportRect(subtitleEl);
+          const vr = getViewportRect(subtitleEl, surface);
           textHits.push({ cls: 'subtitle', el: subtitleEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
         }
         if (freeTextEl) {
-          const vr = getViewportRect(freeTextEl);
+          const vr = getViewportRect(freeTextEl, surface);
           textHits.push({ cls: 'freeText', el: freeTextEl, dy: Math.abs(iy - (vr.top + vr.height / 2)) });
         }
         if (textHits.length > 0) {
@@ -300,7 +320,7 @@ export function useDragPosition(
       } else if (hit.kind === 'text') {
         const el = hit.el;
         const cls = hit.cls as 'headline' | 'subtitle' | 'freeText';
-        const vr = getViewportRect(el);
+        const vr = getViewportRect(el, surface);
         const alreadyPositioned = !!screen.textPositions[cls];
         // When already positioned, the element has transform: translateX(-50%),
         // so offsetLeft IS the visual center. In normal flow, the visual center
@@ -317,7 +337,15 @@ export function useDragPosition(
                 : screen.freeTextRotation;
           const parts = ['translateX(-50%)'];
           if (rotation) parts.push(`rotate(${rotation}deg)`);
-          el.style.position = 'fixed';
+          // Iframe: position:fixed is relative to the iframe viewport
+          // (== canvas) — works correctly. Shadow: browsers don't
+          // reliably honor "host transform creates containing block"
+          // across the shadow boundary, so fixed positioning escapes
+          // to the browser viewport and the text leaps off-screen.
+          // Use absolute instead — .canvas has position:relative and
+          // becomes the nearest positioned ancestor, giving the same
+          // coordinate space the iframe path uses for fixed.
+          el.style.position = surface.kind === 'shadow' ? 'absolute' : 'fixed';
           el.style.top = vr.top + 'px';
           el.style.left = centerX + 'px';
           el.style.transform = parts.join(' ');
@@ -614,11 +642,12 @@ export function useDragPosition(
         const el = hit.el;
         const ssEl = surface.querySelector('.screenshot-clip') as HTMLElement | null;
         if (!ssEl) return;
-        // getBoundingClientRect inside an iframe returns coords in the
-        // iframe's own viewport — i.e. canvas px — already unaffected by
-        // the parent page's CSS transform on the iframe element. No
-        // /scale conversion needed.
-        const ssRect = ssEl.getBoundingClientRect();
+        // surface.getInternalRect returns canvas-internal coords in both
+        // backends: iframe passes through (the iframe is its own coord
+        // system), shadow unscales the host's CSS transform. Without
+        // the un-scaling the callout drag would shrink toward the host
+        // origin in shadow mode.
+        const ssRect = surface.getInternalRect(ssEl);
         const ssLeft = ssRect.left;
         const ssTop = ssRect.top;
         const ssWidth = ssRect.width;

@@ -214,31 +214,30 @@ export function CalloutSelectionOverlay({ screenIndex, layout, onCommit }: Props
       onPointerCancel={handlePointerUp}
       aria-label="Select callout source area"
     >
-      {/* Dim mask + selection cutout. While not dragging, dim the whole
-          screen card so the user sees they're in a modal-ish mode. Once
-          dragging starts, the selected rectangle gets a brighter border
-          and the rest stays dimmed. */}
-      {!rectBox && <div className="absolute inset-0 bg-black/30 pointer-events-none" />}
+      {/* Dim mask + selection cutout. Before the first drag, dim the
+          whole preview so the user sees they're in a modal-ish mode.
+          Once dragging starts, the selected rectangle is left bright
+          while everything else stays dimmed — the standard photo-crop
+          UX. The outside dim is implemented with a 9999px outer
+          box-shadow on the selection rect so the cutout falls out for
+          free, no extra DOM nodes or per-frame math. The rect itself
+          gets a 1px white border + 1px dark halo so it reads on light
+          AND dark screenshots. The parent container has overflow:hidden
+          which clips the box-shadow to the preview area. */}
+      {!rectBox && <div className="absolute inset-0 bg-black/35 pointer-events-none" />}
       {rectBox && (
-        <>
-          <div className="absolute inset-0 bg-black/30 pointer-events-none" />
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              left: rectBox.left,
-              top: rectBox.top,
-              width: rectBox.width,
-              height: rectBox.height,
-              // Crisp 1px white border with a black halo so it reads on
-              // light AND dark screenshots without animating any expensive
-              // properties.
-              boxShadow:
-                '0 0 0 1px #fff, 0 0 0 2px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.15)',
-              background: 'rgba(59,130,246,0.18)',
-            }}
-            aria-hidden="true"
-          />
-        </>
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: rectBox.left,
+            top: rectBox.top,
+            width: rectBox.width,
+            height: rectBox.height,
+            boxShadow:
+              '0 0 0 1px #fff, 0 0 0 2px rgba(0,0,0,0.6), 0 0 0 9999px rgba(0,0,0,0.45)',
+          }}
+          aria-hidden="true"
+        />
       )}
     </div>
   );

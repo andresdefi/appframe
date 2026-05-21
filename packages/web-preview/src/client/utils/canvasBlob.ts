@@ -21,11 +21,12 @@ export function ensureDisplayP3Canvas(source: HTMLCanvasElement): HTMLCanvasElem
   const canvas = doc.createElement('canvas');
   canvas.width = source.width;
   canvas.height = source.height;
-  let ctx: CanvasRenderingContext2D | null = null;
+  // Older engines (legacy WebKit / Firefox) throw on the unknown
+  // `colorSpace` option. Fall back to the source canvas in that case.
+  let ctx: CanvasRenderingContext2D | null;
   try {
     ctx = canvas.getContext('2d', { colorSpace: 'display-p3' });
   } catch {
-    // Older engines throw on the unknown option.
     ctx = null;
   }
   if (!ctx) return source;

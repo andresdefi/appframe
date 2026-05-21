@@ -18,7 +18,7 @@ import type {
   LocaleConfig,
   Loupe,
 } from '@appframe/core';
-import type { TemplateContext, DeviceContext } from '@appframe/core';
+import type { TemplateContext, DeviceContext, FontFaceMode } from '@appframe/core';
 import { buildKoubouPreviewFrame } from '../koubouPreviewFrame.js';
 import { isPathInside } from '../utils/pathSafety.js';
 import {
@@ -647,7 +647,7 @@ async function resolveContext(
  */
 function parseFontFaceMode(
   raw: unknown,
-): import('@appframe/core').FontFaceMode | undefined {
+): FontFaceMode | undefined {
   if (raw === 'inline' || raw === 'url' || raw === 'none') return raw;
   return undefined;
 }

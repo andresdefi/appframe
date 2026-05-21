@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import { injectEffectsHTML } from '@appframe/core';
 import type {
+  FontFaceMode,
   FrameStyle,
   LocaleConfig,
   PanoramicBackground,
@@ -45,7 +46,7 @@ export function registerPanoramicPreviewRoute(app: Express, ctx: RouteContext): 
       const frameStyle = (body.frameStyle as FrameStyle) ?? config.frames.style;
       const previewMode = body.previewMode === true;
       // See routes/preview.ts for the rationale on fontFaceMode.
-      const fontFaceMode: import('@appframe/core').FontFaceMode | undefined =
+      const fontFaceMode: FontFaceMode | undefined =
         body.fontFaceMode === 'inline' ||
         body.fontFaceMode === 'url' ||
         body.fontFaceMode === 'none'

@@ -178,7 +178,7 @@ export async function exportPanoramicSlicesClientSide(
     // Create the slice in display-p3 so the resulting PNG carries
     // the same colour-profile tag the single-screen path produces.
     // Falls back to sRGB context when colourSpace isn't supported.
-    let ctx: CanvasRenderingContext2D | null = null;
+    let ctx: CanvasRenderingContext2D | null;
     try {
       ctx = canvas.getContext('2d', { colorSpace: 'display-p3' });
     } catch {

@@ -25,17 +25,23 @@ export function modeToggle(page: Page): Locator {
 
 // ─── Navigation helpers ───
 
-/** Wait for the preview server to be fully loaded. Phase 6 flipped the
- *  default preview backend to shadow DOM; the existing e2e suite still
- *  asserts against iframe-specific selectors (functional + ux-audit
- *  count `<iframe>` elements; export rasterizes the preview), so the
- *  navigation pins to `?shadow=0` to keep exercising the iframe path
- *  these tests were written for. The shadow path has its own dedicated
- *  parity harness under `e2e/parity/`. */
+/** Wait for the preview server to be fully loaded. There's only one
+ *  preview path now (shadow DOM); iframes that remain on the page
+ *  come from capture/export pipelines (clientExport.ts,
+ *  captureManager.ts, variantThumbnailCapture.ts,
+ *  InactiveLocaleRow.tsx) and aren't relevant to most tests. */
 export async function waitForApp(page: Page) {
-  await page.goto('/?shadow=0');
+  await page.goto('/');
   await page.getByText('appframe').first().waitFor({ timeout: 10_000 });
-  await page.locator('iframe').first().waitFor({ state: 'attached', timeout: 10_000 });
+  // Wait for either a preview-content host (shadow div, with a name
+  // starting with "Screen" or "Panoramic") OR any iframe — the latter
+  // covers capture/export iframes and inactive locale rows.
+  await page
+    .locator(
+      'iframe, div[title^="Screen "], div[title^="Panoramic"]',
+    )
+    .first()
+    .waitFor({ state: 'attached', timeout: 10_000 });
 }
 
 /** Get the current mode ("Individual" or "Panoramic") */

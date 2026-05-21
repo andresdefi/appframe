@@ -7,60 +7,46 @@ import {
   loadPanoramicFixtures,
   mountFixture,
   type FixtureMeta,
-  type PreviewBackend,
 } from './helpers';
 
-// Parity harness for the parent-document rendering migration (Option C).
-// See docs/parent-doc-rendering-plan.md §"Parity Testing First".
-//
-// Phase 0: only the iframe backend is exercised. The shadow backend lands
-// in Phase 3 — tests that target it are currently skipped with a TODO so
-// the harness shape is ready when the renderer arrives.
-
-const BACKENDS: PreviewBackend[] = ['iframe', 'shadow'];
+// Snapshot harness for the shadow-DOM preview path.
+// See docs/parent-doc-rendering-plan.md. The iframe alternative
+// existed through Phase 6 alongside shadow; Phase 7 removed it.
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots', import.meta.url));
-mkdirSync(join(SNAPSHOT_DIR, 'iframe'), { recursive: true });
-mkdirSync(join(SNAPSHOT_DIR, 'shadow'), { recursive: true });
+mkdirSync(SNAPSHOT_DIR, { recursive: true });
 
 const individualFixtures = loadIndividualFixtures();
 const panoramicFixtures = loadPanoramicFixtures();
 
-for (const backend of BACKENDS) {
-  test.describe(`parity / ${backend} backend`, () => {
-    for (const fixture of [...individualFixtures, ...panoramicFixtures]) {
-      const title = `${fixture.name}`;
-      test(title, async ({ page, baseURL }, testInfo) => {
-        if (!baseURL) throw new Error('baseURL must be set in playwright.config.ts');
-        await runFixture(page, fixture, backend, baseURL, testInfo);
-      });
-    }
-  });
-}
+test.describe('parity / shadow backend', () => {
+  for (const fixture of [...individualFixtures, ...panoramicFixtures]) {
+    test(`${fixture.name}`, async ({ page, baseURL }, testInfo) => {
+      if (!baseURL) throw new Error('baseURL must be set in playwright.config.ts');
+      await runFixture(page, fixture, baseURL, testInfo);
+    });
+  }
+});
 
 async function runFixture(
   page: import('@playwright/test').Page,
   fixture: FixtureMeta,
-  backend: PreviewBackend,
   baseURL: string,
   testInfo: import('@playwright/test').TestInfo,
 ) {
-  const { iframeSelector } = await mountFixture(page, fixture, backend, baseURL);
+  const { iframeSelector } = await mountFixture(page, fixture, baseURL);
 
   const handle = await page.locator(iframeSelector).elementHandle();
-  if (!handle) throw new Error('preview iframe disappeared between mount and screenshot');
+  if (!handle) throw new Error('preview host disappeared between mount and screenshot');
 
   const buffer = await handle.screenshot({ type: 'png' });
   expect(buffer.byteLength).toBeGreaterThan(500);
 
-  await testInfo.attach(`${backend}-${fixture.name}.png`, {
+  await testInfo.attach(`${fixture.name}.png`, {
     body: buffer,
     contentType: 'image/png',
   });
 
-  // Also persist next to the spec so it's easy to diff manually before
-  // the pixelmatch harness lands. Per-backend subfolder keeps phase-3
-  // diffing trivial (iframe/<name>.png vs shadow/<name>.png).
   const fs = await import('node:fs/promises');
-  await fs.writeFile(join(SNAPSHOT_DIR, backend, `${fixture.name}.png`), buffer);
+  await fs.writeFile(join(SNAPSHOT_DIR, `${fixture.name}.png`), buffer);
 }

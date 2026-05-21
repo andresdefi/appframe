@@ -808,22 +808,52 @@ delete), but the findings are:
   settled heap retention +10.1MB iframe / **+3.8MB shadow**. Shadow
   GCs ~2.6× more cleanly after sustained editing.
 
-### Phase 7 - Remove Iframe Active Preview Path
+### Phase 7 - Remove Iframe Active Preview Path ✅ done 2026-05-21
 
 Tasks:
 
-- Delete active preview iframe backend.
-- Delete the feature flag.
-- Collapse adapter code if the iframe branch is no longer needed for active
-  previews.
-- Keep hidden capture/export iframes.
+- Delete active preview iframe backend. ✅
+  - `packages/web-preview/src/client/utils/iframeRegistry.ts` deleted.
+  - `packages/web-preview/src/client/utils/panoramicIframeRef.ts` deleted.
+  - The `iframePreviewSurface()` factory deleted from
+    `previewSurface.ts`.
+  - ScreenCard / PanoramicPreview render only the shadow host div.
+    The iframe ref, iframe JSX branch, and registerIframe calls are
+    gone.
+- Delete the feature flag. ✅
+  `packages/web-preview/src/client/utils/previewBackendFlag.ts`
+  deleted. Both components dropped the `useShadow` conditionals.
+  `?shadow=0` no longer does anything; the URL parameter is simply
+  ignored.
+- Collapse adapter code if the iframe branch is no longer needed
+  for active previews. ✅
+  - PreviewSurface interface dropped `kind` and `boundary` (both
+    only existed to discriminate iframe from shadow).
+  - `useDragPosition` collapsed three `surface.kind === 'shadow'`
+    branches (centerX, getViewportRect, getElPos) into single
+    implementations. `surface.boundary` callsite now uses
+    `surface.host` directly.
+- Keep hidden capture/export iframes. ✅ untouched:
+  `clientExport.ts`, `captureManager.ts`,
+  `variantThumbnailCapture.ts`, `InactiveLocaleRow.tsx`,
+  `InactivePanoramicRow.tsx`. Per the audit and the §Later note
+  below, those paths benefit from full document isolation and
+  explicit dimensions + font/image readiness; they're not in scope
+  for the active-preview migration.
+
+Parity harness collapsed from dual-backend to shadow-only — 38
+tests (18 fixtures × 2 engines) replace the previous 76 (× 2
+backends). e2e/helpers.ts:waitForApp dropped the `?shadow=0` pin
+since both URLs now lead to the same path.
 
 Done when:
 
-- Active editor preview uses only shadow DOM.
-- Export, inactive locale captures, and variant thumbnail captures still use
-  their iframe flows.
-- Tests and manual smoke pass.
+- Active editor preview uses only shadow DOM. ✅
+- Export, inactive locale captures, and variant thumbnail captures
+  still use their iframe flows. ✅
+- Tests and manual smoke pass. ✅ pnpm typecheck clean, 426/426
+  unit, 38/38 parity. Server running at http://localhost:4400 with
+  shadow as the only preview path.
 
 ### Later - Export/Capture Migration, If Ever
 

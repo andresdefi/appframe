@@ -17,7 +17,25 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { browserName: 'chromium' } },
+    {
+      name: 'chromium',
+      use: {
+        browserName: 'chromium',
+        // --enable-precise-memory-info un-buckets performance.memory
+        // so the bench reads actual usedJSHeapSize. Without it, the
+        // value is rounded to coarse 100MB-ish buckets that hide
+        // small deltas (or returns 0 entirely if the page hasn't
+        // crossed an origin isolation boundary). Negligible perf
+        // cost; only consumed by the benchmark spec.
+        launchOptions: { args: ['--enable-precise-memory-info'] },
+      },
+    },
+    // WebKit (Safari's engine) is opt-in via `--project=webkit`.
+    // Default is still chromium-only so the regular pnpm test:* runs
+    // stay fast. Used by the iframe-vs-shadow benchmark in
+    // e2e/bench/preview-backend.spec.ts to validate the migration on
+    // the engine that motivated it.
+    { name: 'webkit', use: { browserName: 'webkit' } },
   ],
   // Start the preview server automatically. Reuses an existing one if a
   // dev `pnpm preview` is already running, so the harness works both

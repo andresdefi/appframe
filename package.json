@@ -18,7 +18,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:ux": "playwright test e2e/ux-audit.spec.ts --reporter=list",
-    "test:parity": "playwright test e2e/parity --reporter=list"
+    "test:parity": "playwright test e2e/parity --reporter=list",
+    "test:bench": "playwright test e2e/bench --reporter=list --project=chromium --project=webkit"
   },
   "keywords": [
     "app-store",

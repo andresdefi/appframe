@@ -716,27 +716,72 @@ Until Phase 5b lands, `?shadow=1` should not be flipped to default
 for panoramic mode. Phase 6 may proceed for individual mode only,
 keeping panoramic on iframe by default.
 
-### Phase 6 - Default Shadow DOM For Active Preview
+### Phase 6 - Default Shadow DOM For Active Preview ✅ code done 2026-05-21 (dogfooding starts)
 
 Tasks:
 
-- Flip the default to shadow DOM for active individual and panoramic previews.
-- Keep `?shadow=0` as an escape hatch.
-- Dogfood for several days, especially in Safari.
+- Flip the default to shadow DOM for active individual and panoramic
+  previews. ✅ `isShadowPreviewEnabled()` now defaults to true. Any
+  URL without `?shadow=0` runs the shadow path.
+- Keep `?shadow=0` as an escape hatch. ✅ explicit opt-out returns to
+  the iframe path. Existing e2e suite (`functional.spec.ts`,
+  `ux-audit.spec.ts`, `export.spec.ts`) navigates with `?shadow=0`
+  via `e2e/helpers.ts:waitForApp` so it keeps exercising the iframe
+  code path that's still shipped.
+- Panoramic ships behind the same default flip. ⚠️ panoramic mode
+  carries pre-existing interactive bugs in BOTH iframe and shadow
+  (drag tracking, slider patching) — not introduced by this
+  migration; not made worse by the flip. A "Beta" banner at the top
+  of the panoramic area surfaces this to users. Phase 5b will tackle
+  the shadow-specific bits when someone owns the panoramic UX work.
 
-Watch:
+Watch (dogfooding checklist):
 
-- tab-switch behavior
-- drag responsiveness
-- font fallback flashes
-- image decode timing
-- memory use on 6 to 10 screens
-- behavior with multiple locales
+- tab-switch behavior — the Safari iframe-bitmap-purge flash that
+  motivated the whole migration; shadow DOM has no nested browsing
+  context to lose its bitmap cache.
+- drag responsiveness in individual mode (already smoke-tested in
+  Phase 3 / 4 fixes).
+- font fallback flashes — first card load may briefly show fallback
+  text before `document.fonts.ready`; ensurePreviewFontsRegistered
+  is meant to make this a one-time-per-session blip.
+- image decode timing — full-res frame PNGs decoded once into a
+  parent-document image cache instead of N times per iframe.
+- memory use on 6-10 screens — one document tree instead of N
+  document trees should help; the plan doc's "optional but useful"
+  measurement.
+- behavior with multiple locales — non-default locale rows still
+  use iframes (InactiveLocaleRow is explicitly out of scope per
+  the audit); only the active row is on the shadow path.
 
 Done when:
 
-- No blocking regressions are found in real projects.
-- Safari flash is gone without relying on the Option A overlay.
+- No blocking regressions are found in real projects. ⏳ on the user
+  via dogfooding.
+- Safari flash is gone without relying on the Option A overlay. ⏳
+  same.
+
+Benchmark results (`pnpm test:bench`, 6-card project, medians of 3 runs):
+
+| Metric              | Engine   | Iframe   | Shadow   | Δ           |
+| ------------------- | -------- | -------- | -------- | ----------- |
+| First render (ms)   | Chromium | 63       | 45       | -28.6%      |
+| First render (ms)   | WebKit   | 107      | 55       | -48.6%      |
+| All rendered (ms)   | Chromium | 96       | 54       | -43.8%      |
+| All rendered (ms)   | WebKit   | 128      | 64       | -50.0%      |
+| JS heap (MB)        | Chromium | 20.1     | 12.1     | -39.8%      |
+| Distinct documents  | both     | 6        | 0        | structural  |
+| Parent DOM nodes    | both     | 191      | 192      | +0.5%       |
+
+WebKit is Safari's engine — the heavier first-render savings there
+(-48.6% vs -28.6% on Chromium) confirm the iframe-per-card was
+relatively more expensive in Safari, matching the original
+motivation. JS heap isn't measurable on WebKit (Chromium-only
+`performance.memory` API). The bench can't reproduce the
+tab-visibility bitmap-purge flash that started this migration —
+that's headless-incompatible — but the structural deltas (six
+distinct documents collapsed to zero, ~40% lower heap) are exactly
+what predicts the fix.
 
 ### Phase 7 - Remove Iframe Active Preview Path
 

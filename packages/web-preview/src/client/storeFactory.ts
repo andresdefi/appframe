@@ -114,5 +114,10 @@ export function createScreenState(
     headlineShadow: { enabled: false, offsetX: 0, offsetY: 4, blur: 8, color: '#000000', opacity: 50 },
     subtitleShadow: { enabled: false, offsetX: 0, offsetY: 4, blur: 8, color: '#000000', opacity: 50 },
     freeTextShadow: { enabled: false, offsetX: 0, offsetY: 4, blur: 8, color: '#000000', opacity: 50 },
+    // Default stacking tier — z:2 like every existing screen. Bumped
+    // to 'above-overlays' via the per-slot UI control or set_text_layer.
+    headlineLayer: 'default',
+    subtitleLayer: 'default',
+    freeTextLayer: 'default',
   };
 }

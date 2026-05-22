@@ -91,6 +91,11 @@ export function buildScreenRenderBody(
     composition: screen.composition || 'single',
     headlineGradient: screen.headlineGradient,
     subtitleGradient: screen.subtitleGradient,
+    // Per-slot stacking tier — drives the dual .text-area + visibility
+    // trick in templates/universal/base.html.
+    headlineLayer: screen.headlineLayer,
+    subtitleLayer: screen.subtitleLayer,
+    freeTextLayer: screen.freeTextLayer,
     // Only render spotlight when the enabled flag is on. Data persists
     // across disable/enable so toggling preserves the user's tuned shape.
     spotlight: screen.spotlightEnabled && screen.spotlight ? screen.spotlight : undefined,

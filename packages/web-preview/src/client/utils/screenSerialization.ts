@@ -113,6 +113,9 @@ export const STATIC_SCREEN_DEFAULTS: {
   headlineShadow: TextShadow;
   subtitleShadow: TextShadow;
   freeTextShadow: TextShadow;
+  headlineLayer: 'behind-device' | 'default' | 'above-overlays';
+  subtitleLayer: 'behind-device' | 'default' | 'above-overlays';
+  freeTextLayer: 'behind-device' | 'default' | 'above-overlays';
 } = {
   isFullscreen: false,
   layout: 'center',
@@ -177,6 +180,13 @@ export const STATIC_SCREEN_DEFAULTS: {
   headlineShadow: TEXT_SHADOW_DEFAULT,
   subtitleShadow: TEXT_SHADOW_DEFAULT,
   freeTextShadow: TEXT_SHADOW_DEFAULT,
+  // Default = z:2 (below `default`/`front` overlays). 'above-overlays'
+  // bumps the slot to z:30. See screen schema in @appframe/core and
+  // base.html for the renderer implementation (dual .text-area + the
+  // visibility:hidden trick to preserve vertical layout).
+  headlineLayer: 'default',
+  subtitleLayer: 'default',
+  freeTextLayer: 'default',
 };
 
 // Deep equality for the small shapes carried by STATIC_SCREEN_DEFAULTS

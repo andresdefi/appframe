@@ -467,7 +467,20 @@ export function ScreenCard({
       // callout
       selector = `.callout-card[data-idx="${target.idx}"]`;
     }
-    const el = surface.querySelector(selector) as HTMLElement | null;
+    // Text classes may appear twice in the DOM thanks to per-slot
+    // layer rendering — pick the visible copy. Non-text targets stay
+    // on plain querySelector since there's only one of each.
+    const findVisibleText = (sel: string): HTMLElement | null => {
+      const nodes = surface.querySelectorAll<HTMLElement>(sel);
+      for (const node of Array.from(nodes)) {
+        const cs = surface.getComputedStyle(node);
+        if (cs.visibility !== 'hidden') return node;
+      }
+      return nodes[0] ?? null;
+    };
+    const el = target.kind === 'text'
+      ? findVisibleText(selector)
+      : (surface.querySelector(selector) as HTMLElement | null);
     if (!el) {
       setGuidesIfChanged({ horizontal: false, vertical: false });
       return;
@@ -503,15 +516,29 @@ export function ScreenCard({
       return;
     }
     const trio: Array<{ key: string; cx: number; cy: number; isSelf: boolean }> = [];
+    // Find the VISIBLE copy when a text class may appear twice in the
+    // DOM (per-slot layer rendering — see headlineLayer on
+    // screenConfigSchema). visibility:hidden duplicates exist solely to
+    // preserve vertical layout in the inactive .text-area; the drag
+    // code should always read the visible one.
+    const findVisible = (sel: string): HTMLElement | null => {
+      const nodes = surface.querySelectorAll<HTMLElement>(sel);
+      for (const node of Array.from(nodes)) {
+        const cs = surface.getComputedStyle(node);
+        if (cs.visibility !== 'hidden') return node;
+      }
+      return nodes[0] ?? null;
+    };
     const collect = (sel: string, isSelf: boolean) => {
-      const node = surface.querySelector(sel) as HTMLElement | null;
+      const isTextSel = sel === '.headline' || sel === '.subtitle' || sel === '.free-text';
+      const node = isTextSel ? findVisible(sel) : (surface.querySelector(sel) as HTMLElement | null);
       if (!node) return;
       // Text nodes only have a meaningful centre once dragged to
       // position:fixed (or after the user has dropped them, when
       // they're absolute-positioned). Skip if neither: a flex-
       // block text spans the whole text area and its centre would
       // be misleading.
-      if ((sel === '.headline' || sel === '.subtitle' || sel === '.free-text')) {
+      if (isTextSel) {
         const cs = surface.getComputedStyle(node).position;
         if (cs !== 'fixed' && cs !== 'absolute') return;
       }
@@ -596,10 +623,14 @@ export function ScreenCard({
     const selectors = ['.device-wrapper', '.headline', '.subtitle', '.free-text'];
     let attached = 0;
     for (const selector of selectors) {
-      const el = surface.querySelector(selector) as HTMLElement | null;
-      if (!el) continue;
-      observer.observe(el, { attributes: true, attributeFilter: ['style'] });
-      attached++;
+      // Observe ALL matches because per-slot text layering renders each
+      // text slot in two .text-area containers. Either copy mutating
+      // (e.g. drag moves the visible one) should trigger the guides.
+      const matches = surface.querySelectorAll<HTMLElement>(selector);
+      for (const el of Array.from(matches)) {
+        observer.observe(el, { attributes: true, attributeFilter: ['style'] });
+        attached++;
+      }
     }
     // Annotations and overlays (elements) are dynamic — observe every shape
     // that exists in the current render. The guide check filters by

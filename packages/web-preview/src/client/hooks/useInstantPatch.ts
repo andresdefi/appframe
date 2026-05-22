@@ -252,8 +252,13 @@ export function useInstantPatch() {
         el.style.transform = parts.length > 0 ? parts.join(' ') : '';
       };
 
-      const headline = s.querySelector('.headline') as HTMLElement | null;
-      if (headline) {
+      // querySelectorAll because per-slot text-layer rendering may
+      // duplicate the slot across two .text-area containers (visible +
+      // visibility:hidden) to keep vertical layout stable. Patching
+      // every match keeps both copies in sync so the next full render
+      // doesn't visibly snap.
+      const headlines = s.querySelectorAll<HTMLElement>('.headline');
+      headlines.forEach((headline) => {
         if (partial.headlineSize !== undefined) {
           headline.style.fontSize = `${Math.round(partial.headlineSize * scaleFactor)}px`;
         }
@@ -276,10 +281,10 @@ export function useInstantPatch() {
           // property when the user toggles shadow off.
           headline.style.textShadow = buildTextShadowCss(partial.headlineShadow) ?? '';
         }
-      }
+      });
 
-      const subtitle = s.querySelector('.subtitle') as HTMLElement | null;
-      if (subtitle) {
+      const subtitles = s.querySelectorAll<HTMLElement>('.subtitle');
+      subtitles.forEach((subtitle) => {
         if (partial.subtitleSize !== undefined) {
           subtitle.style.fontSize = `${Math.round(partial.subtitleSize * scaleFactor)}px`;
         }
@@ -295,10 +300,10 @@ export function useInstantPatch() {
         if (partial.subtitleShadow !== undefined) {
           subtitle.style.textShadow = buildTextShadowCss(partial.subtitleShadow) ?? '';
         }
-      }
+      });
 
-      const freeText = s.querySelector('.free-text') as HTMLElement | null;
-      if (freeText) {
+      const freeTexts = s.querySelectorAll<HTMLElement>('.free-text');
+      freeTexts.forEach((freeText) => {
         if (partial.freeTextSize !== undefined) {
           freeText.style.fontSize = `${Math.round(partial.freeTextSize * scaleFactor)}px`;
         }
@@ -314,7 +319,7 @@ export function useInstantPatch() {
         if (partial.freeTextShadow !== undefined) {
           freeText.style.textShadow = buildTextShadowCss(partial.freeTextShadow) ?? '';
         }
-      }
+      });
     },
     [getSurface, previewW],
   );

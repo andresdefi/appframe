@@ -135,6 +135,16 @@ const FONT_STYLE_OPTIONS = [
   { value: 'italic', label: 'Italic' },
 ];
 
+// Layer choices match `headlineLayer` / `subtitleLayer` / `freeTextLayer`
+// on ScreenState. The renderer translates each value to a z-index tier
+// (see packages/core/templates/universal/base.html for the dual/tri
+// .text-area + visibility:hidden trick).
+const LAYER_OPTIONS = [
+  { value: 'behind-device', label: 'Behind device frames' },
+  { value: 'default', label: 'Above device frames' },
+  { value: 'above-overlays', label: 'Above all overlays' },
+];
+
 export function TextTab() {
   const { screen, update } = useCurrentScreen();
   const activeLocale = usePreviewStore((s) => s.locale);
@@ -253,6 +263,14 @@ export function TextTab() {
               />
             </div>
           </div>
+          <Select
+            label="Layer"
+            value={screen.headlineLayer}
+            onChange={(v) =>
+              update({ headlineLayer: v as 'behind-device' | 'default' | 'above-overlays' })
+            }
+            options={LAYER_OPTIONS}
+          />
           <TextShadowControls
             shadow={screen.headlineShadow}
             onChange={(next) => update({ headlineShadow: next })}
@@ -340,6 +358,14 @@ export function TextTab() {
               onChange={(v) => update({ subtitleTextTransform: v })}
               options={TEXT_TRANSFORM_OPTIONS}
             />
+            <Select
+              label="Layer"
+              value={screen.subtitleLayer}
+              onChange={(v) =>
+                update({ subtitleLayer: v as 'behind-device' | 'default' | 'above-overlays' })
+              }
+              options={LAYER_OPTIONS}
+            />
             <TextShadowControls
               shadow={screen.subtitleShadow}
               onChange={(next) => update({ subtitleShadow: next })}
@@ -425,6 +451,14 @@ export function TextTab() {
                 value={screen.freeTextTextTransform}
                 onChange={(v) => update({ freeTextTextTransform: v })}
                 options={TEXT_TRANSFORM_OPTIONS}
+              />
+              <Select
+                label="Layer"
+                value={screen.freeTextLayer}
+                onChange={(v) =>
+                  update({ freeTextLayer: v as 'behind-device' | 'default' | 'above-overlays' })
+                }
+                options={LAYER_OPTIONS}
               />
               <TextShadowControls
                 shadow={screen.freeTextShadow}

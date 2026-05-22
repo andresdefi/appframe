@@ -1337,7 +1337,21 @@ export const screenTools: ToolDefinition[] = [
 function formatScreenDescription(screen: Record<string, unknown>, index: number): string {
   const lines: string[] = [`Screen ${index}`];
 
-  const stripTags = (s: string): string => s.replace(/<[^>]+>/g, '').trim();
+  // Strip HTML tags. Iterates until the result is stable because a
+  // single-pass regex can be bypassed by nested constructs like
+  // `<<script>script>` (the outer `<script>` strips, leaving an inner
+  // `<script>`). Output here is a plain-text description for the
+  // agent (not rendered HTML), so the practical risk is low, but
+  // CodeQL flags single-pass tag-strippers regardless.
+  const stripTags = (s: string): string => {
+    let prev = s;
+    let next = prev.replace(/<[^>]*>/g, '');
+    while (next !== prev) {
+      prev = next;
+      next = next.replace(/<[^>]*>/g, '');
+    }
+    return next.trim();
+  };
   const truncate = (s: string, max: number): string =>
     s.length > max ? s.slice(0, max - 1) + '…' : s;
 

@@ -579,6 +579,25 @@ export const screenConfigSchema = z.object({
   freeTextRotation: z.number().min(-30).max(30).optional(),
   freeTextLetterSpacing: z.string().optional(),
   freeTextTextTransform: z.enum(['', 'none', 'uppercase', 'lowercase', 'capitalize']).optional(),
+  // Per-slot stacking tier. "default" sits at z:2 — below `default` and
+  // `front` overlays. "above-overlays" sits at z:30 — above every
+  // overlay layer including `front`. Renderer implements this with two
+  // .text-area divs at different z-indexes; the inactive slot stays in
+  // its other text-area as visibility:hidden so the visible slot's
+  // vertical position is preserved (text wraps around it as if all
+  // three slots were in one container).
+  headlineLayer: z
+    .enum(['behind-device', 'default', 'above-overlays'])
+    .optional()
+    .describe('Stacking tier for the headline. "behind-device" (z:0) sits under the device frame; "default" (z:2) sits above the device but below `default`/`front` overlays; "above-overlays" (z:30) sits above every overlay.'),
+  subtitleLayer: z
+    .enum(['behind-device', 'default', 'above-overlays'])
+    .optional()
+    .describe('Stacking tier for the subtitle. See headlineLayer.'),
+  freeTextLayer: z
+    .enum(['behind-device', 'default', 'above-overlays'])
+    .optional()
+    .describe('Stacking tier for the free text. See headlineLayer.'),
 });
 
 // --- Locale section ---

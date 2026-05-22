@@ -211,11 +211,39 @@
 
     .text-area {
       position: absolute;
-      z-index: 2;
+      /* z:100 — well above every device frame (presets reserve 1-3;
+         the planned custom-frame feature can use up to ~99) and above
+         the spotlight dim mask (z:5) so informative copy stays
+         legible. Below the decorative overlay tiers (`default` z:200,
+         `front` z:300) so badges/icons can still sit on top of text
+         when the user wants them to. The two siblings .text-area-back
+         (z:0) and .text-area-front (z:1000) handle the per-slot
+         behind-device / above-overlays cases — see the per-slot
+         layer block below. */
+      z-index: 100;
       top: {{ (canvasHeight * presetTextAreaTop) | round }}px;
       left: {{ (canvasWidth * presetTextAreaPadding) | round }}px;
       right: {{ (canvasWidth * presetTextAreaPadding) | round }}px;
       text-align: center;
+    }
+
+    /* "above-overlays" tier — used by the optional .text-area-front
+       sibling rendered when any text slot has layer == 'above-overlays'.
+       Overlays max out at z:300 (`front` layer in _base/overlays.html),
+       so 1000 puts text safely above with room for future tiers. */
+    .text-area-front {
+      z-index: 1000;
+    }
+
+    /* "behind-device" tier — used by the optional .text-area-back
+       sibling rendered when any text slot has layer == 'behind-device'.
+       Sits at z:0 — below the device wrapper (z:1) so the device frame
+       partially occludes the text. The canvas background still sits
+       below this (no z-index on the canvas root), so behind-device text
+       paints on top of solid/gradient backgrounds but behind the
+       device. */
+    .text-area-back {
+      z-index: 0;
     }
 
     .headline {
@@ -344,17 +372,51 @@
     {% if style == 'branded' %}<div class="bg-circle bg-circle-2"></div>{% endif %}
     {% endif %}
 
-    <div class="text-area">
-      {# Headline and subtitle render as HTML (rich text from Tiptap) via
-         | safe. Old plain-text values are still safe — they contain no
-         tags. Tiptap's schema-validated output is the only source of
-         HTML; paste from outside is normalized by Tiptap before reaching
-         the state. === #}
-      <div class="headline">{{ headline | sanitizeRichHtml | safe }}</div>
-      {% if presetBgEffect == 'divider' %}<div class="divider"></div>{% endif %}
-      {% if subtitle %}<div class="subtitle">{{ subtitle | sanitizeRichHtml | safe }}</div>{% endif %}
-      {% if freeTextEnabled and freeText %}<div class="free-text">{{ freeText | sanitizeRichHtml | safe }}</div>{% endif %}
+    {# === Per-slot text layering ===
+       Each text slot can sit at one of three tiers:
+        - 'behind-device' → z:0 (inside .text-area-back) — under the
+          device frame so the frame partially occludes the text.
+        - 'default' → z:2 (inside the standard .text-area, below
+          `default` and `front` overlays, above the device).
+        - 'above-overlays' → z:30 (inside .text-area-front) — painted
+          above every overlay including `front`.
+       To keep all three slots vertically aligned regardless of which
+       tier each lives at, we render every text-area container (when
+       any slot uses that tier) and toggle visibility:hidden on the
+       inactive copies. Hidden copies still take layout space so the
+       visible siblings stack as if all three lived in one container.
+       See `headlineLayer` / `subtitleLayer` / `freeTextLayer` on
+       screenConfigSchema for the field surface.
+       Headline and subtitle render as HTML (rich text from Tiptap)
+       via | safe. Old plain-text values are still safe — they contain
+       no tags. Tiptap's schema-validated output is the only source of
+       HTML; paste from outside is normalized by Tiptap before reaching
+       the state. #}
+    {% set hLayer = headlineLayer or 'default' %}
+    {% set sLayer = subtitleLayer or 'default' %}
+    {% set fLayer = freeTextLayer or 'default' %}
+    {% set anyBack = hLayer == 'behind-device' or sLayer == 'behind-device' or fLayer == 'behind-device' %}
+    {% set anyFront = hLayer == 'above-overlays' or sLayer == 'above-overlays' or fLayer == 'above-overlays' %}
+    {% if anyBack %}
+    <div class="text-area text-area-back">
+      <div class="headline"{% if hLayer != 'behind-device' %} style="visibility: hidden;"{% endif %}>{{ headline | sanitizeRichHtml | safe }}</div>
+      {% if subtitle %}<div class="subtitle"{% if sLayer != 'behind-device' %} style="visibility: hidden;"{% endif %}>{{ subtitle | sanitizeRichHtml | safe }}</div>{% endif %}
+      {% if freeTextEnabled and freeText %}<div class="free-text"{% if fLayer != 'behind-device' %} style="visibility: hidden;"{% endif %}>{{ freeText | sanitizeRichHtml | safe }}</div>{% endif %}
     </div>
+    {% endif %}
+    <div class="text-area">
+      <div class="headline"{% if hLayer != 'default' %} style="visibility: hidden;"{% endif %}>{{ headline | sanitizeRichHtml | safe }}</div>
+      {% if presetBgEffect == 'divider' %}<div class="divider"></div>{% endif %}
+      {% if subtitle %}<div class="subtitle"{% if sLayer != 'default' %} style="visibility: hidden;"{% endif %}>{{ subtitle | sanitizeRichHtml | safe }}</div>{% endif %}
+      {% if freeTextEnabled and freeText %}<div class="free-text"{% if fLayer != 'default' %} style="visibility: hidden;"{% endif %}>{{ freeText | sanitizeRichHtml | safe }}</div>{% endif %}
+    </div>
+    {% if anyFront %}
+    <div class="text-area text-area-front">
+      <div class="headline"{% if hLayer != 'above-overlays' %} style="visibility: hidden;"{% endif %}>{{ headline | sanitizeRichHtml | safe }}</div>
+      {% if subtitle %}<div class="subtitle"{% if sLayer != 'above-overlays' %} style="visibility: hidden;"{% endif %}>{{ subtitle | sanitizeRichHtml | safe }}</div>{% endif %}
+      {% if freeTextEnabled and freeText %}<div class="free-text"{% if fLayer != 'above-overlays' %} style="visibility: hidden;"{% endif %}>{{ freeText | sanitizeRichHtml | safe }}</div>{% endif %}
+    </div>
+    {% endif %}
     {% if composition and composition != 'single' and devices %}
       {% include "_base/composition-devices.html" %}
     {% else %}

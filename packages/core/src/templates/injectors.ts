@@ -75,6 +75,19 @@ function buildSpotlightPieces(spotlight: SpotlightParams): EffectPieces {
       : `${borderRadius && borderRadius > 0 ? borderRadius : 0}px`;
 
   const style = `<style>
+/* Stacking ladder, top to bottom:
+     text-area-front (z:1000)
+     overlay 'front'        (z:300)
+     overlay 'default'      (z:200)
+     callout-card           (z:200)
+     annotation-overlay     (z:110)
+     text-area (default text) (z:100)
+     spotlight-overlay      (z:5)   -- stays below text so dim doesn't obscure copy
+     composition / device wrappers (z:1-3, room up to ~99 for future device-frame feature)
+     overlay 'behind-text'  (z:1)
+     overlay 'behind-device'(z:0)
+     text-area-back (behind-device text) (z:0)
+     canvas background      (z:0) */
 .spotlight-overlay { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
 .spotlight-cutout {
   position: absolute;
@@ -100,7 +113,7 @@ function buildAnnotationsPieces(annotations: AnnotationParams[], canvasWidth: nu
   const roundedRadius = Math.round(canvasWidth * 0.02);
 
   const style = `<style>
-.annotation-overlay { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+.annotation-overlay { position: absolute; inset: 0; z-index: 110; pointer-events: none; }
 .annotation-shape { position: absolute; box-sizing: border-box; pointer-events: auto; cursor: move; }
 </style>`;
 
@@ -141,7 +154,7 @@ function buildAnnotationsPieces(annotations: AnnotationParams[], canvasWidth: nu
 
 function buildOverlaysPieces(overlays: OverlayParams[], canvasWidth: number, canvasHeight: number): EffectPieces {
   const style = `<style>
-.overlay-item { position: absolute; z-index: 10; pointer-events: none; }
+.overlay-item { position: absolute; z-index: 200; pointer-events: none; }
 </style>`;
 
   const items = overlays.map((ov) => {
@@ -172,7 +185,7 @@ function buildOverlaysPieces(overlays: OverlayParams[], canvasWidth: number, can
     return `<div class="overlay-item" style="left:${ovX}px;top:${ovY}px;width:${ovSize}px;height:${ovSize}px;transform:rotate(${ov.rotation}deg);opacity:${ov.opacity};">${inner}</div>`;
   }).join('\n');
 
-  const body = `<div style="position:absolute;inset:0;z-index:10;pointer-events:none;">${items}</div>`;
+  const body = `<div style="position:absolute;inset:0;z-index:200;pointer-events:none;">${items}</div>`;
   return { style, body };
 }
 

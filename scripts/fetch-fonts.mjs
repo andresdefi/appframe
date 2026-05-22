@@ -46,6 +46,19 @@ const CATALOG = [
   { id: 'rubik-doodle-shadow', weights: [400], italicWeights: [] },
   { id: 'press-start-2p', weights: [400], italicWeights: [] },
   { id: 'staatliches', weights: [400], italicWeights: [] },
+  // === 2026-05 catalog expansion: OFL/MIT-licensed fonts that fill gaps
+  //   in the marketing/store-screenshot toolkit. Each replaces the vibe
+  //   of a paid commercial font we can't redistribute:
+  //     - bricolage-grotesque → Migra (variable display with italic)
+  //     - geist-sans → Söhne (Vercel's open sans, MIT-licensed)
+  //     - crimson-pro → Editorial New (modern serif for editorial copy)
+  //     - big-shoulders-display → Druk (super-condensed heavy display)
+  //     - outfit → modern heavy geometric sans for marketing headlines
+  { id: 'bricolage-grotesque', weights: [400, 500, 600, 700, 800], italicWeights: [] },
+  { id: 'geist-sans', weights: [300, 400, 500, 600, 700, 900], italicWeights: [] },
+  { id: 'crimson-pro', weights: [400, 500, 600, 700, 800], italicWeights: [400, 600, 700] },
+  { id: 'big-shoulders-display', weights: [400, 600, 700, 800, 900], italicWeights: [] },
+  { id: 'outfit', weights: [400, 500, 600, 700, 800, 900], italicWeights: [] },
 ];
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -134,8 +147,10 @@ async function main() {
     await fetchFontsourceFont(entry);
   }
 
-  process.stdout.write(`\n=== hubot-sans (from github/hubot-sans) ===\n`);
-  await fetchHubotSans();
+  // hubot-sans isn't in the catalog anymore and the GitHub webfonts/
+  // path 404s as of 2026-05 (upstream restructured). Leaving the
+  // function definition in place for posterity but skipping the call.
+  void fetchHubotSans;
 }
 
 main().catch((err) => {

@@ -190,6 +190,38 @@ export const FONT_CATALOG: FontInfo[] = [
     category: 'display',
     description: 'Stencil condensed caps. Badge / sticker register.',
   },
+  // 2026-05 catalog expansion. Each fills a gap left by commercial
+  // fonts we can't redistribute (Migra, Söhne, Editorial New, Druk).
+  {
+    id: 'bricolage-grotesque', name: 'Bricolage Grotesque',
+    weights: [400, 500, 600, 700, 800], italicWeights: [],
+    category: 'display',
+    description: 'Variable display grotesque. Modern, slightly playful, distinctive.',
+  },
+  {
+    id: 'geist-sans', name: 'Geist',
+    weights: [300, 400, 500, 600, 700, 900], italicWeights: [],
+    category: 'sans-serif',
+    description: "Vercel's open-source sans. Crisp, neutral, tech-product feel.",
+  },
+  {
+    id: 'crimson-pro', name: 'Crimson Pro',
+    weights: [400, 500, 600, 700, 800], italicWeights: [400, 600, 700],
+    category: 'serif',
+    description: 'Modern serif designed for screens. Editorial gravitas.',
+  },
+  {
+    id: 'big-shoulders-display', name: 'Big Shoulders Display',
+    weights: [400, 600, 700, 800, 900], italicWeights: [],
+    category: 'condensed',
+    description: 'Super-condensed display. Tall, heavy, billboard-ready.',
+  },
+  {
+    id: 'outfit', name: 'Outfit',
+    weights: [400, 500, 600, 700, 800, 900], italicWeights: [],
+    category: 'sans-serif',
+    description: 'Geometric sans with heavy weights. Marketing-headline staple.',
+  },
 ];
 
 const FONT_NAME_MAP: Record<string, string> = Object.fromEntries(

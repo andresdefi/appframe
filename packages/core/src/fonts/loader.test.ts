@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { FONT_CATALOG, getFontName, loadFontFaces } from './loader.js';
 
 describe('FONT_CATALOG', () => {
-  it('contains the curated 26 entries', () => {
-    expect(FONT_CATALOG.length).toBe(26);
+  it('contains the curated 31 entries', () => {
+    expect(FONT_CATALOG.length).toBe(31);
   });
 
   it('every entry has valid structure', () => {

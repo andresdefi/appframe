@@ -1,0 +1,47 @@
+# CodeQL static analysis. Catches a curated set of security
+# vulnerabilities (path traversal, prototype pollution, regex DoS,
+# unsafe deserialization, hardcoded credentials, XSS in HTML output,
+# ...) on every push to main and every PR targeting main.
+#
+# Findings show up in the repo's Security -> Code scanning tab. This
+# workflow uses only fixed matrix values; no untrusted event payloads
+# flow into run: commands, so no command-injection surface.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Weekly scheduled run catches new advisories that match existing code.
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3

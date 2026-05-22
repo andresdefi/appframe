@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { COMPOSITION_PRESETS } from '@appframe/core';
 import type { AppframeClient } from '../client.js';
 import type { ContentResult, ToolDefinition } from './types.js';
@@ -121,6 +122,135 @@ export const screenTools: ToolDefinition[] = [
   },
   {
     descriptor: {
+      name: 'render_preview_grid',
+      description:
+        'Like `render_preview` but composites every requested screen ' +
+        'into a SINGLE image (rows x columns). Returns one image content ' +
+        'block instead of N. Useful when the agent wants to see the full ' +
+        'set at a glance without burning N images worth of context. The ' +
+        'composite is ordered left-to-right, top-to-bottom matching the ' +
+        'screen order in the project.\n' +
+        '\n' +
+        '`columns` (optional, default 3) controls the grid width. ' +
+        '`screenWidth` (optional, default 400) is the per-screen render ' +
+        'width; total composite width is `columns * screenWidth + ' +
+        'padding`. `indices` (optional) renders a subset; without it, ' +
+        'all screens are rendered.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          indices: {
+            type: 'array',
+            items: { type: 'integer', minimum: 0 },
+            minItems: 1,
+          },
+          locale: { type: 'string', minLength: 1 },
+          columns: { type: 'integer', minimum: 1, maximum: 6 },
+          screenWidth: { type: 'integer', minimum: 100, maximum: 2000 },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'render_preview_grid');
+      const slug = requireSlug(a);
+      const { indices, locale, columns, screenWidth } = a;
+      const cols = typeof columns === 'number' ? columns : 3;
+      const width = typeof screenWidth === 'number' ? screenWidth : 400;
+      const PAD = 16; // pixels between cells
+
+      let targets: number[];
+      if (Array.isArray(indices)) {
+        for (const i of indices) {
+          if (typeof i !== 'number' || !Number.isInteger(i) || i < 0) {
+            throw new Error('`indices` must be an array of non-negative integers');
+          }
+        }
+        targets = indices;
+      } else {
+        const project = await client.getProject();
+        targets = project.screens.map((_, i) => i);
+      }
+
+      // Render every cell in parallel up to the iframe-pool concurrency.
+      // Same worker pattern as render_preview — order of pngBuffers
+      // matches `targets`.
+      const RENDER_CONCURRENCY = 3;
+      const pngBuffers: (Buffer | undefined)[] = new Array(targets.length).fill(undefined);
+      let cursor = 0;
+      async function worker(): Promise<void> {
+        while (true) {
+          const slot = cursor++;
+          if (slot >= targets.length) return;
+          const target = targets[slot]!;
+          const result = await client.renderPreview({
+            slug,
+            index: target,
+            locale: typeof locale === 'string' ? locale : undefined,
+            width,
+          });
+          const comma = result.dataUrl.indexOf(',');
+          pngBuffers[slot] = Buffer.from(result.dataUrl.slice(comma + 1), 'base64');
+        }
+      }
+      const workers = Array.from(
+        { length: Math.min(RENDER_CONCURRENCY, targets.length) },
+        () => worker(),
+      );
+      await Promise.all(workers);
+
+      // Measure the first cell to determine height. All cells should
+      // render to the same canvas height since they share the platform
+      // aspect ratio, but read each one's actual height to be safe.
+      const cellMetas = await Promise.all(
+        pngBuffers.map(async (buf) => {
+          if (!buf) throw new Error('render returned empty buffer');
+          const { width: w, height: h } = await sharp(buf).metadata();
+          return { buf, width: w ?? width, height: h ?? width };
+        }),
+      );
+      const cellHeight = Math.max(...cellMetas.map((m) => m.height));
+      const rows = Math.ceil(targets.length / cols);
+      const compositeWidth = cols * width + (cols + 1) * PAD;
+      const compositeHeight = rows * cellHeight + (rows + 1) * PAD;
+
+      const overlays = cellMetas.map((meta, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        return {
+          input: meta.buf,
+          top: PAD + row * (cellHeight + PAD),
+          left: PAD + col * (width + PAD),
+        };
+      });
+
+      const composite = await sharp({
+        create: {
+          width: compositeWidth,
+          height: compositeHeight,
+          channels: 4,
+          background: { r: 240, g: 240, b: 240, alpha: 1 },
+        },
+      })
+        .composite(overlays)
+        .png()
+        .toBuffer();
+
+      return {
+        content: [
+          {
+            type: 'image' as const,
+            mimeType: 'image/png',
+            data: composite.toString('base64'),
+          },
+        ],
+      };
+    },
+  },
+  {
+    descriptor: {
       name: 'get_screen',
       description:
         'Read one screen from the on-disk project envelope by index. ' +
@@ -145,6 +275,108 @@ export const screenTools: ToolDefinition[] = [
       const index = requireIndex(a);
       const screen = await readScreen(client, slug, index);
       return jsonContent(screen);
+    },
+  },
+  {
+    descriptor: {
+      name: 'inspect_fonts',
+      description:
+        'Report which fonts a screen actually resolves to. For each ' +
+        'text slot (headline / subtitle / freeText), returns the ' +
+        'requested font id, the resolved id (after theme-level ' +
+        'fallback), the human-readable name, and whether the id is ' +
+        'present in the font catalog. Use after `render_preview` if ' +
+        'you suspect a font fallback — e.g. if your headline was meant ' +
+        "to be Anton but the glyphs don't look condensed.\n" +
+        '\n' +
+        'Note: this checks the REQUESTED font chain, not the actual ' +
+        'browser-rendered glyphs. If your requested font is in the ' +
+        'catalog but the rendered glyphs look wrong, that points to a ' +
+        'real renderer bug — file an issue.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug', 'index'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          index: { type: 'integer', minimum: 0 },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'inspect_fonts');
+      const slug = requireSlug(a);
+      const index = requireIndex(a);
+      const screen = await readScreen(client, slug, index);
+      const fonts = await client.listFonts();
+      const catalog = new Map<string, { id: string; name: string }>();
+      for (const f of fonts) {
+        if (isRecord(f) && typeof f.id === 'string' && typeof f.name === 'string') {
+          catalog.set(f.id, { id: f.id, name: f.name });
+        }
+      }
+
+      const resolveSlot = (
+        requested: unknown,
+      ): {
+        requested: string | null;
+        resolved: string;
+        name: string;
+        inCatalog: boolean;
+      } => {
+        const req = typeof requested === 'string' ? requested : null;
+        // Theme-level fallback chain matches what the engine does
+        // (route preview.ts builds the same context). Without an
+        // explicit per-element font, the engine uses context.font
+        // which defaults to 'inter'.
+        const resolved = req ?? 'inter';
+        const entry = catalog.get(resolved);
+        return {
+          requested: req,
+          resolved,
+          name: entry?.name ?? resolved,
+          inCatalog: entry !== undefined,
+        };
+      };
+
+      return jsonContent({
+        screen: index,
+        headline: resolveSlot(screen.headlineFont),
+        subtitle: resolveSlot(screen.subtitleFont),
+        freeText: screen.freeTextEnabled === true
+          ? resolveSlot(screen.freeTextFont)
+          : { skipped: 'freeText not enabled on this screen' },
+      });
+    },
+  },
+  {
+    descriptor: {
+      name: 'describe_screen',
+      description:
+        'Natural-language summary of one screen — what fonts, what ' +
+        'composition, what effects, what device frame, what background. ' +
+        'Cheaper for an agent to reason about than parsing the full ' +
+        'editor-state JSON returned by `get_screen`. Use this when you ' +
+        'want to ask "what does screen N look like" without inspecting ' +
+        'every field. The summary intentionally drops empty / default-' +
+        'valued fields so the signal-to-noise ratio stays high.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug', 'index'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          index: { type: 'integer', minimum: 0 },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'describe_screen');
+      const slug = requireSlug(a);
+      const index = requireIndex(a);
+      const screen = await readScreen(client, slug, index);
+      const description = formatScreenDescription(screen, index);
+      return { content: [{ type: 'text', text: description }] };
     },
   },
   {
@@ -1096,6 +1328,121 @@ export const screenTools: ToolDefinition[] = [
     },
   },
 ];
+
+// Natural-language summary for `describe_screen`. Reads defensively
+// against the rich editor-state shape — every field is optional. Lines
+// for default-valued sections are dropped so the agent sees signal
+// over noise; the goal is "what's distinctive about THIS screen", not
+// a JSON dump.
+function formatScreenDescription(screen: Record<string, unknown>, index: number): string {
+  const lines: string[] = [`Screen ${index}`];
+
+  const stripTags = (s: string): string => s.replace(/<[^>]+>/g, '').trim();
+  const truncate = (s: string, max: number): string =>
+    s.length > max ? s.slice(0, max - 1) + '…' : s;
+
+  const headline = typeof screen.headline === 'string' ? stripTags(screen.headline) : '';
+  if (headline) {
+    const font = typeof screen.headlineFont === 'string' ? screen.headlineFont : '(theme default)';
+    const sizeBits: string[] = [];
+    if (typeof screen.headlineSize === 'number') sizeBits.push(`${screen.headlineSize}px`);
+    if (typeof screen.headlineFontWeight === 'number') sizeBits.push(`weight ${screen.headlineFontWeight}`);
+    if (typeof screen.headlineRotation === 'number' && screen.headlineRotation !== 0) {
+      sizeBits.push(`${screen.headlineRotation}° rotation`);
+    }
+    const tail = sizeBits.length > 0 ? ` (${sizeBits.join(', ')})` : '';
+    lines.push(`  Headline: "${truncate(headline, 80)}" — ${font}${tail}`);
+    if (isRecord(screen.headlineGradient)) {
+      const colors = Array.isArray(screen.headlineGradient.colors)
+        ? screen.headlineGradient.colors.join(' → ')
+        : '';
+      if (colors) lines.push(`    gradient: ${colors}`);
+    }
+    if (isRecord(screen.headlineShadow) && screen.headlineShadow.enabled === true) {
+      lines.push(`    shadow enabled`);
+    }
+  }
+
+  const subtitle = typeof screen.subtitle === 'string' ? stripTags(screen.subtitle) : '';
+  if (subtitle) {
+    const font = typeof screen.subtitleFont === 'string' ? screen.subtitleFont : '(theme default)';
+    lines.push(`  Subtitle: "${truncate(subtitle, 80)}" — ${font}`);
+  }
+
+  const freeText = typeof screen.freeText === 'string' ? stripTags(screen.freeText) : '';
+  if (screen.freeTextEnabled === true && freeText) {
+    const font = typeof screen.freeTextFont === 'string' ? screen.freeTextFont : '(theme default)';
+    lines.push(`  Free text: "${truncate(freeText, 80)}" — ${font}`);
+  }
+
+  const layer = (field: 'headlineLayer' | 'subtitleLayer' | 'freeTextLayer'): string | null => {
+    const v = screen[field];
+    if (typeof v === 'string' && v !== 'default') return v;
+    return null;
+  };
+  const layerNotes: string[] = [];
+  for (const f of ['headlineLayer', 'subtitleLayer', 'freeTextLayer'] as const) {
+    const v = layer(f);
+    if (v) layerNotes.push(`${f.replace('Layer', '')}: ${v}`);
+  }
+  if (layerNotes.length > 0) lines.push(`  Text layers: ${layerNotes.join(', ')}`);
+
+  const composition = typeof screen.composition === 'string' ? screen.composition : 'single';
+  const frameId = typeof screen.frameId === 'string' ? screen.frameId : '(unset)';
+  const deviceBits = [`composition: ${composition}`, `frame: ${frameId}`];
+  if (typeof screen.deviceTop === 'number' && screen.deviceTop !== 0) {
+    deviceBits.push(`top: ${screen.deviceTop}%`);
+  }
+  if (typeof screen.deviceScale === 'number' && screen.deviceScale !== 100) {
+    deviceBits.push(`scale: ${screen.deviceScale}%`);
+  }
+  if (typeof screen.deviceRotation === 'number' && screen.deviceRotation !== 0) {
+    deviceBits.push(`rotation: ${screen.deviceRotation}°`);
+  }
+  lines.push(`  Device: ${deviceBits.join(', ')}`);
+
+  const bgType = typeof screen.backgroundType === 'string' ? screen.backgroundType : 'preset';
+  const bgBits = [bgType];
+  if (bgType === 'solid' && typeof screen.backgroundColor === 'string') {
+    bgBits.push(screen.backgroundColor);
+  }
+  if (bgType === 'gradient' && isRecord(screen.backgroundGradient)) {
+    const colors = Array.isArray(screen.backgroundGradient.colors)
+      ? screen.backgroundGradient.colors.join(' → ')
+      : '';
+    if (colors) bgBits.push(colors);
+  }
+  if (bgType === 'image') {
+    bgBits.push('uploaded image');
+  }
+  lines.push(`  Background: ${bgBits.join(' — ')}`);
+
+  const screenshot = typeof screen.screenshotName === 'string' ? screen.screenshotName : null;
+  if (screenshot) lines.push(`  Screenshot: ${screenshot}`);
+
+  const effects: string[] = [];
+  if (screen.spotlightEnabled === true) effects.push('spotlight');
+  if (screen.loupeEnabled === true) effects.push('loupe');
+  if (isRecord(screen.borderSimulation) && screen.borderSimulation.enabled === true) {
+    effects.push('border simulation');
+  }
+  if (isRecord(screen.deviceShadow)) effects.push('device shadow');
+  if (effects.length > 0) lines.push(`  Effects: ${effects.join(', ')}`);
+
+  const counts: string[] = [];
+  if (Array.isArray(screen.callouts) && screen.callouts.length > 0) {
+    counts.push(`${screen.callouts.length} callout${screen.callouts.length === 1 ? '' : 's'}`);
+  }
+  if (Array.isArray(screen.annotations) && screen.annotations.length > 0) {
+    counts.push(`${screen.annotations.length} annotation${screen.annotations.length === 1 ? '' : 's'}`);
+  }
+  if (Array.isArray(screen.overlays) && screen.overlays.length > 0) {
+    counts.push(`${screen.overlays.length} overlay${screen.overlays.length === 1 ? '' : 's'}`);
+  }
+  if (counts.length > 0) lines.push(`  Elements: ${counts.join(', ')}`);
+
+  return lines.join('\n');
+}
 
 // Shared body for `set_headline` and `set_subtitle`. Keeps the two
 // handlers from diverging in subtle ways (e.g. one trimming whitespace

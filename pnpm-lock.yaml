@@ -84,6 +84,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.4
         version: 1.29.0(zod@3.25.76)
+      sharp:
+        specifier: ^0.34.5
+        version: 0.34.5
       undici:
         specifier: ^7.5.0
         version: 7.25.0

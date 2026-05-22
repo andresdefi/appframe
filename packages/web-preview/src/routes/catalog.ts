@@ -10,8 +10,18 @@ import {
   getDeviceId,
   getDeviceFramePath,
 } from '@appframe/core';
+import { SOLID_CATEGORIES, GRADIENT_CATEGORIES } from '../backgroundPresets.js';
 
 export function registerCatalogRoutes(app: Express): void {
+  // API: categorised background palette. Same catalog the UI Background
+  // tab renders; served here so MCP agents see the exact same presets.
+  app.get('/api/background-presets', (_req, res) => {
+    res.json({
+      solids: SOLID_CATEGORIES,
+      gradients: GRADIENT_CATEGORIES,
+    });
+  });
+
   // API: List available frames
   app.get('/api/frames', async (_req, res) => {
     try {

@@ -133,6 +133,26 @@ describe('integration: catalogs', () => {
   });
 });
 
+describe('integration: prototype-pollution defense', () => {
+  it('rejects locale codes that are reserved JS property names', async () => {
+    // The locale-add endpoint uses the code as a computed object key
+    // (`{ ...localeScreens, [code]: ... }`). Spread + computed key is
+    // safe from Object.prototype pollution, but a key like `toString`
+    // or `__proto__` would still silently shadow built-ins on later
+    // reads. The endpoint must reject these by name.
+    for (const dangerous of ['__proto__', 'constructor', 'prototype', 'toString']) {
+      const res = await fetch(`http://127.0.0.1:${server.port}/api/projects/my-test-project/locales/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: dangerous }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toMatch(/reserved JavaScript property name/);
+    }
+  });
+});
+
 describe('integration: cleanup', () => {
   it('delete_project removes the slug + screenshots folder', async () => {
     await client.deleteProject('my-test-project');

@@ -13,7 +13,7 @@
  */
 import { test, expect } from '@playwright/test';
 import {
-  waitForApp, sidebar, sidebarPanel, preview, modeToggle,
+  waitForApp, sidebarPanel,
   switchToIndividual, switchToPanoramic, getSectionTitles,
   expandSection, expandAllSections,
   auditPanel, collectSliderRanges, measurePreviewLatency,

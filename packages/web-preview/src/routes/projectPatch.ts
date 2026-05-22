@@ -5,6 +5,29 @@ import { readProject, writeProject, ProjectCorruptError, ProjectFutureSchemaErro
 import type { RouteContext } from './context.js';
 import { isRecord } from './utils.js';
 
+// Reject keys that could pollute an object's prototype or shadow
+// built-in properties when used as a computed key. The locale code
+// and similar user-controlled inputs flow into `{ ...obj, [key]: v }`
+// patterns; even though spread + computed-key doesn't reach
+// Object.prototype, a key like `toString` would silently break the
+// editor state on next read.
+const UNSAFE_OBJECT_KEYS = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  'toString',
+  'valueOf',
+  'hasOwnProperty',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+]);
+
+function isSafeObjectKey(key: string): boolean {
+  return !UNSAFE_OBJECT_KEYS.has(key);
+}
+
 // Mutate the active variant's snapshot.screens in lockstep with the
 // top-level data.screens. The browser's autosave does this every time it
 // serialises (via syncActiveVariantRecord), so without this step the
@@ -739,6 +762,10 @@ export function registerProjectPatchRoutes(app: Express, ctx: RouteContext): voi
       res.status(400).json({ error: '"default" is the implicit base locale and cannot be added' });
       return;
     }
+    if (!isSafeObjectKey(code)) {
+      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
+      return;
+    }
     const loaded = await loadForScreenOp(ctx, project, res);
     if (!loaded) return;
     const { data, screens } = loaded;
@@ -777,6 +804,10 @@ export function registerProjectPatchRoutes(app: Express, ctx: RouteContext): voi
     }
     if (code === 'default') {
       res.status(400).json({ error: 'cannot remove the implicit "default" locale' });
+      return;
+    }
+    if (!isSafeObjectKey(code)) {
+      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
       return;
     }
     const loaded = await loadForScreenOp(ctx, project, res);
@@ -819,6 +850,10 @@ export function registerProjectPatchRoutes(app: Express, ctx: RouteContext): voi
       res.status(400).json({ error: '`code` is required' });
       return;
     }
+    if (code !== 'default' && !isSafeObjectKey(code)) {
+      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
+      return;
+    }
     const loaded = await loadForScreenOp(ctx, project, res);
     if (!loaded) return;
     const { data } = loaded;
@@ -854,6 +889,10 @@ export function registerProjectPatchRoutes(app: Express, ctx: RouteContext): voi
       res.status(400).json({
         error: 'use /api/projects/:slug/patch-screen for the default locale',
       });
+      return;
+    }
+    if (!isSafeObjectKey(code)) {
+      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
       return;
     }
     const { index, patch } = body;

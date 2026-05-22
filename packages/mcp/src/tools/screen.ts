@@ -1570,19 +1570,26 @@ export const screenTools: ToolDefinition[] = [
 
 // Strip HTML tags from a headline / subtitle / freeText field. The
 // value is persisted as sanitised Tiptap HTML (e.g. `<p>Hello</p>`);
-// measurement and intersection tools want the plain text. Iterates
-// until the result is stable because a single-pass regex can be
-// bypassed by nested constructs like `<<p>p>`. Output is plain text
-// returned via MCP, never rendered as HTML.
+// measurement and description tools want the plain text. Character-
+// by-character state machine instead of a regex so nested constructs
+// like `<<p>p>` can't bypass it — the inner `<` flips state to inTag
+// regardless. Output is plain text returned via MCP, never rendered
+// as HTML.
 function stripTagsFromHeadline(html: unknown): string {
   if (typeof html !== 'string') return '';
-  let prev = html;
-  let next = prev.replace(/<[^>]*>/g, '');
-  while (next !== prev) {
-    prev = next;
-    next = next.replace(/<[^>]*>/g, '');
+  let out = '';
+  let inTag = false;
+  for (let i = 0; i < html.length; i++) {
+    const ch = html[i];
+    if (ch === '<') {
+      inTag = true;
+    } else if (ch === '>') {
+      inTag = false;
+    } else if (!inTag) {
+      out += ch;
+    }
   }
-  return next.trim();
+  return out.trim();
 }
 
 // Natural-language summary for `describe_screen`. Reads defensively

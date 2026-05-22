@@ -202,7 +202,7 @@ export const screenTools: ToolDefinition[] = [
         angle: null,
         tilt: null,
       };
-      let nextExtras = currentExtras.slice(0, targetExtraCount);
+      const nextExtras = currentExtras.slice(0, targetExtraCount);
       while (nextExtras.length < targetExtraCount) {
         nextExtras.push({ ...PLACEHOLDER });
       }

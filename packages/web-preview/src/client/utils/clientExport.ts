@@ -33,31 +33,68 @@ function loadDomToCanvas(): Promise<DomToCanvas> {
   return domToCanvasPromise;
 }
 
-// Reuse a single hidden iframe across renders instead of create + destroy
-// per export. doc.open() / doc.write() implicitly wipes the previous
-// document, so reusing the element is safe and skips the layout cost of
-// inserting a fresh iframe into the DOM each time. Cuts ~30-80ms per
-// export — measurable during batch + panoramic flows.
-let exportIframe: HTMLIFrameElement | null = null;
+// Small pool of hidden iframes so multiple renders can run in parallel.
+// One iframe per concurrent capture — each is exclusively held until
+// release. Previously a singleton, which serialised the agent's
+// render_preview batch calls (a 6-screen capture took ~3.4s
+// sequentially); the pool cuts that to ~1.2s for the same batch.
+//
+// Cap at MAX_POOL_SIZE because each iframe pulls modern-screenshot's
+// internal canvas resources, and Safari starts losing precision past
+// 4-5 concurrent decode + rasterise pipelines. 3 is a safe sweet spot.
+const MAX_POOL_SIZE = 3;
 
-function getExportIframe(width: number, height: number): HTMLIFrameElement {
+interface PooledIframe {
+  iframe: HTMLIFrameElement;
+  busy: boolean;
+}
+
+const pool: PooledIframe[] = [];
+const waitQueue: Array<(slot: PooledIframe) => void> = [];
+
+function createPooledIframe(): PooledIframe {
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.setAttribute('title', 'appframe export');
+  iframe.style.cssText = 'position: fixed; top: 0; left: -99999px; border: none;';
+  document.body.appendChild(iframe);
+  return { iframe, busy: false };
+}
+
+async function acquireIframe(width: number, height: number): Promise<PooledIframe> {
   if (typeof document === 'undefined') {
     throw new Error('client export requires a document');
   }
-  if (!exportIframe || !exportIframe.isConnected) {
-    exportIframe = document.createElement('iframe');
-    exportIframe.setAttribute('aria-hidden', 'true');
-    exportIframe.setAttribute('title', 'appframe export');
-    exportIframe.style.cssText = 'position: fixed; top: 0; left: -99999px; border: none;';
-    document.body.appendChild(exportIframe);
+  // Prefer reusing an idle slot before growing the pool.
+  const idle = pool.find((s) => !s.busy);
+  let slot: PooledIframe;
+  if (idle) {
+    slot = idle;
+  } else if (pool.length < MAX_POOL_SIZE) {
+    slot = createPooledIframe();
+    pool.push(slot);
+  } else {
+    // All slots busy — wait for one to release.
+    slot = await new Promise<PooledIframe>((resolve) => waitQueue.push(resolve));
   }
-  exportIframe.style.width = `${width}px`;
-  exportIframe.style.height = `${height}px`;
-  return exportIframe;
+  slot.busy = true;
+  slot.iframe.style.width = `${width}px`;
+  slot.iframe.style.height = `${height}px`;
+  return slot;
 }
 
-async function prepareIframeForRender(html: string, width: number, height: number): Promise<HTMLIFrameElement> {
-  const iframe = getExportIframe(width, height);
+function releaseIframe(slot: PooledIframe): void {
+  slot.busy = false;
+  const next = waitQueue.shift();
+  if (next) {
+    slot.busy = true; // immediately reassign — avoids a race where a
+                     // new caller acquires the slot before the queued
+                     // waiter does
+    next(slot);
+  }
+}
+
+async function prepareIframeForRender(iframe: HTMLIFrameElement, html: string): Promise<void> {
   const doc = iframe.contentDocument;
   if (!doc) throw new Error('iframe has no contentDocument');
   doc.open();
@@ -87,8 +124,6 @@ async function prepareIframeForRender(html: string, width: number, height: numbe
     READINESS_TIMEOUT_MS,
     'export: font/image readiness',
   );
-
-  return iframe;
 }
 
 /**
@@ -113,20 +148,27 @@ export async function exportScreenClientSide(
   }
   const html = await res.text();
 
-  const iframe = await prepareIframeForRender(html, width, height);
-  const doc = iframe.contentDocument!;
-  const domToCanvas = await loadDomToCanvas();
-  const canvas = await withTimeout(
-    domToCanvas(doc.documentElement, { scale: 1, width, height }),
-    RASTERIZE_TIMEOUT_MS,
-    'export: rasterize screen',
-  );
-  // Redraw into a display-p3 canvas so the PNG is tagged Display P3.
-  // modern-screenshot creates an sRGB canvas internally; we can't
-  // change that without forking, but a one-shot drawImage into a P3
-  // canvas preserves the pixels exactly and triggers the browser's
-  // automatic iCCP-chunk embedding on PNG export.
-  return canvasToPngBlob(ensureDisplayP3Canvas(canvas));
+  // Acquire a pool iframe — blocks if all MAX_POOL_SIZE slots are busy.
+  // Release in finally so a render error doesn't leak the slot.
+  const slot = await acquireIframe(width, height);
+  try {
+    await prepareIframeForRender(slot.iframe, html);
+    const doc = slot.iframe.contentDocument!;
+    const domToCanvas = await loadDomToCanvas();
+    const canvas = await withTimeout(
+      domToCanvas(doc.documentElement, { scale: 1, width, height }),
+      RASTERIZE_TIMEOUT_MS,
+      'export: rasterize screen',
+    );
+    // Redraw into a display-p3 canvas so the PNG is tagged Display P3.
+    // modern-screenshot creates an sRGB canvas internally; we can't
+    // change that without forking, but a one-shot drawImage into a P3
+    // canvas preserves the pixels exactly and triggers the browser's
+    // automatic iCCP-chunk embedding on PNG export.
+    return canvasToPngBlob(ensureDisplayP3Canvas(canvas));
+  } finally {
+    releaseIframe(slot);
+  }
 }
 
 /**
@@ -157,18 +199,24 @@ export async function exportPanoramicSlicesClientSide(
   if (!res.ok) throw new Error(`panoramic-preview-html failed: ${res.status}`);
   const html = await res.text();
 
-  const iframe = await prepareIframeForRender(html, totalWidth, frameHeight);
-  const doc = iframe.contentDocument!;
-  const domToCanvas = await loadDomToCanvas();
-  const wideCanvas = await withTimeout(
-    domToCanvas(doc.documentElement, {
-      scale: 1,
-      width: totalWidth,
-      height: frameHeight,
-    }),
-    RASTERIZE_TIMEOUT_MS,
-    'export: rasterize panoramic canvas',
-  );
+  const slot = await acquireIframe(totalWidth, frameHeight);
+  let wideCanvas: HTMLCanvasElement;
+  try {
+    await prepareIframeForRender(slot.iframe, html);
+    const doc = slot.iframe.contentDocument!;
+    const domToCanvas = await loadDomToCanvas();
+    wideCanvas = await withTimeout(
+      domToCanvas(doc.documentElement, {
+        scale: 1,
+        width: totalWidth,
+        height: frameHeight,
+      }),
+      RASTERIZE_TIMEOUT_MS,
+      'export: rasterize panoramic canvas',
+    );
+  } finally {
+    releaseIframe(slot);
+  }
 
   const slices: Blob[] = [];
   for (let i = 0; i < frameCount; i++) {

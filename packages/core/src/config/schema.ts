@@ -43,24 +43,45 @@ export const colorConfigSchema = z.object({
 });
 
 export const textGradientSchema = z.object({
-  colors: z.array(hexColor).min(2).max(5),
-  direction: z.number().min(0).max(360).default(90),
+  colors: z.array(hexColor).min(2).max(5).describe('2-5 hex/P3 color stops applied across the text glyphs.'),
+  direction: z
+    .number()
+    .min(0)
+    .max(360)
+    .default(90)
+    .describe('Gradient direction in degrees (0 = bottom-to-top, 90 = left-to-right, ...).'),
 });
 export type TextGradient = z.infer<typeof textGradientSchema>;
 
 // --- Background ---
 
 export const backgroundGradientSchema = z.object({
-  type: z.enum(['linear', 'radial']).default('linear'),
-  colors: z.array(hexColor).min(2).max(5),
-  direction: z.number().min(0).max(360).default(135),
-  radialPosition: z.enum(['center', 'top', 'bottom', 'left', 'right']).default('center'),
+  type: z
+    .enum(['linear', 'radial'])
+    .default('linear')
+    .describe('Gradient shape. "linear" uses `direction`; "radial" uses `radialPosition`.'),
+  colors: z.array(hexColor).min(2).max(5).describe('2-5 hex/P3 color stops, evenly distributed.'),
+  direction: z
+    .number()
+    .min(0)
+    .max(360)
+    .default(135)
+    .describe('Degrees for linear gradients. 135 is the top-left to bottom-right default.'),
+  radialPosition: z
+    .enum(['center', 'top', 'bottom', 'left', 'right'])
+    .default('center')
+    .describe('Origin for radial gradients.'),
 });
 export type BackgroundGradient = z.infer<typeof backgroundGradientSchema>;
 
 export const backgroundOverlaySchema = z.object({
-  color: hexColor,
-  opacity: z.number().min(0).max(1).default(0.3),
+  color: hexColor.describe('Tint color painted on top of the background image/gradient.'),
+  opacity: z
+    .number()
+    .min(0)
+    .max(1)
+    .default(0.3)
+    .describe('Tint opacity (0 = invisible, 1 = fully cover the background).'),
 });
 
 const blendModeSchema = z.enum([
@@ -82,137 +103,238 @@ export type BackgroundImageFit = z.infer<typeof backgroundImageFitSchema>;
 // --- Device Shadow ---
 
 export const deviceShadowSchema = z.object({
-  opacity: z.number().min(0).max(1).default(0.25),
-  blur: z.number().min(0).max(50).default(20),
-  color: hexColor.default('#000000'),
-  offsetY: z.number().min(0).max(30).default(10),
+  opacity: z.number().min(0).max(1).default(0.25).describe('Shadow alpha 0-1.'),
+  blur: z.number().min(0).max(50).default(20).describe('Shadow blur radius in pixels.'),
+  color: hexColor.default('#000000').describe('Shadow color (hex or display-p3).'),
+  offsetY: z
+    .number()
+    .min(0)
+    .max(30)
+    .default(10)
+    .describe('Vertical shadow offset in pixels. 0 = centered glow, higher = drops further down.'),
 });
 export type DeviceShadow = z.infer<typeof deviceShadowSchema>;
 
 // --- Border Simulation ---
 
 export const borderSimulationSchema = z.object({
-  enabled: z.boolean().default(false),
-  thickness: z.number().min(0).max(20).default(4),
-  color: hexColor.default('#1a1a1a'),
-  radius: z.number().min(0).max(60).default(40),
+  enabled: z.boolean().default(false).describe('On/off toggle. False hides the border without losing thickness/color/radius.'),
+  thickness: z.number().min(0).max(20).default(4).describe('Border thickness in pixels.'),
+  color: hexColor.default('#1a1a1a').describe('Border color (hex or display-p3).'),
+  radius: z
+    .number()
+    .min(0)
+    .max(60)
+    .default(40)
+    .describe('CSS border-radius in pixels — round the simulated bezel corners.'),
 });
 export type BorderSimulation = z.infer<typeof borderSimulationSchema>;
 
 // --- Loupe ---
 
 export const loupeSchema = z.object({
-  sourceX: z.number().min(-1).max(1),
-  sourceY: z.number().min(-1).max(1),
-  displayX: z.number().min(0).max(100).optional(),
-  displayY: z.number().min(0).max(100).optional(),
-  width: z.number().min(0.05).max(1).default(0.5),
-  height: z.number().min(0.05).max(1).default(0.33),
-  // Legacy field — mapped to width at runtime
-  size: z.number().min(5).max(50).optional(),
-  zoom: z.number().min(1).max(5).default(2.5),
-  scale: z.number().min(1).max(3).optional(),
-  // Corner radius in PIXELS for the loupe wrapper. Matches the spotlight
-  // and annotation sliders — consistent units across all the extras.
-  // Capped at 200 px which is enough to fully pill any practical loupe size.
-  cornerRadius: z.number().min(0).max(200).default(0),
-  borderWidth: z.number().min(0).max(10).default(0),
-  borderColor: hexColor.default('#ffffff'),
-  shadow: z.boolean().default(false),
-  shadowColor: hexColor.default('#000000'),
-  shadowRadius: z.number().min(0).max(100).default(30),
-  shadowOffsetX: z.number().min(-50).max(50).default(0),
-  shadowOffsetY: z.number().min(-50).max(50).default(0),
-  xOffset: z.number().min(-100).max(100).default(0),
-  yOffset: z.number().min(-100).max(100).default(0),
+  sourceX: z
+    .number()
+    .min(-1)
+    .max(1)
+    .describe('Source X on the device screen (-1 = left edge, 0 = center, 1 = right edge).'),
+  sourceY: z
+    .number()
+    .min(-1)
+    .max(1)
+    .describe('Source Y on the device screen (-1 = top edge, 0 = center, 1 = bottom edge).'),
+  displayX: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe('Where to place the magnified box on the canvas (X %, 0-100).'),
+  displayY: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe('Where to place the magnified box on the canvas (Y %, 0-100).'),
+  width: z
+    .number()
+    .min(0.05)
+    .max(1)
+    .default(0.5)
+    .describe('Loupe width as a FRACTION of the preview canvas (0.05-1, not percent).'),
+  height: z
+    .number()
+    .min(0.05)
+    .max(1)
+    .default(0.33)
+    .describe('Loupe height as a FRACTION of the preview canvas (0.05-1, not percent).'),
+  size: z
+    .number()
+    .min(5)
+    .max(50)
+    .optional()
+    .describe('Legacy field — mapped to `width` at runtime. New projects should use `width`.'),
+  zoom: z
+    .number()
+    .min(1)
+    .max(5)
+    .default(2.5)
+    .describe('Magnification factor. 1 = same scale as the device, 2.5 = 2.5x bigger, 5 = max.'),
+  scale: z
+    .number()
+    .min(1)
+    .max(3)
+    .optional()
+    .describe('Legacy alias for zoom on older projects. Renderer prefers `zoom` if both are set.'),
+  cornerRadius: z
+    .number()
+    .min(0)
+    .max(200)
+    .default(0)
+    .describe('Loupe wrapper corner radius in pixels. Cap at 200 = fully pilled at typical sizes.'),
+  borderWidth: z.number().min(0).max(10).default(0).describe('Loupe border thickness in pixels.'),
+  borderColor: hexColor.default('#ffffff').describe('Loupe border color (hex or display-p3).'),
+  shadow: z.boolean().default(false).describe('Toggle drop shadow under the loupe wrapper.'),
+  shadowColor: hexColor.default('#000000').describe('Shadow color when `shadow` is true.'),
+  shadowRadius: z.number().min(0).max(100).default(30).describe('Shadow blur radius in pixels.'),
+  shadowOffsetX: z.number().min(-50).max(50).default(0).describe('Shadow X offset in pixels.'),
+  shadowOffsetY: z.number().min(-50).max(50).default(0).describe('Shadow Y offset in pixels.'),
+  xOffset: z
+    .number()
+    .min(-100)
+    .max(100)
+    .default(0)
+    .describe('Fine X pan in pixels — moves the magnified content inside the loupe.'),
+  yOffset: z
+    .number()
+    .min(-100)
+    .max(100)
+    .default(0)
+    .describe('Fine Y pan in pixels — moves the magnified content inside the loupe.'),
 });
 export type Loupe = z.infer<typeof loupeSchema>;
 
 // --- Callout ---
 
 export const calloutSchema = z.object({
-  id: z.string(),
-  sourceX: z.number().min(0).max(100),
-  sourceY: z.number().min(0).max(100),
-  sourceW: z.number().min(1).max(100),
-  sourceH: z.number().min(1).max(100),
-  displayX: z.number().min(0).max(100),
-  displayY: z.number().min(0).max(100),
-  displayScale: z.number().min(0.5).max(3).default(1),
-  rotation: z.number().min(-45).max(45).default(0),
-  borderRadius: z.number().min(0).max(30).default(8),
-  shadow: z.boolean().default(true),
-  borderWidth: z.number().min(0).max(5).default(0),
-  borderColor: hexColor.optional(),
-  // Card styling: optional background fill behind the cropped content,
-  // plus inner padding so the card visually extends past the crop. With
-  // background + padding the callout looks like a lifted "card" of the
-  // highlighted row, à la App Store feature emphasis layouts.
-  background: hexColor.optional(),
-  padding: z.number().min(0).max(20).optional(),
-  // Multiplies the card's visual size on canvas without changing what
-  // portion of the screenshot is shown. Lets the card extend past the
-  // device frame ("stand out") while Zoom still controls the content
-  // magnification inside it.
-  cardScale: z.number().min(0.5).max(3).optional(),
-  // Decouples the source crop from the card position. When true,
-  // `sourceX/sourceY` are treated as the actual top-left corner of the
-  // cropped region on the screenshot, independent of `displayX/displayY`
-  // (which then just positions the card on canvas). When false/undefined
-  // (legacy), the crop is centred on the card position — preserved so
-  // projects saved before drag-to-select existed keep rendering
-  // identically. Drag-to-select and Reselect Area always set this true.
-  sourceLocked: z.boolean().optional(),
+  id: z.string().describe('Stable id (e.g. "callout-<8 hex chars>"). Used as React key + for removal.'),
+  sourceX: z.number().min(0).max(100).describe('Source crop top-left X on the screenshot (0-100, %).'),
+  sourceY: z.number().min(0).max(100).describe('Source crop top-left Y on the screenshot (0-100, %).'),
+  sourceW: z.number().min(1).max(100).describe('Source crop width on the screenshot (1-100, %).'),
+  sourceH: z.number().min(1).max(100).describe('Source crop height on the screenshot (1-100, %).'),
+  displayX: z.number().min(0).max(100).describe('Card position X on the canvas (0-100, %).'),
+  displayY: z.number().min(0).max(100).describe('Card position Y on the canvas (0-100, %).'),
+  displayScale: z
+    .number()
+    .min(0.5)
+    .max(3)
+    .default(1)
+    .describe('Magnifies content inside the card without changing the crop region.'),
+  rotation: z.number().min(-45).max(45).default(0).describe('Card rotation in degrees.'),
+  borderRadius: z.number().min(0).max(30).default(8).describe('Card corner radius in pixels.'),
+  shadow: z.boolean().default(true).describe('Drop shadow under the card.'),
+  borderWidth: z.number().min(0).max(5).default(0).describe('Card border thickness in pixels.'),
+  borderColor: hexColor.optional().describe('Card border color (hex or display-p3) when borderWidth > 0.'),
+  background: hexColor
+    .optional()
+    .describe('Optional card background fill behind the cropped content (App-Store-style "lifted card").'),
+  padding: z
+    .number()
+    .min(0)
+    .max(20)
+    .optional()
+    .describe('Inner padding between the card edge and the cropped content, in pixels.'),
+  cardScale: z
+    .number()
+    .min(0.5)
+    .max(3)
+    .optional()
+    .describe(
+      "Multiplies the card's visual size on canvas without changing what portion of the screenshot is shown.",
+    ),
+  sourceLocked: z
+    .boolean()
+    .optional()
+    .describe(
+      'When true, sourceX/sourceY are the actual crop coordinates and dragging the card only moves the card. Default for new callouts and drag-to-select. Legacy callouts (omitted) follow the card position.',
+    ),
 });
 export type Callout = z.infer<typeof calloutSchema>;
 
 // --- Overlay ---
 
 export const overlaySchema = z.object({
-  id: z.string(),
-  type: z.enum(['icon', 'badge', 'star-rating', 'custom', 'shape']),
-  imageDataUrl: z.string().optional(),
-  // Library-qualified icon identifier (e.g. "lucide:camera"). Set on icon
-  // overlays so we can re-fetch the source SVG and recolor it at any time.
-  // imageDataUrl stays the rendered cache; iconRef + shapeColor are the
-  // canonical source of truth for icon-type overlays.
-  iconRef: z.string().optional(),
-  // Element position is in canvas-% but can go negative or > 100 so the
-  // element can bleed off any edge of the canvas (or sit fully outside).
-  x: z.number().min(-100).max(200),
-  y: z.number().min(-100).max(200),
-  // Element size is in raw canvas pixels (not %) so absolute physical
-  // size is predictable regardless of canvas dimensions. Min ~50px keeps
-  // elements visible; max lets blobs spill far beyond the canvas for big
-  // atmospheric backdrops. Pre-px configs stored size as a 1-50 percentage
-  // of canvas width — anything below 50 here is treated as that legacy
-  // value and converted using the standard 1290px reference.
+  id: z.string().describe('Stable id (e.g. "overlay-<8 hex>"). Used as React key + for removal.'),
+  type: z
+    .enum(['icon', 'badge', 'star-rating', 'custom', 'shape'])
+    .describe(
+      'Overlay kind. "icon" needs iconRef; "shape" needs shapeType+shapeColor; "custom" needs imageDataUrl; "badge"/"star-rating" are preset compositions.',
+    ),
+  imageDataUrl: z
+    .string()
+    .optional()
+    .describe('Image source (data URL or HTTP URL) for "custom" overlays and rendered-icon cache.'),
+  iconRef: z
+    .string()
+    .optional()
+    .describe('Library-qualified icon id (e.g. "lucide:camera"). Canonical source for "icon" overlays.'),
+  x: z
+    .number()
+    .min(-100)
+    .max(200)
+    .describe('X position as canvas-% (-100 to 200, so the element can bleed off the canvas).'),
+  y: z
+    .number()
+    .min(-100)
+    .max(200)
+    .describe('Y position as canvas-% (-100 to 200).'),
   size: z.preprocess(
     (v) => {
       if (typeof v !== 'number') return v;
       if (v < 50) return Math.max(50, Math.round(v * 12.9));
       return v;
     },
-    z.number().min(20).max(3000).default(200),
+    z
+      .number()
+      .min(20)
+      .max(3000)
+      .default(200)
+      .describe(
+        'Element size in canvas pixels (NOT %), 20-3000. Values below 50 are treated as legacy 1-50 percent and converted using a 1290px reference.',
+      ),
   ),
-  rotation: z.number().min(-180).max(180).default(0),
-  opacity: z.number().min(0).max(1).default(1),
-  shapeType: z.enum(['circle', 'rectangle', 'line', 'arrow']).optional(),
-  shapeColor: hexColor.optional(),
-  shapeOpacity: z.number().min(0).max(1).optional(),
-  shapeBlur: z.number().min(0).max(30).optional(),
-  // Stacking tier. "front" sits above everything, "default" sits above
-  // device + text (current behavior), "behind-text" sits under text but
-  // still above the device frame, and "behind-device" tucks under the
-  // device frame while remaining above the canvas background.
-  layer: z.enum(['front', 'default', 'behind-text', 'behind-device']).optional(),
-  // CSS mix-blend-mode applied to the overlay wrapper. Lets blobs / shapes
-  // blend with the canvas background (multiply, screen, overlay, etc.).
-  // Heavy CSS blur applied to the whole element. Lets a flat-color blob
-  // become an atmospheric glow at 80-150px+ — the modern Stripe/Coinbase
-  // background aesthetic. Distinct from the shape-internal shapeBlur
-  // (small range, shape-only).
-  softBlur: z.number().min(0).max(200).optional(),
+  rotation: z.number().min(-180).max(180).default(0).describe('Rotation in degrees.'),
+  opacity: z.number().min(0).max(1).default(1).describe('Overall opacity 0-1.'),
+  shapeType: z
+    .enum(['circle', 'rectangle', 'line', 'arrow'])
+    .optional()
+    .describe('Required when `type` is "shape". Determines the geometry drawn.'),
+  shapeColor: hexColor.optional().describe('Fill / stroke color for "shape" overlays.'),
+  shapeOpacity: z
+    .number()
+    .min(0)
+    .max(1)
+    .optional()
+    .describe('Per-shape alpha — composed with the overall `opacity`.'),
+  shapeBlur: z
+    .number()
+    .min(0)
+    .max(30)
+    .optional()
+    .describe('Shape-internal blur in pixels (0-30). Smaller range than `softBlur` below.'),
+  layer: z
+    .enum(['front', 'default', 'behind-text', 'behind-device'])
+    .optional()
+    .describe(
+      'Stacking tier. "front" above everything, "default" above device+text, "behind-text" under text but above device frame, "behind-device" under device frame but above canvas background.',
+    ),
+  softBlur: z
+    .number()
+    .min(0)
+    .max(200)
+    .optional()
+    .describe(
+      'Heavy CSS blur (0-200 px) applied to the whole element wrapper. At 80-150 px a flat-color blob becomes an atmospheric glow (Stripe/Coinbase background look). Distinct from shape-internal `shapeBlur`.',
+    ),
   blendMode: z
     .enum([
       'normal',
@@ -228,7 +350,8 @@ export const overlaySchema = z.object({
       'difference',
       'exclusion',
     ])
-    .optional(),
+    .optional()
+    .describe('CSS mix-blend-mode. Lets blobs/shapes blend with the canvas background.'),
 });
 export type Overlay = z.infer<typeof overlaySchema>;
 
@@ -349,39 +472,62 @@ export const compositionDeviceSchema = z.object({
 // --- Spotlight ---
 
 export const spotlightConfigSchema = z.object({
-  x: z.number().min(0).max(100).default(50),
-  y: z.number().min(0).max(100).default(50),
-  w: z.number().min(5).max(100).default(30),
-  h: z.number().min(5).max(100).default(30),
-  shape: z.enum(['circle', 'rectangle']).default('rectangle'),
-  dimOpacity: z.number().min(0).max(1).default(0.6),
-  blur: z.number().min(0).max(30).default(0),
-  // Corner radius in pixels for the rectangle shape. Ignored when shape is
-  // 'circle' (the cutout already uses border-radius: 50%).
-  borderRadius: z.number().min(0).max(200).default(0),
+  x: z.number().min(0).max(100).default(50).describe('Center X as percent of the device screen.'),
+  y: z.number().min(0).max(100).default(50).describe('Center Y as percent of the device screen.'),
+  w: z.number().min(5).max(100).default(30).describe('Width as percent of the device screen.'),
+  h: z.number().min(5).max(100).default(30).describe('Height as percent of the device screen.'),
+  shape: z
+    .enum(['circle', 'rectangle'])
+    .default('rectangle')
+    .describe('Cutout shape. "circle" forces a 50% border-radius regardless of w/h.'),
+  dimOpacity: z
+    .number()
+    .min(0)
+    .max(1)
+    .default(0.6)
+    .describe('Opacity of the dim mask over the rest of the screenshot.'),
+  blur: z
+    .number()
+    .min(0)
+    .max(30)
+    .default(0)
+    .describe('Gaussian blur (px) applied to the dim mask outside the cutout.'),
+  borderRadius: z
+    .number()
+    .min(0)
+    .max(200)
+    .default(0)
+    .describe(
+      'Corner radius in pixels for rectangle shapes. Ignored when shape is "circle".',
+    ),
 });
 export type SpotlightConfig = z.infer<typeof spotlightConfigSchema>;
 
 // --- Annotation ---
 
 export const annotationSchema = z.object({
-  id: z.string().default(''),
-  // 'rounded-rect' is kept in the enum for backward compatibility with
-  // older project files. New annotations only use 'circle' or 'rectangle'
-  // — corner radius is controlled by `borderRadius` instead of a separate
-  // shape value. Hydration normalizes 'rounded-rect' into 'rectangle' +
-  // a sensible default radius.
-  shape: z.enum(['circle', 'rounded-rect', 'rectangle']).default('rectangle'),
-  x: z.number().min(0).max(100).default(40),
-  y: z.number().min(0).max(100).default(40),
-  w: z.number().min(1).max(100).default(20),
-  h: z.number().min(1).max(100).default(20),
-  strokeColor: hexColor.default('#FF3B30'),
-  strokeWidth: z.number().min(1).max(20).default(4),
-  fillColor: hexColor.optional(),
-  /** Corner radius in pixels for the rectangle shape. Ignored when shape
-   *  is 'circle' (the shape uses border-radius: 50%). */
-  borderRadius: z.number().min(0).max(200).default(0),
+  id: z.string().default('').describe('Stable id (e.g. "annot-<8 hex>"). Used as React key + for removal.'),
+  shape: z
+    .enum(['circle', 'rounded-rect', 'rectangle'])
+    .default('rectangle')
+    .describe(
+      '"circle" forces a circular shape via 50% border-radius. "rectangle" uses borderRadius. "rounded-rect" is legacy — normalized to rectangle on load.',
+    ),
+  x: z.number().min(0).max(100).default(40).describe('Top-left X on the device screen (0-100, %).'),
+  y: z.number().min(0).max(100).default(40).describe('Top-left Y on the device screen (0-100, %).'),
+  w: z.number().min(1).max(100).default(20).describe('Width on the device screen (1-100, %).'),
+  h: z.number().min(1).max(100).default(20).describe('Height on the device screen (1-100, %).'),
+  strokeColor: hexColor.default('#FF3B30').describe('Outline color. Defaults to iOS-red.'),
+  strokeWidth: z.number().min(1).max(20).default(4).describe('Outline thickness in pixels.'),
+  fillColor: hexColor
+    .optional()
+    .describe('Optional fill color. Omit for an outline-only annotation.'),
+  borderRadius: z
+    .number()
+    .min(0)
+    .max(200)
+    .default(0)
+    .describe('Corner radius in pixels for rectangle shape. Ignored when shape is "circle".'),
 });
 export type Annotation = z.infer<typeof annotationSchema>;
 

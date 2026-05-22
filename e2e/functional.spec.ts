@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
-  waitForApp, sidebar, sidebarPanel, preview, modeToggle,
+  waitForApp, sidebar, sidebarPanel, preview,
   switchToIndividual, switchToPanoramic, getSectionTitles,
   expandSection, expandAllSections,
 } from './helpers';

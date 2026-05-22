@@ -1,5 +1,6 @@
 import { COMPOSITION_PRESETS } from '@appframe/core';
-import type { ToolDefinition } from './types.js';
+import type { AppframeClient } from '../client.js';
+import type { ContentResult, ToolDefinition } from './types.js';
 import {
   isRecord,
   jsonContent,
@@ -1031,8 +1032,8 @@ async function setText(
   args: unknown,
   toolName: string,
   field: 'headline' | 'subtitle',
-  client: import('../client.js').AppframeClient,
-): Promise<import('./types.js').ContentResult> {
+  client: AppframeClient,
+): Promise<ContentResult> {
   const a = requireRecord(args, toolName);
   const slug = requireSlug(a);
   const index = requireIndex(a);

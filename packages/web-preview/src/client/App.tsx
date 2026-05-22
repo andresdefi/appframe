@@ -330,7 +330,6 @@ export function App() {
   // Re-subscribing per render is acceptable here — events are rare and
   // the SSE channel is cheap to reopen. Deps intentionally include the
   // store mutators that switchToProject reads.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrateProjectSnapshot, activeProject, setActiveProject]);
 
   useEffect(() => {

@@ -114,7 +114,9 @@ export async function readFileAsDataUrl(
     buf = await readFile(filePath);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Could not read "${filePath}": ${message}`);
+    // `cause` preserves the original errno + stack for downstream
+    // logging while the message stays user-friendly.
+    throw new Error(`Could not read "${filePath}": ${message}`, { cause: err });
   }
   return {
     dataUrl: `data:${mime};base64,${buf.toString('base64')}`,

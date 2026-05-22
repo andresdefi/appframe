@@ -65,7 +65,10 @@ function normaliseHexInput(raw: string): string | null {
 }
 
 interface ColorPickerPopoverProps {
-  triggerRef: RefObject<HTMLElement>;
+  // RefObject<T> is invariant in T since React 19, so the caller's
+  // narrower element type (e.g. HTMLButtonElement) must widen here via
+  // the `| null` form rather than via T.
+  triggerRef: RefObject<HTMLElement | null>;
   /** Hex or `color(display-p3 r g b)` storage form. */
   value: string;
   /** Always receives the canonical P3 storage string. */

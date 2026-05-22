@@ -55,6 +55,13 @@ export class AppframeClient {
 
   constructor(options: AppframeClientOptions = {}) {
     const raw = options.baseUrl ?? process.env.APPFRAME_PREVIEW_URL ?? DEFAULT_BASE_URL;
+    // Cap before regex strip — a pathological caller supplying a
+    // baseUrl with thousands of trailing slashes could trigger
+    // polynomial regex backtracking. Real URLs are well under 2048
+    // chars per RFC 3986 recommendation.
+    if (raw.length > 2048) {
+      throw new Error('baseUrl exceeds 2048 characters');
+    }
     this.baseUrl = raw.replace(/\/+$/, '');
     installKeepAlive();
   }

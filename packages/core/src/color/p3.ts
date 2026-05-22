@@ -115,6 +115,12 @@ export function hexToDisplayP3(hex: string): string {
  * explicitly.
  */
 export function parseDisplayP3(input: string): { r: number; g: number; b: number } | null {
+  // Hard cap before regex matching. The longest legitimate
+  // display-p3 string is ~70 chars (`color(display-p3 -0.9999e-99
+  // -0.9999e-99 -0.9999e-99 / 0.99999)`). 200 leaves comfortable
+  // headroom while blocking adversarial inputs that could trigger
+  // polynomial backtracking in the digit-group alternation below.
+  if (input.length > 200) return null;
   const m = input
     .trim()
     .match(

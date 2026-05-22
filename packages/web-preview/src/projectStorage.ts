@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile, rename, unlink, readdir, stat, rm, cp } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { Express, Request, Response } from 'express';
+import { log } from './logger.js';
 
 const PROJECT_SLUG_RE = /^[a-zA-Z0-9_-]+$/;
 const PROJECT_FILE = 'appframe.json';
@@ -437,10 +438,17 @@ export async function createProject(
     lastOpenedAt: isoNow,
   };
   await writeMeta(options.projectsRoot, safeName, meta);
-  // Seed an empty project file so listProjects picks it up immediately
-  // (a brand-new project shouldn't have to wait for the first edit to
-  // become visible in the picker).
-  await writeProject(options, safeName, {});
+  // Seed a minimal but VALID editor-state envelope so listProjects picks
+  // it up immediately AND the MCP write endpoints (which expect
+  // data.screens to be an array) work on a freshly-created project
+  // without first round-tripping through a browser session.
+  await writeProject(options, safeName, {
+    screens: [],
+    variants: [],
+    sessionLocales: {},
+    localeScreens: {},
+    locale: 'default',
+  });
   return meta;
 }
 
@@ -508,7 +516,7 @@ export async function renameProject(
           projectDir(options.projectsRoot, safeFrom),
         );
       } catch (rollbackErr) {
-        console.warn('[projectStorage] rename rollback also failed', rollbackErr);
+        log.warn('rename rollback also failed', { error: String(rollbackErr) });
       }
       throw err;
     }
@@ -571,7 +579,7 @@ export async function duplicateProject(
       try {
         await rm(projectDir(options.projectsRoot, safeTo), { recursive: true, force: true });
       } catch (cleanupErr) {
-        console.warn('[projectStorage] duplicate cleanup failed', cleanupErr);
+        log.warn('duplicate cleanup failed', { error: String(cleanupErr) });
       }
       throw err;
     }

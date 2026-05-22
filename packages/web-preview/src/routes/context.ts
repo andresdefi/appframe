@@ -13,4 +13,14 @@ export interface RouteContext {
   templateEngine: TemplateEngine;
   screenshotStorage: ScreenshotStorageOptions;
   projectStorage: ProjectStorageOptions;
+  // Fan-out to /api/events SSE listeners. Called by routes that accept
+  // out-of-band writes (e.g. POST /api/projects/:slug/patch-screen) so
+  // the browser UI can refetch and apply the change instantly.
+  broadcastEvent: (payload: Record<string, unknown>) => void;
+  // Slug of the project the browser currently has open. Posted from the
+  // client on every project open/switch via POST /api/active-project so
+  // agents can target the right project envelope without polling the
+  // listing endpoint.
+  getActiveProjectSlug: () => string | null;
+  setActiveProjectSlug: (slug: string | null) => void;
 }

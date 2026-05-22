@@ -49,6 +49,26 @@
     "vitest": "^4.1.7"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "fsevents",
+      "sharp",
+      "@img/sharp-darwin-arm64",
+      "@img/sharp-darwin-x64",
+      "@img/sharp-linux-arm",
+      "@img/sharp-linux-arm64",
+      "@img/sharp-linux-x64",
+      "@img/sharp-libvips-darwin-arm64",
+      "@img/sharp-libvips-darwin-x64",
+      "@img/sharp-libvips-linux-arm",
+      "@img/sharp-libvips-linux-arm64",
+      "@img/sharp-libvips-linux-x64",
+      "@img/sharp-libvips-linuxmusl-arm64",
+      "@img/sharp-libvips-linuxmusl-x64",
+      "@img/sharp-win32-x64",
+      "@img/sharp-win32-arm64",
+      "@vitest/mocker"
+    ],
     "overrides": {
       "hono": ">=4.12.18",
       "@hono/node-server": ">=1.19.13",

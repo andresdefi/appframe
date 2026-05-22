@@ -1,0 +1,48 @@
+{
+  "name": "@appframe/mcp",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server that lets AI agents observe and edit a running appframe preview",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "appframe-mcp": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --root ../.. packages/mcp",
+    "start": "node ./dist/bin.js",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@appframe/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "undici": "^7.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@appframe/web-preview": "workspace:*"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "appframe",
+    "mcp",
+    "model-context-protocol",
+    "ai-agents"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
+  }
+}

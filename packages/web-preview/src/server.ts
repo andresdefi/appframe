@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,8 +18,25 @@ import { registerConfigRoutes } from './routes/config.js';
 import { registerCatalogRoutes } from './routes/catalog.js';
 import { registerElementsRoutes } from './routes/elements.js';
 import { registerPreviewRoutes } from './routes/preview.js';
+import { createEventBroadcaster } from './routes/events.js';
+import { registerProjectPatchRoutes } from './routes/projectPatch.js';
+import { registerRenderPreviewRoutes } from './routes/renderPreview.js';
+import { log } from './logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Read once at module load. The version is the source of truth for the
+// /api/version handshake — see registerVersionRoute below.
+import { readFileSync } from 'node:fs';
+const SERVER_VERSION: string = (() => {
+  try {
+    const pkgPath = resolve(__dirname, '..', 'package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version?: string };
+    return pkg.version ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
+})();
 
 export interface PreviewServerOptions {
   configPath?: string;
@@ -113,7 +131,10 @@ function createDefaultConfig(): AppframeConfig {
   };
 }
 
-export async function startPreviewServer(options: PreviewServerOptions): Promise<void> {
+export async function startPreviewServer(options: PreviewServerOptions): Promise<{
+  port: number;
+  close: () => Promise<void>;
+}> {
   const { configPath, port = 4400, host = '127.0.0.1' } = options;
   const screenshotStorage: ScreenshotStorageOptions = {
     projectsRoot: options.projectsRoot ?? getDefaultProjectsRoot(),
@@ -148,6 +169,11 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       origin: (origin, callback) => callback(null, isOriginAllowed(origin, allowedOrigins)),
     }),
   );
+  // gzip large responses (get_project envelopes, catalogs, preview HTML)
+  // — express-compression streams the response so latency is unchanged
+  // for small bodies. Won't compress SSE / /api/events (text/event-stream
+  // sits below its threshold and is filtered out by default).
+  app.use(compression());
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
@@ -177,6 +203,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   // as this server, or the Vite dev proxy when running dev:client).
   const templateEngine = new TemplateEngine({ fontBaseUrl: '/preview-fonts' });
 
+  const eventBroadcaster = createEventBroadcaster();
+  let activeProjectSlug: string | null = null;
+
   const ctx: RouteContext = {
     configDir,
     resolvedConfigPath,
@@ -187,14 +216,23 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     templateEngine,
     screenshotStorage,
     projectStorage,
+    broadcastEvent: (payload) => eventBroadcaster.broadcast(payload),
+    getActiveProjectSlug: () => activeProjectSlug,
+    setActiveProjectSlug: (slug) => {
+      activeProjectSlug = slug;
+    },
   };
+
+  eventBroadcaster.register(app);
+  registerProjectPatchRoutes(app, ctx);
+  registerRenderPreviewRoutes(app, ctx);
 
   // Generate any missing preview-resolution screenshots and clean up
   // orphans. Runs once per boot, non-blocking — the listen call below
   // doesn't wait. First request to a missing preview heals itself on
   // demand via the lazy fallback in the GET route.
   void sweepPreviews(screenshotStorage).catch((err) => {
-    console.warn('[appframe] sweepPreviews failed:', err);
+    log.warn('sweepPreviews failed', { error: String(err) });
   });
 
   registerScreenshotRoutes(app, screenshotStorage);
@@ -207,6 +245,13 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   // API: Health check
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+
+  // API: Version — read at MCP startup for a soft compat check. Static
+  // for the lifetime of the process; the version is baked into the
+  // package.json that gets shipped.
+  app.get('/api/version', (_req, res) => {
+    res.json({ name: '@appframe/web-preview', version: SERVER_VERSION });
+  });
 
   // SPA fallback: serve React index.html for non-API routes. /api/* requests
   // that didn't match a handler above return 404 instead of the SPA HTML —
@@ -228,11 +273,23 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     });
   });
 
-  app.listen(port, host, () => {
-    console.log(`appframe preview running at http://localhost:${port}`);
-    console.log(`live config for agents: http://localhost:${port}/api/config`);
-    if (host !== '127.0.0.1' && host !== 'localhost') {
-      console.log(`bound to ${host}:${port} — reachable from other machines on the network`);
-    }
+  return new Promise((resolve) => {
+    const httpServer = app.listen(port, host, () => {
+      const address = httpServer.address();
+      const boundPort =
+        typeof address === 'object' && address ? address.port : port;
+      log.info(`appframe preview running at http://localhost:${boundPort}`, { port: boundPort });
+      log.info(`live config for agents: http://localhost:${boundPort}/api/config`);
+      if (host !== '127.0.0.1' && host !== 'localhost') {
+        log.warn(`bound to ${host}:${boundPort} — reachable from other machines on the network`, { host, port: boundPort });
+      }
+      resolve({
+        port: boundPort,
+        close: () =>
+          new Promise<void>((closeResolve, closeReject) => {
+            httpServer.close((err) => (err ? closeReject(err) : closeResolve()));
+          }),
+      });
+    });
   });
 }

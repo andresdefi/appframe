@@ -158,6 +158,22 @@ export interface ProjectMeta {
   lastOpenedAt: string;
 }
 
+// Tell the server which project slug the browser has open. Lets agents
+// hitting /api/active-project target the right envelope. Best-effort:
+// network failures here are silent — the agent will see a stale slug or
+// null until the next call lands.
+export async function setServerActiveProject(slug: string | null): Promise<void> {
+  try {
+    await fetch(`${API}/api/active-project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug }),
+    });
+  } catch {
+    // Non-fatal — UI keeps working without server-side tracking.
+  }
+}
+
 export async function fetchProjects(): Promise<ProjectSummary[]> {
   const res = await fetch(`${API}/api/projects`);
   if (!res.ok) throw new Error(`List projects failed: ${res.statusText}`);

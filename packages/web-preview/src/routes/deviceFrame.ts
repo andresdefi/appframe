@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import sharp from 'sharp';
 import { getDeviceFramePath } from '@appframe/core';
+import { log } from '../logger.js';
 
 // Device-frame PNGs are large (~600KB on disk, ~17MB decoded RGBA per
 // iframe). Serving via URL lets the browser cache one copy across all
@@ -50,7 +51,7 @@ export function registerDeviceFrameRoutes(app: Express): void {
           res.send(buf);
           return;
         } catch (err) {
-          console.warn(`[deviceFrame] preview resize failed for ${id}, serving full-res:`, err);
+          log.warn('preview resize failed, serving full-res', { id, error: String(err) });
           // Fall through to full-res serve so the UI never breaks.
         }
       }

@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import type { Express, Request, Response } from 'express';
 import sharp from 'sharp';
 import { isPathInside } from './utils/pathSafety.js';
+import { log } from './logger.js';
 
 const SUPPORTED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.svg']);
 const CONTENT_TYPES: Record<string, string> = {
@@ -204,7 +205,7 @@ export async function writeScreenshotFromDataUrl(
   try {
     await generatePreview(absPath);
   } catch (err) {
-    console.warn(`[screenshotStorage] preview generation failed for ${absPath}:`, err);
+    log.warn('preview generation failed', { absPath, error: String(err) });
   }
   return {
     project,
@@ -323,10 +324,11 @@ export async function sweepPreviews(options: ScreenshotStorageOptions): Promise<
         try {
           await unlink(join(screenshotsDir, name));
         } catch (err) {
-          console.warn(
-            `[screenshotStorage] sweep: orphan source unlink failed ${projectSlug}/${name}:`,
-            err,
-          );
+          log.warn('sweep: orphan source unlink failed', {
+            project: projectSlug,
+            name,
+            error: String(err),
+          });
           survivors.push(name); // keep it in the list so we don't try to regenerate its preview either
         }
       }
@@ -344,7 +346,7 @@ export async function sweepPreviews(options: ScreenshotStorageOptions): Promise<
       try {
         await generatePreview(join(screenshotsDir, name));
       } catch (err) {
-        console.warn(`[screenshotStorage] sweep: skipped ${projectSlug}/${name}:`, err);
+        log.warn('sweep: skipped', { project: projectSlug, name, error: String(err) });
       }
     }
     // Orphan cleanup: any preview whose source is gone gets deleted.
@@ -360,7 +362,7 @@ export async function sweepPreviews(options: ScreenshotStorageOptions): Promise<
       try {
         await unlink(join(screenshotsDir, PREVIEW_DIR_NAME, name));
       } catch (err) {
-        console.warn(`[screenshotStorage] sweep: orphan unlink failed ${projectSlug}/${name}:`, err);
+        log.warn('sweep: orphan unlink failed', { project: projectSlug, name, error: String(err) });
       }
     }
   }
@@ -455,7 +457,7 @@ export function registerScreenshotRoutes(app: Express, options: ScreenshotStorag
       try {
         await generatePreview(sourcePath);
       } catch (err) {
-        console.warn(`[screenshotStorage] on-demand preview failed ${project}/${safeName}:`, err);
+        log.warn('on-demand preview failed', { project, name: safeName, error: String(err) });
         // Fall back to serving the full-res file so the UI never breaks.
         const fallback = await readScreenshotAsBuffer(options, project, safeName);
         if (!fallback) {

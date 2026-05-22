@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import { usePreviewStore } from './store';
 import type { FontData, SizeEntry, DeviceFamily } from './store';
-import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, putLiveConfig, loadProject, fetchProjects, touchProject, createProject as createProjectApi } from './utils/api';
+import { fetchProject, fetchFonts, fetchFrames, fetchKoubouDevices, fetchSizes, putLiveConfig, loadProject, fetchProjects, touchProject, createProject as createProjectApi, setServerActiveProject } from './utils/api';
 import { useProjectAutosave } from './hooks/useProjectAutosave';
 import { HeaderBar } from './components/HeaderBar';
 import { setupConsoleCapture } from './utils/consoleCapture';
 import { setupRecentActionsRecorder } from './utils/recentActions';
+import { subscribeToServerEvents } from './utils/events';
+import { handleRenderRequest } from './utils/renderRequest';
 
 // Boot-time. Module-level so the patches install once before the
 // rest of the app subscribes to anything. Both are idempotent.
@@ -269,6 +271,72 @@ export function App() {
 
     init();
   }, [initScreens, hydrateProjectSnapshot, setActiveProject, setPreviewSize, setFonts, setFrames, setDeviceFamilies, setKoubouAvailable, setSizes, setExportSize]);
+
+  // Mirror activeProject to the server so MCP agents hitting
+  // /api/active-project can target the right envelope. Subscribing on
+  // the store rather than inlining at every setActiveProject call site
+  // keeps every code path (boot resume, project picker switch, fallback
+  // for missing project) covered automatically.
+  useEffect(() => {
+    void setServerActiveProject(activeProject || null);
+    return usePreviewStore.subscribe((state, prev) => {
+      if (state.activeProject === prev.activeProject) return;
+      void setServerActiveProject(state.activeProject || null);
+    });
+  }, [activeProject]);
+
+  // Listen for out-of-band project events from /api/events.
+  // - `project-changed`: an MCP agent wrote to the currently-active
+  //   project. Refetch + hydrate via the same restore path the project
+  //   picker uses. Browser's own writes don't broadcast (see gating in
+  //   routes/projectPatch.ts and routes/config.ts).
+  // - `project-switched`: an agent explicitly asked the browser to
+  //   switch to a different project (e.g. after `create_project` +
+  //   `switch_project`). Routes through `switchToProject` which flushes
+  //   the autosave-of-old-slug first so editing doesn't corrupt the
+  //   previous project's file.
+  useEffect(() => {
+    return subscribeToServerEvents(async (event) => {
+      if (event.type === 'project-changed') {
+        const slug = usePreviewStore.getState().activeProject;
+        if (!slug) return;
+        try {
+          const result = await loadProject<unknown>(slug);
+          if (result.kind === 'loaded') {
+            hydrateProjectSnapshot(result.envelope.data);
+          }
+        } catch (err) {
+          console.warn('[appframe] live reload failed', err);
+        }
+        return;
+      }
+      if (event.type === 'project-switched') {
+        const targetSlug = typeof event.slug === 'string' ? event.slug : '';
+        if (!targetSlug) return;
+        if (targetSlug === usePreviewStore.getState().activeProject) return;
+        await switchToProject(targetSlug);
+        return;
+      }
+      if (event.type === 'render-request') {
+        // The server is asking us to capture a PNG of one of the
+        // screens and POST it back. Ephemeral round-trip — see
+        // routes/renderPreview.ts for the server side. Fires off
+        // async so a slow capture doesn't block other events. The
+        // handler does its own runtime validation of payload fields,
+        // so the cast is safe even though TS can't narrow from the
+        // loose SSE event shape.
+        void handleRenderRequest(
+          event as { type: 'render-request' } & Record<string, unknown>,
+          { getState: usePreviewStore.getState },
+        );
+      }
+    });
+  // switchToProject is recreated each render but reads activeProject from
+  // its closure; the SSE callback is async so we want the latest version.
+  // Re-subscribing per render is acceptable here — events are rare and
+  // the SSE channel is cheap to reopen. Deps intentionally include the
+  // store mutators that switchToProject reads.
+  }, [hydrateProjectSnapshot, activeProject, setActiveProject]);
 
   useEffect(() => {
     const syncLayout = () => {

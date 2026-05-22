@@ -27,7 +27,8 @@ export function registerConfigRoutes(app: Express, ctx: RouteContext): void {
     }
     try {
       let next: AppframeConfig;
-      if (body.__editorState === true) {
+      const isEditorStateWrite = body.__editorState === true;
+      if (isEditorStateWrite) {
         next = buildConfigFromEditorState(ctx.getConfig(), body);
       } else {
         // Defense-in-depth: a bare PUT body (no __editorState flag) must
@@ -50,6 +51,14 @@ export function registerConfigRoutes(app: Express, ctx: RouteContext): void {
         next = validation.config;
       }
       ctx.setConfig(next);
+      // Only broadcast for non-editor-state writes — the browser sends
+      // __editorState: true for its own debounced edits, and echoing
+      // those back would either no-op or clobber an in-flight edit.
+      // Agent / MCP writes come without the flag and DO need to reach
+      // the UI.
+      if (!isEditorStateWrite) {
+        ctx.broadcastEvent({ type: 'project-changed' });
+      }
       res.json({ success: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';

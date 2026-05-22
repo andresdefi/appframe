@@ -182,7 +182,34 @@ export const screenTools: ToolDefinition[] = [
           'Call `list_compositions` for details.',
         );
       }
-      const result = await client.patchScreen(slug, index, { composition });
+      // Pad / trim extraDevices to match the preset's deviceCount.
+      // Primary device lives at screen.device; extraDevices holds the
+      // additional slots (length = deviceCount - 1). Empty placeholder
+      // entries inherit preset slot config at render time, which is
+      // what the UI does when you pick a preset.
+      const preset = COMPOSITION_PRESETS[composition as keyof typeof COMPOSITION_PRESETS];
+      const targetExtraCount = (preset?.deviceCount ?? 1) - 1;
+      const screen = await readScreen(client, slug, index);
+      const currentExtras = Array.isArray(screen.extraDevices) ? screen.extraDevices : [];
+      const PLACEHOLDER = {
+        dataUrl: null,
+        name: null,
+        frameId: null,
+        offsetX: null,
+        offsetY: null,
+        scale: null,
+        rotation: null,
+        angle: null,
+        tilt: null,
+      };
+      const nextExtras = currentExtras.slice(0, targetExtraCount);
+      while (nextExtras.length < targetExtraCount) {
+        nextExtras.push({ ...PLACEHOLDER });
+      }
+      const result = await client.patchScreen(slug, index, {
+        composition,
+        extraDevices: nextExtras,
+      });
       return jsonContent(result.screen);
     },
   },
@@ -780,6 +807,51 @@ export const screenTools: ToolDefinition[] = [
         patch.spotlightEnabled = true;
       }
       const result = await client.patchScreen(slug, index, patch);
+      return jsonContent(result.screen);
+    },
+  },
+  {
+    descriptor: {
+      name: 'set_text_layer',
+      description:
+        'Set the stacking tier for one of the three text slots. ' +
+        '`target` is "headline" | "subtitle" | "freeText". `layer` is:\n' +
+        '  • "behind-device" (z:0) — tucks under the device frame so ' +
+        'the frame partially occludes the text. Paints on top of the ' +
+        'canvas background.\n' +
+        '  • "default" (z:2) — standard behavior: above the device ' +
+        'frame, below `default`/`front` overlays.\n' +
+        '  • "above-overlays" (z:30) — above every overlay including ' +
+        '`front`. Useful when a decorative overlay would otherwise ' +
+        'cover the text.\n' +
+        'Slots can have different layers — the renderer keeps a hidden ' +
+        'placeholder of each slot in the inactive container so vertical ' +
+        'stacking stays consistent.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug', 'index', 'target', 'layer'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          index: { type: 'integer', minimum: 0 },
+          target: { enum: ['headline', 'subtitle', 'freeText'] },
+          layer: { enum: ['behind-device', 'default', 'above-overlays'] },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'set_text_layer');
+      const slug = requireSlug(a);
+      const index = requireIndex(a);
+      const { target, layer } = a;
+      if (target !== 'headline' && target !== 'subtitle' && target !== 'freeText') {
+        throw new Error('`target` must be "headline", "subtitle", or "freeText"');
+      }
+      if (layer !== 'behind-device' && layer !== 'default' && layer !== 'above-overlays') {
+        throw new Error('`layer` must be "behind-device", "default", or "above-overlays"');
+      }
+      const fieldKey = `${target}Layer`;
+      const result = await client.patchScreen(slug, index, { [fieldKey]: layer });
       return jsonContent(result.screen);
     },
   },

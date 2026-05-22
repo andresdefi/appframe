@@ -217,6 +217,13 @@ export interface TemplateContext {
   freeTextTextTransform?: string;
   freeTextColor?: string;
 
+  // Per-slot stacking tier. Drives the dual .text-area + visibility:hidden
+  // trick in templates/universal/base.html — see headlineLayer on
+  // screenConfigSchema for the full design.
+  headlineLayer?: 'behind-device' | 'default' | 'above-overlays';
+  subtitleLayer?: 'behind-device' | 'default' | 'above-overlays';
+  freeTextLayer?: 'behind-device' | 'default' | 'above-overlays';
+
   // Injected by engine
   fontFaceCss?: string;
   fontFamily?: string;

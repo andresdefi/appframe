@@ -195,6 +195,13 @@ export interface ScreenState {
   headlineShadow: TextShadow;
   subtitleShadow: TextShadow;
   freeTextShadow: TextShadow;
+  // Per-slot stacking tier. 'default' sits at z:2 (below `default`/
+  // `front` overlays). 'above-overlays' sits at z:30 (above all
+  // overlays). Renderer implements via dual .text-area + visibility
+  // trick to preserve vertical alignment.
+  headlineLayer: 'behind-device' | 'default' | 'above-overlays';
+  subtitleLayer: 'behind-device' | 'default' | 'above-overlays';
+  freeTextLayer: 'behind-device' | 'default' | 'above-overlays';
 }
 
 export interface PlatformPreviewSize {

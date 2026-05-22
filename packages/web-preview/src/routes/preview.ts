@@ -158,6 +158,9 @@ interface PreviewParams {
   freeTextTop?: number;
   freeTextLeft?: number;
   freeTextWidth?: number;
+  headlineLayer?: 'behind-device' | 'default' | 'above-overlays';
+  subtitleLayer?: 'behind-device' | 'default' | 'above-overlays';
+  freeTextLayer?: 'behind-device' | 'default' | 'above-overlays';
   loupe?: Loupe;
   callouts?: Array<{
     id: string;
@@ -311,6 +314,9 @@ function parseBody(
     freeTextTop: expectNumber(body.freeTextTop),
     freeTextLeft: expectNumber(body.freeTextLeft),
     freeTextWidth: expectNumber(body.freeTextWidth),
+    headlineLayer: expectString(body.headlineLayer) as PreviewParams['headlineLayer'],
+    subtitleLayer: expectString(body.subtitleLayer) as PreviewParams['subtitleLayer'],
+    freeTextLayer: expectString(body.freeTextLayer) as PreviewParams['freeTextLayer'],
     loupe: expectObject(body.loupe) as PreviewParams['loupe'],
     callouts: expectArray(body.callouts) as PreviewParams['callouts'],
     overlays: expectArray(body.overlays) as PreviewParams['overlays'],
@@ -518,6 +524,12 @@ async function resolveContext(
     freeTextLetterSpacing: p.freeTextLetterSpacing,
     freeTextTextTransform: p.freeTextTextTransform,
     freeTextColor: p.freeTextColor,
+    // Per-slot stacking tier — drives the dual/tri .text-area trick in
+    // templates/universal/base.html. See headlineLayer on
+    // screenConfigSchema for the field surface.
+    headlineLayer: p.headlineLayer,
+    subtitleLayer: p.subtitleLayer,
+    freeTextLayer: p.freeTextLayer,
     loupe: p.loupe,
     callouts: p.callouts,
     overlays: p.overlays,

@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import type { Overlay } from '../../../types';
 
 export function nextId(prefix: string): string {

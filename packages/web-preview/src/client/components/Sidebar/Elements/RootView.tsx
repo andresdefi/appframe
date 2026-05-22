@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import { motion } from 'framer-motion';
 import type { CategoryId } from './utils';
 import {

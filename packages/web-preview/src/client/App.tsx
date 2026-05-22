@@ -321,8 +321,14 @@ export function App() {
         // The server is asking us to capture a PNG of one of the
         // screens and POST it back. Ephemeral round-trip — see
         // routes/renderPreview.ts for the server side. Fires off
-        // async so a slow capture doesn't block other events.
-        void handleRenderRequest(event, { getState: usePreviewStore.getState });
+        // async so a slow capture doesn't block other events. The
+        // handler does its own runtime validation of payload fields,
+        // so the cast is safe even though TS can't narrow from the
+        // loose SSE event shape.
+        void handleRenderRequest(
+          event as { type: 'render-request' } & Record<string, unknown>,
+          { getState: usePreviewStore.getState },
+        );
       }
     });
   // switchToProject is recreated each render but reads activeProject from

@@ -63,6 +63,7 @@ describe('ALL_TOOLS catalog integrity', () => {
       'duplicate_project',
       'get_help',
       'inspect_schema',
+      'batch',
     ]);
     for (const t of ALL_TOOLS) {
       if (slugFree.has(t.descriptor.name)) continue;

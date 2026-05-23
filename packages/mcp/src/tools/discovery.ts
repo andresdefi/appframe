@@ -17,6 +17,32 @@ import { getSchemaInfo, listSchemaNames } from './zodIntrospect.js';
 // Catalogs are imported directly from @appframe/core (static data) or
 // fetched from the preview server (catalog endpoints).
 
+// Catalog tools accept `fields: 'ids'` to return only the entry ids
+// (typical token savings: ~90%). Default is the full catalog with
+// descriptions. The slim form is enough for the agent to pick a valid
+// id; if it needs details about a specific entry, it can fetch the
+// full list — but that's rarely needed in practice.
+const CATALOG_SLIM_INPUT_SCHEMA = {
+  type: 'object',
+  properties: {
+    fields: { enum: ['ids', 'full'] },
+  },
+  additionalProperties: false,
+} as const;
+
+function slimCatalogResponse(args: unknown, full: unknown): unknown {
+  const a = isRecord(args) ? args : {};
+  if (a.fields !== 'ids') return full;
+  if (Array.isArray(full)) {
+    return full.map((entry) => (isRecord(entry) && typeof entry.id === 'string' ? entry.id : entry));
+  }
+  if (isRecord(full)) {
+    // For object-shaped catalogs (e.g. COMPOSITION_PRESETS), return the keys.
+    return Object.keys(full);
+  }
+  return full;
+}
+
 // Stable orientation for an agent starting a new session. Returns
 // categories + workflow recipes + the editor-state shape primer.
 // Updates here should travel with new tool additions so the agent's
@@ -131,6 +157,66 @@ export const discoveryTools: ToolDefinition[] = [
   },
   {
     descriptor: {
+      name: 'get_overview',
+      description:
+        'High-level summary of one project in a single round-trip. ' +
+        'Returns: { meta (displayName, createdAt, lastOpenedAt), ' +
+        'screenCount, theme (font, weight, colors), exportSize, ' +
+        'activeLocale, locales (codes only), activeVariant, variantCount, ' +
+        'composition counts }. Replaces what would otherwise take 4-5 ' +
+        'calls (list_projects + get_project + list_variants + ' +
+        'list_active_locales + ...). Use as the "what is this project" ' +
+        'orientation check at the start of an agent session.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug'],
+        properties: { slug: { type: 'string', minLength: 1 } },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'get_overview');
+      const slug = requireSlug(a);
+      const env = await client.getProjectEnvelope(slug);
+      const data = isRecord(env.data) ? env.data : {};
+      const screens = Array.isArray(data.screens) ? data.screens : [];
+      const variants = Array.isArray(data.variants) ? data.variants : [];
+      const sessionLocales = isRecord(data.sessionLocales) ? data.sessionLocales : {};
+      const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
+      const localeCodes = Array.from(new Set([
+        ...Object.keys(sessionLocales),
+        ...Object.keys(localeScreens),
+      ]));
+      const compositionCounts: Record<string, number> = {};
+      for (const s of screens) {
+        if (isRecord(s)) {
+          const c = typeof s.composition === 'string' ? s.composition : 'single';
+          compositionCounts[c] = (compositionCounts[c] ?? 0) + 1;
+        }
+      }
+      const theme = isRecord(data.theme) ? data.theme : {};
+      const firstScreen = isRecord(screens[0]) ? screens[0] : {};
+      return jsonContent({
+        slug,
+        schemaVersion: env.schemaVersion,
+        savedAt: env.savedAt,
+        screenCount: screens.length,
+        compositionCounts,
+        theme: {
+          font: typeof theme.font === 'string' ? theme.font : (typeof firstScreen.headlineFont === 'string' ? firstScreen.headlineFont : null),
+          fontWeight: typeof theme.fontWeight === 'number' ? theme.fontWeight : null,
+          colors: isRecord(theme.colors) ? theme.colors : null,
+        },
+        exportSize: typeof data.exportSize === 'string' ? data.exportSize : null,
+        activeLocale: typeof data.locale === 'string' ? data.locale : 'default',
+        locales: localeCodes,
+        activeVariantId: typeof data.activeVariantId === 'string' ? data.activeVariantId : null,
+        variantCount: variants.length,
+      });
+    },
+  },
+  {
+    descriptor: {
       name: 'get_project',
       description:
         'Return the full live editor state of the running appframe preview ' +
@@ -162,10 +248,12 @@ export const discoveryTools: ToolDefinition[] = [
         'Return the catalog of device frames the renderer can apply. ' +
         'Each entry includes the `id` you pass as `frameId` to ' +
         '`patch_screen` (e.g. "iphone-17-pro-max", "ipad-pro-13"). Use ' +
-        'this to discover valid frame IDs before editing.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        'this to discover valid frame IDs before editing. Pass ' +
+        '`fields: "ids"` for a slim id-only list (~90% smaller).',
+      inputSchema: CATALOG_SLIM_INPUT_SCHEMA,
     },
-    handler: async (_args, { client }) => jsonContent(await client.listFrames()),
+    handler: async (args, { client }) =>
+      jsonContent(slimCatalogResponse(args, await client.listFrames())),
   },
   {
     descriptor: {
@@ -174,10 +262,12 @@ export const discoveryTools: ToolDefinition[] = [
         'Return the catalog of bundled fonts. Each entry includes the ' +
         'font id used in `headlineFont` / `subtitleFont` / `freeTextFont` ' +
         '(e.g. "inter", "ultra", "bungee"). Use this to discover valid ' +
-        'font ids before calling `set_font` or `patch_screen`.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        'font ids before calling `set_font` or `patch_screen`. Pass ' +
+        '`fields: "ids"` for a slim id-only list (~90% smaller).',
+      inputSchema: CATALOG_SLIM_INPUT_SCHEMA,
     },
-    handler: async (_args, { client }) => jsonContent(await client.listFonts()),
+    handler: async (args, { client }) =>
+      jsonContent(slimCatalogResponse(args, await client.listFonts())),
   },
   {
     descriptor: {
@@ -188,10 +278,12 @@ export const discoveryTools: ToolDefinition[] = [
         '`list_frames`, which only returns the four bundled SVG frames. ' +
         "Use each entry's `id` as `frameId`. Requires the `koubou` " +
         'Python package installed on the user\'s machine; if it isn\'t, ' +
-        'the families list is empty.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        'the families list is empty. Pass `fields: "ids"` for a slim ' +
+        'id-only list.',
+      inputSchema: CATALOG_SLIM_INPUT_SCHEMA,
     },
-    handler: async (_args, { client }) => jsonContent(await client.listKoubouDevices()),
+    handler: async (args, { client }) =>
+      jsonContent(slimCatalogResponse(args, await client.listKoubouDevices())),
   },
   {
     descriptor: {
@@ -202,10 +294,11 @@ export const discoveryTools: ToolDefinition[] = [
         'stacked; "duo-split" two side-by-side; "hero-tilt" one tilted ' +
         'large device; "fanned-cards" a fanned spread. Each entry ' +
         "carries its slot count and default device positions — use the " +
-        '`id` as the `composition` value in `patch_screen`.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        '`id` as the `composition` value in `patch_screen`. Pass ' +
+        '`fields: "ids"` for a slim id-only list.',
+      inputSchema: CATALOG_SLIM_INPUT_SCHEMA,
     },
-    handler: async () => jsonContent(COMPOSITION_PRESETS),
+    handler: async (args) => jsonContent(slimCatalogResponse(args, COMPOSITION_PRESETS)),
   },
   {
     descriptor: {
@@ -301,10 +394,18 @@ export const discoveryTools: ToolDefinition[] = [
         'en-US, fr, ja, zh-Hans, es-MX, ar-SA, etc). Use this to pick a ' +
         'valid `code` for `add_locale`. Distinct from ' +
         '`list_active_locales`, which returns what the current project ' +
-        'already has configured.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        'already has configured. Pass `fields: "ids"` for slim ' +
+        'code-only list.',
+      inputSchema: CATALOG_SLIM_INPUT_SCHEMA,
     },
-    handler: async () => jsonContent(LOCALE_CATALOG),
+    handler: async (args) => {
+      // LOCALE_CATALOG entries use `code` not `id`; remap for slim.
+      const a = isRecord(args) ? args : {};
+      if (a.fields === 'ids') {
+        return jsonContent(LOCALE_CATALOG.map((e) => e.code));
+      }
+      return jsonContent(LOCALE_CATALOG);
+    },
   },
   {
     descriptor: {

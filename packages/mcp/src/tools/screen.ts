@@ -255,17 +255,24 @@ export const screenTools: ToolDefinition[] = [
       name: 'get_screen',
       description:
         'Read one screen from the on-disk project envelope by index. ' +
-        'Returns the FULL editor-state shape (every per-screen field the ' +
-        'UI persists — spotlight / loupe / callouts / annotations / ' +
-        'overlays / per-text fonts and gradients / screenshot URL / ' +
-        'etc). Faster than `get_project` when you only need one screen ' +
-        'and gives you the rich shape, not the slim AppframeConfig.',
+        'Default returns the FULL editor-state shape (every per-screen ' +
+        'field the UI persists — spotlight / loupe / callouts / ' +
+        'annotations / overlays / per-text fonts and gradients / ' +
+        'screenshot URL / etc). Pass `fields` as an array of dot-paths ' +
+        '(e.g. `["headline", "headlineFont", "spotlight.x", "spotlight.y"]`) ' +
+        'to return ONLY those fields — typical token saving 80-95% when ' +
+        'you only need a few values.',
       inputSchema: {
         type: 'object',
         required: ['slug', 'index'],
         properties: {
           slug: { type: 'string', minLength: 1 },
           index: { type: 'integer', minimum: 0 },
+          fields: {
+            type: 'array',
+            items: { type: 'string', minLength: 1 },
+            minItems: 1,
+          },
         },
         additionalProperties: false,
       },
@@ -275,6 +282,9 @@ export const screenTools: ToolDefinition[] = [
       const slug = requireSlug(a);
       const index = requireIndex(a);
       const screen = await readScreen(client, slug, index);
+      if (Array.isArray(a.fields) && a.fields.length > 0) {
+        return jsonContent(pickFields(screen, a.fields as string[]));
+      }
       return jsonContent(screen);
     },
   },
@@ -382,6 +392,48 @@ export const screenTools: ToolDefinition[] = [
   },
   {
     descriptor: {
+      name: 'describe_project',
+      description:
+        'Natural-language summary of EVERY screen in the project, one ' +
+        'block per screen. Saves N round-trips compared to calling ' +
+        'describe_screen N times. Use as the cheapest way to understand ' +
+        '"what is this whole project set up to look like" before ' +
+        'editing.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'describe_project');
+      const slug = requireSlug(a);
+      // Fetch the full envelope once, then describe each screen from
+      // the loaded data instead of N readScreen calls.
+      const env = await client.getProjectEnvelope(slug);
+      const screens = isRecord(env.data) && Array.isArray(env.data.screens)
+        ? env.data.screens
+        : [];
+      const blocks = screens.map((s, i) =>
+        formatScreenDescription(isRecord(s) ? s : {}, i),
+      );
+      return {
+        content: [
+          {
+            type: 'text',
+            text: blocks.length === 0
+              ? `Project "${slug}" has no screens yet.`
+              : `Project "${slug}" — ${blocks.length} screen${blocks.length === 1 ? '' : 's'}:\n\n` + blocks.join('\n\n'),
+          },
+        ],
+      };
+    },
+  },
+  {
+    descriptor: {
       name: 'set_composition',
       description:
         "Set the multi-device composition layout for a screen. Valid " +
@@ -476,6 +528,10 @@ export const screenTools: ToolDefinition[] = [
               additionalProperties: false,
             },
           },
+          // Token efficiency: when false, response omits the full
+          // merged screens and returns only { savedAt, applied }.
+          // Defaults to true for backwards compatibility.
+          verbose: { type: 'boolean' },
         },
         additionalProperties: false,
       },
@@ -483,7 +539,7 @@ export const screenTools: ToolDefinition[] = [
     handler: async (args, { client }) => {
       const a = requireRecord(args, 'batch_patch_screens');
       const slug = requireSlug(a);
-      const { ops } = a;
+      const { ops, verbose } = a;
       if (!Array.isArray(ops) || ops.length === 0) {
         throw new Error('`ops` must be a non-empty array');
       }
@@ -497,7 +553,11 @@ export const screenTools: ToolDefinition[] = [
         if (!isRecord(patch)) throw new Error('each op.patch must be an object');
         validated.push({ index, patch });
       }
-      return jsonContent(await client.patchScreensBatch(slug, validated));
+      const result = await client.patchScreensBatch(slug, validated);
+      if (verbose === false) {
+        return jsonContent({ savedAt: result.savedAt, applied: result.applied });
+      }
+      return jsonContent(result);
     },
   },
   {
@@ -531,6 +591,10 @@ export const screenTools: ToolDefinition[] = [
               'Partial ScreenState (editor-state shape). Top-level fields ' +
               "in `patch` replace the screen's matching fields wholesale.",
           },
+          // Token efficiency: when false, response is {savedAt} instead
+          // of the full merged screen (~2 KB → ~50 bytes). Default true
+          // for backwards compatibility.
+          verbose: { type: 'boolean' },
         },
         additionalProperties: false,
       },
@@ -539,11 +603,14 @@ export const screenTools: ToolDefinition[] = [
       const a = requireRecord(args, 'patch_screen');
       const slug = requireSlug(a);
       const index = requireIndex(a);
-      const { patch } = a;
+      const { patch, verbose } = a;
       if (!isRecord(patch)) {
         throw new Error('`patch` must be an object of editor-state screen fields');
       }
       const result = await client.patchScreen(slug, index, patch);
+      if (verbose === false) {
+        return jsonContent({ savedAt: result.savedAt });
+      }
       return jsonContent(result.screen);
     },
   },
@@ -1567,6 +1634,43 @@ export const screenTools: ToolDefinition[] = [
     },
   },
 ];
+
+// Pick a subset of fields from a record by dot-path. Each path can
+// navigate into nested objects (e.g. "spotlight.x") or array elements
+// by index ("callouts.0.id"). Missing paths are silently skipped (the
+// agent gets back only the paths that exist). Returns a flat object
+// where keys are the original paths and values are the resolved leaf
+// values — flat-keyed avoids the agent having to walk the shape to
+// reassemble nested structures.
+function pickFields(source: Record<string, unknown>, paths: string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const path of paths) {
+    const parts = path.split('.');
+    let cur: unknown = source;
+    let found = true;
+    for (const part of parts) {
+      if (cur === null || cur === undefined) {
+        found = false;
+        break;
+      }
+      if (Array.isArray(cur)) {
+        const idx = Number(part);
+        if (!Number.isInteger(idx) || idx < 0 || idx >= cur.length) {
+          found = false;
+          break;
+        }
+        cur = cur[idx];
+      } else if (typeof cur === 'object') {
+        cur = (cur as Record<string, unknown>)[part];
+      } else {
+        found = false;
+        break;
+      }
+    }
+    if (found && cur !== undefined) out[path] = cur;
+  }
+  return out;
+}
 
 // Strip HTML tags from a headline / subtitle / freeText field. The
 // value is persisted as sanitised Tiptap HTML (e.g. `<p>Hello</p>`);

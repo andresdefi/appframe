@@ -222,6 +222,43 @@ export const FONT_CATALOG: FontInfo[] = [
     category: 'sans-serif',
     description: 'Geometric sans with heavy weights. Marketing-headline staple.',
   },
+  // 2026-05 follow-up: 6 more distinct vibes the catalog didn't have.
+  {
+    id: 'newsreader', name: 'Newsreader',
+    weights: [400, 500, 600, 700, 800], italicWeights: [400, 500, 600, 700, 800],
+    category: 'serif',
+    description: 'Variable serif with optical sizes. Long-form editorial reading.',
+  },
+  {
+    id: 'funnel-display', name: 'Funnel Display',
+    weights: [300, 400, 500, 600, 700, 800], italicWeights: [],
+    category: 'display',
+    description: 'Extreme-contrast variable display. Thin-to-black with character.',
+  },
+  {
+    id: 'tiny5', name: 'Tiny5',
+    weights: [400], italicWeights: [],
+    category: 'display',
+    description: 'Legible 5-pixel font. Cleaner than Press Start 2P, more usable.',
+  },
+  {
+    id: 'reenie-beanie', name: 'Reenie Beanie',
+    weights: [400], italicWeights: [],
+    category: 'script',
+    description: 'Loose handwriting. Casual notebook scribble.',
+  },
+  {
+    id: 'homemade-apple', name: 'Homemade Apple',
+    weights: [400], italicWeights: [],
+    category: 'script',
+    description: 'Soft cursive handwriting. Friendly, personal letter feel.',
+  },
+  {
+    id: 'geist-mono', name: 'Geist Mono',
+    weights: [400, 500, 600, 700, 900], italicWeights: [],
+    category: 'mono',
+    description: "Vercel's monospace, rounder than JetBrains Mono. Pairs with Geist Sans.",
+  },
 ];
 
 const FONT_NAME_MAP: Record<string, string> = Object.fromEntries(

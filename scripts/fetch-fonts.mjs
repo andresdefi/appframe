@@ -59,6 +59,18 @@ const CATALOG = [
   { id: 'crimson-pro', weights: [400, 500, 600, 700, 800], italicWeights: [400, 600, 700] },
   { id: 'big-shoulders-display', weights: [400, 600, 700, 800, 900], italicWeights: [] },
   { id: 'outfit', weights: [400, 500, 600, 700, 800, 900], italicWeights: [] },
+  // === 2026-05 follow-up: 6 more distinct vibes
+  //   - newsreader: variable serif with optical sizes (long-form editorial)
+  //   - funnel-display: extreme-contrast variable display
+  //   - tiny5: legible pixel font, complement to press-start-2p
+  //   - reenie-beanie + homemade-apple: handwriting styles distinct from Caveat
+  //   - geist-mono: pairs with geist-sans (rounder than jetbrains-mono)
+  { id: 'newsreader', weights: [400, 500, 600, 700, 800], italicWeights: [400, 500, 600, 700, 800] },
+  { id: 'funnel-display', weights: [300, 400, 500, 600, 700, 800], italicWeights: [] },
+  { id: 'tiny5', weights: [400], italicWeights: [] },
+  { id: 'reenie-beanie', weights: [400], italicWeights: [] },
+  { id: 'homemade-apple', weights: [400], italicWeights: [] },
+  { id: 'geist-mono', weights: [400, 500, 600, 700, 900], italicWeights: [] },
 ];
 
 const ROOT = new URL('..', import.meta.url).pathname;

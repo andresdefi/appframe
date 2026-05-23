@@ -8,6 +8,11 @@ import { overlayTools } from './overlay.js';
 import { projectTools } from './project.js';
 import { screenLifecycleTools } from './screen-lifecycle.js';
 import { screenTools } from './screen.js';
+import { screenTextTools } from './screen-text.js';
+import { screenDeviceTools } from './screen-device.js';
+import { screenBackgroundTools } from './screen-background.js';
+import { screenEffectsTools } from './screen-effects.js';
+import { screenLayoutTools } from './screen-layout.js';
 import { variantTools } from './variant.js';
 import { isRecord, jsonContent, requireRecord } from './helpers.js';
 
@@ -17,6 +22,11 @@ const NON_BATCH_TOOLS: ToolDefinition[] = [
   ...localeTools,
   ...variantTools,
   ...screenTools,
+  ...screenTextTools,
+  ...screenDeviceTools,
+  ...screenBackgroundTools,
+  ...screenEffectsTools,
+  ...screenLayoutTools,
   ...screenLifecycleTools,
   ...calloutTools,
   ...annotationTools,

@@ -229,3 +229,27 @@ export function jsonContent(payload: unknown): ContentResult {
     content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
   };
 }
+
+// Strip HTML tags from a headline / subtitle / freeText field. The
+// value is persisted as sanitised Tiptap HTML (e.g. `<p>Hello</p>`);
+// measurement and description tools want the plain text. Character-
+// by-character state machine instead of a regex so nested constructs
+// like `<<p>p>` can't bypass it — the inner `<` flips state to inTag
+// regardless. Output is plain text returned via MCP, never rendered
+// as HTML.
+export function stripTagsFromHeadline(html: unknown): string {
+  if (typeof html !== 'string') return '';
+  let out = '';
+  let inTag = false;
+  for (let i = 0; i < html.length; i++) {
+    const ch = html[i];
+    if (ch === '<') {
+      inTag = true;
+    } else if (ch === '>') {
+      inTag = false;
+    } else if (!inTag) {
+      out += ch;
+    }
+  }
+  return out.trim();
+}

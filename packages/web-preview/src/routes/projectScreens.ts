@@ -1,0 +1,405 @@
+import type { Express, Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
+import { readProject, ProjectCorruptError, ProjectFutureSchemaError } from '../projectStorage.js';
+import type { RouteContext } from './context.js';
+import { isRecord } from './utils.js';
+import {
+  loadForScreenOp,
+  syncActiveVariantSnapshot,
+  writeAndBroadcast,
+} from './projectPatchHelpers.js';
+
+// Default-locale screen operations + project-level metadata routes.
+// Sibling files cover variants (projectVariants.ts) and locales
+// (projectLocales.ts). Shared helpers live in projectPatchHelpers.ts.
+//
+// Out-of-band writes to a project envelope. Used by MCP agents to patch
+// editor-state-shape screen fields directly into the on-disk project,
+// then notify the browser via SSE.
+//
+// Why a separate endpoint instead of PUT /api/config (the live
+// AppframeConfig): the AppframeConfig is a slim projection that loses
+// per-screen editor-state details (callouts, gradients, spotlight flags,
+// shadow toggles, etc.) when round-tripped back to editor state. Writes
+// through this endpoint preserve every field the UI knows about, because
+// the disk file IS the editor-state shape.
+//
+// The patch is shallow-merged at the top level of the target screen
+// object: any key present in `patch` replaces the screen's value
+// wholesale (e.g. to tweak one spotlight field you must send the full
+// `spotlight` object). This matches the convention used elsewhere and
+// avoids the complexity of nested-object merge semantics.
+
+export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): void {
+  // GET /api/active-project — agent-facing read of the slug the browser
+  // currently has open. Returns { slug: null } when no project is
+  // active yet (e.g. server just booted, no browser has connected).
+  app.get('/api/active-project', (_req: Request, res: Response) => {
+    res.json({ slug: ctx.getActiveProjectSlug() });
+  });
+
+  // POST /api/active-project — browser tells the server which project
+  // it just opened. Idempotent; passing the same slug twice is fine.
+  // Pass { slug: null } to clear (not currently used by the UI but
+  // kept for symmetry).
+  app.post('/api/active-project', (req: Request, res: Response) => {
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const raw = body.slug;
+    if (raw === null) {
+      ctx.setActiveProjectSlug(null);
+      res.json({ success: true, slug: null });
+      return;
+    }
+    if (typeof raw !== 'string' || raw.length === 0) {
+      res.status(400).json({ error: '`slug` must be a non-empty string or null' });
+      return;
+    }
+    ctx.setActiveProjectSlug(raw);
+    res.json({ success: true, slug: raw });
+  });
+
+  // POST /api/projects/:project/patch-screen
+  //   { index: number, patch: Partial<ScreenState> }
+  //
+  // Reads the envelope, shallow-merges patch into data.screens[index],
+  // writes atomically, broadcasts SSE. Returns the merged screen.
+  app.post('/api/projects/:project/patch-screen', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { index, patch } = body;
+    if (typeof index !== 'number' || !Number.isInteger(index) || index < 0) {
+      res.status(400).json({ error: '`index` must be a non-negative integer' });
+      return;
+    }
+    if (!isRecord(patch)) {
+      res.status(400).json({ error: '`patch` must be an object of editor-state screen fields' });
+      return;
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data, screens } = loaded;
+    if (index >= screens.length) {
+      res.status(400).json({
+        error: `screen index ${index} out of bounds — project has ${screens.length} screen(s)`,
+      });
+      return;
+    }
+    const existing = screens[index];
+    if (!isRecord(existing)) {
+      res.status(422).json({ error: `data.screens[${index}] is not an object` });
+      return;
+    }
+    const merged: Record<string, unknown> = { ...existing, ...patch };
+    const nextScreens = screens.slice();
+    nextScreens[index] = merged;
+    syncActiveVariantSnapshot(data, nextScreens);
+    const nextData = { ...data, screens: nextScreens };
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, screen: merged });
+  });
+
+  // POST /api/projects/:project/patch-batch
+  //   { ops: [{ index: number, patch: Partial<ScreenState> }, ...] }
+  //
+  // Applies N shallow-merge screen patches in one envelope read + write.
+  // For the agent's bulk-edit flows ("set all 6 headlines"), this cuts
+  // N HTTP round-trips + N atomic writes down to one of each. Ops are
+  // applied in order; any malformed op fails the whole batch (no
+  // partial writes). Returns the post-merge screens that were touched.
+  app.post('/api/projects/:project/patch-batch', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { ops } = body;
+    if (!Array.isArray(ops) || ops.length === 0) {
+      res.status(400).json({ error: '`ops` must be a non-empty array of { index, patch } objects' });
+      return;
+    }
+    for (const op of ops) {
+      if (!isRecord(op)) {
+        res.status(400).json({ error: 'each op must be an object' });
+        return;
+      }
+      const { index, patch } = op;
+      if (typeof index !== 'number' || !Number.isInteger(index) || index < 0) {
+        res.status(400).json({ error: 'each op.index must be a non-negative integer' });
+        return;
+      }
+      if (!isRecord(patch)) {
+        res.status(400).json({ error: 'each op.patch must be an object' });
+        return;
+      }
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data, screens } = loaded;
+    const nextScreens = screens.slice();
+    const merged: Record<string, unknown>[] = [];
+    for (const op of ops as Array<{ index: number; patch: Record<string, unknown> }>) {
+      if (op.index >= nextScreens.length) {
+        res.status(400).json({
+          error: `op.index ${op.index} out of bounds — project has ${nextScreens.length} screen(s)`,
+        });
+        return;
+      }
+      const existing = nextScreens[op.index];
+      if (!isRecord(existing)) {
+        res.status(422).json({ error: `screens[${op.index}] is not an object` });
+        return;
+      }
+      const next = { ...existing, ...op.patch };
+      nextScreens[op.index] = next;
+      merged.push(next);
+    }
+    syncActiveVariantSnapshot(data, nextScreens);
+    const nextData = { ...data, screens: nextScreens };
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: merged });
+  });
+
+  // POST /api/projects/:project/screens/insert
+  //   { atIndex?: number, screen?: Partial<ScreenState> }
+  //
+  // Builds a new screen with an auto-generated id and the caller's
+  // overrides on top of an empty record (fattenScreen on hydrate fills
+  // in STATIC_SCREEN_DEFAULTS, so a near-empty input is enough). atIndex
+  // defaults to appending. Always updates the active variant's snapshot
+  // to match — see syncActiveVariantSnapshot.
+  app.post('/api/projects/:project/screens/insert', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { atIndex, screen } = body;
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data, screens } = loaded;
+    const insertAt = typeof atIndex === 'number' && Number.isInteger(atIndex) && atIndex >= 0
+      ? Math.min(atIndex, screens.length)
+      : screens.length;
+    if (screen !== undefined && !isRecord(screen)) {
+      res.status(400).json({ error: '`screen` must be an object if provided' });
+      return;
+    }
+    // Empty centered <p> matches what the UI inserts; minimal but loads
+    // identically once fattenScreen runs on hydrate.
+    const newScreen: Record<string, unknown> = {
+      id: randomUUID(),
+      headline: '<p style="text-align: center;"></p>',
+      subtitle: '<p style="text-align: center;"></p>',
+      ...(isRecord(screen) ? screen : {}),
+    };
+    // Always assign a fresh id even if the caller passed one — duplicate
+    // ids in the same array break React reconciliation in the editor.
+    newScreen.id = randomUUID();
+    const nextScreens = [...screens.slice(0, insertAt), newScreen, ...screens.slice(insertAt)];
+    syncActiveVariantSnapshot(data, nextScreens);
+    const nextData = { ...data, screens: nextScreens };
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, atIndex: insertAt, screen: newScreen });
+  });
+
+  // POST /api/projects/:project/screens/remove { index: number }
+  app.post('/api/projects/:project/screens/remove', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { index } = body;
+    if (typeof index !== 'number' || !Number.isInteger(index) || index < 0) {
+      res.status(400).json({ error: '`index` must be a non-negative integer' });
+      return;
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data, screens } = loaded;
+    if (index >= screens.length) {
+      res.status(400).json({ error: `screen index ${index} out of bounds` });
+      return;
+    }
+    if (screens.length <= 1) {
+      res.status(400).json({ error: 'cannot remove the last screen — projects must have at least 1' });
+      return;
+    }
+    const nextScreens = screens.slice();
+    const [removed] = nextScreens.splice(index, 1);
+    syncActiveVariantSnapshot(data, nextScreens);
+    // Clamp selectedScreen so the UI doesn't point at a now-out-of-bounds
+    // index on hydrate.
+    const nextData: Record<string, unknown> = { ...data, screens: nextScreens };
+    const currentSelected = data.selectedScreen;
+    if (typeof currentSelected === 'number') {
+      if (currentSelected >= nextScreens.length) {
+        nextData.selectedScreen = Math.max(0, nextScreens.length - 1);
+      } else if (currentSelected > index) {
+        nextData.selectedScreen = currentSelected - 1;
+      }
+    }
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    if (!written) return;
+    res.json({
+      success: true,
+      savedAt: written.savedAt,
+      removed,
+      remaining: nextScreens.length,
+    });
+  });
+
+  // POST /api/projects/:project/switch
+  //
+  // Validates the project exists, sets it as the active slug, broadcasts
+  // a `project-switched` event so the browser UI navigates to it. This
+  // is distinct from `project-changed` (which means "the active project
+  // was edited") — browser handlers must distinguish so a remote edit
+  // doesn't yank the user into a different project.
+  app.post('/api/projects/:project/switch', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    let envelope;
+    try {
+      envelope = await readProject(ctx.projectStorage, project);
+    } catch (err) {
+      if (err instanceof ProjectCorruptError) {
+        res.status(422).json({ error: err.message });
+        return;
+      }
+      if (err instanceof ProjectFutureSchemaError) {
+        res.status(409).json({ error: err.message, schemaVersion: err.schemaVersion });
+        return;
+      }
+      const message = err instanceof Error ? err.message : 'unknown error';
+      res.status(500).json({ error: message });
+      return;
+    }
+    if (!envelope) {
+      res.status(404).json({ error: 'project not found' });
+      return;
+    }
+    ctx.setActiveProjectSlug(project);
+    ctx.broadcastEvent({ type: 'project-switched', slug: project });
+    res.json({ success: true, slug: project });
+  });
+
+  // POST /api/projects/:project/patch-project { patch }
+  //
+  // Top-level fields on the project envelope (not per-screen). Only
+  // whitelisted keys are accepted to guard against accidentally
+  // clobbering structural fields like `screens`, `variants`, or
+  // `localeScreens` through this surface — those have dedicated
+  // endpoints. Expand the whitelist as new top-level fields earn
+  // a tool wrapper.
+  const TOP_LEVEL_PATCH_WHITELIST = new Set([
+    'exportSize',
+    'platform',
+    'previewW',
+    'previewH',
+    'panoramicFrameCount',
+  ]);
+  app.post('/api/projects/:project/patch-project', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { patch } = body;
+    if (!isRecord(patch)) {
+      res.status(400).json({ error: '`patch` must be an object' });
+      return;
+    }
+    const rejected: string[] = [];
+    const accepted: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(patch)) {
+      if (TOP_LEVEL_PATCH_WHITELIST.has(key)) accepted[key] = value;
+      else rejected.push(key);
+    }
+    if (rejected.length > 0) {
+      res.status(400).json({
+        error: `patch contained non-whitelisted keys: ${rejected.join(', ')} ` +
+          `(allowed: ${Array.from(TOP_LEVEL_PATCH_WHITELIST).join(', ')})`,
+      });
+      return;
+    }
+    if (Object.keys(accepted).length === 0) {
+      res.status(400).json({ error: 'patch must contain at least one whitelisted field' });
+      return;
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data } = loaded;
+    const nextData = { ...data, ...accepted };
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, applied: accepted });
+  });
+
+  // POST /api/projects/:project/screens/reorder { order: number[] }
+  //
+  // `order` is a permutation of [0..N-1]; result[i] = screens[order[i]].
+  // Rejects orders that aren't a complete permutation to avoid
+  // accidentally dropping or duplicating screens.
+  app.post('/api/projects/:project/screens/reorder', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { order } = body;
+    if (!Array.isArray(order) || !order.every((v) => Number.isInteger(v) && v >= 0)) {
+      res.status(400).json({ error: '`order` must be an array of non-negative integers' });
+      return;
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data, screens } = loaded;
+    const n = screens.length;
+    if (order.length !== n) {
+      res.status(400).json({
+        error: `\`order\` length ${order.length} must match screen count ${n}`,
+      });
+      return;
+    }
+    const seen = new Set<number>();
+    for (const i of order) {
+      if (i >= n) {
+        res.status(400).json({ error: `\`order\` index ${i} out of bounds (n=${n})` });
+        return;
+      }
+      if (seen.has(i)) {
+        res.status(400).json({ error: `\`order\` is not a permutation — index ${i} appears more than once` });
+        return;
+      }
+      seen.add(i);
+    }
+    const nextScreens = order.map((i) => screens[i]);
+    syncActiveVariantSnapshot(data, nextScreens);
+    // Remap selectedScreen so the UI stays on the same logical screen.
+    const nextData: Record<string, unknown> = { ...data, screens: nextScreens };
+    const currentSelected = data.selectedScreen;
+    if (typeof currentSelected === 'number') {
+      const newPosition = order.indexOf(currentSelected);
+      if (newPosition >= 0) nextData.selectedScreen = newPosition;
+    }
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, order });
+  });
+}

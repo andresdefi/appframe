@@ -107,7 +107,7 @@ export function registerProjectVariantRoutes(app: Express, ctx: RouteContext): v
       selectedElementIndex: null,
       locale: 'default',
     };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'variants/create');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, variant: newVariant });
   });
@@ -144,7 +144,7 @@ export function registerProjectVariantRoutes(app: Express, ctx: RouteContext): v
       const snapshot = isRecord(fallback.snapshot) ? fallback.snapshot : {};
       nextData = applyVariantSnapshotToData(nextData, snapshot, fallbackId);
     }
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'variants/delete');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, deleted: variantId });
   });
@@ -181,7 +181,7 @@ export function registerProjectVariantRoutes(app: Express, ctx: RouteContext): v
     syncActiveVariantSnapshot(data, screens);
     const snapshot = isRecord(target.snapshot) ? target.snapshot : {};
     const nextData = applyVariantSnapshotToData(data, snapshot, variantId);
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'variants/set-active');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, active: variantId });
   });
@@ -235,7 +235,7 @@ export function registerProjectVariantRoutes(app: Express, ctx: RouteContext): v
     const nextVariants = variants.slice();
     nextVariants[foundIdx] = updated;
     const nextData = { ...data, variants: nextVariants };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'variants/rename');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, variant: updated });
   });

@@ -189,6 +189,36 @@ export class AppframeClient {
     return this.request('POST', `/api/projects/${encodeURIComponent(slug)}/switch`);
   }
 
+  // Server-side undo history. Each successful envelope write through
+  // /patch-screen, /patch-batch, /locales/*, /variants/*, etc. pushes
+  // a snapshot of the previous data onto an in-memory per-slug ring
+  // buffer. listRecentWrites surfaces the metadata; undoLastWrite pops
+  // the top entry and restores its `beforeData` to disk.
+  async listRecentWrites(slug: string, limit?: number): Promise<{
+    slug: string;
+    entries: Array<{ opName: string; savedAt: string; index: number }>;
+    total: number;
+  }> {
+    const query = typeof limit === 'number' ? `?limit=${encodeURIComponent(String(limit))}` : '';
+    return this.request(
+      'GET',
+      `/api/projects/${encodeURIComponent(slug)}/recent-writes${query}`,
+    );
+  }
+
+  async undoLastWrite(slug: string): Promise<{
+    success: boolean;
+    undone: { opName: string; savedAt: string };
+    remaining: number;
+    newSavedAt: string;
+  }> {
+    return this.request(
+      'POST',
+      `/api/projects/${encodeURIComponent(slug)}/undo-last-write`,
+      {},
+    );
+  }
+
   // Asset inventory + cleanup. Read-only listAssets is paired with two
   // server-side mutators: deleteScreenshot (single file, refuses on
   // referenced) and cleanupUnusedScreenshots (sweep every unreferenced

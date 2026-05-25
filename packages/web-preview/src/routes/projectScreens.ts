@@ -102,7 +102,7 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
     nextScreens[index] = merged;
     syncActiveVariantSnapshot(data, nextScreens);
     const nextData = { ...data, screens: nextScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'patch_screen');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, screen: merged });
   });
@@ -165,7 +165,7 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
     }
     syncActiveVariantSnapshot(data, nextScreens);
     const nextData = { ...data, screens: nextScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'patch_batch');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: merged });
   });
@@ -210,7 +210,7 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
     const nextScreens = [...screens.slice(0, insertAt), newScreen, ...screens.slice(insertAt)];
     syncActiveVariantSnapshot(data, nextScreens);
     const nextData = { ...data, screens: nextScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'screens/insert');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, atIndex: insertAt, screen: newScreen });
   });
@@ -253,7 +253,7 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
         nextData.selectedScreen = currentSelected - 1;
       }
     }
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'screens/remove');
     if (!written) return;
     res.json({
       success: true,
@@ -345,7 +345,7 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
     if (!loaded) return;
     const { data } = loaded;
     const nextData = { ...data, ...accepted };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'patch_project');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, applied: accepted });
   });
@@ -398,7 +398,7 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       const newPosition = order.indexOf(currentSelected);
       if (newPosition >= 0) nextData.selectedScreen = newPosition;
     }
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'screens/reorder');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, order });
   });

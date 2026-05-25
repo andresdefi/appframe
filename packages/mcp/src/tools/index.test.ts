@@ -85,6 +85,7 @@ describe('ALL_TOOLS catalog integrity', () => {
       'remove_screen',
       'delete_screenshot',
       'cleanup_unused_screenshots',
+      'undo_last_write',
     ];
     for (const name of destructive) {
       const t = ALL_TOOLS.find((x) => x.descriptor.name === name);

@@ -55,7 +55,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       sessionLocales: { ...sessionLocales, [code]: { label: resolvedLabel } },
       localeScreens: { ...localeScreens, [code]: structuredClone(screens) },
     };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/add');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, code, label: resolvedLabel });
   });
@@ -103,7 +103,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
     if (data.locale === code) {
       nextData.locale = 'default';
     }
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/remove');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, removed: code });
   });
@@ -140,7 +140,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       }
     }
     const nextData = { ...data, locale: code };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/set-active');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, locale: code });
   });
@@ -201,7 +201,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
     nextScreens[index] = merged;
     const nextLocaleScreens = { ...localeScreens, [code]: nextScreens };
     const nextData = { ...data, localeScreens: nextLocaleScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/patch-screen');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, screen: merged });
   });
@@ -280,7 +280,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
     }
     const nextLocaleScreens = { ...localeScreens, [code]: nextScreens };
     const nextData = { ...data, localeScreens: nextLocaleScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/patch-batch');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: merged });
   });
@@ -342,7 +342,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       return;
     }
     const nextData = { ...data, localeScreens: nextLocaleScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/broadcast-screen');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, affected });
   });

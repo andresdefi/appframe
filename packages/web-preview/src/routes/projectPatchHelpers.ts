@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import { readProject, writeProject, ProjectCorruptError, ProjectFutureSchemaError } from '../projectStorage.js';
 import type { RouteContext } from './context.js';
+import { recordEnvelopeWrite } from './projectHistory.js';
 import { isRecord } from './utils.js';
 
 // Shared helpers used by projectScreens, projectVariants, projectLocales
@@ -147,7 +148,8 @@ export async function writeAndBroadcast(
   project: string,
   nextData: Record<string, unknown>,
   res: Response,
-  previousData?: Record<string, unknown>,
+  previousData: Record<string, unknown> | undefined,
+  opName: string,
 ): Promise<{ savedAt: string } | null> {
   try {
     // Skip the disk write if the envelope is byte-identical to what
@@ -156,13 +158,20 @@ export async function writeAndBroadcast(
     // (~2 ms) but skipping is cheaper and avoids spurious savedAt
     // timestamps that could trick the user into thinking they have
     // unsaved work to commit. We still broadcast in case any client
-    // is interested in the touch.
+    // is interested in the touch. No-ops don't go into undo history
+    // either — there'd be nothing to undo.
     if (previousData && deepEquals(previousData, nextData)) {
       ctx.broadcastEvent({ type: 'project-changed', source: 'agent', slug: project, unchanged: true });
       return { savedAt: '' };
     }
     const written = await writeProject(ctx.projectStorage, project, nextData);
     ctx.broadcastEvent({ type: 'project-changed', source: 'agent', slug: project });
+    // Push the pre-write envelope onto the undo stack. We only get here
+    // when previousData was supplied and differs from nextData; both
+    // are required to make undo meaningful.
+    if (previousData) {
+      recordEnvelopeWrite(project, previousData, opName, written.savedAt);
+    }
     return { savedAt: written.savedAt };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error';

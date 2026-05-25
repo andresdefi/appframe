@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ScreenState, TextPosition } from '../types';
 import type { PreviewSurface } from '../utils/previewSurface';
+import { COMPOSITION_PRESETS } from '../utils/compositionPresets';
 
-type DragKind = 'device' | 'text' | 'annotation' | 'overlay' | 'loupe' | 'spotlight' | 'callout';
+type DragKind = 'device' | 'extra-device' | 'text' | 'annotation' | 'overlay' | 'loupe' | 'spotlight' | 'callout';
 
 interface DragState {
   kind: DragKind;
@@ -12,6 +13,8 @@ interface DragState {
   startY: number;
   startDeviceTop: number;
   startDeviceOffsetX: number;
+  /** For 'extra-device' kind: index into screen.extraDevices (0-based). */
+  extraIdx?: number;
   offsetX: number;
   offsetY: number;
   origWidth: number;
@@ -94,6 +97,11 @@ export function useDragPosition(
   canvasW: number,
   canvasH: number,
   onDeviceDrop: (partial: { deviceTop: number; deviceOffsetX: number }) => void,
+  /** Called when a composition extra device is released after drag.
+   *  `extraIdx` is the 0-based index into `screen.extraDevices`. The caller
+   *  is responsible for merging this back into state. Pass `undefined`
+   *  if the integration doesn't yet support extra-device drags. */
+  onExtraDeviceDrop: ((extraIdx: number, partial: { offsetY: number; offsetX: number }) => void) | undefined,
   onTextDrop: (cls: 'headline' | 'subtitle' | 'freeText', pos: TextPosition) => void,
   onAnnotationDrop: (idx: number, partial: { x: number; y: number }) => void,
   onOverlayDrop: (idx: number, partial: { x: number; y: number }) => void,
@@ -114,6 +122,7 @@ export function useDragPosition(
    *  overlay drags stay locked to Default. */
   allowedKinds: ReadonlyArray<DragKind> = [
     'device',
+    'extra-device',
     'text',
     'annotation',
     'overlay',
@@ -127,6 +136,7 @@ export function useDragPosition(
   // can scope their feedback to that element rather than all draggables.
   const [dragTarget, setDragTarget] = useState<
     | { kind: 'device' }
+    | { kind: 'extra-device'; extraIdx: number }
     | { kind: 'text'; cls: 'headline' | 'subtitle' | 'freeText' }
     | { kind: 'annotation'; idx: number }
     | { kind: 'overlay'; idx: number }
@@ -143,6 +153,7 @@ export function useDragPosition(
       clientY: number,
     ):
       | { cls: string; el: HTMLElement; kind: 'device' | 'text' }
+      | { cls: string; el: HTMLElement; kind: 'extra-device'; extraIdx: number }
       | { cls: string; el: HTMLElement; kind: 'annotation'; annotationIdx: number }
       | { cls: string; el: HTMLElement; kind: 'overlay'; overlayIdx: number }
       | { cls: string; el: HTMLElement; kind: 'loupe' }
@@ -242,16 +253,16 @@ export function useDragPosition(
           return { cls: best.cls, el: best.el, kind: 'text' };
         }
         if (deviceEl) {
-          // After the multi-device DOM unification, every device slot —
-          // primary AND composition extras — has `.device-wrapper` +
-          // `data-device-idx`. PR 1 preserves current behavior by ignoring
-          // hits on non-primary slots (extras stay non-draggable here). PR 2
-          // will extend the drag handler to read the index and dispatch to
-          // the right state field.
+          // After the multi-device DOM unification (PR 1) every device slot
+          // — primary AND composition extras — emits as `.device-wrapper`
+          // with `data-device-idx`. Slot 0 is the primary; 1+ map to
+          // `screen.extraDevices[slotIdx - 1]`.
           const idxAttr = deviceEl.getAttribute('data-device-idx');
-          if (idxAttr === '0' || idxAttr === null) {
+          const slotIdx = idxAttr ? parseInt(idxAttr, 10) : 0;
+          if (slotIdx === 0) {
             return { cls: 'device-wrapper', el: deviceEl, kind: 'device' };
           }
+          return { cls: 'device-wrapper', el: deviceEl, kind: 'extra-device', extraIdx: slotIdx - 1 };
         }
       } catch {
         // Cross-origin or unavailable
@@ -321,6 +332,68 @@ export function useDragPosition(
           document.removeEventListener('mouseup', onUp);
           setDragTarget(null);
           onDeviceDrop({ deviceTop: newTop, deviceOffsetX: newOffsetX });
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      } else if (hit.kind === 'extra-device') {
+        // Mirror of the 'device' drag path but reading from
+        // screen.extraDevices[extraIdx] (falling back to the preset
+        // slot when the user hasn't overridden the value yet) and
+        // committing via onExtraDeviceDrop. Caller is free to no-op
+        // when onExtraDeviceDrop is undefined.
+        if (!onExtraDeviceDrop) return;
+        const extraIdx = hit.extraIdx;
+        const extra = screen.extraDevices?.[extraIdx];
+        if (!extra) return;
+        const preset = COMPOSITION_PRESETS[screen.composition]?.slots[extraIdx + 1];
+        const startOffsetY = extra.offsetY ?? preset?.offsetY ?? 0;
+        const startOffsetX = extra.offsetX ?? preset?.offsetX ?? 0;
+        dragRef.current = {
+          kind: 'extra-device',
+          el: hit.el,
+          startX: e.clientX,
+          startY: e.clientY,
+          startDeviceTop: startOffsetY,
+          startDeviceOffsetX: startOffsetX,
+          extraIdx,
+          offsetX: 0,
+          offsetY: 0,
+          origWidth: 0,
+          scale,
+        };
+        hit.el.style.outline = '2px solid rgba(99,102,241,0.5)';
+        setDragTarget({ kind: 'extra-device', extraIdx });
+
+        const onMove = (ev: MouseEvent) => {
+          const drag = dragRef.current;
+          if (!drag || drag.kind !== 'extra-device') return;
+          const dx = (ev.clientX - drag.startX) / drag.scale;
+          const dy = (ev.clientY - drag.startY) / drag.scale;
+          const newOffsetX = Math.max(-90, Math.min(90, drag.startDeviceOffsetX + Math.round((dx / canvasW) * 100)));
+          const newOffsetY = Math.max(-90, Math.min(90, drag.startDeviceTop + Math.round((dy / canvasH) * 100)));
+          // Live patch: same %-of-canvas math the template uses on
+          // initial render (canvasHeight * offsetY / 100 → px), so
+          // emitting % directly resolves to the same pixel coord.
+          drag.el.style.top = newOffsetY + '%';
+          drag.el.style.left = newOffsetX
+            ? `calc(50% + ${(newOffsetX / 100) * canvasW}px)`
+            : '50%';
+        };
+
+        const onUp = (ev: MouseEvent) => {
+          const drag = dragRef.current;
+          if (!drag || drag.kind !== 'extra-device') return;
+          drag.el.style.outline = 'none';
+          const dx = (ev.clientX - drag.startX) / drag.scale;
+          const dy = (ev.clientY - drag.startY) / drag.scale;
+          const newOffsetX = Math.max(-90, Math.min(90, drag.startDeviceOffsetX + Math.round((dx / canvasW) * 100)));
+          const newOffsetY = Math.max(-90, Math.min(90, drag.startDeviceTop + Math.round((dy / canvasH) * 100)));
+          dragRef.current = null;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          setDragTarget(null);
+          onExtraDeviceDrop(drag.extraIdx!, { offsetY: newOffsetY, offsetX: newOffsetX });
         };
 
         document.addEventListener('mousemove', onMove);
@@ -728,7 +801,7 @@ export function useDragPosition(
         document.addEventListener('mouseup', onUp);
       }
     },
-    [screen, scale, getSurface, hitTest, onDeviceDrop, onTextDrop, onAnnotationDrop, onOverlayDrop, onLoupeDrop, onLoupeInstant, onSpotlightDrop, onCalloutDrop, onCalloutInstant, canvasW, canvasH, allowedKinds],
+    [screen, scale, getSurface, hitTest, onDeviceDrop, onExtraDeviceDrop, onTextDrop, onAnnotationDrop, onOverlayDrop, onLoupeDrop, onLoupeInstant, onSpotlightDrop, onCalloutDrop, onCalloutInstant, canvasW, canvasH, allowedKinds],
   );
 
   const getCursorForPosition = useCallback(
@@ -738,6 +811,7 @@ export function useDragPosition(
       if (!allowedKinds.includes(hit.kind)) return 'default';
       if (
         hit.kind === 'device' ||
+        hit.kind === 'extra-device' ||
         hit.kind === 'annotation' ||
         hit.kind === 'overlay' ||
         hit.kind === 'loupe' ||

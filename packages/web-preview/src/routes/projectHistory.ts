@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from 'express';
+import { gzipSync, gunzipSync } from 'node:zlib';
 import { writeProject } from '../projectStorage.js';
 import type { RouteContext } from './context.js';
 
@@ -8,9 +9,15 @@ import type { RouteContext } from './context.js';
 //
 // Design notes:
 //   - History is per-slug, capped at MAX_HISTORY entries (oldest evicted).
-//   - Each entry stores the FULL pre-write envelope. That's ~40 KB for
-//     a typical project; 25 entries x ~40 KB = ~1 MB per active project,
-//     fine for in-memory.
+//   - Each entry stores the pre-write envelope as a gzipped JSON buffer.
+//     A typical 40 KB envelope compresses to ~4-8 KB; 25 entries x ~6 KB
+//     ≈ 150 KB per active project (vs ~1 MB uncompressed). Gzip costs
+//     ~1-2 ms on write and the same on undo. We chose gzip over an
+//     RFC 6902 patch chain because most envelope writes reassign whole
+//     top-level fields (`{...data, screens: nextScreens}`) — a top-
+//     level diff would store the full previous `screens` array anyway,
+//     and a deep diff that walks into arrays adds correctness risk
+//     without much more savings than gzip already provides.
 //   - Server restart clears history. Agents shouldn't expect undo
 //     across restarts — the user can reload the file from disk to see
 //     the last persisted state.
@@ -22,7 +29,8 @@ import type { RouteContext } from './context.js';
 const MAX_HISTORY = 25;
 
 interface HistoryEntry {
-  beforeData: unknown;
+  /** gzipSync(JSON.stringify(beforeData)). Restore via gunzipSync + JSON.parse. */
+  compressedBefore: Buffer;
   opName: string;
   savedAt: string;
 }
@@ -31,8 +39,9 @@ const projectHistory = new Map<string, HistoryEntry[]>();
 
 /**
  * Record a pre-write snapshot for `slug`. Called by writeAndBroadcast
- * after a successful disk write. Oldest entry evicts when the stack
- * passes MAX_HISTORY.
+ * after a successful disk write. Compresses the envelope before
+ * storing so 25 entries x 40 KB stays under ~200 KB instead of ~1 MB.
+ * Oldest entry evicts when the stack passes MAX_HISTORY.
  */
 export function recordEnvelopeWrite(
   slug: string,
@@ -41,7 +50,8 @@ export function recordEnvelopeWrite(
   savedAt: string,
 ): void {
   const stack = projectHistory.get(slug) ?? [];
-  stack.push({ beforeData, opName, savedAt });
+  const compressedBefore = gzipSync(JSON.stringify(beforeData));
+  stack.push({ compressedBefore, opName, savedAt });
   if (stack.length > MAX_HISTORY) stack.shift();
   projectHistory.set(slug, stack);
 }
@@ -132,10 +142,14 @@ export function registerProjectHistoryRoutes(app: Express, ctx: RouteContext): v
       return;
     }
     try {
+      // Decompress + parse the stored pre-write envelope. JSON.parse
+      // throws on corrupt input; the catch below pushes the entry back
+      // onto the stack so the user can retry / report.
+      const beforeData = JSON.parse(gunzipSync(entry.compressedBefore).toString('utf-8')) as Record<string, unknown>;
       const written = await writeProject(
         ctx.projectStorage,
         project,
-        entry.beforeData as Record<string, unknown>,
+        beforeData,
       );
       ctx.broadcastEvent({ type: 'project-changed', source: 'agent', slug: project, undo: true });
       res.json({

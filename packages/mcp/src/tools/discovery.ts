@@ -219,15 +219,47 @@ export const discoveryTools: ToolDefinition[] = [
     descriptor: {
       name: 'get_project',
       description:
-        'Return the full live editor state of the running appframe preview ' +
-        '(every screen, position, font, color, background, device frame, ' +
-        'callout, spotlight, loupe). This is the same JSON the browser UI ' +
-        'reads — use it to "see" the current project exactly as the user ' +
-        'sees it. Requires the appframe preview server to be running ' +
-        '(pnpm preview).',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        'Return the full persisted project state from disk (every screen, ' +
+        'position, font, color, background, device frame, callout, ' +
+        'spotlight, loupe, locales, variants). Reads the on-disk envelope ' +
+        '— always reflects the latest writes, unlike the browser\'s ' +
+        'in-memory cache. Pass `slug` explicitly or omit to use the ' +
+        'active project in the browser.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          slug: {
+            type: 'string',
+            minLength: 1,
+            description:
+              'Project slug. Defaults to the active project in the browser.',
+          },
+        },
+        additionalProperties: false,
+      },
     },
-    handler: async (_args, { client }) => jsonContent(await client.getProject()),
+    handler: async (args, { client }) => {
+      const a = isRecord(args) ? args : {};
+      let slug: string;
+      if (typeof a.slug === 'string' && a.slug.length > 0) {
+        slug = a.slug;
+      } else {
+        const active = await client.getActiveProject();
+        if (!active.slug) {
+          throw new Error(
+            'No active project — open a project in the browser or pass `slug`',
+          );
+        }
+        slug = active.slug;
+      }
+      const envelope = await client.getProjectEnvelope(slug);
+      return jsonContent({
+        slug,
+        schemaVersion: envelope.schemaVersion,
+        savedAt: envelope.savedAt,
+        ...(isRecord(envelope.data) ? envelope.data : {}),
+      });
+    },
   },
   {
     descriptor: {

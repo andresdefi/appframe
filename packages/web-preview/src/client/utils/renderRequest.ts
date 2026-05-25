@@ -43,14 +43,16 @@ export async function handleRenderRequest(
     // showing — drop it silently so we don't render the wrong project.
     return;
   }
-  const screen = state.screens[index];
+  const locale = typeof requestedLocale === 'string' && requestedLocale.length > 0
+    ? requestedLocale
+    : state.locale;
+  const screen = locale !== 'default' && state.localeScreens[locale]?.[index]
+    ? state.localeScreens[locale][index]
+    : state.screens[index];
   if (!screen) {
     void postResult(requestId, undefined, `screen index ${index} out of bounds (${state.screens.length} screens)`);
     return;
   }
-  const locale = typeof requestedLocale === 'string' && requestedLocale.length > 0
-    ? requestedLocale
-    : state.locale;
   const activeLocaleConfig =
     locale !== 'default' && state.sessionLocales[locale] ? state.sessionLocales[locale] : undefined;
   // Pick a size from the project's export catalog so the aspect ratio

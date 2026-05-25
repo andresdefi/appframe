@@ -11,6 +11,7 @@ import * as fontkit from 'fontkit';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { STORE_SIZES } from '@appframe/core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -155,6 +156,33 @@ export function measureText(opts: MeasureOptions): TextMetrics {
   const height = lineCount * fontSize * lineHeight;
 
   return { singleLineWidth, wrappedWidth, lineCount, height };
+}
+
+/**
+ * Resolve canvas dimensions in the engine's 1290-reference frame for
+ * a project's `exportSize`. `templates/engine.ts` documents that
+ * `headlineSize` and the other typography knobs are "in pixels at
+ * 1290px reference width" — the engine scales proportionally to the
+ * actual canvas. So for font-fit math the width is always 1290 (the
+ * binary search is platform-invariant), but the canvas HEIGHT does
+ * depend on aspect ratio: iPhone 6.9 is roughly 1:2.17, iPad 13" is
+ * 1:1.33, Mac is wider than tall. Tools that compute canvas-% (e.g.
+ * check_text_overlap converting text height to a vertical fraction)
+ * need the platform-aware height to be accurate.
+ *
+ * Falls back to iPhone 6.9's aspect (1290 x 2796) when no exportSize
+ * is set or the key is unknown.
+ */
+export function canvasDimensionsFor(exportSize: unknown): { width: number; height: number } {
+  const REF_WIDTH = 1290;
+  const DEFAULT_HEIGHT = 2796;
+  if (typeof exportSize !== 'string' || exportSize.length === 0) {
+    return { width: REF_WIDTH, height: DEFAULT_HEIGHT };
+  }
+  const spec = STORE_SIZES[exportSize];
+  if (!spec) return { width: REF_WIDTH, height: DEFAULT_HEIGHT };
+  const aspect = spec.height / spec.width;
+  return { width: REF_WIDTH, height: Math.round(REF_WIDTH * aspect) };
 }
 
 export interface DeviceBounds {

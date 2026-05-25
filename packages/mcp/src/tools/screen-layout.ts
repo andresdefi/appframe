@@ -1,5 +1,6 @@
+import type { AppframeClient } from '../client.js';
 import type { ToolDefinition } from './types.js';
-import { measureText, estimateDeviceBounds } from '../measure.js';
+import { canvasDimensionsFor, measureText, estimateDeviceBounds } from '../measure.js';
 import {
   isRecord,
   jsonContent,
@@ -11,6 +12,20 @@ import {
   stripTagsFromHeadline,
 } from './helpers.js';
 
+// Fetch the project's render canvas dimensions in physical pixels for
+// the platform/size set via set_export_size. Layout-prediction tools
+// need this so an iPad headline budget isn't measured against an
+// iPhone canvas. Reads the envelope once per call — cheap, and
+// keeps the three tools consistent.
+async function projectCanvas(
+  client: AppframeClient,
+  slug: string,
+): Promise<{ width: number; height: number }> {
+  const env = await client.getProjectEnvelope(slug);
+  const exportSize = isRecord(env.data) ? env.data.exportSize : undefined;
+  return canvasDimensionsFor(exportSize);
+}
+
 export const screenLayoutTools: ToolDefinition[] = [
   {
     descriptor: {
@@ -21,6 +36,11 @@ export const screenLayoutTools: ToolDefinition[] = [
         '(default 2). Uses fontkit to measure the actual glyph widths ' +
         'of the screen\'s headlineFont — no browser round-trip, ~10ms. ' +
         '\n\n' +
+        'Note: `headlineSize` is in the engine\'s 1290px reference ' +
+        'frame (templates/engine.ts) — the renderer scales it ' +
+        'proportionally to the actual canvas, so the same headlineSize ' +
+        'fits the same on iPhone, iPad, or Mac. The suggestion does NOT ' +
+        'change per platform.\n\n' +
         'Returns the suggested size + the measurement (wrappedWidth, ' +
         'lineCount, height). Pass `apply: true` to also write it to ' +
         '`headlineSize` via patch_screen. `text` (optional) lets you ' +
@@ -50,10 +70,11 @@ export const screenLayoutTools: ToolDefinition[] = [
       const maxLines = typeof a.maxLines === 'number' ? a.maxLines : 2;
       const fontId = typeof screen.headlineFont === 'string' ? screen.headlineFont : 'inter';
       const fontWeight = typeof screen.headlineFontWeight === 'number' ? screen.headlineFontWeight : 700;
-      // Canvas dimensions: read from the project's export size if
-      // available; default to iPhone 6.9 (1290 x 2796) since that's
-      // the most common target.
-      const canvasWidth = 1290;
+      // Canvas dimensions: read from the project's exportSize via
+      // STORE_SIZES, falling back to iPhone 6.9 (1260 x 2736). iPad /
+      // Mac targets have very different widths so reading the actual
+      // size matters for binary-search accuracy.
+      const { width: canvasWidth } = await projectCanvas(client, slug);
       // Text area width: canvas * (1 - 2 * padding). Padding default
       // 0.075 → 85% of canvas. See presetTextAreaPadding in core.
       const availableWidth = canvasWidth * 0.85;
@@ -101,8 +122,12 @@ export const screenLayoutTools: ToolDefinition[] = [
         'headlineSize + position, estimates device bounds from ' +
         'deviceTop / deviceScale / deviceOffsetX, returns intersection ' +
         'info. Approximation: device height is estimated from a typical ' +
-        'phone aspect ratio (2:1). Use this as a pre-render sanity check ' +
-        'before the user notices the visual collision.',
+        'phone aspect ratio (2:1). Canvas aspect ratio comes from the ' +
+        'project\'s `exportSize` so iPad (more square) reports a larger ' +
+        'vertical-% for the same text than iPhone — useful when a ' +
+        'layout that works on phone overlaps the device on tablet. Use ' +
+        'this as a pre-render sanity check before the user notices ' +
+        'the visual collision.',
       inputSchema: {
         type: 'object',
         required: ['slug', 'index'],
@@ -122,8 +147,7 @@ export const screenLayoutTools: ToolDefinition[] = [
       const fontId = typeof screen.headlineFont === 'string' ? screen.headlineFont : 'inter';
       const fontWeight = typeof screen.headlineFontWeight === 'number' ? screen.headlineFontWeight : 700;
       const fontSize = typeof screen.headlineSize === 'number' ? screen.headlineSize : 110;
-      const canvasWidth = 1290;
-      const canvasHeight = 2796;
+      const { width: canvasWidth, height: canvasHeight } = await projectCanvas(client, slug);
       const headlineWidthPxRaw = measureText({
         text,
         fontId,
@@ -179,7 +203,10 @@ export const screenLayoutTools: ToolDefinition[] = [
         'wrapped width, and whether it fits within `maxLines` (default ' +
         '2). Useful before committing a translation to a locale — ' +
         'longer-language translations (German, Russian, Finnish) often ' +
-        'wrap into 3+ lines and break the layout.',
+        'wrap into 3+ lines and break the layout. Like ' +
+        '`auto_fit_headline`, the math is in the engine\'s 1290-ref ' +
+        'frame so the overflow verdict is the same regardless of which ' +
+        'platform export size the project targets.',
       inputSchema: {
         type: 'object',
         required: ['slug', 'index', 'translatedText'],
@@ -203,7 +230,7 @@ export const screenLayoutTools: ToolDefinition[] = [
       const fontId = typeof screen.headlineFont === 'string' ? screen.headlineFont : 'inter';
       const fontWeight = typeof screen.headlineFontWeight === 'number' ? screen.headlineFontWeight : 700;
       const fontSize = typeof screen.headlineSize === 'number' ? screen.headlineSize : 110;
-      const canvasWidth = 1290;
+      const { width: canvasWidth } = await projectCanvas(client, slug);
       const availableWidth = canvasWidth * 0.85;
       const metrics = measureText({
         text: translatedText,

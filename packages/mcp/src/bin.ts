@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createAppframeMcpServer } from './server.js';
 import { AppframeClient } from './client.js';
+import { subscribeToSSE } from './sseSubscriber.js';
 
 // Read our own version so the startup handshake can compare against
 // the preview server. Out-of-step versions are the kind of bug whose
@@ -45,12 +46,30 @@ async function probeVersion(client: AppframeClient, ownVersion: string): Promise
 
 async function main(): Promise<void> {
   const baseUrl = process.env.APPFRAME_PREVIEW_URL;
+  const resolvedBase = baseUrl ?? 'http://localhost:4400';
   const server = createAppframeMcpServer(baseUrl ? { baseUrl } : {});
   const ownVersion = readOwnVersion();
-  // Fire-and-forget — doesn't block startup.
   void probeVersion(new AppframeClient(baseUrl ? { baseUrl } : {}), ownVersion);
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  const sse = subscribeToSSE({
+    url: `${resolvedBase}/api/events`,
+    onEvent(event) {
+      if (event.type === 'hello') return;
+      server.sendLoggingMessage({
+        level: 'info',
+        logger: 'appframe',
+        data: event,
+      }).catch(() => {});
+    },
+    onError(err) {
+      process.stderr.write(`[appframe-mcp] SSE: ${err.message}\n`);
+    },
+  });
+
+  process.on('SIGTERM', () => sse.close());
+  process.on('SIGINT', () => sse.close());
 }
 
 main().catch((err) => {

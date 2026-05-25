@@ -21,7 +21,7 @@ export function createAppframeMcpServer(
 
   const server = new Server(
     { name: 'appframe-mcp', version: '0.1.0' },
-    { capabilities: { tools: {} } },
+    { capabilities: { tools: {}, logging: {} } },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({

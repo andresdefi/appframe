@@ -417,7 +417,12 @@
       {% if freeTextEnabled and freeText %}<div class="free-text"{% if fLayer != 'above-overlays' %} style="visibility: hidden;"{% endif %}>{{ freeText | sanitizeRichHtml | safe }}</div>{% endif %}
     </div>
     {% endif %}
-    {% if composition and composition != 'single' and devices %}
+    {# Multi-device path fires whenever the server populated `devices`
+       — that's any composition preset with >1 slot OR any composition
+       (including 'single') that has user-added extras via the "+ Add
+       device" button. The plain single-device wrapper below is the
+       fallback for plain 'single' with no extras. #}
+    {% if devices and devices|length > 0 %}
       {% include "_base/composition-devices.html" %}
     {% else %}
     <div class="device-wrapper" data-device-idx="0">

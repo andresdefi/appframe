@@ -10,6 +10,7 @@ import { RangeSlider } from '../Controls/RangeSlider';
 import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
 import { CropModal } from '../Controls/CropModal';
+import { useConfirmDialog } from '../Controls/ConfirmDialog';
 import { KOUBOU_COLOR_HEX } from '../../utils/presets';
 import { getDefaultFrameForPlatform } from '../../utils/deviceFrames';
 import { getDefaultExportSizeKey, getPlatformPreviewSize, isPlatformCompatibleWithScreenshot } from '../../utils/platformSelection';
@@ -151,6 +152,7 @@ export function DeviceTab() {
     (key: string, v: number) => patchDevice({ [key]: v }),
     [patchDevice],
   );
+  const { confirm: confirmRemoveDevice, dialog: removeDeviceDialog } = useConfirmDialog();
 
   const handlePlatformChange = (value: string) => {
     setPlatform(value);
@@ -217,6 +219,7 @@ export function DeviceTab() {
 
   return (
     <>
+      {removeDeviceDialog}
       {showCrop && screen.screenshotUrl && (
         <CropModal
           imageDataUrl={screen.screenshotUrl}
@@ -625,7 +628,7 @@ export function DeviceTab() {
           groups={COMPOSITION_GROUPS}
         />
 
-        {screen.composition !== 'single' && screen.extraDevices.length > 0 && (
+        {screen.extraDevices.length > 0 && (
           <ExtraDeviceSlots
             composition={screen.composition}
             extraDevices={screen.extraDevices}
@@ -633,9 +636,48 @@ export function DeviceTab() {
               const next = screen.extraDevices.map((d, i) => (i === index ? { ...d, ...partial } : d));
               update({ extraDevices: next });
             }}
+            onRemoveExtraDevice={async (index) => {
+              const ok = await confirmRemoveDevice({
+                title: 'Remove device',
+                message: `Remove this device from the screen? This cannot be undone.`,
+                confirmLabel: 'Remove',
+                destructive: true,
+              });
+              if (!ok) return;
+              update({ extraDevices: screen.extraDevices.filter((_, i) => i !== index) });
+            }}
             patchDevice={patchDevice}
           />
         )}
+
+        {/* "+ Add device" appends a new ExtraDeviceState. Works in all
+            composition modes — including 'single', where it adds a
+            second device that renders via composition-devices.html.
+            Extras beyond the preset's deviceCount use a centred
+            fallback the user can drag + tune. */}
+        <button
+          className="btn-secondary w-full text-xs mt-2"
+          onClick={() => {
+            update({
+              extraDevices: [
+                ...screen.extraDevices,
+                {
+                  dataUrl: null,
+                  name: null,
+                  frameId: null,
+                  offsetX: 0,
+                  offsetY: 0,
+                  scale: 80,
+                  rotation: 0,
+                  angle: 0,
+                  tilt: 0,
+                },
+              ],
+            });
+          }}
+        >
+          + Add device
+        </button>
       </Section>
     </>
   );
@@ -645,6 +687,8 @@ interface ExtraDeviceSlotsProps {
   composition: CompositionPreset;
   extraDevices: ExtraDeviceState[];
   onChangeExtraDevice: (index: number, partial: Partial<ExtraDeviceState>) => void;
+  /** Drop the extra at `index` from screen.extraDevices. */
+  onRemoveExtraDevice: (index: number) => void;
   // Forwarded to each slot editor so its sliders can call patchDevice
   // with the slot's data-device-idx for live preview feedback.
   patchDevice: (partial: {
@@ -657,7 +701,20 @@ interface ExtraDeviceSlotsProps {
   }, deviceIdx?: number) => void;
 }
 
-function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice, patchDevice }: ExtraDeviceSlotsProps) {
+// Fallback slot used for extras beyond the preset's deviceCount (added
+// via "+ Add device"). Picks a sensible centred starting point that the
+// user can immediately drag or tune via sliders — same defaults used
+// when DeviceTab seeds a new extra.
+const FALLBACK_SLOT_PRESET = {
+  offsetX: 0,
+  offsetY: 0,
+  scale: 80,
+  rotation: 0,
+  angle: 0,
+  tilt: 0,
+} as const;
+
+function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice, onRemoveExtraDevice, patchDevice }: ExtraDeviceSlotsProps) {
   const preset = COMPOSITION_PRESETS[composition];
   if (!preset) return null;
 
@@ -665,8 +722,17 @@ function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice, patc
     <>
       {extraDevices.map((extra, i) => {
         const slotIndex = i + 1;
-        const slotPreset = preset.slots[slotIndex];
-        if (!slotPreset) return null;
+        // Slots within the preset use the preset's per-slot defaults
+        // (so "Reset to preset" restores the duo-overlap/etc. shape).
+        // Slots beyond preset.deviceCount fall back to a centred default.
+        const slotPreset = preset.slots[slotIndex] ?? FALLBACK_SLOT_PRESET;
+        // "Remove" only applies to slots the user added manually via
+        // "+ Add device" (i.e., beyond the preset's deviceCount).
+        // Preset-seeded slots are part of the composition's shape —
+        // the user should switch composition to change the layout
+        // rather than half-deleting it. For duo-split (deviceCount=2),
+        // slot 1 (= the seeded extra) is non-removable; slot 2+ are.
+        const isUserAdded = slotIndex >= preset.deviceCount;
         return (
           <ExtraDeviceSlotEditor
             key={i}
@@ -675,6 +741,7 @@ function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice, patc
             extra={extra}
             slotPreset={slotPreset}
             onChange={(partial) => onChangeExtraDevice(i, partial)}
+            onRemove={isUserAdded ? () => onRemoveExtraDevice(i) : undefined}
             patchDevice={patchDevice}
           />
         );
@@ -689,6 +756,11 @@ interface ExtraDeviceSlotEditorProps {
   extra: ExtraDeviceState;
   slotPreset: { offsetX: number; offsetY: number; scale: number; rotation: number; angle: number; tilt: number };
   onChange: (partial: Partial<ExtraDeviceState>) => void;
+  /** Pass undefined to hide the Remove button (preset-seeded slots
+   *  belong to the composition's shape and should be edited by
+   *  switching composition, not by deletion). Only user-added slots
+   *  beyond preset.deviceCount get a removal affordance. */
+  onRemove: (() => void) | undefined;
   patchDevice: (partial: {
     deviceScale?: number;
     deviceTop?: number;
@@ -699,7 +771,7 @@ interface ExtraDeviceSlotEditorProps {
   }, deviceIdx?: number) => void;
 }
 
-function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange, patchDevice }: ExtraDeviceSlotEditorProps) {
+function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange, onRemove, patchDevice }: ExtraDeviceSlotEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -825,6 +897,14 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange, patchDe
       >
         Reset slot to preset
       </button>
+      {onRemove && (
+        <button
+          className="w-full text-[11px] mt-1 px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white font-medium transition-colors"
+          onClick={onRemove}
+        >
+          Remove device
+        </button>
+      )}
     </Section>
   );
 }

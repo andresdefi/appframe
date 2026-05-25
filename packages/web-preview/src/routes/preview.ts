@@ -543,11 +543,36 @@ async function resolveContext(
     // Single-device presets: client applies preset values to sliders on selection,
     // then sends them as regular device values. No server override needed —
     // the user can freely adjust sliders after picking a preset.
-  } else if (compositionId !== 'single' && preset && preset.deviceCount > 1) {
+  } else if (
+    preset &&
+    (
+      // Original multi-device path: the preset itself defines >1 slot.
+      (compositionId !== 'single' && preset.deviceCount > 1) ||
+      // Extras-on-any-composition path: user added a slot via "+ Add
+      // device". Always renders via composition-devices.html (which
+      // owns the slot-iteration loop) regardless of which composition
+      // is selected.
+      (p.extraScreenshots?.length ?? 0) > 0
+    )
+  ) {
     const devices: DeviceContext[] = [];
 
-    for (let i = 0; i < preset.deviceCount; i++) {
-      const slot = preset.slots[i]!;
+    // Source of truth for visible device count is `1 + extraDevices.length`
+    // (primary + however many extras are currently in the data model).
+    // The preset's deviceCount only acts as the *initial* seed in
+    // DeviceTab when the user picks a preset; after that, "+ Add device"
+    // and "Remove device" freely change the count. Without this, removing
+    // an extra from a duo-split would leave a "phantom" second device
+    // pulled from the preset's slot 1 default — visible but missing
+    // from extraDevices, so neither draggable nor editable.
+    const extraCount = p.extraScreenshots?.length ?? 0;
+    const totalDevices = 1 + extraCount;
+    // Centered fallback for slots without a preset definition. Mirrors
+    // FALLBACK_SLOT_PRESET in DeviceTab.tsx; keep them in sync.
+    const FALLBACK_SLOT = { offsetX: 0, offsetY: 0, scale: 80, rotation: 0, angle: 0, tilt: 0, zIndex: 1 };
+
+    for (let i = 0; i < totalDevices; i++) {
+      const slot = preset.slots[i] ?? FALLBACK_SLOT;
       let slotScreenshotUrl: string;
       let slotFrame = frame ?? null;
       let slotFrameSvg = frameSvg;

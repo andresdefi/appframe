@@ -6,8 +6,10 @@ import { discoveryTools } from './discovery.js';
 import { localeTools } from './locale.js';
 import { overlayTools } from './overlay.js';
 import { projectTools } from './project.js';
+import { projectThemeTools } from './project-theme.js';
 import { screenLifecycleTools } from './screen-lifecycle.js';
 import { screenTools } from './screen.js';
+import { screenInspectTools } from './screen-inspect.js';
 import { screenTextTools } from './screen-text.js';
 import { screenDeviceTools } from './screen-device.js';
 import { screenBackgroundTools } from './screen-background.js';
@@ -19,9 +21,11 @@ import { isRecord, jsonContent, requireRecord } from './helpers.js';
 const NON_BATCH_TOOLS: ToolDefinition[] = [
   ...discoveryTools,
   ...projectTools,
+  ...projectThemeTools,
   ...localeTools,
   ...variantTools,
   ...screenTools,
+  ...screenInspectTools,
   ...screenTextTools,
   ...screenDeviceTools,
   ...screenBackgroundTools,

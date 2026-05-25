@@ -3,12 +3,16 @@ import type { ToolDefinition } from './types.js';
 import {
   isRecord,
   jsonContent,
-  readScreen,
   requireIndex,
   requireRecord,
   requireSlug,
   stripTagsFromHeadline,
 } from './helpers.js';
+
+// Core render + write tools. Read/describe/diff tools live in
+// screen-inspect.ts; ergonomic per-field setters live in their domain
+// files (screen-text, screen-device, ...). Keep this file scoped to
+// "things that either paint pixels or write the envelope".
 
 export const screenTools: ToolDefinition[] = [
   {
@@ -125,7 +129,10 @@ export const screenTools: ToolDefinition[] = [
         '`screenWidth` (optional, default 400) is the per-screen render ' +
         'width; total composite width is `columns * screenWidth + ' +
         'padding`. `indices` (optional) renders a subset; without it, ' +
-        'all screens are rendered.',
+        'all screens are rendered. `labels` (optional, default false) ' +
+        'adds a small caption strip under each cell showing the screen ' +
+        'index and a truncated headline — handy when the agent renders ' +
+        'multiple screens and wants to refer to them by number later.',
       inputSchema: {
         type: 'object',
         required: ['slug'],
@@ -139,6 +146,7 @@ export const screenTools: ToolDefinition[] = [
           locale: { type: 'string', minLength: 1 },
           columns: { type: 'integer', minimum: 1, maximum: 6 },
           screenWidth: { type: 'integer', minimum: 100, maximum: 2000 },
+          labels: { type: 'boolean' },
         },
         additionalProperties: false,
       },
@@ -146,12 +154,19 @@ export const screenTools: ToolDefinition[] = [
     handler: async (args, { client }) => {
       const a = requireRecord(args, 'render_preview_grid');
       const slug = requireSlug(a);
-      const { indices, locale, columns, screenWidth } = a;
+      const { indices, locale, columns, screenWidth, labels } = a;
       const cols = typeof columns === 'number' ? columns : 3;
       const width = typeof screenWidth === 'number' ? screenWidth : 400;
       const PAD = 16; // pixels between cells
+      const LABEL_HEIGHT = 36; // pixels under each cell when labels=true
+      const labelsOn = labels === true;
 
       let targets: number[];
+      // Headlines are only fetched when labels are on; the envelope read
+      // is the same one render_preview_grid already needed for the
+      // default "render all" case, so when labelsOn we just take both
+      // pieces from the same fetch.
+      const headlines: Record<number, string> = {};
       if (Array.isArray(indices)) {
         for (const i of indices) {
           if (typeof i !== 'number' || !Number.isInteger(i) || i < 0) {
@@ -159,9 +174,33 @@ export const screenTools: ToolDefinition[] = [
           }
         }
         targets = indices;
+        if (labelsOn) {
+          const env = await client.getProjectEnvelope(slug);
+          const screens = isRecord(env.data) && Array.isArray(env.data.screens)
+            ? env.data.screens
+            : [];
+          for (const idx of targets) {
+            const s = screens[idx];
+            if (isRecord(s)) headlines[idx] = stripTagsFromHeadline(s.headline);
+          }
+        }
       } else {
-        const project = await client.getProject();
-        targets = project.screens.map((_, i) => i);
+        // Use the envelope for both targets AND headlines when labelsOn
+        // so we don't double-fetch.
+        if (labelsOn) {
+          const env = await client.getProjectEnvelope(slug);
+          const screens = isRecord(env.data) && Array.isArray(env.data.screens)
+            ? env.data.screens
+            : [];
+          targets = screens.map((_, i) => i);
+          for (let i = 0; i < screens.length; i++) {
+            const s = screens[i];
+            if (isRecord(s)) headlines[i] = stripTagsFromHeadline(s.headline);
+          }
+        } else {
+          const project = await client.getProject();
+          targets = project.screens.map((_, i) => i);
+        }
       }
 
       // Render every cell in parallel up to the iframe-pool concurrency.
@@ -202,19 +241,30 @@ export const screenTools: ToolDefinition[] = [
         }),
       );
       const cellHeight = Math.max(...cellMetas.map((m) => m.height));
+      const slotHeight = labelsOn ? cellHeight + LABEL_HEIGHT : cellHeight;
       const rows = Math.ceil(targets.length / cols);
       const compositeWidth = cols * width + (cols + 1) * PAD;
-      const compositeHeight = rows * cellHeight + (rows + 1) * PAD;
+      const compositeHeight = rows * slotHeight + (rows + 1) * PAD;
 
-      const overlays = cellMetas.map((meta, i) => {
+      const overlays: { input: Buffer; top: number; left: number }[] = [];
+      for (let i = 0; i < cellMetas.length; i++) {
+        const meta = cellMetas[i]!;
         const col = i % cols;
         const row = Math.floor(i / cols);
-        return {
-          input: meta.buf,
-          top: PAD + row * (cellHeight + PAD),
-          left: PAD + col * (width + PAD),
-        };
-      });
+        const slotTop = PAD + row * (slotHeight + PAD);
+        const slotLeft = PAD + col * (width + PAD);
+        overlays.push({ input: meta.buf, top: slotTop, left: slotLeft });
+        if (labelsOn) {
+          const targetIdx = targets[i]!;
+          const headline = headlines[targetIdx] ?? '';
+          const labelSvg = renderLabelSvg(targetIdx, headline, width, LABEL_HEIGHT);
+          overlays.push({
+            input: Buffer.from(labelSvg),
+            top: slotTop + cellHeight,
+            left: slotLeft,
+          });
+        }
+      }
 
       const composite = await sharp({
         create: {
@@ -234,188 +284,6 @@ export const screenTools: ToolDefinition[] = [
             type: 'image' as const,
             mimeType: 'image/png',
             data: composite.toString('base64'),
-          },
-        ],
-      };
-    },
-  },
-  {
-    descriptor: {
-      name: 'get_screen',
-      description:
-        'Read one screen from the on-disk project envelope by index. ' +
-        'Default returns the FULL editor-state shape (every per-screen ' +
-        'field the UI persists — spotlight / loupe / callouts / ' +
-        'annotations / overlays / per-text fonts and gradients / ' +
-        'screenshot URL / etc). Pass `fields` as an array of dot-paths ' +
-        '(e.g. `["headline", "headlineFont", "spotlight.x", "spotlight.y"]`) ' +
-        'to return ONLY those fields — typical token saving 80-95% when ' +
-        'you only need a few values.',
-      inputSchema: {
-        type: 'object',
-        required: ['slug', 'index'],
-        properties: {
-          slug: { type: 'string', minLength: 1 },
-          index: { type: 'integer', minimum: 0 },
-          fields: {
-            type: 'array',
-            items: { type: 'string', minLength: 1 },
-            minItems: 1,
-          },
-        },
-        additionalProperties: false,
-      },
-    },
-    handler: async (args, { client }) => {
-      const a = requireRecord(args, 'get_screen');
-      const slug = requireSlug(a);
-      const index = requireIndex(a);
-      const screen = await readScreen(client, slug, index);
-      if (Array.isArray(a.fields) && a.fields.length > 0) {
-        return jsonContent(pickFields(screen, a.fields as string[]));
-      }
-      return jsonContent(screen);
-    },
-  },
-  {
-    descriptor: {
-      name: 'inspect_fonts',
-      description:
-        'Report which fonts a screen actually resolves to. For each ' +
-        'text slot (headline / subtitle / freeText), returns the ' +
-        'requested font id, the resolved id (after theme-level ' +
-        'fallback), the human-readable name, and whether the id is ' +
-        'present in the font catalog. Use after `render_preview` if ' +
-        'you suspect a font fallback — e.g. if your headline was meant ' +
-        "to be Anton but the glyphs don't look condensed.\n" +
-        '\n' +
-        'Note: this checks the REQUESTED font chain, not the actual ' +
-        'browser-rendered glyphs. If your requested font is in the ' +
-        'catalog but the rendered glyphs look wrong, that points to a ' +
-        'real renderer bug — file an issue.',
-      inputSchema: {
-        type: 'object',
-        required: ['slug', 'index'],
-        properties: {
-          slug: { type: 'string', minLength: 1 },
-          index: { type: 'integer', minimum: 0 },
-        },
-        additionalProperties: false,
-      },
-    },
-    handler: async (args, { client }) => {
-      const a = requireRecord(args, 'inspect_fonts');
-      const slug = requireSlug(a);
-      const index = requireIndex(a);
-      const screen = await readScreen(client, slug, index);
-      const fonts = await client.listFonts();
-      const catalog = new Map<string, { id: string; name: string }>();
-      for (const f of fonts) {
-        if (isRecord(f) && typeof f.id === 'string' && typeof f.name === 'string') {
-          catalog.set(f.id, { id: f.id, name: f.name });
-        }
-      }
-
-      const resolveSlot = (
-        requested: unknown,
-      ): {
-        requested: string | null;
-        resolved: string;
-        name: string;
-        inCatalog: boolean;
-      } => {
-        const req = typeof requested === 'string' ? requested : null;
-        // Theme-level fallback chain matches what the engine does
-        // (route preview.ts builds the same context). Without an
-        // explicit per-element font, the engine uses context.font
-        // which defaults to 'inter'.
-        const resolved = req ?? 'inter';
-        const entry = catalog.get(resolved);
-        return {
-          requested: req,
-          resolved,
-          name: entry?.name ?? resolved,
-          inCatalog: entry !== undefined,
-        };
-      };
-
-      return jsonContent({
-        screen: index,
-        headline: resolveSlot(screen.headlineFont),
-        subtitle: resolveSlot(screen.subtitleFont),
-        freeText: screen.freeTextEnabled === true
-          ? resolveSlot(screen.freeTextFont)
-          : { skipped: 'freeText not enabled on this screen' },
-      });
-    },
-  },
-  {
-    descriptor: {
-      name: 'describe_screen',
-      description:
-        'Natural-language summary of one screen — what fonts, what ' +
-        'composition, what effects, what device frame, what background. ' +
-        'Cheaper for an agent to reason about than parsing the full ' +
-        'editor-state JSON returned by `get_screen`. Use this when you ' +
-        'want to ask "what does screen N look like" without inspecting ' +
-        'every field. The summary intentionally drops empty / default-' +
-        'valued fields so the signal-to-noise ratio stays high.',
-      inputSchema: {
-        type: 'object',
-        required: ['slug', 'index'],
-        properties: {
-          slug: { type: 'string', minLength: 1 },
-          index: { type: 'integer', minimum: 0 },
-        },
-        additionalProperties: false,
-      },
-    },
-    handler: async (args, { client }) => {
-      const a = requireRecord(args, 'describe_screen');
-      const slug = requireSlug(a);
-      const index = requireIndex(a);
-      const screen = await readScreen(client, slug, index);
-      const description = formatScreenDescription(screen, index);
-      return { content: [{ type: 'text', text: description }] };
-    },
-  },
-  {
-    descriptor: {
-      name: 'describe_project',
-      description:
-        'Natural-language summary of EVERY screen in the project, one ' +
-        'block per screen. Saves N round-trips compared to calling ' +
-        'describe_screen N times. Use as the cheapest way to understand ' +
-        '"what is this whole project set up to look like" before ' +
-        'editing.',
-      inputSchema: {
-        type: 'object',
-        required: ['slug'],
-        properties: {
-          slug: { type: 'string', minLength: 1 },
-        },
-        additionalProperties: false,
-      },
-    },
-    handler: async (args, { client }) => {
-      const a = requireRecord(args, 'describe_project');
-      const slug = requireSlug(a);
-      // Fetch the full envelope once, then describe each screen from
-      // the loaded data instead of N readScreen calls.
-      const env = await client.getProjectEnvelope(slug);
-      const screens = isRecord(env.data) && Array.isArray(env.data.screens)
-        ? env.data.screens
-        : [];
-      const blocks = screens.map((s, i) =>
-        formatScreenDescription(isRecord(s) ? s : {}, i),
-      );
-      return {
-        content: [
-          {
-            type: 'text',
-            text: blocks.length === 0
-              ? `Project "${slug}" has no screens yet.`
-              : `Project "${slug}" — ${blocks.length} screen${blocks.length === 1 ? '' : 's'}:\n\n` + blocks.join('\n\n'),
           },
         ],
       };
@@ -539,154 +407,36 @@ export const screenTools: ToolDefinition[] = [
   },
 ];
 
-
-// Pick a subset of fields from a record by dot-path. Each path can
-// navigate into nested objects (e.g. "spotlight.x") or array elements
-// by index ("callouts.0.id"). Missing paths are silently skipped (the
-// agent gets back only the paths that exist). Returns a flat object
-// where keys are the original paths and values are the resolved leaf
-// values — flat-keyed avoids the agent having to walk the shape to
-// reassemble nested structures.
-function pickFields(source: Record<string, unknown>, paths: string[]): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const path of paths) {
-    const parts = path.split('.');
-    let cur: unknown = source;
-    let found = true;
-    for (const part of parts) {
-      if (cur === null || cur === undefined) {
-        found = false;
-        break;
-      }
-      if (Array.isArray(cur)) {
-        const idx = Number(part);
-        if (!Number.isInteger(idx) || idx < 0 || idx >= cur.length) {
-          found = false;
-          break;
-        }
-        cur = cur[idx];
-      } else if (typeof cur === 'object') {
-        cur = (cur as Record<string, unknown>)[part];
-      } else {
-        found = false;
-        break;
-      }
-    }
-    if (found && cur !== undefined) out[path] = cur;
-  }
-  return out;
-}
-// Natural-language summary for `describe_screen`. Reads defensively
-// against the rich editor-state shape — every field is optional. Lines
-// for default-valued sections are dropped so the agent sees signal
-// over noise; the goal is "what's distinctive about THIS screen", not
-// a JSON dump.
-function formatScreenDescription(screen: Record<string, unknown>, index: number): string {
-  const lines: string[] = [`Screen ${index}`];
-
-  const truncate = (s: string, max: number): string =>
-    s.length > max ? s.slice(0, max - 1) + '…' : s;
-
-  const headline = typeof screen.headline === 'string' ? stripTagsFromHeadline(screen.headline) : '';
-  if (headline) {
-    const font = typeof screen.headlineFont === 'string' ? screen.headlineFont : '(theme default)';
-    const sizeBits: string[] = [];
-    if (typeof screen.headlineSize === 'number') sizeBits.push(`${screen.headlineSize}px`);
-    if (typeof screen.headlineFontWeight === 'number') sizeBits.push(`weight ${screen.headlineFontWeight}`);
-    if (typeof screen.headlineRotation === 'number' && screen.headlineRotation !== 0) {
-      sizeBits.push(`${screen.headlineRotation}° rotation`);
-    }
-    const tail = sizeBits.length > 0 ? ` (${sizeBits.join(', ')})` : '';
-    lines.push(`  Headline: "${truncate(headline, 80)}" — ${font}${tail}`);
-    if (isRecord(screen.headlineGradient)) {
-      const colors = Array.isArray(screen.headlineGradient.colors)
-        ? screen.headlineGradient.colors.join(' → ')
-        : '';
-      if (colors) lines.push(`    gradient: ${colors}`);
-    }
-    if (isRecord(screen.headlineShadow) && screen.headlineShadow.enabled === true) {
-      lines.push(`    shadow enabled`);
-    }
-  }
-
-  const subtitle = typeof screen.subtitle === 'string' ? stripTagsFromHeadline(screen.subtitle) : '';
-  if (subtitle) {
-    const font = typeof screen.subtitleFont === 'string' ? screen.subtitleFont : '(theme default)';
-    lines.push(`  Subtitle: "${truncate(subtitle, 80)}" — ${font}`);
-  }
-
-  const freeText = typeof screen.freeText === 'string' ? stripTagsFromHeadline(screen.freeText) : '';
-  if (screen.freeTextEnabled === true && freeText) {
-    const font = typeof screen.freeTextFont === 'string' ? screen.freeTextFont : '(theme default)';
-    lines.push(`  Free text: "${truncate(freeText, 80)}" — ${font}`);
-  }
-
-  const layer = (field: 'headlineLayer' | 'subtitleLayer' | 'freeTextLayer'): string | null => {
-    const v = screen[field];
-    if (typeof v === 'string' && v !== 'default') return v;
-    return null;
-  };
-  const layerNotes: string[] = [];
-  for (const f of ['headlineLayer', 'subtitleLayer', 'freeTextLayer'] as const) {
-    const v = layer(f);
-    if (v) layerNotes.push(`${f.replace('Layer', '')}: ${v}`);
-  }
-  if (layerNotes.length > 0) lines.push(`  Text layers: ${layerNotes.join(', ')}`);
-
-  const composition = typeof screen.composition === 'string' ? screen.composition : 'single';
-  const frameId = typeof screen.frameId === 'string' ? screen.frameId : '(unset)';
-  const deviceBits = [`composition: ${composition}`, `frame: ${frameId}`];
-  if (typeof screen.deviceTop === 'number' && screen.deviceTop !== 0) {
-    deviceBits.push(`top: ${screen.deviceTop}%`);
-  }
-  if (typeof screen.deviceScale === 'number' && screen.deviceScale !== 100) {
-    deviceBits.push(`scale: ${screen.deviceScale}%`);
-  }
-  if (typeof screen.deviceRotation === 'number' && screen.deviceRotation !== 0) {
-    deviceBits.push(`rotation: ${screen.deviceRotation}°`);
-  }
-  lines.push(`  Device: ${deviceBits.join(', ')}`);
-
-  const bgType = typeof screen.backgroundType === 'string' ? screen.backgroundType : 'preset';
-  const bgBits = [bgType];
-  if (bgType === 'solid' && typeof screen.backgroundColor === 'string') {
-    bgBits.push(screen.backgroundColor);
-  }
-  if (bgType === 'gradient' && isRecord(screen.backgroundGradient)) {
-    const colors = Array.isArray(screen.backgroundGradient.colors)
-      ? screen.backgroundGradient.colors.join(' → ')
-      : '';
-    if (colors) bgBits.push(colors);
-  }
-  if (bgType === 'image') {
-    bgBits.push('uploaded image');
-  }
-  lines.push(`  Background: ${bgBits.join(' — ')}`);
-
-  const screenshot = typeof screen.screenshotName === 'string' ? screen.screenshotName : null;
-  if (screenshot) lines.push(`  Screenshot: ${screenshot}`);
-
-  const effects: string[] = [];
-  if (screen.spotlightEnabled === true) effects.push('spotlight');
-  if (screen.loupeEnabled === true) effects.push('loupe');
-  if (isRecord(screen.borderSimulation) && screen.borderSimulation.enabled === true) {
-    effects.push('border simulation');
-  }
-  if (isRecord(screen.deviceShadow)) effects.push('device shadow');
-  if (effects.length > 0) lines.push(`  Effects: ${effects.join(', ')}`);
-
-  const counts: string[] = [];
-  if (Array.isArray(screen.callouts) && screen.callouts.length > 0) {
-    counts.push(`${screen.callouts.length} callout${screen.callouts.length === 1 ? '' : 's'}`);
-  }
-  if (Array.isArray(screen.annotations) && screen.annotations.length > 0) {
-    counts.push(`${screen.annotations.length} annotation${screen.annotations.length === 1 ? '' : 's'}`);
-  }
-  if (Array.isArray(screen.overlays) && screen.overlays.length > 0) {
-    counts.push(`${screen.overlays.length} overlay${screen.overlays.length === 1 ? '' : 's'}`);
-  }
-  if (counts.length > 0) lines.push(`  Elements: ${counts.join(', ')}`);
-
-  return lines.join('\n');
+// Render a single label strip for render_preview_grid as SVG. Sharp
+// composites SVG buffers natively (librsvg under the hood), so we
+// avoid pulling in a font renderer just for grid captions. Headline
+// text is truncated to fit roughly `width / 9` characters at the
+// chosen 13px size; XML-escaped to keep angle brackets / ampersands
+// from breaking the SVG parser.
+function renderLabelSvg(
+  index: number,
+  headline: string,
+  width: number,
+  height: number,
+): string {
+  const maxChars = Math.max(8, Math.floor(width / 9) - 6);
+  const truncated = headline.length > maxChars ? headline.slice(0, maxChars - 1) + '…' : headline;
+  const label = `#${index} - ${truncated}`;
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+    `<rect width="${width}" height="${height}" fill="#1f2937"/>` +
+    `<text x="${Math.floor(width / 2)}" y="${Math.floor(height / 2) + 5}" ` +
+    `font-family="-apple-system, system-ui, sans-serif" font-size="13" ` +
+    `fill="#f3f4f6" text-anchor="middle">${escapeXml(label)}</text>` +
+    `</svg>`
+  );
 }
 
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}

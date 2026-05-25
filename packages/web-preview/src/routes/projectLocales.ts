@@ -13,6 +13,8 @@ import {
 // current default-locale screens into data.localeScreens[code]; from
 // that point on the two sets evolve independently.
 
+const LOCALE_CODE_RE = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
+
 export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): void {
   // POST /api/projects/:project/locales/add { code, label? }
   //
@@ -283,6 +285,147 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
     const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/patch-batch');
     if (!written) return;
     res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: merged });
+  });
+
+  // POST /api/projects/:project/locales { code, label? }
+  //
+  // REST-style alias for /locales/add. Same semantics.
+  app.post('/api/projects/:project/locales', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { code, label } = body;
+    if (typeof code !== 'string' || code.length === 0) {
+      res.status(400).json({ error: '`code` is required (e.g. "fr", "es-MX")' });
+      return;
+    }
+    if (code === 'default') {
+      res.status(400).json({ error: '"default" is the implicit base locale and cannot be added' });
+      return;
+    }
+    if (!LOCALE_CODE_RE.test(code)) {
+      res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
+      return;
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data, screens } = loaded;
+    const sessionLocales = isRecord(data.sessionLocales) ? data.sessionLocales : {};
+    if (sessionLocales[code]) {
+      res.status(409).json({ error: `locale "${code}" already exists on this project` });
+      return;
+    }
+    const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
+    const resolvedLabel = typeof label === 'string' && label.length > 0 ? label : getLocaleLabel(code);
+    const safeCode = String(code);
+    const nextData: Record<string, unknown> = {
+      ...data,
+      sessionLocales: { ...sessionLocales, [safeCode]: { label: resolvedLabel } },
+      localeScreens: { ...localeScreens, [safeCode]: structuredClone(screens) },
+    };
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/add');
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, code: safeCode, label: resolvedLabel });
+  });
+
+  // DELETE /api/projects/:project/locales/:code
+  //
+  // REST-style alias for POST /locales/remove. Code in URL, no body.
+  app.delete('/api/projects/:project/locales/:code', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const code = typeof req.params.code === 'string' ? req.params.code : '';
+    if (code === 'default') {
+      res.status(400).json({ error: 'cannot remove the implicit "default" locale' });
+      return;
+    }
+    if (!LOCALE_CODE_RE.test(code)) {
+      res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
+      return;
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data } = loaded;
+    const safeCode = String(code);
+    const sessionLocales = isRecord(data.sessionLocales) ? { ...data.sessionLocales } : {};
+    const localeScreens = isRecord(data.localeScreens) ? { ...data.localeScreens } : {};
+    if (!(safeCode in sessionLocales) && !(safeCode in localeScreens)) {
+      res.status(404).json({ error: `locale "${safeCode}" not found on this project` });
+      return;
+    }
+    delete sessionLocales[safeCode];
+    delete localeScreens[safeCode];
+    const nextData: Record<string, unknown> = {
+      ...data,
+      sessionLocales,
+      localeScreens,
+    };
+    if (data.locale === safeCode) {
+      nextData.locale = 'default';
+    }
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/remove');
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, removed: safeCode });
+  });
+
+  // PATCH /api/projects/:project/locales/:code/screens/:index
+  //   Body: Partial<ScreenState> (the patch itself, no wrapper)
+  //
+  // REST-style endpoint for locale screen patches. Index in URL, body
+  // IS the patch. Same shallow-merge semantics as POST /locales/:code/patch-screen.
+  app.patch('/api/projects/:project/locales/:code/screens/:index', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const code = typeof req.params.code === 'string' ? req.params.code : '';
+    const indexParam = typeof req.params.index === 'string' ? req.params.index : '';
+    const index = Number(indexParam);
+    if (code === 'default') {
+      res.status(400).json({
+        error: 'use PATCH /api/projects/:slug/screens/:index for the default locale',
+      });
+      return;
+    }
+    if (!LOCALE_CODE_RE.test(code)) {
+      res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
+      return;
+    }
+    if (!Number.isInteger(index) || index < 0) {
+      res.status(400).json({ error: '`index` must be a non-negative integer' });
+      return;
+    }
+    const patch = req.body;
+    if (!isRecord(patch)) {
+      res.status(400).json({ error: 'request body must be an object of editor-state screen fields' });
+      return;
+    }
+    const safeCode = String(code);
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data } = loaded;
+    const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
+    const screens = localeScreens[safeCode];
+    if (!Array.isArray(screens)) {
+      res.status(404).json({ error: `locale "${safeCode}" has no screens — add it first` });
+      return;
+    }
+    if (index >= screens.length) {
+      res.status(400).json({ error: `screen index ${index} out of bounds for locale "${safeCode}"` });
+      return;
+    }
+    const existing = screens[index];
+    if (!isRecord(existing)) {
+      res.status(422).json({ error: `localeScreens[${safeCode}][${index}] is not an object` });
+      return;
+    }
+    const merged: Record<string, unknown> = { ...existing, ...patch };
+    const nextScreens = screens.slice();
+    nextScreens[index] = merged;
+    const nextLocaleScreens = { ...localeScreens, [safeCode]: nextScreens };
+    const nextData = { ...data, localeScreens: nextLocaleScreens };
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'locales/patch-screen');
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, screen: merged });
   });
 
   // POST /api/projects/:project/locales/broadcast-screen { sourceIndex: number }

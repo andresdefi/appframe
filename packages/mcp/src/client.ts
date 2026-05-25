@@ -390,7 +390,7 @@ export class AppframeClient {
     if (label !== undefined) body.label = label;
     return this.request(
       'POST',
-      `/api/projects/${encodeURIComponent(slug)}/locales/add`,
+      `/api/projects/${encodeURIComponent(slug)}/locales`,
       body,
     );
   }
@@ -401,9 +401,8 @@ export class AppframeClient {
     removed: string;
   }> {
     return this.request(
-      'POST',
-      `/api/projects/${encodeURIComponent(slug)}/locales/remove`,
-      { code },
+      'DELETE',
+      `/api/projects/${encodeURIComponent(slug)}/locales/${encodeURIComponent(code)}`,
     );
   }
 
@@ -430,9 +429,9 @@ export class AppframeClient {
     screen: Record<string, unknown>;
   }> {
     return this.request(
-      'POST',
-      `/api/projects/${encodeURIComponent(slug)}/locales/${encodeURIComponent(code)}/patch-screen`,
-      { index, patch },
+      'PATCH',
+      `/api/projects/${encodeURIComponent(slug)}/locales/${encodeURIComponent(code)}/screens/${encodeURIComponent(String(index))}`,
+      patch,
     );
   }
 
@@ -570,9 +569,9 @@ export class AppframeClient {
     screen: Record<string, unknown>;
   }> {
     return this.request<{ success: boolean; savedAt: string; screen: Record<string, unknown> }>(
-      'POST',
-      `/api/projects/${encodeURIComponent(slug)}/patch-screen`,
-      { index, patch },
+      'PATCH',
+      `/api/projects/${encodeURIComponent(slug)}/screens/${encodeURIComponent(String(index))}`,
+      patch,
     );
   }
 

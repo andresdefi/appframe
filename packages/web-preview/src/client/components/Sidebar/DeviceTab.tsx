@@ -633,6 +633,7 @@ export function DeviceTab() {
               const next = screen.extraDevices.map((d, i) => (i === index ? { ...d, ...partial } : d));
               update({ extraDevices: next });
             }}
+            patchDevice={patchDevice}
           />
         )}
       </Section>
@@ -644,9 +645,19 @@ interface ExtraDeviceSlotsProps {
   composition: CompositionPreset;
   extraDevices: ExtraDeviceState[];
   onChangeExtraDevice: (index: number, partial: Partial<ExtraDeviceState>) => void;
+  // Forwarded to each slot editor so its sliders can call patchDevice
+  // with the slot's data-device-idx for live preview feedback.
+  patchDevice: (partial: {
+    deviceScale?: number;
+    deviceTop?: number;
+    deviceOffsetX?: number;
+    deviceRotation?: number;
+    deviceAngle?: number;
+    deviceTilt?: number;
+  }, deviceIdx?: number) => void;
 }
 
-function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice }: ExtraDeviceSlotsProps) {
+function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice, patchDevice }: ExtraDeviceSlotsProps) {
   const preset = COMPOSITION_PRESETS[composition];
   if (!preset) return null;
 
@@ -664,6 +675,7 @@ function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice }: Ex
             extra={extra}
             slotPreset={slotPreset}
             onChange={(partial) => onChangeExtraDevice(i, partial)}
+            patchDevice={patchDevice}
           />
         );
       })}
@@ -677,9 +689,17 @@ interface ExtraDeviceSlotEditorProps {
   extra: ExtraDeviceState;
   slotPreset: { offsetX: number; offsetY: number; scale: number; rotation: number; angle: number; tilt: number };
   onChange: (partial: Partial<ExtraDeviceState>) => void;
+  patchDevice: (partial: {
+    deviceScale?: number;
+    deviceTop?: number;
+    deviceOffsetX?: number;
+    deviceRotation?: number;
+    deviceAngle?: number;
+    deviceTilt?: number;
+  }, deviceIdx?: number) => void;
 }
 
-function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: ExtraDeviceSlotEditorProps) {
+function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange, patchDevice }: ExtraDeviceSlotEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -735,6 +755,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={90}
           formatValue={(v) => `${v}%`}
           onChange={(v) => onChange({ offsetX: v })}
+          onInstant={(v) => patchDevice({ deviceOffsetX: v }, slotIndex)}
           resetTo={slotPreset.offsetX}
         />
         <RangeSlider
@@ -744,6 +765,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={90}
           formatValue={(v) => `${v}%`}
           onChange={(v) => onChange({ offsetY: v })}
+          onInstant={(v) => patchDevice({ deviceTop: v }, slotIndex)}
           resetTo={slotPreset.offsetY}
         />
         <RangeSlider
@@ -753,6 +775,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={150}
           formatValue={(v) => `${v}%`}
           onChange={(v) => onChange({ scale: v })}
+          onInstant={(v) => patchDevice({ deviceScale: v }, slotIndex)}
           resetTo={slotPreset.scale}
         />
         <RangeSlider
@@ -762,6 +785,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={180}
           formatValue={(v) => `${v}\u00B0`}
           onChange={(v) => onChange({ rotation: v })}
+          onInstant={(v) => patchDevice({ deviceRotation: v }, slotIndex)}
           resetTo={slotPreset.rotation}
         />
         <RangeSlider
@@ -771,6 +795,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={45}
           formatValue={(v) => `${v}\u00B0`}
           onChange={(v) => onChange({ angle: v })}
+          onInstant={(v) => patchDevice({ deviceAngle: v }, slotIndex)}
           resetTo={slotPreset.angle}
         />
         <RangeSlider
@@ -780,6 +805,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange }: Extra
           max={45}
           formatValue={(v) => `${v}\u00B0`}
           onChange={(v) => onChange({ tilt: v })}
+          onInstant={(v) => patchDevice({ deviceTilt: v }, slotIndex)}
           resetTo={slotPreset.tilt}
         />
       </div>

@@ -62,17 +62,14 @@ export function useInstantPatch() {
       deviceRotation?: number;
       deviceAngle?: number;
       deviceTilt?: number;
-    }) => {
+    }, deviceIdx: number = 0) => {
       const s = getSurface();
       if (!s) return;
 
-      // Target the primary device explicitly. After the multi-device DOM
-      // unification (PR 1, refactor/unify-device-dom), every device — single
-      // or part of a composition — emits as `.device-wrapper` with
-      // `data-device-idx`. Bare `.device-wrapper` would match any slot;
-      // patchDevice's payload uses screen-level fields that only mean
-      // anything for slot 0, so we pin it here.
-      const wrapper = s.querySelector('.device-wrapper[data-device-idx="0"]') as HTMLElement | null;
+      // Target a specific device wrapper by data-device-idx. Default 0 is
+      // the primary device — matches the historical behavior. Composition
+      // extras pass idx >= 1 to update their own slot's wrapper.
+      const wrapper = s.querySelector(`.device-wrapper[data-device-idx="${deviceIdx}"]`) as HTMLElement | null;
       if (!wrapper) return;
 
       if (partial.deviceScale !== undefined) {

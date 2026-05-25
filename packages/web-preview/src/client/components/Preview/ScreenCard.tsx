@@ -130,6 +130,20 @@ export function ScreenCard({
     [index, updateScreen],
   );
 
+  // Composition extras released after drag — merge offsetX/offsetY into
+  // the matching screen.extraDevices[extraIdx] entry, leaving the other
+  // slots untouched. Slider commits land via DeviceTab's onChange.
+  const handleExtraDeviceDrop = useCallback(
+    (extraIdx: number, partial: { offsetY: number; offsetX: number }) => {
+      if (!screen) return;
+      const next = screen.extraDevices.map((d, i) =>
+        i === extraIdx ? { ...d, offsetX: partial.offsetX, offsetY: partial.offsetY } : d,
+      );
+      updateScreen(index, { extraDevices: next });
+    },
+    [index, screen, updateScreen],
+  );
+
   const handleTextDrop = useCallback(
     (cls: 'headline' | 'subtitle' | 'freeText', pos: TextPosition) => {
       const textPositions = {
@@ -299,11 +313,11 @@ export function ScreenCard({
   // stay editable per locale since translations frequently need
   // different placement to fit longer / shorter copy.
   const allowedDragKinds = useMemo<
-    ReadonlyArray<'device' | 'text' | 'annotation' | 'overlay' | 'loupe' | 'spotlight' | 'callout'>
+    ReadonlyArray<'device' | 'extra-device' | 'text' | 'annotation' | 'overlay' | 'loupe' | 'spotlight' | 'callout'>
   >(
     () =>
       locale === 'default'
-        ? ['device', 'text', 'annotation', 'overlay', 'loupe', 'spotlight', 'callout']
+        ? ['device', 'extra-device', 'text', 'annotation', 'overlay', 'loupe', 'spotlight', 'callout']
         : ['text'],
     [locale],
   );
@@ -318,6 +332,7 @@ export function ScreenCard({
     previewW,
     previewH,
     handleDeviceDrop,
+    handleExtraDeviceDrop,
     handleTextDrop,
     handleAnnotationDrop,
     handleOverlayDrop,
@@ -422,6 +437,42 @@ export function ScreenCard({
     // gates on isDragging, but clearing here keeps internal state honest.
     if (!target) {
       setGuidesIfChanged({ horizontal: false, vertical: false });
+      return;
+    }
+    // Composition extras get the centre crosshair (snap-to-canvas-center
+    // feedback) but skip the equal-spacing trio math — the trio is
+    // headline / subtitle / primary device, and an extra slot has no
+    // unambiguous "other two" to triangulate against.
+    if (target.kind === 'extra-device') {
+      setEqualSpacingIfChanged({ vertical: null, horizontal: null });
+      const surface = getPreviewSurface(index);
+      if (!surface) {
+        setGuidesIfChanged({ horizontal: false, vertical: false });
+        return;
+      }
+      const canvas = surface.querySelector('.canvas') as HTMLElement | null;
+      if (!canvas) {
+        setGuidesIfChanged({ horizontal: false, vertical: false });
+        return;
+      }
+      const cRect = canvas.getBoundingClientRect();
+      // Slot index in the DOM is extraIdx + 1 (slot 0 is the primary).
+      const el = surface.querySelector(
+        `.device-wrapper[data-device-idx="${target.extraIdx + 1}"]`,
+      ) as HTMLElement | null;
+      if (!el) {
+        setGuidesIfChanged({ horizontal: false, vertical: false });
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const tolerancePxX = cRect.width / 200;
+      const tolerancePxY = cRect.height / 200;
+      setGuidesIfChanged({
+        vertical: Math.abs(centerX - (cRect.left + cRect.width / 2)) <= tolerancePxX,
+        horizontal: Math.abs(centerY - (cRect.top + cRect.height / 2)) <= tolerancePxY,
+      });
       return;
     }
     const surface = getPreviewSurface(index);
@@ -626,7 +677,11 @@ export function ScreenCard({
       }
     };
     const observer = new MutationObserver(onMutation);
-    const selectors = ['.device-wrapper[data-device-idx="0"]', '.headline', '.subtitle', '.free-text'];
+    // Observe ALL device wrappers (primary + composition extras) so the
+    // centre crosshair fires while dragging any slot. The deviceMoved
+    // predicate above still narrows to slot 0 for the loupe-refresh
+    // case, which only depends on the primary device's bounds.
+    const selectors = ['.device-wrapper', '.headline', '.subtitle', '.free-text'];
     let attached = 0;
     for (const selector of selectors) {
       // Observe ALL matches because per-slot text layering renders each

@@ -154,6 +154,66 @@ export function DeviceTab() {
   );
   const { confirm: confirmRemoveDevice, dialog: removeDeviceDialog } = useConfirmDialog();
 
+  // Per-device stacking helpers. slotIdx=0 is the primary device,
+  // slotIdx>=1 maps to screen.extraDevices[slotIdx-1]. Effective z-index
+  // for each slot resolves: override → preset slot zIndex → 1 (fallback).
+  // "Send backward" finds the adjacent lower-z slot and swaps; "Bring
+  // forward" goes the other way. Ties break by slot index so the
+  // operation is always deterministic.
+  const reorder = useMemo(() => {
+    if (!screen) return null;
+    const preset = COMPOSITION_PRESETS[screen.composition];
+    const totalSlots = 1 + screen.extraDevices.length;
+    const effectiveZ = Array.from({ length: totalSlots }, (_, i) => {
+      if (i === 0) return screen.deviceZIndex ?? preset?.slots[0]?.zIndex ?? 1;
+      const extra = screen.extraDevices[i - 1]!;
+      return extra.zIndex ?? preset?.slots[i]?.zIndex ?? 1;
+    });
+    const findAdjacent = (slotIdx: number, dir: 'back' | 'forward'): number | null => {
+      const z = effectiveZ[slotIdx]!;
+      let best: { idx: number; z: number } | null = null;
+      for (let i = 0; i < totalSlots; i++) {
+        if (i === slotIdx) continue;
+        const oz = effectiveZ[i]!;
+        const ok = dir === 'back'
+          ? (oz < z || (oz === z && i < slotIdx))
+          : (oz > z || (oz === z && i > slotIdx));
+        if (!ok) continue;
+        if (best === null) { best = { idx: i, z: oz }; continue; }
+        // Pick the closest neighbour in the chosen direction.
+        const closer = dir === 'back' ? oz > best.z : oz < best.z;
+        if (closer) best = { idx: i, z: oz };
+      }
+      return best?.idx ?? null;
+    };
+    const swap = (slotIdx: number, dir: 'back' | 'forward') => {
+      const otherIdx = findAdjacent(slotIdx, dir);
+      if (otherIdx === null) return;
+      const z = effectiveZ[slotIdx]!;
+      const otherZ = effectiveZ[otherIdx]!;
+      const newSlotZ = z === otherZ ? (dir === 'back' ? otherZ - 1 : otherZ + 1) : otherZ;
+      const newOtherZ = z === otherZ ? otherZ : z;
+      const updates: { deviceZIndex?: number; extraDevices?: ExtraDeviceState[] } = {};
+      if (slotIdx === 0) updates.deviceZIndex = newSlotZ;
+      else if (otherIdx === 0) updates.deviceZIndex = newOtherZ;
+      if (slotIdx > 0 || otherIdx > 0) {
+        updates.extraDevices = screen.extraDevices.map((d, i) => {
+          const si = i + 1;
+          if (si === slotIdx) return { ...d, zIndex: newSlotZ };
+          if (si === otherIdx) return { ...d, zIndex: newOtherZ };
+          return d;
+        });
+      }
+      update(updates);
+    };
+    return {
+      canSendBack: (slotIdx: number) => findAdjacent(slotIdx, 'back') !== null,
+      canSendForward: (slotIdx: number) => findAdjacent(slotIdx, 'forward') !== null,
+      sendBack: (slotIdx: number) => swap(slotIdx, 'back'),
+      sendForward: (slotIdx: number) => swap(slotIdx, 'forward'),
+    };
+  }, [screen, update]);
+
   const handlePlatformChange = (value: string) => {
     setPlatform(value);
     const size = getPlatformPreviewSize(value);
@@ -497,6 +557,17 @@ export function DeviceTab() {
                 resetTo={0}
               />
             )}
+            {/* Layer controls — only meaningful when there's more
+                than one device on the canvas. In single-device mode
+                the primary has nothing to layer against. */}
+            {reorder && screen.extraDevices.length > 0 && (
+              <LayerControls
+                canSendBack={reorder.canSendBack(0)}
+                canSendForward={reorder.canSendForward(0)}
+                onSendBack={() => reorder.sendBack(0)}
+                onSendForward={() => reorder.sendForward(0)}
+              />
+            )}
             <button
               className="btn-secondary w-full text-[11px] mt-1"
               onClick={() =>
@@ -508,6 +579,7 @@ export function DeviceTab() {
                   deviceAngle: pd.deviceAngle,
                   deviceTilt: 0,
                   cornerRadius: 0,
+                  deviceZIndex: null,
                 })
               }
             >
@@ -612,6 +684,7 @@ export function DeviceTab() {
                     rotation: null,
                     angle: null,
                     tilt: null,
+                    zIndex: null,
                   }));
             update({
               composition: comp,
@@ -632,6 +705,7 @@ export function DeviceTab() {
           <ExtraDeviceSlots
             composition={screen.composition}
             extraDevices={screen.extraDevices}
+            reorder={reorder}
             onChangeExtraDevice={(index, partial) => {
               const next = screen.extraDevices.map((d, i) => (i === index ? { ...d, ...partial } : d));
               update({ extraDevices: next });
@@ -671,6 +745,7 @@ export function DeviceTab() {
                   rotation: 0,
                   angle: 0,
                   tilt: 0,
+                  zIndex: null,
                 },
               ],
             });
@@ -683,9 +758,20 @@ export function DeviceTab() {
   );
 }
 
+interface ReorderHandle {
+  canSendBack: (slotIdx: number) => boolean;
+  canSendForward: (slotIdx: number) => boolean;
+  sendBack: (slotIdx: number) => void;
+  sendForward: (slotIdx: number) => void;
+}
+
 interface ExtraDeviceSlotsProps {
   composition: CompositionPreset;
   extraDevices: ExtraDeviceState[];
+  /** Stacking-order controls computed in DeviceTab; null when no screen
+   *  is selected (defensive — should never happen at this point in the
+   *  tree). */
+  reorder: ReorderHandle | null;
   onChangeExtraDevice: (index: number, partial: Partial<ExtraDeviceState>) => void;
   /** Drop the extra at `index` from screen.extraDevices. */
   onRemoveExtraDevice: (index: number) => void;
@@ -714,7 +800,44 @@ const FALLBACK_SLOT_PRESET = {
   tilt: 0,
 } as const;
 
-function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice, onRemoveExtraDevice, patchDevice }: ExtraDeviceSlotsProps) {
+interface LayerControlsProps {
+  label?: string;
+  canSendBack: boolean;
+  canSendForward: boolean;
+  onSendBack: () => void;
+  onSendForward: () => void;
+}
+
+// Two-button group rendered inside the device sections. "Send back" and
+// "Bring forward" each swap z-order with the adjacent slot. Buttons
+// disable when the slot is already at an extreme.
+function LayerControls({ label = 'Layer', canSendBack, canSendForward, onSendBack, onSendForward }: LayerControlsProps) {
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <span className="text-[11px] text-text-dim w-12 shrink-0">{label}</span>
+      <div className="flex flex-1 gap-1">
+        <button
+          className="btn-secondary flex-1 text-[11px] py-1 disabled:opacity-40 disabled:cursor-not-allowed"
+          onClick={onSendBack}
+          disabled={!canSendBack}
+          title="Send this device one step backward"
+        >
+          ↓ Send back
+        </button>
+        <button
+          className="btn-secondary flex-1 text-[11px] py-1 disabled:opacity-40 disabled:cursor-not-allowed"
+          onClick={onSendForward}
+          disabled={!canSendForward}
+          title="Bring this device one step forward"
+        >
+          ↑ Bring forward
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ExtraDeviceSlots({ composition, extraDevices, reorder, onChangeExtraDevice, onRemoveExtraDevice, patchDevice }: ExtraDeviceSlotsProps) {
   const preset = COMPOSITION_PRESETS[composition];
   if (!preset) return null;
 
@@ -740,6 +863,7 @@ function ExtraDeviceSlots({ composition, extraDevices, onChangeExtraDevice, onRe
             slotIndex={slotIndex}
             extra={extra}
             slotPreset={slotPreset}
+            reorder={reorder}
             onChange={(partial) => onChangeExtraDevice(i, partial)}
             onRemove={isUserAdded ? () => onRemoveExtraDevice(i) : undefined}
             patchDevice={patchDevice}
@@ -755,6 +879,7 @@ interface ExtraDeviceSlotEditorProps {
   slotIndex: number;
   extra: ExtraDeviceState;
   slotPreset: { offsetX: number; offsetY: number; scale: number; rotation: number; angle: number; tilt: number };
+  reorder: ReorderHandle | null;
   onChange: (partial: Partial<ExtraDeviceState>) => void;
   /** Pass undefined to hide the Remove button (preset-seeded slots
    *  belong to the composition's shape and should be edited by
@@ -771,7 +896,7 @@ interface ExtraDeviceSlotEditorProps {
   }, deviceIdx?: number) => void;
 }
 
-function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange, onRemove, patchDevice }: ExtraDeviceSlotEditorProps) {
+function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, reorder, onChange, onRemove, patchDevice }: ExtraDeviceSlotEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -882,6 +1007,14 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange, onRemov
         />
       </div>
 
+      {reorder && (
+        <LayerControls
+          canSendBack={reorder.canSendBack(slotIndex)}
+          canSendForward={reorder.canSendForward(slotIndex)}
+          onSendBack={() => reorder.sendBack(slotIndex)}
+          onSendForward={() => reorder.sendForward(slotIndex)}
+        />
+      )}
       <button
         className="btn-secondary w-full text-[11px] mt-1"
         onClick={() =>
@@ -892,6 +1025,7 @@ function ExtraDeviceSlotEditor({ slotIndex, extra, slotPreset, onChange, onRemov
             rotation: null,
             angle: null,
             tilt: null,
+            zIndex: null,
           })
         }
       >

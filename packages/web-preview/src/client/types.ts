@@ -99,6 +99,10 @@ export interface ExtraDeviceState {
   rotation: number | null;
   angle: number | null;
   tilt: number | null;
+  /** Stacking order override. null falls back to the preset slot's
+   *  zIndex (or 1 for slots beyond preset.deviceCount). Set via the
+   *  "Send backward / Bring forward" buttons in the slot editor. */
+  zIndex: number | null;
 }
 
 export interface ScreenState {
@@ -140,6 +144,10 @@ export interface ScreenState {
   deviceOffsetX: number;
   deviceAngle: number;
   deviceTilt: number;
+  /** Stacking order for the primary device in a multi-device composition.
+   *  null falls back to the preset's slot[0].zIndex (or 1 in single mode).
+   *  Set via "Send backward / Bring forward" in the primary device section. */
+  deviceZIndex: number | null;
   headlineGradient: TextGradient | null;
   subtitleGradient: TextGradient | null;
   headlineLineHeight: number;

@@ -73,6 +73,7 @@ export const STATIC_SCREEN_DEFAULTS: {
   deviceRotation: number;
   deviceOffsetX: number;
   deviceTilt: number;
+  deviceZIndex: number | null;
   headlineGradient: TextGradient | null;
   subtitleGradient: TextGradient | null;
   headlineLineHeight: number;
@@ -139,6 +140,7 @@ export const STATIC_SCREEN_DEFAULTS: {
   deviceRotation: 0,
   deviceOffsetX: 0,
   deviceTilt: 0,
+  deviceZIndex: null,
   headlineGradient: null,
   subtitleGradient: null,
   headlineLineHeight: 0,

@@ -273,7 +273,7 @@ describe('undo/redo', () => {
       },
       frameId: '', deviceColor: '', frameStyle: 'flat', composition: 'single',
       deviceScale: 92, deviceTop: 20, deviceRotation: 0, deviceOffsetX: 0,
-      deviceAngle: 8, deviceTilt: 0,
+      deviceAngle: 8, deviceTilt: 0, deviceZIndex: null,
       headlineGradient: null, subtitleGradient: null,
       headlineLineHeight: 0, headlineLetterSpacing: 0,
       headlineTextTransform: '', headlineFontStyle: '',

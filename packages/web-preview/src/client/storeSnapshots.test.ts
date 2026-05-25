@@ -57,7 +57,7 @@ function makeStubScreen(id: string, overrides: Partial<ScreenState> = {}): Scree
     deviceRotation: 0,
     deviceOffsetX: 0,
     deviceAngle: 8,
-    deviceTilt: 0,
+    deviceTilt: 0, deviceZIndex: null,
     headlineGradient: null,
     subtitleGradient: null,
     headlineLineHeight: 0,

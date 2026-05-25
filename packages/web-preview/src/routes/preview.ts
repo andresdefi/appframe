@@ -86,7 +86,9 @@ interface PreviewParams {
     rotation?: number;
     angle?: number;
     tilt?: number;
+    zIndex?: number;
   }>;
+  deviceZIndex?: number;
   headlineGradient?: { colors: string[]; direction: number };
   subtitleGradient?: { colors: string[]; direction: number };
   spotlight?: {
@@ -240,6 +242,7 @@ function parseBody(
     deviceOffsetX: expectNumber(body.deviceOffsetX),
     deviceAngle: expectNumber(body.deviceAngle),
     deviceTilt: expectNumber(body.deviceTilt),
+    deviceZIndex: expectNumber(body.deviceZIndex),
     headlineTop: expectNumber(body.headlineTop),
     headlineLeft: expectNumber(body.headlineLeft),
     headlineWidth: expectNumber(body.headlineWidth),
@@ -263,6 +266,7 @@ function parseBody(
           rotation?: number;
           angle?: number;
           tilt?: number;
+          zIndex?: number;
         }>
       | undefined,
     headlineGradient: expectObject(body.headlineGradient) as
@@ -656,6 +660,14 @@ async function resolveContext(
         }
       }
 
+      // Z-index override resolution: primary device uses
+      // p.deviceZIndex; extras use extraScreenshots[i-1].zIndex. Both
+      // fall back to the preset slot's default. Lets the user reorder
+      // any device front/back via the sidebar buttons.
+      const slotZIndex =
+        i === 0
+          ? p.deviceZIndex ?? slot.zIndex
+          : p.extraScreenshots?.[i - 1]?.zIndex ?? slot.zIndex;
       devices.push({
         screenshotUrl: slotScreenshotUrl,
         frame: slotFrame,
@@ -667,7 +679,7 @@ async function resolveContext(
         rotation: slotRotation,
         angle: slotAngle,
         tilt: slotTilt,
-        zIndex: slot.zIndex,
+        zIndex: slotZIndex,
       });
     }
 

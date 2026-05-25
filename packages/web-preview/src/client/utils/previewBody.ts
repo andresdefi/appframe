@@ -152,8 +152,10 @@ export function buildScreenRenderBody(
             rotation: d.rotation ?? undefined,
             angle: d.angle ?? undefined,
             tilt: d.tilt ?? undefined,
+            zIndex: d.zIndex ?? undefined,
           }))
         : undefined,
+    deviceZIndex: screen.deviceZIndex ?? undefined,
   };
 }
 

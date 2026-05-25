@@ -52,6 +52,7 @@ function createScreen(overrides: Partial<ScreenState> = {}): ScreenState {
     deviceOffsetX: 4,
     deviceAngle: 9,
     deviceTilt: 3,
+    deviceZIndex: null,
     headlineGradient: { colors: ['#111111', '#222222'], direction: 45 },
     subtitleGradient: { colors: ['#333333', '#444444'], direction: 90 },
     headlineLineHeight: 120,
@@ -208,6 +209,7 @@ describe('preview/export payload builders', () => {
           rotation: 0,
           angle: 0,
           tilt: 0,
+          zIndex: null,
         },
       ],
     });

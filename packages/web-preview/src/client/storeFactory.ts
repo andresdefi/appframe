@@ -70,6 +70,7 @@ export function createScreenState(
     deviceOffsetX: 0,
     deviceAngle: pd.deviceAngle,
     deviceTilt: 0,
+    deviceZIndex: null,
     headlineGradient: config.theme.headlineGradient ?? null,
     subtitleGradient: config.theme.subtitleGradient ?? null,
     headlineLineHeight: 0,

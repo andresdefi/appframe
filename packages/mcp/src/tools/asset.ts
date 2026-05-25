@@ -2,9 +2,11 @@ import type { ToolDefinition } from './types.js';
 import {
   jsonContent,
   readFileAsDataUrl,
+  requireConfirm,
   requireIndex,
   requireRecord,
   requireSlug,
+  requireString,
 } from './helpers.js';
 
 export const assetTools: ToolDefinition[] = [
@@ -142,6 +144,94 @@ export const assetTools: ToolDefinition[] = [
         screenshotName,
       });
       return jsonContent({ screenshotUrl, screenshotName, screen: result.screen });
+    },
+  },
+  {
+    descriptor: {
+      name: 'list_assets',
+      description:
+        'Inventory of every screenshot file under the project\'s ' +
+        'screenshots/ folder, annotated with whether the current ' +
+        'envelope still references each one. Returns `{ assets: ' +
+        '[{filename, bytes, referenced}], unreferenced: [], ' +
+        'referencedButMissing: [] }`. `unreferenced` is the candidate ' +
+        'list for `cleanup_unused_screenshots`. `referencedButMissing` ' +
+        'flags broken references — the envelope points at a file that ' +
+        'isn\'t on disk (usually a manual delete or a project copied ' +
+        'between machines). Read-only — touches nothing.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'list_assets');
+      const slug = requireSlug(a);
+      return jsonContent(await client.listAssets(slug));
+    },
+  },
+  {
+    descriptor: {
+      name: 'delete_screenshot',
+      description:
+        'Remove a single screenshot file (and its preview) from a ' +
+        'project\'s screenshots/ folder. REFUSES if the filename is ' +
+        'still referenced anywhere in the envelope (default screens, ' +
+        'locale screens, variant snapshots, overlays, backgrounds). ' +
+        'Drop the references first via `patch_screen` / ' +
+        '`patch_locale_screen` / `set_screenshot` (with a different ' +
+        'image) before calling this. Destructive — requires ' +
+        '`confirm: true`. Use `list_assets` first to confirm the file ' +
+        'is in `unreferenced`.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug', 'filename', 'confirm'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          filename: { type: 'string', minLength: 1 },
+          confirm: { const: true, description: 'Must be `true`. Safety guard.' },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'delete_screenshot');
+      requireConfirm(a, 'delete_screenshot', `delete the screenshot "${a.filename}" from disk`);
+      const slug = requireSlug(a);
+      const filename = requireString(a, 'filename');
+      return jsonContent(await client.deleteScreenshot(slug, filename));
+    },
+  },
+  {
+    descriptor: {
+      name: 'cleanup_unused_screenshots',
+      description:
+        'Sweep every unreferenced screenshot file out of the project\'s ' +
+        'screenshots/ folder. Mirrors the boot-time orphan sweep but ' +
+        'scoped to one project and triggerable on demand. Returns the ' +
+        'filenames deleted (plus any that failed). Destructive — ' +
+        'requires `confirm: true`. Always safe vs the envelope: only ' +
+        'files NOT referenced get removed. Run `list_assets` first to ' +
+        'see what will be removed.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug', 'confirm'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          confirm: { const: true, description: 'Must be `true`. Safety guard.' },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'cleanup_unused_screenshots');
+      requireConfirm(a, 'cleanup_unused_screenshots', 'permanently delete every unreferenced screenshot file');
+      const slug = requireSlug(a);
+      return jsonContent(await client.cleanupUnusedScreenshots(slug));
     },
   },
 ];

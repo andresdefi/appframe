@@ -333,6 +333,198 @@ describe('integration: diff_screens', () => {
   });
 });
 
+describe('integration: bulk locale operations', () => {
+  // Set up a `fr` locale on the test project; this state is reused
+  // across the tests below.
+  it('add_locale seeds localeScreens[fr] from the default snapshot', async () => {
+    await client.addLocale('my-test-project', 'fr', 'Français');
+    const env = await client.getProjectEnvelope('my-test-project');
+    const data = env.data as { localeScreens: Record<string, unknown[]> };
+    expect(Array.isArray(data.localeScreens.fr)).toBe(true);
+    expect(data.localeScreens.fr.length).toBe(3);
+  });
+
+  it('bulk_translate_locale applies headline + subtitle to multiple screens in one write', async () => {
+    const tool = findTool('bulk_translate_locale');
+    const result = await tool.handler(
+      {
+        slug: 'my-test-project',
+        code: 'fr',
+        translations: [
+          { index: 0, headline: 'Bonjour', subtitle: 'Le monde' },
+          { index: 2, headline: 'Au revoir' },
+        ],
+        verbose: false,
+      },
+      { client },
+    );
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.applied).toBe(2);
+
+    const env = await client.getProjectEnvelope('my-test-project');
+    const data = env.data as { localeScreens: Record<string, Array<Record<string, unknown>>> };
+    expect(data.localeScreens.fr![0]!.headline).toMatch(/Bonjour/);
+    expect(data.localeScreens.fr![0]!.subtitle).toMatch(/Le monde/);
+    expect(data.localeScreens.fr![2]!.headline).toMatch(/Au revoir/);
+    // Untouched screen kept the auto-cloned default text.
+    expect(data.localeScreens.fr![1]!.headline).not.toMatch(/Bonjour|Au revoir/);
+  });
+
+  it('bulk_translate_locale rejects "default" code', async () => {
+    const tool = findTool('bulk_translate_locale');
+    await expect(
+      tool.handler(
+        { slug: 'my-test-project', code: 'default', translations: [{ index: 0, headline: 'x' }] },
+        { client },
+      ),
+    ).rejects.toThrow(/non-default/);
+  });
+
+  it('bulk_translate_locale rejects translation entries with no text fields', async () => {
+    const tool = findTool('bulk_translate_locale');
+    await expect(
+      tool.handler(
+        { slug: 'my-test-project', code: 'fr', translations: [{ index: 0 }] },
+        { client },
+      ),
+    ).rejects.toThrow(/must include at least one of/);
+  });
+
+  it('duplicate_screen_to_all_locales overwrites the locale snapshot at the given index', async () => {
+    // Stamp a recognisable headline on the default screen 0, then
+    // verify the broadcast carried it into every configured locale.
+    await client.patchScreen('my-test-project', 0, {
+      headline: '<p>BROADCAST_MARKER</p>',
+    });
+    const tool = findTool('duplicate_screen_to_all_locales');
+    const result = await tool.handler(
+      { slug: 'my-test-project', sourceIndex: 0 },
+      { client },
+    );
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.affected).toContain('fr');
+
+    const env = await client.getProjectEnvelope('my-test-project');
+    const data = env.data as { localeScreens: Record<string, Array<Record<string, unknown>>> };
+    expect(data.localeScreens.fr![0]!.headline).toBe('<p>BROADCAST_MARKER</p>');
+  });
+
+  it('duplicate_screen_to_all_locales returns an empty `affected` list when no locales configured', async () => {
+    // Use a fresh project so the "no locales" branch is exercised.
+    await client.createProject('Bulk Locale Empty');
+    await client.insertScreen('bulk-locale-empty');
+    const tool = findTool('duplicate_screen_to_all_locales');
+    const result = await tool.handler(
+      { slug: 'bulk-locale-empty', sourceIndex: 0 },
+      { client },
+    );
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.affected).toEqual([]);
+    await client.deleteProject('bulk-locale-empty');
+  });
+});
+
+describe('integration: asset management', () => {
+  let uploadedFilename = '';
+  const oneByOnePngDataUrl =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  it('upload_screenshot writes a file the inventory then sees', async () => {
+    const uploaded = await client.uploadScreenshot({
+      slug: 'my-test-project',
+      filename: 'asset-test.png',
+      dataUrl: oneByOnePngDataUrl,
+    });
+    uploadedFilename = uploaded.filename;
+    expect(uploaded.bytes).toBeGreaterThan(0);
+    const tool = findTool('list_assets');
+    const res = await tool.handler({ slug: 'my-test-project' }, { client });
+    const payload = JSON.parse((res.content[0] as { text: string }).text);
+    const found = (payload.assets as Array<{ filename: string }>).find(
+      (a) => a.filename === uploadedFilename,
+    );
+    expect(found).toBeDefined();
+    // Brand-new file, no patch_screen yet pointing at it -> unreferenced.
+    expect(payload.unreferenced).toContain(uploadedFilename);
+  });
+
+  it('delete_screenshot refuses while the file is still referenced', async () => {
+    // Wire the screenshot URL into screen 0 so it counts as referenced.
+    await client.patchScreen('my-test-project', 0, {
+      screenshotUrl: `/api/screenshots/my-test-project/${uploadedFilename}`,
+      screenshotName: uploadedFilename,
+    });
+    const inventory = await client.listAssets('my-test-project');
+    expect(inventory.unreferenced).not.toContain(uploadedFilename);
+
+    const tool = findTool('delete_screenshot');
+    await expect(
+      tool.handler(
+        { slug: 'my-test-project', filename: uploadedFilename, confirm: true },
+        { client },
+      ),
+    ).rejects.toThrow(/still referenced/);
+  });
+
+  it('delete_screenshot removes the file once references are dropped', async () => {
+    // Drop the reference by overwriting screenshotUrl back to empty.
+    await client.patchScreen('my-test-project', 0, { screenshotUrl: '', screenshotName: '' });
+    const tool = findTool('delete_screenshot');
+    const res = await tool.handler(
+      { slug: 'my-test-project', filename: uploadedFilename, confirm: true },
+      { client },
+    );
+    const payload = JSON.parse((res.content[0] as { text: string }).text);
+    expect(payload.deleted).toBe(uploadedFilename);
+    const after = await client.listAssets('my-test-project');
+    expect(after.assets.find((a) => a.filename === uploadedFilename)).toBeUndefined();
+  });
+
+  it('delete_screenshot requires confirm: true', async () => {
+    const tool = findTool('delete_screenshot');
+    await expect(
+      tool.handler({ slug: 'my-test-project', filename: 'whatever.png' }, { client }),
+    ).rejects.toThrow(/confirm: true/);
+  });
+
+  it('cleanup_unused_screenshots sweeps unreferenced files', async () => {
+    // Upload two: one we'll reference, one we won't.
+    const ref = await client.uploadScreenshot({
+      slug: 'my-test-project',
+      filename: 'keep.png',
+      dataUrl: oneByOnePngDataUrl,
+    });
+    const orphan = await client.uploadScreenshot({
+      slug: 'my-test-project',
+      filename: 'drop.png',
+      dataUrl: oneByOnePngDataUrl,
+    });
+    await client.patchScreen('my-test-project', 0, {
+      screenshotUrl: `/api/screenshots/my-test-project/${ref.filename}`,
+      screenshotName: ref.filename,
+    });
+    const tool = findTool('cleanup_unused_screenshots');
+    const res = await tool.handler(
+      { slug: 'my-test-project', confirm: true },
+      { client },
+    );
+    const payload = JSON.parse((res.content[0] as { text: string }).text);
+    expect(payload.deleted).toContain(orphan.filename);
+    expect(payload.deleted).not.toContain(ref.filename);
+
+    // Tidy up — drop the reference so the project deletes cleanly in
+    // the cleanup describe block below.
+    await client.patchScreen('my-test-project', 0, { screenshotUrl: '', screenshotName: '' });
+  });
+
+  it('cleanup_unused_screenshots requires confirm: true', async () => {
+    const tool = findTool('cleanup_unused_screenshots');
+    await expect(
+      tool.handler({ slug: 'my-test-project' }, { client }),
+    ).rejects.toThrow(/confirm: true/);
+  });
+});
+
 describe('integration: prototype-pollution defense', () => {
   it('rejects locale codes that are reserved JS property names', async () => {
     // The locale-add endpoint uses the code as a computed object key

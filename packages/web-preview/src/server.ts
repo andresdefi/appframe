@@ -20,6 +20,7 @@ import { registerElementsRoutes } from './routes/elements.js';
 import { registerPreviewRoutes } from './routes/preview.js';
 import { createEventBroadcaster } from './routes/events.js';
 import { registerProjectPatchRoutes } from './routes/projectPatch.js';
+import { registerProjectAssetRoutes } from './routes/projectAssets.js';
 import { registerRenderPreviewRoutes } from './routes/renderPreview.js';
 import { log } from './logger.js';
 
@@ -225,6 +226,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   eventBroadcaster.register(app);
   registerProjectPatchRoutes(app, ctx);
+  registerProjectAssetRoutes(app, ctx);
   registerRenderPreviewRoutes(app, ctx);
 
   // Generate any missing preview-resolution screenshots and clean up

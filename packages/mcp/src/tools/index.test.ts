@@ -79,7 +79,13 @@ describe('ALL_TOOLS catalog integrity', () => {
   });
 
   it('destructive tools require confirm: true in schema', () => {
-    const destructive = ['delete_project', 'delete_variant', 'remove_screen'];
+    const destructive = [
+      'delete_project',
+      'delete_variant',
+      'remove_screen',
+      'delete_screenshot',
+      'cleanup_unused_screenshots',
+    ];
     for (const name of destructive) {
       const t = ALL_TOOLS.find((x) => x.descriptor.name === name);
       expect(t, `tool ${name} should exist`).toBeDefined();

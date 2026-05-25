@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, access, readdir, unlink } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, access, readdir, unlink, stat } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import { join, resolve, extname, basename, dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -225,7 +225,7 @@ export async function writeScreenshotFromDataUrl(
  * element trees, background image layers, extras, and anywhere else a
  * screenshot URL might be embedded.
  */
-function collectReferencedScreenshotFilenames(data: unknown, projectSlug: string): Set<string> {
+export function collectReferencedScreenshotFilenames(data: unknown, projectSlug: string): Set<string> {
   const prefix = `/api/screenshots/${projectSlug}/`;
   const referenced = new Set<string>();
   const stack: unknown[] = [data];
@@ -366,6 +366,75 @@ export async function sweepPreviews(options: ScreenshotStorageOptions): Promise<
       }
     }
   }
+}
+
+/**
+ * List every supported source image under a project's screenshots/ dir
+ * with its byte size. Skips non-image files and the .previews/ subdir.
+ * Returns an empty array (not an error) when the dir doesn't exist —
+ * a project with zero uploads is a valid state.
+ */
+export async function listScreenshotFiles(
+  options: ScreenshotStorageOptions,
+  project: string,
+): Promise<Array<{ filename: string; bytes: number }>> {
+  const safeProject = sanitizeProject(project);
+  const dir = projectScreenshotsDir(options.projectsRoot, safeProject);
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const out: Array<{ filename: string; bytes: number }> = [];
+  for (const name of entries) {
+    const ext = extname(name).toLowerCase();
+    if (!SUPPORTED_EXTENSIONS.has(ext)) continue;
+    const abs = join(dir, name);
+    try {
+      const s = await stat(abs);
+      if (!s.isFile()) continue;
+      out.push({ filename: name, bytes: s.size });
+    } catch {
+      // Missing / unreadable - skip silently. listing should never
+      // throw on a single bad file.
+    }
+  }
+  out.sort((a, b) => a.filename.localeCompare(b.filename));
+  return out;
+}
+
+/**
+ * Delete a single source file + its preview (if any) for `project`.
+ * Returns true if the source was removed. Does not check references —
+ * the caller is responsible for refusing to delete a file the project
+ * still references.
+ */
+export async function deleteScreenshotFile(
+  options: ScreenshotStorageOptions,
+  project: string,
+  filename: string,
+): Promise<{ deleted: boolean; previewDeleted: boolean }> {
+  // resolveScreenshotPath sanitises project + filename and rejects any
+  // path that escapes the screenshots dir. Same containment guarantee
+  // readScreenshotAsBuffer relies on for safe unlink.
+  const abs = resolveScreenshotPath(options.projectsRoot, project, filename);
+  let deleted = false;
+  try {
+    await unlink(abs);
+    deleted = true;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT') throw err;
+  }
+  let previewDeleted = false;
+  try {
+    await unlink(previewPathFor(abs));
+    previewDeleted = true;
+  } catch {
+    // Preview missing - that's fine.
+  }
+  return { deleted, previewDeleted };
 }
 
 export async function readScreenshotAsBuffer(

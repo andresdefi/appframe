@@ -168,4 +168,118 @@ export const localeTools: ToolDefinition[] = [
       return jsonContent(result.screen);
     },
   },
+  {
+    descriptor: {
+      name: 'bulk_translate_locale',
+      description:
+        'Apply a translation set to many screens of one locale in a ' +
+        'single atomic write. `translations` is an array of `{ index, ' +
+        'headline?, subtitle?, freeText? }` — every text field is ' +
+        'wrapped via wrapTextAsHtml (plain text → centered <p>, HTML ' +
+        'passed through). Replaces the per-screen `set_locale_text` ' +
+        'loop the agent used to write: one call instead of N. `code` ' +
+        'cannot be "default" — use `batch_patch_screens` for that. ' +
+        'Ops are independent (one entry per screen index); each entry ' +
+        'must include at least one of the text fields.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug', 'code', 'translations'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          code: { type: 'string', minLength: 1 },
+          translations: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'object',
+              required: ['index'],
+              properties: {
+                index: { type: 'integer', minimum: 0 },
+                headline: { type: 'string' },
+                subtitle: { type: 'string' },
+                freeText: { type: 'string' },
+              },
+              additionalProperties: false,
+            },
+          },
+          verbose: { type: 'boolean' },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'bulk_translate_locale');
+      const slug = requireSlug(a);
+      const code = requireString(a, 'code');
+      if (code === 'default') {
+        throw new Error('`code` must be a non-default locale — use `batch_patch_screens` for default');
+      }
+      const { translations, verbose } = a;
+      if (!Array.isArray(translations) || translations.length === 0) {
+        throw new Error('`translations` must be a non-empty array');
+      }
+      const ops: Array<{ index: number; patch: Record<string, unknown> }> = [];
+      for (let i = 0; i < translations.length; i++) {
+        const t = translations[i];
+        if (!isRecord(t)) throw new Error(`translations[${i}] must be an object`);
+        const idx = t.index;
+        if (typeof idx !== 'number' || !Number.isInteger(idx) || idx < 0) {
+          throw new Error(`translations[${i}].index must be a non-negative integer`);
+        }
+        const patch: Record<string, unknown> = {};
+        for (const field of ['headline', 'subtitle', 'freeText'] as const) {
+          const v = t[field];
+          if (v === undefined) continue;
+          if (typeof v !== 'string') {
+            throw new Error(`translations[${i}].${field} must be a string`);
+          }
+          patch[field] = wrapTextAsHtml(v);
+        }
+        if (Object.keys(patch).length === 0) {
+          throw new Error(`translations[${i}] must include at least one of headline / subtitle / freeText`);
+        }
+        ops.push({ index: idx, patch });
+      }
+      const result = await client.patchLocaleScreensBatch(slug, code, ops);
+      if (verbose === false) {
+        return jsonContent({ savedAt: result.savedAt, applied: result.applied });
+      }
+      return jsonContent(result);
+    },
+  },
+  {
+    descriptor: {
+      name: 'duplicate_screen_to_all_locales',
+      description:
+        'Copy the default-locale screen at `sourceIndex` into every ' +
+        'configured locale\'s snapshot at the same index. Used after ' +
+        'changing structural fields on the default (device frame, ' +
+        'layout, background, composition) when you want the change to ' +
+        'land on every translated set without reopening each locale. ' +
+        'The locale\'s previous text + per-locale edits are overwritten ' +
+        '— that\'s the contract. If you want to preserve translations, ' +
+        'call `bulk_translate_locale` immediately after to re-apply the ' +
+        'text. Returns the list of locale codes actually updated; ' +
+        'locales whose snapshot is too short are skipped.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug', 'sourceIndex'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          sourceIndex: { type: 'integer', minimum: 0 },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'duplicate_screen_to_all_locales');
+      const slug = requireSlug(a);
+      const sourceIndex = a.sourceIndex;
+      if (typeof sourceIndex !== 'number' || !Number.isInteger(sourceIndex) || sourceIndex < 0) {
+        throw new Error('`sourceIndex` must be a non-negative integer');
+      }
+      const result = await client.broadcastScreenToLocales(slug, sourceIndex);
+      return jsonContent(result);
+    },
+  },
 ];

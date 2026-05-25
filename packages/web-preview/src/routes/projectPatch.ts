@@ -932,6 +932,147 @@ export function registerProjectPatchRoutes(app: Express, ctx: RouteContext): voi
     res.json({ success: true, savedAt: written.savedAt, screen: merged });
   });
 
+  // POST /api/projects/:project/locales/:code/patch-batch
+  //   { ops: [{ index: number, patch: Partial<ScreenState> }, ...] }
+  //
+  // Locale-scoped mirror of /patch-batch. Applies N shallow-merge
+  // patches inside localeScreens[code] in one atomic write. Used by the
+  // MCP `bulk_translate_locale` tool so an agent can drop a full
+  // translation set for 6 screens in one round-trip instead of six.
+  app.post('/api/projects/:project/locales/:code/patch-batch', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const code = typeof req.params.code === 'string' ? req.params.code : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    if (code === 'default') {
+      res.status(400).json({
+        error: 'use /api/projects/:slug/patch-batch for the default locale',
+      });
+      return;
+    }
+    if (!isSafeObjectKey(code)) {
+      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
+      return;
+    }
+    const { ops } = body;
+    if (!Array.isArray(ops) || ops.length === 0) {
+      res.status(400).json({ error: '`ops` must be a non-empty array of { index, patch } objects' });
+      return;
+    }
+    for (const op of ops) {
+      if (!isRecord(op)) {
+        res.status(400).json({ error: 'each op must be an object' });
+        return;
+      }
+      const { index, patch } = op;
+      if (typeof index !== 'number' || !Number.isInteger(index) || index < 0) {
+        res.status(400).json({ error: 'each op.index must be a non-negative integer' });
+        return;
+      }
+      if (!isRecord(patch)) {
+        res.status(400).json({ error: 'each op.patch must be an object' });
+        return;
+      }
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data } = loaded;
+    const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
+    const screens = localeScreens[code];
+    if (!Array.isArray(screens)) {
+      res.status(404).json({ error: `locale "${code}" has no screens — add it first with /locales/add` });
+      return;
+    }
+    const nextScreens = screens.slice();
+    const merged: Record<string, unknown>[] = [];
+    for (const op of ops as Array<{ index: number; patch: Record<string, unknown> }>) {
+      if (op.index >= nextScreens.length) {
+        res.status(400).json({
+          error: `op.index ${op.index} out of bounds — locale "${code}" has ${nextScreens.length} screen(s)`,
+        });
+        return;
+      }
+      const existing = nextScreens[op.index];
+      if (!isRecord(existing)) {
+        res.status(422).json({ error: `localeScreens[${code}][${op.index}] is not an object` });
+        return;
+      }
+      const next = { ...existing, ...op.patch };
+      nextScreens[op.index] = next;
+      merged.push(next);
+    }
+    const nextLocaleScreens = { ...localeScreens, [code]: nextScreens };
+    const nextData = { ...data, localeScreens: nextLocaleScreens };
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: merged });
+  });
+
+  // POST /api/projects/:project/locales/broadcast-screen { sourceIndex: number }
+  //
+  // For each configured locale, replace `localeScreens[code][sourceIndex]`
+  // with a structuredClone of `data.screens[sourceIndex]`. Used by the
+  // MCP `duplicate_screen_to_all_locales` tool when the default screen
+  // has been updated (new device, new layout, new background) and the
+  // agent wants the change to propagate to every translated set without
+  // re-touching their per-locale text. Each locale's text + per-locale
+  // edits get overwritten — that's the contract; if the agent wants to
+  // preserve text, it must re-apply via `bulk_translate_locale` after.
+  app.post('/api/projects/:project/locales/broadcast-screen', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { sourceIndex } = body;
+    if (typeof sourceIndex !== 'number' || !Number.isInteger(sourceIndex) || sourceIndex < 0) {
+      res.status(400).json({ error: '`sourceIndex` must be a non-negative integer' });
+      return;
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data, screens } = loaded;
+    if (sourceIndex >= screens.length) {
+      res.status(400).json({
+        error: `sourceIndex ${sourceIndex} out of bounds — project has ${screens.length} screen(s)`,
+      });
+      return;
+    }
+    const sourceScreen = screens[sourceIndex];
+    if (!isRecord(sourceScreen)) {
+      res.status(422).json({ error: `screens[${sourceIndex}] is not an object` });
+      return;
+    }
+    const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
+    const codes = Object.keys(localeScreens).filter(isSafeObjectKey);
+    if (codes.length === 0) {
+      res.json({ success: true, savedAt: null, affected: [], note: 'project has no locales configured' });
+      return;
+    }
+    const nextLocaleScreens: Record<string, unknown> = { ...localeScreens };
+    const affected: string[] = [];
+    for (const code of codes) {
+      const localeArr = localeScreens[code];
+      if (!Array.isArray(localeArr) || sourceIndex >= localeArr.length) continue;
+      const nextArr = localeArr.slice();
+      nextArr[sourceIndex] = structuredClone(sourceScreen);
+      nextLocaleScreens[code] = nextArr;
+      affected.push(code);
+    }
+    if (affected.length === 0) {
+      res.json({ success: true, savedAt: null, affected: [], note: 'no locales had a screen at this index' });
+      return;
+    }
+    const nextData = { ...data, localeScreens: nextLocaleScreens };
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data);
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, affected });
+  });
+
   // POST /api/projects/:project/screens/reorder { order: number[] }
   //
   // `order` is a permutation of [0..N-1]; result[i] = screens[order[i]].

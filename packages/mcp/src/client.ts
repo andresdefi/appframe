@@ -189,6 +189,47 @@ export class AppframeClient {
     return this.request('POST', `/api/projects/${encodeURIComponent(slug)}/switch`);
   }
 
+  // Asset inventory + cleanup. Read-only listAssets is paired with two
+  // server-side mutators: deleteScreenshot (single file, refuses on
+  // referenced) and cleanupUnusedScreenshots (sweep every unreferenced
+  // file in the project's screenshots/ dir).
+
+  async listAssets(slug: string): Promise<{
+    project: string;
+    assets: Array<{ filename: string; bytes: number; referenced: boolean }>;
+    unreferenced: string[];
+    referencedButMissing: string[];
+  }> {
+    return this.request(
+      'GET',
+      `/api/projects/${encodeURIComponent(slug)}/assets`,
+    );
+  }
+
+  async deleteScreenshot(slug: string, filename: string): Promise<{
+    success: boolean;
+    deleted: string;
+    previewDeleted: boolean;
+  }> {
+    return this.request(
+      'POST',
+      `/api/projects/${encodeURIComponent(slug)}/screenshots/delete`,
+      { filename },
+    );
+  }
+
+  async cleanupUnusedScreenshots(slug: string): Promise<{
+    success: boolean;
+    deleted: string[];
+    failed: Array<{ filename: string; error: string }>;
+  }> {
+    return this.request(
+      'POST',
+      `/api/projects/${encodeURIComponent(slug)}/screenshots/cleanup`,
+      {},
+    );
+  }
+
   // Upload a screenshot image as a data URL. Body shape matches the
   // existing UI upload path so the file lands at the same location and
   // the URL is reachable for the renderer.
@@ -362,6 +403,42 @@ export class AppframeClient {
       'POST',
       `/api/projects/${encodeURIComponent(slug)}/locales/${encodeURIComponent(code)}/patch-screen`,
       { index, patch },
+    );
+  }
+
+  // Locale-scoped batch of patch ops. Mirrors patchScreensBatch but
+  // targets localeScreens[code] instead of the default data.screens.
+  async patchLocaleScreensBatch(
+    slug: string,
+    code: string,
+    ops: Array<{ index: number; patch: Record<string, unknown> }>,
+  ): Promise<{
+    success: boolean;
+    savedAt: string;
+    applied: number;
+    screens: Record<string, unknown>[];
+  }> {
+    return this.request(
+      'POST',
+      `/api/projects/${encodeURIComponent(slug)}/locales/${encodeURIComponent(code)}/patch-batch`,
+      { ops },
+    );
+  }
+
+  // Replace localeScreens[*][sourceIndex] with structuredClone of
+  // data.screens[sourceIndex] across every configured locale in one
+  // atomic write. Returns the list of locale codes that actually got
+  // updated — locales whose snapshot is too short get skipped.
+  async broadcastScreenToLocales(slug: string, sourceIndex: number): Promise<{
+    success: boolean;
+    savedAt: string | null;
+    affected: string[];
+    note?: string;
+  }> {
+    return this.request(
+      'POST',
+      `/api/projects/${encodeURIComponent(slug)}/locales/broadcast-screen`,
+      { sourceIndex },
     );
   }
 

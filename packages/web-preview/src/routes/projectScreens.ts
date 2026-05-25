@@ -101,6 +101,48 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
     });
   });
 
+  // PATCH /api/projects/:project/screens/:index
+  //   Body: Partial<ScreenState> (the patch itself, no wrapper)
+  //
+  // REST-style endpoint — index in the URL, body IS the patch. Same
+  // shallow-merge semantics as POST /patch-screen.
+  app.patch('/api/projects/:project/screens/:index', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const indexParam = typeof req.params.index === 'string' ? req.params.index : '';
+    const index = Number(indexParam);
+    if (!Number.isInteger(index) || index < 0) {
+      res.status(400).json({ error: '`index` must be a non-negative integer' });
+      return;
+    }
+    const patch = req.body;
+    if (!isRecord(patch)) {
+      res.status(400).json({ error: 'request body must be an object of editor-state screen fields' });
+      return;
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { data, screens } = loaded;
+    if (index >= screens.length) {
+      res.status(400).json({
+        error: `screen index ${index} out of bounds — project has ${screens.length} screen(s)`,
+      });
+      return;
+    }
+    const existing = screens[index];
+    if (!isRecord(existing)) {
+      res.status(422).json({ error: `data.screens[${index}] is not an object` });
+      return;
+    }
+    const merged: Record<string, unknown> = { ...existing, ...patch };
+    const nextScreens = screens.slice();
+    nextScreens[index] = merged;
+    syncActiveVariantSnapshot(data, nextScreens);
+    const nextData = { ...data, screens: nextScreens };
+    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'patch_screen');
+    if (!written) return;
+    res.json({ success: true, savedAt: written.savedAt, screen: merged });
+  });
+
   // POST /api/projects/:project/patch-screen
   //   { index: number, patch: Partial<ScreenState> }
   //

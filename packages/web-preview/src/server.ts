@@ -13,6 +13,7 @@ import {
 } from './screenshotStorage.js';
 import { registerProjectRoutes, type ProjectStorageOptions } from './projectStorage.js';
 import type { RouteContext } from './routes/context.js';
+import { withProjectLock } from './routes/projectMutex.js';
 import { registerDeviceFrameRoutes } from './routes/deviceFrame.js';
 import { registerConfigRoutes } from './routes/config.js';
 import { registerCatalogRoutes } from './routes/catalog.js';
@@ -228,6 +229,22 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   };
 
   eventBroadcaster.register(app);
+
+  app.use('/api/projects/:project', (req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+      next();
+      return;
+    }
+    const project = req.params.project as string;
+    void withProjectLock(project, () =>
+      new Promise<void>((resolve) => {
+        res.on('finish', resolve);
+        res.on('close', resolve);
+        next();
+      }),
+    );
+  });
+
   registerProjectScreenRoutes(app, ctx);
   registerProjectVariantRoutes(app, ctx);
   registerProjectLocaleRoutes(app, ctx);

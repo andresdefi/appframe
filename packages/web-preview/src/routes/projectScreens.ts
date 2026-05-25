@@ -62,6 +62,45 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
     res.json({ success: true, slug: raw });
   });
 
+  // GET /api/projects/:project/screens/:index
+  //
+  // Read a single screen from the envelope on disk. Returns
+  // `{ schemaVersion, savedAt, index, screen }`. The agent's inspect
+  // tools (get_screen, inspect_fonts, diff_screens, auto_fit_headline,
+  // ...) used to fetch the full ~40 KB envelope just to read one
+  // screen; this endpoint cuts the network payload to ~2 KB per
+  // inspect. Tools that genuinely need every screen (describe_project,
+  // theme-broadcast helpers) still hit GET /api/projects/:slug.
+  app.get('/api/projects/:project/screens/:index', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const indexParam = typeof req.params.index === 'string' ? req.params.index : '';
+    const index = Number(indexParam);
+    if (!Number.isInteger(index) || index < 0) {
+      res.status(400).json({ error: '`index` must be a non-negative integer' });
+      return;
+    }
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return;
+    const { envelope, screens } = loaded;
+    if (index >= screens.length) {
+      res.status(400).json({
+        error: `screen index ${index} out of bounds — project has ${screens.length} screen(s)`,
+      });
+      return;
+    }
+    const screen = screens[index];
+    if (!isRecord(screen)) {
+      res.status(422).json({ error: `data.screens[${index}] is not an object` });
+      return;
+    }
+    res.json({
+      schemaVersion: envelope.schemaVersion,
+      savedAt: envelope.savedAt,
+      index,
+      screen,
+    });
+  });
+
   // POST /api/projects/:project/patch-screen
   //   { index: number, patch: Partial<ScreenState> }
   //

@@ -120,6 +120,33 @@ describe('integration: project envelope read + write', () => {
   });
 });
 
+describe('integration: single-screen read endpoint', () => {
+  it('readScreen returns just that screen with envelope meta', async () => {
+    const result = await client.readScreen('my-test-project', 1);
+    expect(result.index).toBe(1);
+    expect(typeof result.savedAt).toBe('string');
+    expect(typeof result.schemaVersion).toBe('number');
+    expect(result.screen).toBeDefined();
+    expect((result.screen as { headline?: string }).headline).toBe('<p>integration test</p>');
+  });
+
+  it('readScreen rejects out-of-bounds with a clear error', async () => {
+    await expect(client.readScreen('my-test-project', 99)).rejects.toThrow(/out of bounds/);
+  });
+
+  it('readScreen returns a smaller payload than getProjectEnvelope', async () => {
+    // Sanity check the optimization claim: the single-screen response
+    // should be measurably smaller than the full envelope. Compare
+    // JSON sizes. The exact ratio depends on the test fixture, but
+    // single-screen must always be < envelope.
+    const env = await client.getProjectEnvelope('my-test-project');
+    const single = await client.readScreen('my-test-project', 0);
+    const envSize = JSON.stringify(env).length;
+    const singleSize = JSON.stringify(single).length;
+    expect(singleSize).toBeLessThan(envSize);
+  });
+});
+
 describe('integration: catalogs', () => {
   it('list_fonts returns a non-empty array', async () => {
     const fonts = await client.listFonts();

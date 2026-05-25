@@ -1,21 +1,25 @@
 {# ===== Multi-Device Composition Rendering ===== #}
 {# Renders multiple devices for composition layouts (duo-overlap, duo-split, etc.) #}
+{# Each device emits as a .device-wrapper with data-device-idx so the editor's #}
+{# drag + instant-patch flow (useDragPosition / useInstantPatch) targets the #}
+{# correct slot. Single-device mode in universal/base.html uses the same class #}
+{# + idx=0 so callers don't need a branch. #}
 {# Requires: devices (array), canvasWidth, canvasHeight, frameStyle #}
 
 <style>
-.comp-device {
+.device-wrapper {
   position: absolute;
 }
-.comp-device svg, .comp-device > img { width: 100%; height: auto; display: block; }
-.comp-device .screenshot-clip { position: absolute; overflow: hidden; }
-.comp-device .screenshot-clip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.device-wrapper svg, .device-wrapper > img { width: 100%; height: auto; display: block; }
+.device-wrapper .screenshot-clip { position: absolute; overflow: hidden; }
+.device-wrapper .screenshot-clip img { width: 100%; height: 100%; object-fit: cover; display: block; }
 </style>
 
 {% for dev in devices %}
   {% set slotDw = (canvasWidth * dev.scale / 100) | round %}
   {% set slotOffsetXPx = (canvasWidth * dev.offsetX / 100) | round %}
   {% set slotTopPx = (canvasHeight * dev.offsetY / 100) | round %}
-  <div class="comp-device" style="
+  <div class="device-wrapper" data-device-idx="{{ loop.index0 }}" style="
     width: {{ slotDw }}px;
     top: {{ slotTopPx }}px;
     left: calc(50% + {{ slotOffsetXPx }}px);

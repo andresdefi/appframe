@@ -19,7 +19,9 @@ import { registerCatalogRoutes } from './routes/catalog.js';
 import { registerElementsRoutes } from './routes/elements.js';
 import { registerPreviewRoutes } from './routes/preview.js';
 import { createEventBroadcaster } from './routes/events.js';
-import { registerProjectPatchRoutes } from './routes/projectPatch.js';
+import { registerProjectScreenRoutes } from './routes/projectScreens.js';
+import { registerProjectVariantRoutes } from './routes/projectVariants.js';
+import { registerProjectLocaleRoutes } from './routes/projectLocales.js';
 import { registerProjectAssetRoutes } from './routes/projectAssets.js';
 import { registerRenderPreviewRoutes } from './routes/renderPreview.js';
 import { log } from './logger.js';
@@ -225,7 +227,9 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   };
 
   eventBroadcaster.register(app);
-  registerProjectPatchRoutes(app, ctx);
+  registerProjectScreenRoutes(app, ctx);
+  registerProjectVariantRoutes(app, ctx);
+  registerProjectLocaleRoutes(app, ctx);
   registerProjectAssetRoutes(app, ctx);
   registerRenderPreviewRoutes(app, ctx);
 

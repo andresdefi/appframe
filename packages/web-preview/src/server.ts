@@ -23,6 +23,7 @@ import { registerProjectScreenRoutes } from './routes/projectScreens.js';
 import { registerProjectVariantRoutes } from './routes/projectVariants.js';
 import { registerProjectLocaleRoutes } from './routes/projectLocales.js';
 import { registerProjectAssetRoutes } from './routes/projectAssets.js';
+import { registerProjectHistoryRoutes } from './routes/projectHistory.js';
 import { registerRenderPreviewRoutes } from './routes/renderPreview.js';
 import { log } from './logger.js';
 
@@ -231,6 +232,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   registerProjectVariantRoutes(app, ctx);
   registerProjectLocaleRoutes(app, ctx);
   registerProjectAssetRoutes(app, ctx);
+  registerProjectHistoryRoutes(app, ctx);
   registerRenderPreviewRoutes(app, ctx);
 
   // Generate any missing preview-resolution screenshots and clean up

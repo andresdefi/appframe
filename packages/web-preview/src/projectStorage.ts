@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, rename, unlink, readdir, stat, rm, cp } fro
 import { join, resolve } from 'node:path';
 import type { Express, Request, Response } from 'express';
 import { log } from './logger.js';
+import { clearHistoryForProject } from './routes/projectHistory.js';
 
 const PROJECT_SLUG_RE = /^[a-zA-Z0-9_-]+$/;
 const PROJECT_FILE = 'appframe.json';
@@ -677,6 +678,10 @@ export function registerProjectRoutes(app: Express, options: ProjectStorageOptio
     try {
       const project = typeof req.params.project === 'string' ? req.params.project : '';
       await deleteProject(options, project);
+      // Drop any in-memory undo history for this slug so a future
+      // project that happens to take the same slug doesn't inherit
+      // ghost entries pointing at the old data.
+      clearHistoryForProject(project);
       res.json({ success: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown error';

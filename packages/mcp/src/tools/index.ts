@@ -3,6 +3,7 @@ import { annotationTools } from './annotation.js';
 import { assetTools } from './asset.js';
 import { calloutTools } from './callout.js';
 import { discoveryTools } from './discovery.js';
+import { historyTools } from './history.js';
 import { localeTools } from './locale.js';
 import { overlayTools } from './overlay.js';
 import { projectTools } from './project.js';
@@ -36,6 +37,7 @@ const NON_BATCH_TOOLS: ToolDefinition[] = [
   ...annotationTools,
   ...overlayTools,
   ...assetTools,
+  ...historyTools,
 ];
 
 // Generic batch dispatch — runs N tool calls in one stdio round-trip.

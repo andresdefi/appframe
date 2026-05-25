@@ -525,6 +525,81 @@ describe('integration: asset management', () => {
   });
 });
 
+describe('integration: undo history', () => {
+  // Create a fresh project so we control history precisely. Other
+  // tests share `my-test-project` and would muddy the count.
+  it('a patch_screen pushes an entry the agent can list and undo', async () => {
+    await client.createProject('Undo Project');
+    await client.insertScreen('undo-project');
+    await client.insertScreen('undo-project');
+
+    // Seed an explicit baseline so we can verify the restore exactly.
+    await client.patchScreen('undo-project', 0, {
+      headline: '<p>BEFORE</p>',
+    });
+    // Mutate so there's something to undo.
+    await client.patchScreen('undo-project', 0, {
+      headline: '<p>AFTER</p>',
+    });
+
+    const list = findTool('list_recent_writes');
+    const before = JSON.parse(((await list.handler({ slug: 'undo-project' }, { client })).content[0] as { text: string }).text);
+    // Two patch_screen writes recorded (the insertScreen calls + the
+    // initial baseline patch also push, so count is >= 4).
+    expect(before.total).toBeGreaterThanOrEqual(2);
+    expect(before.entries[0].opName).toBe('patch_screen');
+
+    const undo = findTool('undo_last_write');
+    const res = await undo.handler({ slug: 'undo-project', confirm: true }, { client });
+    const payload = JSON.parse((res.content[0] as { text: string }).text);
+    expect(payload.undone.opName).toBe('patch_screen');
+
+    // Disk should reflect the restored pre-AFTER state, i.e. BEFORE.
+    const env = await client.getProjectEnvelope('undo-project');
+    const screens = (env.data as { screens: Array<{ headline: string }> }).screens;
+    expect(screens[0]?.headline).toBe('<p>BEFORE</p>');
+    expect(payload.remaining).toBe(before.total - 1);
+  });
+
+  it('undo on an empty history returns 409', async () => {
+    await client.createProject('Undo Empty');
+    // No writes after create -> nothing in history. (createProject
+    // doesn't go through writeAndBroadcast.)
+    const undo = findTool('undo_last_write');
+    await expect(
+      undo.handler({ slug: 'undo-empty', confirm: true }, { client }),
+    ).rejects.toThrow(/no history to undo/);
+    await client.deleteProject('undo-empty');
+  });
+
+  it('undo requires confirm: true', async () => {
+    const undo = findTool('undo_last_write');
+    await expect(
+      undo.handler({ slug: 'undo-project' }, { client }),
+    ).rejects.toThrow(/confirm: true/);
+  });
+
+  it('list_recent_writes honours `limit`', async () => {
+    const list = findTool('list_recent_writes');
+    const res = await list.handler({ slug: 'undo-project', limit: 1 }, { client });
+    const payload = JSON.parse((res.content[0] as { text: string }).text);
+    expect(payload.entries.length).toBe(1);
+    expect(payload.total).toBeGreaterThanOrEqual(1);
+  });
+
+  it('delete_project drops history for that slug', async () => {
+    // Project still has remaining history; deleting should clear it
+    // so a future project taking the same slug starts fresh.
+    await client.deleteProject('undo-project');
+    await client.createProject('Undo Project');
+    const list = findTool('list_recent_writes');
+    const res = await list.handler({ slug: 'undo-project' }, { client });
+    const payload = JSON.parse((res.content[0] as { text: string }).text);
+    expect(payload.total).toBe(0);
+    await client.deleteProject('undo-project');
+  });
+});
+
 describe('integration: prototype-pollution defense', () => {
   it('rejects locale codes that are reserved JS property names', async () => {
     // The locale-add endpoint uses the code as a computed object key

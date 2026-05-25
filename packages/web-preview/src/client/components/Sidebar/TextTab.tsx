@@ -1,14 +1,14 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useCurrentScreen } from '../../hooks/useCurrentScreen';
 import { usePreviewStore } from '../../store';
 import { useInstantPatch } from '../../hooks/useInstantPatch';
 import { Section } from '../Controls/Section';
 import { Select } from '../Controls/Select';
+import { FontPicker } from '../Controls/FontPicker';
 import { RangeSlider } from '../Controls/RangeSlider';
 import { ColorPicker } from '../Controls/ColorPicker';
 import { Checkbox } from '../Controls/Checkbox';
 import { RichTextEditor, richTextToPlain } from '../Controls/RichTextEditor';
-import { buildFontGroups } from '../../utils/fontGroups';
 import { getLocaleLabel } from '@appframe/core/locales';
 import type { TextShadow } from '../../types';
 
@@ -156,8 +156,6 @@ export function TextTab() {
     [patchText],
   );
 
-  const fontGroups = useMemo(() => buildFontGroups(fonts), [fonts]);
-
   if (!screen) return null;
 
   // Snapshot model: every TextTab control writes to the active locale's
@@ -190,11 +188,11 @@ export function TextTab() {
           onBaseColorInstant={(v) => patchText({ headlineColor: v })}
         />
         <div>
-          <Select
+          <FontPicker
             label="Font"
             value={screen.headlineFont}
             onChange={(v) => update({ headlineFont: v })}
-            groups={fontGroups}
+            fonts={fonts}
           />
           <RangeSlider
             label="Weight"
@@ -297,11 +295,11 @@ export function TextTab() {
         />
         {hasSubtitle && (
           <div>
-            <Select
+            <FontPicker
               label="Font"
               value={screen.subtitleFont}
               onChange={(v) => update({ subtitleFont: v })}
-              groups={fontGroups}
+              fonts={fonts}
             />
             <RangeSlider
               label="Weight"
@@ -401,11 +399,11 @@ export function TextTab() {
               minHeight={48}
             />
             <div>
-              <Select
+              <FontPicker
                 label="Font"
                 value={screen.freeTextFont}
                 onChange={(v) => update({ freeTextFont: v })}
-                groups={fontGroups}
+                fonts={fonts}
               />
               <RangeSlider
                 label="Weight"

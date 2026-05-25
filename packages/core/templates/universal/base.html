@@ -420,7 +420,7 @@
     {% if composition and composition != 'single' and devices %}
       {% include "_base/composition-devices.html" %}
     {% else %}
-    <div class="device-wrapper">
+    <div class="device-wrapper" data-device-idx="0">
       {% if (frameSvg or framePngUrl) and frameStyle != 'none' %}
         {% if framePngUrl %}
           {# PNG frame: screenshot behind, frame overlay on top — the frame's opaque bezel masks the edges #}

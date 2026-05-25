@@ -241,7 +241,18 @@ export function useDragPosition(
           const best = textHits[0]!;
           return { cls: best.cls, el: best.el, kind: 'text' };
         }
-        if (deviceEl) return { cls: 'device-wrapper', el: deviceEl, kind: 'device' };
+        if (deviceEl) {
+          // After the multi-device DOM unification, every device slot —
+          // primary AND composition extras — has `.device-wrapper` +
+          // `data-device-idx`. PR 1 preserves current behavior by ignoring
+          // hits on non-primary slots (extras stay non-draggable here). PR 2
+          // will extend the drag handler to read the index and dispatch to
+          // the right state field.
+          const idxAttr = deviceEl.getAttribute('data-device-idx');
+          if (idxAttr === '0' || idxAttr === null) {
+            return { cls: 'device-wrapper', el: deviceEl, kind: 'device' };
+          }
+        }
       } catch {
         // Cross-origin or unavailable
       }

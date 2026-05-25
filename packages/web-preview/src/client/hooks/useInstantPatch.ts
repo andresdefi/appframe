@@ -66,7 +66,13 @@ export function useInstantPatch() {
       const s = getSurface();
       if (!s) return;
 
-      const wrapper = s.querySelector('.device-wrapper') as HTMLElement | null;
+      // Target the primary device explicitly. After the multi-device DOM
+      // unification (PR 1, refactor/unify-device-dom), every device — single
+      // or part of a composition — emits as `.device-wrapper` with
+      // `data-device-idx`. Bare `.device-wrapper` would match any slot;
+      // patchDevice's payload uses screen-level fields that only mean
+      // anything for slot 0, so we pin it here.
+      const wrapper = s.querySelector('.device-wrapper[data-device-idx="0"]') as HTMLElement | null;
       if (!wrapper) return;
 
       if (partial.deviceScale !== undefined) {
@@ -506,7 +512,7 @@ export function useInstantPatch() {
       // configurations where the screenshot fills the device area.
       const clip =
         (s.querySelector('.screenshot-clip') as HTMLElement | null) ??
-        (s.querySelector('.device-wrapper') as HTMLElement | null);
+        (s.querySelector('.device-wrapper[data-device-idx="0"]') as HTMLElement | null);
       if (!clip) return;
       const sRect = s.getInternalRect(clip);
       const ssLeft = sRect.left - cRect.left;
@@ -601,7 +607,7 @@ export function useInstantPatch() {
       // (both in screenshot-%) translate to the right pixels.
       const screenshotClip =
         (s.querySelector('.screenshot-clip') as HTMLElement | null) ??
-        (s.querySelector('.device-wrapper') as HTMLElement | null);
+        (s.querySelector('.device-wrapper[data-device-idx="0"]') as HTMLElement | null);
       if (!screenshotClip) return;
       const sRect = s.getInternalRect(screenshotClip);
       const ssLeft = sRect.left - cRect.left;

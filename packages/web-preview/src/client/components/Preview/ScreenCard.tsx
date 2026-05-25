@@ -450,7 +450,9 @@ export function ScreenCard({
     // text is being dragged.
     let selector: string;
     if (target.kind === 'device') {
-      selector = '.device-wrapper';
+      // Primary device only; composition extras stay out of guide math
+      // (PR 1, refactor/unify-device-dom).
+      selector = '.device-wrapper[data-device-idx="0"]';
     } else if (target.kind === 'text') {
       // freeText maps to the CSS class `.free-text`; headline/subtitle match
       // their cls 1:1.
@@ -546,8 +548,8 @@ export function ScreenCard({
       trio.push({ key: sel, cx: r.left + r.width / 2, cy: r.top + r.height / 2, isSelf });
     };
     const selfSel =
-      target.kind === 'device' ? '.device-wrapper' : `.${target.cls}`;
-    collect('.device-wrapper', selfSel === '.device-wrapper');
+      target.kind === 'device' ? '.device-wrapper[data-device-idx="0"]' : `.${target.cls}`;
+    collect('.device-wrapper[data-device-idx="0"]', selfSel === '.device-wrapper[data-device-idx="0"]');
     collect('.headline', selfSel === '.headline');
     collect('.subtitle', selfSel === '.subtitle');
     const self = trio.find((t) => t.isSelf);
@@ -613,14 +615,18 @@ export function ScreenCard({
       recomputeGuides();
       const deviceMoved = records.some((r) => {
         const t = r.target as Element;
-        return t.classList?.contains('device-wrapper');
+        // Only the primary device (slot 0) is loupe-relevant — loupe and
+        // callouts source from it. Extras moving (PR 2) shouldn't trigger
+        // a refresh.
+        return t.classList?.contains('device-wrapper')
+          && t.getAttribute('data-device-idx') === '0';
       });
       if (deviceMoved) {
         refreshLoupe();
       }
     };
     const observer = new MutationObserver(onMutation);
-    const selectors = ['.device-wrapper', '.headline', '.subtitle', '.free-text'];
+    const selectors = ['.device-wrapper[data-device-idx="0"]', '.headline', '.subtitle', '.free-text'];
     let attached = 0;
     for (const selector of selectors) {
       // Observe ALL matches because per-slot text layering renders each

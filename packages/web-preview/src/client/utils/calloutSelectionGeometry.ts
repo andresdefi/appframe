@@ -23,7 +23,7 @@ import type { PreviewSurface } from './previewSurface';
 export function findScreenshotElement(surface: PreviewSurface): HTMLElement | null {
   const clip = surface.querySelector<HTMLElement>('.screenshot-clip');
   if (clip) return clip;
-  const bare = surface.querySelector<HTMLElement>('.device-wrapper > img');
+  const bare = surface.querySelector<HTMLElement>('.device-wrapper[data-device-idx="0"] > img');
   return bare ?? null;
 }
 

@@ -241,14 +241,16 @@ export const screenInspectTools: ToolDefinition[] = [
       if (typeof indexB !== 'number' || !Number.isInteger(indexB) || indexB < 0) {
         throw new Error('`indexB` must be a non-negative integer');
       }
-      const env = await client.getProjectEnvelope(slug);
-      const screens = isRecord(env.data) && Array.isArray(env.data.screens)
-        ? env.data.screens
-        : [];
-      if (indexA >= screens.length) throw new Error(`indexA ${indexA} out of bounds (project has ${screens.length} screens)`);
-      if (indexB >= screens.length) throw new Error(`indexB ${indexB} out of bounds (project has ${screens.length} screens)`);
-      const a0 = isRecord(screens[indexA]) ? screens[indexA] : {};
-      const b0 = isRecord(screens[indexB]) ? screens[indexB] : {};
+      // Two single-screen reads in parallel — ~4 KB total instead of
+      // one ~40 KB envelope fetch. The endpoint itself reports
+      // out-of-bounds with a clear error so we don't need to load the
+      // full screens array up front for length checking.
+      const [resA, resB] = await Promise.all([
+        client.readScreen(slug, indexA),
+        client.readScreen(slug, indexB),
+      ]);
+      const a0 = isRecord(resA.screen) ? resA.screen : {};
+      const b0 = isRecord(resB.screen) ? resB.screen : {};
       const fields = Array.isArray(a.fields) && a.fields.length > 0
         ? (a.fields as string[])
         : null;

@@ -472,6 +472,24 @@ export class AppframeClient {
     );
   }
 
+  // Read a single screen from the envelope on disk. Returns just the
+  // schemaVersion + savedAt + index + screen object — typically ~2 KB
+  // vs the full envelope's ~40 KB. Used by the inspect tools
+  // (get_screen, inspect_fonts, diff_screens, layout-prediction) to
+  // avoid envelope-read amplification when 5-10 inspects happen per
+  // agent turn.
+  async readScreen(slug: string, index: number): Promise<{
+    schemaVersion: number;
+    savedAt: string;
+    index: number;
+    screen: Record<string, unknown>;
+  }> {
+    return this.request(
+      'GET',
+      `/api/projects/${encodeURIComponent(slug)}/screens/${encodeURIComponent(String(index))}`,
+    );
+  }
+
   // Read the project envelope from disk. Returns the schemaVersion +
   // savedAt + data, where data is the rich editor-state shape (same as
   // what the autosave writes). Use this when an ergonomic helper needs

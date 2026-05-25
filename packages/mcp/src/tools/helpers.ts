@@ -127,27 +127,27 @@ export async function readFileAsDataUrl(
 // ---------- Envelope read helpers ----------
 
 // Read screens[index] from the on-disk envelope so an ergonomic helper
-// can merge with existing field values (vs blindly overwriting). Throws
-// on out-of-bounds index or malformed envelope so the caller doesn't
-// have to repeat the same checks.
+// can merge with existing field values (vs blindly overwriting). Hits
+// the single-screen endpoint so the network payload is ~2 KB instead
+// of the full ~40 KB envelope — measurable improvement when an agent
+// chains 5-10 inspects in a single turn. Throws on out-of-bounds /
+// malformed responses so the caller doesn't repeat the same checks.
 export async function readScreen(
   client: AppframeClient,
   slug: string,
   index: number,
 ): Promise<Record<string, unknown>> {
-  const envelope = await client.getProjectEnvelope(slug);
-  if (typeof envelope.data !== 'object' || envelope.data === null) {
-    throw new Error('project envelope `data` is not an object');
+  try {
+    const result = await client.readScreen(slug, index);
+    return result.screen;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // Surface the server's "out of bounds" / "not an object" errors in
+    // the same shape the previous envelope-walking implementation did,
+    // so callers that match on the message still work. `cause` keeps
+    // the original stack + status for debugging.
+    throw new Error(message, { cause: err });
   }
-  const screens = (envelope.data as Record<string, unknown>).screens;
-  if (!Array.isArray(screens) || index >= screens.length) {
-    throw new Error(`screen index ${index} out of bounds`);
-  }
-  const screen = screens[index];
-  if (typeof screen !== 'object' || screen === null || Array.isArray(screen)) {
-    throw new Error(`screens[${index}] is not an object`);
-  }
-  return screen as Record<string, unknown>;
 }
 
 // ---------- Did-you-mean suggestions ----------

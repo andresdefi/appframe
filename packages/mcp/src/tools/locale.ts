@@ -282,4 +282,95 @@ export const localeTools: ToolDefinition[] = [
       return jsonContent(result);
     },
   },
+  {
+    descriptor: {
+      name: 'get_locale_overrides',
+      description:
+        'Show which fields each screen in a locale explicitly overrides vs. ' +
+        'inherits from the default. Returns per-screen lists of top-level ' +
+        'keys that differ. Use before deciding whether to reset a locale or ' +
+        'apply a uniform change across locales.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug', 'code'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          code: { type: 'string', minLength: 1 },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'get_locale_overrides');
+      const slug = requireSlug(a);
+      const code = requireString(a, 'code');
+      if (code === 'default') {
+        throw new Error('`code` must be a non-default locale');
+      }
+      const env = await client.getProjectEnvelope(slug);
+      const data = env.data as Record<string, unknown>;
+      const baseScreens = Array.isArray(data.screens) ? data.screens : [];
+      const localeScreens = isRecord(data.localeScreens)
+        ? (data.localeScreens as Record<string, unknown>)
+        : {};
+      const localeArr = localeScreens[code];
+      if (!Array.isArray(localeArr)) {
+        throw new Error(`locale "${code}" not found or has no screens`);
+      }
+      const screens = localeArr.map((localeScreen: unknown, i: number) => {
+        const base = i < baseScreens.length ? baseScreens[i] : {};
+        const overrides = diffKeys(
+          isRecord(base) ? base : {},
+          isRecord(localeScreen) ? localeScreen : {},
+        );
+        return { index: i, overrides };
+      });
+      return jsonContent({ locale: code, screens });
+    },
+  },
+  {
+    descriptor: {
+      name: 'duplicate_locale',
+      description:
+        'Deep-copy all screens from one locale to a new locale code. The ' +
+        'target must not already exist (409 if it does). Used for setting ' +
+        'up regional variants like es-MX from es-ES, fr-CA from fr-FR. ' +
+        'Source can be "default" to copy the base screens.',
+      inputSchema: {
+        type: 'object',
+        required: ['slug', 'fromCode', 'toCode'],
+        properties: {
+          slug: { type: 'string', minLength: 1 },
+          fromCode: { type: 'string', minLength: 1 },
+          toCode: { type: 'string', minLength: 1 },
+          label: { type: 'string' },
+        },
+        additionalProperties: false,
+      },
+    },
+    handler: async (args, { client }) => {
+      const a = requireRecord(args, 'duplicate_locale');
+      const slug = requireSlug(a);
+      const fromCode = requireString(a, 'fromCode');
+      const toCode = requireString(a, 'toCode');
+      const label = typeof a.label === 'string' && a.label.length > 0 ? a.label : undefined;
+      const result = await client.duplicateLocale(slug, fromCode, toCode, label);
+      return jsonContent(result);
+    },
+  },
 ];
+
+function diffKeys(
+  base: Record<string, unknown>,
+  locale: Record<string, unknown>,
+): string[] {
+  const keys = new Set([...Object.keys(base), ...Object.keys(locale)]);
+  const overrides: string[] = [];
+  for (const key of keys) {
+    if (key === 'id') continue;
+    if (JSON.stringify(base[key]) !== JSON.stringify(locale[key])) {
+      overrides.push(key);
+    }
+  }
+  return overrides.sort();
+}

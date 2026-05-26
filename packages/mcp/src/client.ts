@@ -432,6 +432,22 @@ export class AppframeClient {
     );
   }
 
+  async duplicateLocale(slug: string, fromCode: string, toCode: string, label?: string): Promise<{
+    success: boolean;
+    savedAt: string;
+    code: string;
+    label: string;
+    copiedOverrides: number;
+  }> {
+    const body: Record<string, unknown> = { fromCode, toCode };
+    if (label !== undefined) body.label = label;
+    return this.request(
+      'POST',
+      `/api/projects/${encodeURIComponent(slug)}/locales/duplicate`,
+      body,
+    );
+  }
+
   async setActiveLocale(slug: string, code: string): Promise<{
     success: boolean;
     savedAt: string;

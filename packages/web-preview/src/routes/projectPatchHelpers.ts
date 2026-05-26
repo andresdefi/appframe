@@ -32,6 +32,14 @@ export function isSafeObjectKey(key: string): boolean {
   return !UNSAFE_OBJECT_KEYS.has(key);
 }
 
+export function sanitizePatch(patch: Record<string, unknown>): Record<string, unknown> {
+  const safe: Record<string, unknown> = Object.create(null);
+  for (const key of Object.keys(patch)) {
+    if (isSafeObjectKey(key)) safe[key] = patch[key];
+  }
+  return safe;
+}
+
 // Mutate the active variant's snapshot.screens in lockstep with the
 // top-level data.screens. The browser's autosave does this every time it
 // serialises (via syncActiveVariantRecord), so without this step the

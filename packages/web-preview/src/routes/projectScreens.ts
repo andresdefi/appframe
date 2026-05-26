@@ -6,6 +6,7 @@ import { isRecord } from './utils.js';
 import {
   loadForScreenOp,
   mutateProject,
+  sanitizePatch,
   syncActiveVariantSnapshot,
 } from './projectPatchHelpers.js';
 
@@ -132,7 +133,7 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
         res.status(422).json({ error: `data.screens[${index}] is not an object` });
         return null;
       }
-      merged = { ...existing, ...patch };
+      merged = { ...existing, ...sanitizePatch(patch) };
       const nextScreens = screens.slice();
       nextScreens[index] = merged;
       syncActiveVariantSnapshot(data, nextScreens);
@@ -177,7 +178,7 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
         res.status(422).json({ error: `data.screens[${index}] is not an object` });
         return null;
       }
-      merged = { ...existing, ...patch };
+      merged = { ...existing, ...sanitizePatch(patch) };
       const nextScreens = screens.slice();
       nextScreens[index] = merged;
       syncActiveVariantSnapshot(data, nextScreens);
@@ -239,7 +240,7 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
           res.status(422).json({ error: `screens[${op.index}] is not an object` });
           return null;
         }
-        const next = { ...existing, ...op.patch };
+        const next = { ...existing, ...sanitizePatch(op.patch) };
         nextScreens[op.index] = next;
         mergedScreens.push(next);
       }

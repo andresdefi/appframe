@@ -56,6 +56,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 
 export function ExportTab() {
+  const activeProject = usePreviewStore((s) => s.activeProject);
   const platform = usePreviewStore((s) => s.platform);
   const sizes = usePreviewStore((s) => s.sizes);
   const exportSize = usePreviewStore((s) => s.exportSize);
@@ -339,99 +340,79 @@ export function ExportTab() {
       setStatus(`Export failed: unknown size key ${resolvedExportSize}`);
       return;
     }
-    // Locale list to render. Iterate in availableLocales order (Default
-    // first) but filter to the user's checked set.
     const localesToExport = availableLocales.filter((code) => selectedLocales.has(code));
     if (localesToExport.length === 0) {
       setStatus('Select at least one locale to export');
       return;
     }
-    // Multiple locales → put each in its own folder. Single locale →
-    // keep files at the ZIP root for backward-compatibility with the
-    // pre-multi-locale flat layout.
-    const useFolders = localesToExport.length > 1;
 
     setExporting(true);
-    const entries: ZipEntry[] = [];
-    const fileNames: string[] = [];
+    setStatus('Starting export...');
     const t0 = performance.now();
-    let totalRendered = 0;
-    let totalExpected = 0;
-    // Wrap everything after setExporting(true) so a throw in bundling,
-    // artifact recording, or download still releases the button —
-    // mirrors handlePanoramicExportAll. Without this, an unexpected
-    // bundleAsZip / downloadBlob failure would leave the Export tab
-    // stuck in the "rendering..." state until reload.
     try {
-      // Each locale carries its own screen snapshot in localeScreens[code]
-      // (Default uses state.screens). Iterate locale × screens, rendering
-      // each via the locale's own ScreenState so per-locale text, position,
-      // and screenshots all flow through buildExportBody unchanged.
+      const params = new URLSearchParams({
+        locales: localesToExport.join(','),
+        width: String(sizeSpec.width),
+        height: String(sizeSpec.height),
+      });
+      // Open the streaming ZIP endpoint in a hidden iframe so the
+      // browser's download tray picks it up immediately. The server
+      // streams the ZIP as renders complete - download progress is
+      // visible from second 1.
+      const url = `/api/export-zip/${encodeURIComponent(activeProject)}?${params}`;
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      setTimeout(() => {
+        try { document.body.removeChild(iframe); } catch { /* already removed */ }
+      }, 600_000);
+
+      // Count total screens for progress tracking
+      let totalExpected = 0;
       for (const localeCode of localesToExport) {
-        const localeScreens = localeCode === 'default' ? screens : localeScreensMap[localeCode];
-        if (!localeScreens || localeScreens.length === 0) continue;
-        totalExpected += localeScreens.length;
-        const localeLabel = localeCode === 'default' ? 'Default' : getLocaleLabel(localeCode);
-        const localeCfg = localeCode === 'default' ? undefined : sessionLocales[localeCode];
-        for (let i = 0; i < localeScreens.length; i++) {
-          const screen = localeScreens[i];
-          if (!screen) continue;
-          setStatus(`Rendering ${localeLabel} screen ${i + 1} of ${localeScreens.length}...`);
-          try {
-            const body = buildExportBody(screen, {
-              previewW,
-              previewH,
-              locale: localeCode,
-              localeConfig: localeCfg,
-              sizeKey: resolvedExportSize,
-            });
-            const blob = await exportScreenClientSide(
-              body as unknown as Record<string, unknown>,
-              sizeSpec.width,
-              sizeSpec.height,
-            );
-            const fileName = `screen-${i + 1}.png`;
-            const relPath = useFolders ? `${localeCode}/${fileName}` : fileName;
-            entries.push({ relPath, blob });
-            fileNames.push(relPath);
-            totalRendered++;
-          } catch (err) {
-            captureFailure(
-              err,
-              `Error on ${localeLabel} screen ${i + 1}: ${err instanceof Error ? err.message : 'Unknown'}`,
-              {
-                kind: 'export-all-screens',
-                failingScreenIndex: i,
-                failingLocale: localeCode,
-                sizeKey: resolvedExportSize,
-                sizeWidth: sizeSpec.width,
-                sizeHeight: sizeSpec.height,
-              },
-            );
+        const lScreens = localeCode === 'default' ? screens : localeScreensMap[localeCode];
+        if (lScreens) totalExpected += lScreens.length;
+      }
+
+      // Listen for SSE progress events from the server. The rendering
+      // happens in THIS browser tab via the render-batch SSE handler,
+      // and the server sends export-progress events as each PNG arrives.
+      await new Promise<void>((resolve) => {
+        const onEvent = (e: Event) => {
+          const ce = e as CustomEvent;
+          const data = ce.detail;
+          if (data?.type !== 'export-progress') return;
+          const done = typeof data.done === 'number' ? data.done : 0;
+          const total = typeof data.total === 'number' ? data.total : totalExpected;
+          if (data.phase === 'rendering') {
+            setStatus(`Rendering (${done}/${total})...`);
           }
-        }
-      }
-      if (entries.length > 0) {
-        setStatus(`Bundling ${entries.length} screens...`);
-        const zipBlob = await bundleAsZip(entries);
-        downloadBlob(zipBlob, `${exportSlug}-screens.zip`);
-        // For variant-history bookkeeping. Record the active locale at
-        // export time (closest single value for a multi-locale export);
-        // could grow to a list later if a variant should remember which
-        // locales it shipped with.
-        recordVariantArtifact({
-          kind: 'screens',
-          locale,
-          mode: 'individual',
-          renderer: 'modern-screenshot',
-          sizeKey: resolvedExportSize,
-          fileNames,
-        });
-      }
+          if (data.phase === 'complete' || done >= total) {
+            window.removeEventListener('appframe-sse', onEvent);
+            resolve();
+          }
+        };
+        window.addEventListener('appframe-sse', onEvent);
+        // Safety timeout so the button doesn't stay stuck forever
+        setTimeout(() => {
+          window.removeEventListener('appframe-sse', onEvent);
+          resolve();
+        }, 600_000);
+      });
+
+      recordVariantArtifact({
+        kind: 'screens',
+        locale,
+        mode: 'individual',
+        renderer: 'modern-screenshot',
+        sizeKey: resolvedExportSize,
+        fileNames: [],
+      });
       const ms = Math.round(performance.now() - t0);
-      setStatus(`Downloaded ${totalRendered} of ${totalExpected} screens in ${ms}ms`);
-      setToast(`Downloaded ${totalRendered} screenshots across ${localesToExport.length} locale${localesToExport.length === 1 ? '' : 's'}`);
-      if (totalRendered === totalExpected) clearDiagnostic();
+      setStatus(`Exported ${totalExpected} screens in ${ms}ms`);
+      setToast(`Downloaded ${totalExpected} screenshots across ${localesToExport.length} locale${localesToExport.length === 1 ? '' : 's'}`);
+      clearDiagnostic();
     } catch (err) {
       captureFailure(
         err,

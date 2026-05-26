@@ -6,6 +6,7 @@ export interface RenderBatchEvent {
   type: 'render-batch';
   batchId?: string;
   slug?: string;
+  resultUrl?: string;
   items?: Array<{
     locale: string;
     index: number;
@@ -27,6 +28,9 @@ export async function handleRenderBatch(
   if (typeof event.slug !== 'string' || !event.slug || state.activeProject !== event.slug) return;
   const id = event.batchId;
   const itemList = event.items;
+  const resultBaseUrl = typeof event.resultUrl === 'string' && event.resultUrl.length > 0
+    ? event.resultUrl
+    : '/api/render-batch-result';
 
   let cursor = 0;
   async function worker(): Promise<void> {
@@ -34,7 +38,7 @@ export async function handleRenderBatch(
       const slot = cursor++;
       if (slot >= itemList.length) return;
       const item = itemList[slot]!;
-      await renderOneItem(id, item, state);
+      await renderOneItem(id, item, state, resultBaseUrl);
     }
   }
   const workers = Array.from(
@@ -48,6 +52,7 @@ async function renderOneItem(
   batchId: string,
   item: { locale: string; index: number; width: number; height: number; relPath: string },
   state: PreviewStore,
+  resultBaseUrl: string,
 ): Promise<void> {
   try {
     const locale = item.locale;
@@ -55,7 +60,7 @@ async function renderOneItem(
       ? state.localeScreens[locale][item.index]
       : state.screens[item.index];
     if (!screen) {
-      await postBatchResult(batchId, item.relPath, undefined, `screen index ${item.index} out of bounds`);
+      await postBatchResult(batchId, item.relPath, resultBaseUrl, undefined, `screen index ${item.index} out of bounds`);
       return;
     }
     const localeConfig = locale !== 'default' && state.sessionLocales[locale]
@@ -74,10 +79,10 @@ async function renderOneItem(
       item.height,
     );
     const dataUrl = await blobToDataUrl(blob);
-    await postBatchResult(batchId, item.relPath, dataUrl);
+    await postBatchResult(batchId, item.relPath, resultBaseUrl, dataUrl);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await postBatchResult(batchId, item.relPath, undefined, `client render failed: ${message}`);
+    await postBatchResult(batchId, item.relPath, resultBaseUrl, undefined, `client render failed: ${message}`);
   }
 }
 
@@ -93,11 +98,12 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 async function postBatchResult(
   batchId: string,
   relPath: string,
+  resultBaseUrl: string,
   dataUrl?: string,
   error?: string,
 ): Promise<void> {
   try {
-    await fetch(`/api/render-batch-result/${encodeURIComponent(batchId)}`, {
+    await fetch(`${resultBaseUrl}/${encodeURIComponent(batchId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataUrl ? { relPath, dataUrl } : { relPath, error: error ?? 'unknown error' }),

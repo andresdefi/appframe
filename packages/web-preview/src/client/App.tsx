@@ -330,6 +330,9 @@ export function App() {
           { getState: usePreviewStore.getState },
         );
       }
+      if (event.type === 'export-progress') {
+        window.dispatchEvent(new CustomEvent('appframe-sse', { detail: event }));
+      }
     });
   // switchToProject is recreated each render but reads activeProject from
   // its closure; the SSE callback is async so we want the latest version.

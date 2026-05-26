@@ -26,6 +26,7 @@ import { registerProjectAssetRoutes } from './routes/projectAssets.js';
 import { registerProjectHistoryRoutes } from './routes/projectHistory.js';
 import { registerRenderPreviewRoutes } from './routes/renderPreview.js';
 import { registerRenderBatchRoutes } from './routes/renderBatch.js';
+import { registerExportStreamRoutes } from './routes/exportStream.js';
 import { log } from './logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -237,6 +238,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   registerProjectHistoryRoutes(app, ctx);
   registerRenderPreviewRoutes(app, ctx);
   registerRenderBatchRoutes(app, ctx);
+  registerExportStreamRoutes(app, ctx);
 
   // Generate any missing preview-resolution screenshots and clean up
   // orphans. Runs once per boot, non-blocking — the listen call below

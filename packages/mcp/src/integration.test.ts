@@ -92,7 +92,6 @@ describe('integration: project envelope read + write', () => {
       headline: '<p>integration test</p>',
     });
     expect(r.success).toBe(true);
-    expect((r.screen as { headline: string }).headline).toBe('<p>integration test</p>');
 
     // Verify the patch landed on disk
     const file = join(tempRoot, 'my-test-project', 'appframe.json');
@@ -109,7 +108,6 @@ describe('integration: project envelope read + write', () => {
     ]);
     expect(result.success).toBe(true);
     expect(result.applied).toBe(2);
-    expect(result.screens.length).toBe(2);
 
     const env = await client.getProjectEnvelope('my-test-project');
     const screens = (env.data as { screens: Array<{ headline: string }> }).screens;

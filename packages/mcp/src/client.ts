@@ -620,6 +620,22 @@ export class AppframeClient {
     );
   }
 
+  async batchMixed(
+    slug: string,
+    ops: Array<Record<string, unknown>>,
+  ): Promise<{
+    success: boolean;
+    savedAt: string;
+    applied: number;
+    results: Array<Record<string, unknown>>;
+  }> {
+    return this.request(
+      'POST',
+      `/api/projects/${encodeURIComponent(slug)}/batch`,
+      { ops },
+    );
+  }
+
   private async requestWithTimeout<T>(
     method: string,
     path: string,

@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from 'express';
 import { getLocaleLabel } from '@appframe/core';
 import type { RouteContext } from './context.js';
-import { isRecord } from './utils.js';
+import { isRecord, validateLocaleCode } from './utils.js';
 import {
   mergeScreenPatch,
   mutateProject,
@@ -11,13 +11,6 @@ import {
 // (CLAUDE.md "Locales" section): adding a locale deep-clones the
 // current default-locale screens into data.localeScreens[code]; from
 // that point on the two sets evolve independently.
-
-const LOCALE_CODE_RE = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
-
-function validateLocaleCode(code: string): string | null {
-  if (!LOCALE_CODE_RE.test(code)) return null;
-  return code;
-}
 
 export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): void {
   // POST /api/projects/:project/locales/add { code, label? }
@@ -306,7 +299,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: '"default" is the implicit base locale and cannot be added' });
       return;
     }
-    if (!LOCALE_CODE_RE.test(code)) {
+    if (!validateLocaleCode(code)) {
       res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
@@ -340,7 +333,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: 'cannot remove the implicit "default" locale' });
       return;
     }
-    if (!LOCALE_CODE_RE.test(code)) {
+    if (!validateLocaleCode(code)) {
       res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
@@ -379,7 +372,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       });
       return;
     }
-    if (!LOCALE_CODE_RE.test(code)) {
+    if (!validateLocaleCode(code)) {
       res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }

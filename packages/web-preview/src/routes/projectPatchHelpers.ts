@@ -32,12 +32,19 @@ export function isSafeObjectKey(key: string): boolean {
   return !UNSAFE_OBJECT_KEYS.has(key);
 }
 
-export function sanitizePatch(patch: Record<string, unknown>): Record<string, unknown> {
+function sanitizePatch(patch: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = Object.create(null);
   for (const key of Object.keys(patch)) {
     if (isSafeObjectKey(key)) safe[key] = patch[key];
   }
   return safe;
+}
+
+export function mergeScreenPatch(
+  existing: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  return { ...existing, ...sanitizePatch(patch) };
 }
 
 // Mutate the active variant's snapshot.screens in lockstep with the

@@ -4,8 +4,8 @@ import type { RouteContext } from './context.js';
 import { isRecord } from './utils.js';
 import {
   isSafeObjectKey,
+  mergeScreenPatch,
   mutateProject,
-  sanitizePatch,
 } from './projectPatchHelpers.js';
 
 // Locale lifecycle + per-locale screen ops. Snapshot-at-add-time model
@@ -189,7 +189,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
         res.status(422).json({ error: `localeScreens[${code}][${index}] is not an object` });
         return null;
       }
-      merged = { ...existing, ...sanitizePatch(patch) };
+      merged = mergeScreenPatch(existing, patch);
       const nextScreens = screens.slice();
       nextScreens[index] = merged;
       return { ...data, localeScreens: { ...localeScreens, [code]: nextScreens } };
@@ -266,7 +266,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
           res.status(422).json({ error: `localeScreens[${code}][${op.index}] is not an object` });
           return null;
         }
-        const next = { ...existing, ...sanitizePatch(op.patch) };
+        const next = mergeScreenPatch(existing, op.patch);
         nextScreens[op.index] = next;
         mergedScreens.push(next);
       }
@@ -400,7 +400,7 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
         res.status(422).json({ error: `localeScreens[${safeCode}][${index}] is not an object` });
         return null;
       }
-      merged = { ...existing, ...sanitizePatch(patch) };
+      merged = mergeScreenPatch(existing, patch);
       const nextScreens = screens.slice();
       nextScreens[index] = merged;
       return { ...data, localeScreens: { ...localeScreens, [safeCode]: nextScreens } };

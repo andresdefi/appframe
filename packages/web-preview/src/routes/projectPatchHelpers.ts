@@ -2,6 +2,7 @@ import type { Response } from 'express';
 import { readProject, writeProject, ProjectCorruptError, ProjectFutureSchemaError } from '../projectStorage.js';
 import type { RouteContext } from './context.js';
 import { recordEnvelopeWrite } from './projectHistory.js';
+import { withProjectLock } from './projectMutex.js';
 import { isRecord } from './utils.js';
 
 // Shared helpers used by projectScreens, projectVariants, projectLocales
@@ -185,4 +186,32 @@ export async function writeAndBroadcast(
 // undefined, etc).
 function deepEquals(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Serialised read-modify-write on a project's JSON envelope.
+ *
+ * Acquires the per-project mutex, reads the envelope from disk, hands
+ * it to `fn`, and writes the result back atomically. The lock is held
+ * for the entire cycle so concurrent callers cannot interleave reads
+ * and writes.
+ *
+ * `fn` receives the loaded envelope and must return the next top-level
+ * `data` object. Return `null` to abort without writing (e.g. after
+ * sending an error response via `res`).
+ */
+export async function mutateProject(
+  ctx: RouteContext,
+  project: string,
+  res: Response,
+  opName: string,
+  fn: (loaded: LoadedEnvelope) => Record<string, unknown> | null,
+): Promise<{ savedAt: string } | null> {
+  return withProjectLock(project, async () => {
+    const loaded = await loadForScreenOp(ctx, project, res);
+    if (!loaded) return null;
+    const nextData = fn(loaded);
+    if (!nextData) return null;
+    return writeAndBroadcast(ctx, project, nextData, res, loaded.data, opName);
+  });
 }

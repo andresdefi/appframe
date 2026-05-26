@@ -5,8 +5,8 @@ import type { RouteContext } from './context.js';
 import { isRecord } from './utils.js';
 import {
   loadForScreenOp,
+  mutateProject,
   syncActiveVariantSnapshot,
-  writeAndBroadcast,
 } from './projectPatchHelpers.js';
 
 // Default-locale screen operations + project-level metadata routes.
@@ -119,28 +119,28 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: 'request body must be an object of editor-state screen fields' });
       return;
     }
-    const loaded = await loadForScreenOp(ctx, project, res);
-    if (!loaded) return;
-    const { data, screens } = loaded;
-    if (index >= screens.length) {
-      res.status(400).json({
-        error: `screen index ${index} out of bounds — project has ${screens.length} screen(s)`,
-      });
-      return;
+    let merged: Record<string, unknown>;
+    const written = await mutateProject(ctx, project, res, 'patch_screen', ({ data, screens }) => {
+      if (index >= screens.length) {
+        res.status(400).json({
+          error: `screen index ${index} out of bounds — project has ${screens.length} screen(s)`,
+        });
+        return null;
+      }
+      const existing = screens[index];
+      if (!isRecord(existing)) {
+        res.status(422).json({ error: `data.screens[${index}] is not an object` });
+        return null;
+      }
+      merged = { ...existing, ...patch };
+      const nextScreens = screens.slice();
+      nextScreens[index] = merged;
+      syncActiveVariantSnapshot(data, nextScreens);
+      return { ...data, screens: nextScreens };
+    });
+    if (written) {
+      res.json({ success: true, savedAt: written.savedAt, screen: merged! });
     }
-    const existing = screens[index];
-    if (!isRecord(existing)) {
-      res.status(422).json({ error: `data.screens[${index}] is not an object` });
-      return;
-    }
-    const merged: Record<string, unknown> = { ...existing, ...patch };
-    const nextScreens = screens.slice();
-    nextScreens[index] = merged;
-    syncActiveVariantSnapshot(data, nextScreens);
-    const nextData = { ...data, screens: nextScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'patch_screen');
-    if (!written) return;
-    res.json({ success: true, savedAt: written.savedAt, screen: merged });
   });
 
   // POST /api/projects/:project/patch-screen
@@ -164,28 +164,28 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: '`patch` must be an object of editor-state screen fields' });
       return;
     }
-    const loaded = await loadForScreenOp(ctx, project, res);
-    if (!loaded) return;
-    const { data, screens } = loaded;
-    if (index >= screens.length) {
-      res.status(400).json({
-        error: `screen index ${index} out of bounds — project has ${screens.length} screen(s)`,
-      });
-      return;
+    let merged: Record<string, unknown>;
+    const written = await mutateProject(ctx, project, res, 'patch_screen', ({ data, screens }) => {
+      if (index >= screens.length) {
+        res.status(400).json({
+          error: `screen index ${index} out of bounds — project has ${screens.length} screen(s)`,
+        });
+        return null;
+      }
+      const existing = screens[index];
+      if (!isRecord(existing)) {
+        res.status(422).json({ error: `data.screens[${index}] is not an object` });
+        return null;
+      }
+      merged = { ...existing, ...patch };
+      const nextScreens = screens.slice();
+      nextScreens[index] = merged;
+      syncActiveVariantSnapshot(data, nextScreens);
+      return { ...data, screens: nextScreens };
+    });
+    if (written) {
+      res.json({ success: true, savedAt: written.savedAt, screen: merged! });
     }
-    const existing = screens[index];
-    if (!isRecord(existing)) {
-      res.status(422).json({ error: `data.screens[${index}] is not an object` });
-      return;
-    }
-    const merged: Record<string, unknown> = { ...existing, ...patch };
-    const nextScreens = screens.slice();
-    nextScreens[index] = merged;
-    syncActiveVariantSnapshot(data, nextScreens);
-    const nextData = { ...data, screens: nextScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'patch_screen');
-    if (!written) return;
-    res.json({ success: true, savedAt: written.savedAt, screen: merged });
   });
 
   // POST /api/projects/:project/patch-batch
@@ -223,32 +223,32 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
         return;
       }
     }
-    const loaded = await loadForScreenOp(ctx, project, res);
-    if (!loaded) return;
-    const { data, screens } = loaded;
-    const nextScreens = screens.slice();
-    const merged: Record<string, unknown>[] = [];
-    for (const op of ops as Array<{ index: number; patch: Record<string, unknown> }>) {
-      if (op.index >= nextScreens.length) {
-        res.status(400).json({
-          error: `op.index ${op.index} out of bounds — project has ${nextScreens.length} screen(s)`,
-        });
-        return;
+    let mergedScreens: Record<string, unknown>[];
+    const written = await mutateProject(ctx, project, res, 'patch_batch', ({ data, screens }) => {
+      const nextScreens = screens.slice();
+      mergedScreens = [];
+      for (const op of ops as Array<{ index: number; patch: Record<string, unknown> }>) {
+        if (op.index >= nextScreens.length) {
+          res.status(400).json({
+            error: `op.index ${op.index} out of bounds — project has ${nextScreens.length} screen(s)`,
+          });
+          return null;
+        }
+        const existing = nextScreens[op.index];
+        if (!isRecord(existing)) {
+          res.status(422).json({ error: `screens[${op.index}] is not an object` });
+          return null;
+        }
+        const next = { ...existing, ...op.patch };
+        nextScreens[op.index] = next;
+        mergedScreens.push(next);
       }
-      const existing = nextScreens[op.index];
-      if (!isRecord(existing)) {
-        res.status(422).json({ error: `screens[${op.index}] is not an object` });
-        return;
-      }
-      const next = { ...existing, ...op.patch };
-      nextScreens[op.index] = next;
-      merged.push(next);
+      syncActiveVariantSnapshot(data, nextScreens);
+      return { ...data, screens: nextScreens };
+    });
+    if (written) {
+      res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: mergedScreens! });
     }
-    syncActiveVariantSnapshot(data, nextScreens);
-    const nextData = { ...data, screens: nextScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'patch_batch');
-    if (!written) return;
-    res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: merged });
   });
 
   // POST /api/projects/:project/screens/insert
@@ -267,33 +267,30 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       return;
     }
     const { atIndex, screen } = body;
-    const loaded = await loadForScreenOp(ctx, project, res);
-    if (!loaded) return;
-    const { data, screens } = loaded;
-    const insertAt = typeof atIndex === 'number' && Number.isInteger(atIndex) && atIndex >= 0
-      ? Math.min(atIndex, screens.length)
-      : screens.length;
     if (screen !== undefined && !isRecord(screen)) {
       res.status(400).json({ error: '`screen` must be an object if provided' });
       return;
     }
-    // Empty centered <p> matches what the UI inserts; minimal but loads
-    // identically once fattenScreen runs on hydrate.
-    const newScreen: Record<string, unknown> = {
-      id: randomUUID(),
-      headline: '<p style="text-align: center;"></p>',
-      subtitle: '<p style="text-align: center;"></p>',
-      ...(isRecord(screen) ? screen : {}),
-    };
-    // Always assign a fresh id even if the caller passed one — duplicate
-    // ids in the same array break React reconciliation in the editor.
-    newScreen.id = randomUUID();
-    const nextScreens = [...screens.slice(0, insertAt), newScreen, ...screens.slice(insertAt)];
-    syncActiveVariantSnapshot(data, nextScreens);
-    const nextData = { ...data, screens: nextScreens };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'screens/insert');
-    if (!written) return;
-    res.json({ success: true, savedAt: written.savedAt, atIndex: insertAt, screen: newScreen });
+    let insertAt: number;
+    let newScreen: Record<string, unknown>;
+    const written = await mutateProject(ctx, project, res, 'screens/insert', ({ data, screens }) => {
+      insertAt = typeof atIndex === 'number' && Number.isInteger(atIndex) && atIndex >= 0
+        ? Math.min(atIndex, screens.length)
+        : screens.length;
+      newScreen = {
+        id: randomUUID(),
+        headline: '<p style="text-align: center;"></p>',
+        subtitle: '<p style="text-align: center;"></p>',
+        ...(isRecord(screen) ? screen : {}),
+      };
+      newScreen.id = randomUUID();
+      const nextScreens = [...screens.slice(0, insertAt), newScreen, ...screens.slice(insertAt)];
+      syncActiveVariantSnapshot(data, nextScreens);
+      return { ...data, screens: nextScreens };
+    });
+    if (written) {
+      res.json({ success: true, savedAt: written.savedAt, atIndex: insertAt!, screen: newScreen! });
+    }
   });
 
   // POST /api/projects/:project/screens/remove { index: number }
@@ -309,39 +306,35 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: '`index` must be a non-negative integer' });
       return;
     }
-    const loaded = await loadForScreenOp(ctx, project, res);
-    if (!loaded) return;
-    const { data, screens } = loaded;
-    if (index >= screens.length) {
-      res.status(400).json({ error: `screen index ${index} out of bounds` });
-      return;
-    }
-    if (screens.length <= 1) {
-      res.status(400).json({ error: 'cannot remove the last screen — projects must have at least 1' });
-      return;
-    }
-    const nextScreens = screens.slice();
-    const [removed] = nextScreens.splice(index, 1);
-    syncActiveVariantSnapshot(data, nextScreens);
-    // Clamp selectedScreen so the UI doesn't point at a now-out-of-bounds
-    // index on hydrate.
-    const nextData: Record<string, unknown> = { ...data, screens: nextScreens };
-    const currentSelected = data.selectedScreen;
-    if (typeof currentSelected === 'number') {
-      if (currentSelected >= nextScreens.length) {
-        nextData.selectedScreen = Math.max(0, nextScreens.length - 1);
-      } else if (currentSelected > index) {
-        nextData.selectedScreen = currentSelected - 1;
+    let removed: unknown;
+    let remaining: number;
+    const written = await mutateProject(ctx, project, res, 'screens/remove', ({ data, screens }) => {
+      if (index >= screens.length) {
+        res.status(400).json({ error: `screen index ${index} out of bounds` });
+        return null;
       }
-    }
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'screens/remove');
-    if (!written) return;
-    res.json({
-      success: true,
-      savedAt: written.savedAt,
-      removed,
-      remaining: nextScreens.length,
+      if (screens.length <= 1) {
+        res.status(400).json({ error: 'cannot remove the last screen — projects must have at least 1' });
+        return null;
+      }
+      const nextScreens = screens.slice();
+      [removed] = nextScreens.splice(index, 1);
+      remaining = nextScreens.length;
+      syncActiveVariantSnapshot(data, nextScreens);
+      const nextData: Record<string, unknown> = { ...data, screens: nextScreens };
+      const currentSelected = data.selectedScreen;
+      if (typeof currentSelected === 'number') {
+        if (currentSelected >= nextScreens.length) {
+          nextData.selectedScreen = Math.max(0, nextScreens.length - 1);
+        } else if (currentSelected > index) {
+          nextData.selectedScreen = currentSelected - 1;
+        }
+      }
+      return nextData;
     });
+    if (written) {
+      res.json({ success: true, savedAt: written.savedAt, removed, remaining: remaining! });
+    }
   });
 
   // POST /api/projects/:project/switch
@@ -422,13 +415,12 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: 'patch must contain at least one whitelisted field' });
       return;
     }
-    const loaded = await loadForScreenOp(ctx, project, res);
-    if (!loaded) return;
-    const { data } = loaded;
-    const nextData = { ...data, ...accepted };
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'patch_project');
-    if (!written) return;
-    res.json({ success: true, savedAt: written.savedAt, applied: accepted });
+    const written = await mutateProject(ctx, project, res, 'patch_project', ({ data }) => {
+      return { ...data, ...accepted };
+    });
+    if (written) {
+      res.json({ success: true, savedAt: written.savedAt, applied: accepted });
+    }
   });
 
   // POST /api/projects/:project/screens/reorder { order: number[] }
@@ -448,39 +440,38 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: '`order` must be an array of non-negative integers' });
       return;
     }
-    const loaded = await loadForScreenOp(ctx, project, res);
-    if (!loaded) return;
-    const { data, screens } = loaded;
-    const n = screens.length;
-    if (order.length !== n) {
-      res.status(400).json({
-        error: `\`order\` length ${order.length} must match screen count ${n}`,
-      });
-      return;
-    }
-    const seen = new Set<number>();
-    for (const i of order) {
-      if (i >= n) {
-        res.status(400).json({ error: `\`order\` index ${i} out of bounds (n=${n})` });
-        return;
+    const written = await mutateProject(ctx, project, res, 'screens/reorder', ({ data, screens }) => {
+      const n = screens.length;
+      if (order.length !== n) {
+        res.status(400).json({
+          error: `\`order\` length ${order.length} must match screen count ${n}`,
+        });
+        return null;
       }
-      if (seen.has(i)) {
-        res.status(400).json({ error: `\`order\` is not a permutation — index ${i} appears more than once` });
-        return;
+      const seen = new Set<number>();
+      for (const i of order) {
+        if (i >= n) {
+          res.status(400).json({ error: `\`order\` index ${i} out of bounds (n=${n})` });
+          return null;
+        }
+        if (seen.has(i)) {
+          res.status(400).json({ error: `\`order\` is not a permutation — index ${i} appears more than once` });
+          return null;
+        }
+        seen.add(i);
       }
-      seen.add(i);
+      const nextScreens = order.map((i) => screens[i]);
+      syncActiveVariantSnapshot(data, nextScreens);
+      const nextData: Record<string, unknown> = { ...data, screens: nextScreens };
+      const currentSelected = data.selectedScreen;
+      if (typeof currentSelected === 'number') {
+        const newPosition = order.indexOf(currentSelected);
+        if (newPosition >= 0) nextData.selectedScreen = newPosition;
+      }
+      return nextData;
+    });
+    if (written) {
+      res.json({ success: true, savedAt: written.savedAt, order });
     }
-    const nextScreens = order.map((i) => screens[i]);
-    syncActiveVariantSnapshot(data, nextScreens);
-    // Remap selectedScreen so the UI stays on the same logical screen.
-    const nextData: Record<string, unknown> = { ...data, screens: nextScreens };
-    const currentSelected = data.selectedScreen;
-    if (typeof currentSelected === 'number') {
-      const newPosition = order.indexOf(currentSelected);
-      if (newPosition >= 0) nextData.selectedScreen = newPosition;
-    }
-    const written = await writeAndBroadcast(ctx, project, nextData, res, data, 'screens/reorder');
-    if (!written) return;
-    res.json({ success: true, savedAt: written.savedAt, order });
   });
 }

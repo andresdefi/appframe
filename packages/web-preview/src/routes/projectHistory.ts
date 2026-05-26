@@ -2,6 +2,7 @@ import type { Express, Request, Response } from 'express';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { writeProject } from '../projectStorage.js';
 import type { RouteContext } from './context.js';
+import { withProjectLock } from './projectMutex.js';
 
 // In-memory undo history per project. Hooked from writeAndBroadcast
 // (projectPatchHelpers.ts) so every envelope mutation that goes through
@@ -134,39 +135,35 @@ export function registerProjectHistoryRoutes(app: Express, ctx: RouteContext): v
   // tool. A 409 conflict is returned when the history is empty.
   app.post('/api/projects/:project/undo-last-write', async (req: Request, res: Response) => {
     const project = typeof req.params.project === 'string' ? req.params.project : '';
-    const entry = popLastWrite(project);
-    if (!entry) {
-      res.status(409).json({
-        error: 'no history to undo for this project (server may have restarted, or no agent writes have happened yet)',
-      });
-      return;
-    }
-    try {
-      // Decompress + parse the stored pre-write envelope. JSON.parse
-      // throws on corrupt input; the catch below pushes the entry back
-      // onto the stack so the user can retry / report.
-      const beforeData = JSON.parse(gunzipSync(entry.compressedBefore).toString('utf-8')) as Record<string, unknown>;
-      const written = await writeProject(
-        ctx.projectStorage,
-        project,
-        beforeData,
-      );
-      ctx.broadcastEvent({ type: 'project-changed', source: 'agent', slug: project, undo: true });
-      res.json({
-        success: true,
-        undone: { opName: entry.opName, savedAt: entry.savedAt },
-        remaining: (projectHistory.get(project) ?? []).length,
-        newSavedAt: written.savedAt,
-      });
-    } catch (err) {
-      // Restore the entry on failure so the user can retry. Push-back
-      // is safe because pop already mutated the stack — appending it
-      // back puts it where it was.
-      const stack = projectHistory.get(project) ?? [];
-      stack.push(entry);
-      projectHistory.set(project, stack);
-      const message = err instanceof Error ? err.message : 'unknown error';
-      res.status(500).json({ error: message });
-    }
+    await withProjectLock(project, async () => {
+      const entry = popLastWrite(project);
+      if (!entry) {
+        res.status(409).json({
+          error: 'no history to undo for this project (server may have restarted, or no agent writes have happened yet)',
+        });
+        return;
+      }
+      try {
+        const beforeData = JSON.parse(gunzipSync(entry.compressedBefore).toString('utf-8')) as Record<string, unknown>;
+        const written = await writeProject(
+          ctx.projectStorage,
+          project,
+          beforeData,
+        );
+        ctx.broadcastEvent({ type: 'project-changed', source: 'agent', slug: project, undo: true });
+        res.json({
+          success: true,
+          undone: { opName: entry.opName, savedAt: entry.savedAt },
+          remaining: (projectHistory.get(project) ?? []).length,
+          newSavedAt: written.savedAt,
+        });
+      } catch (err) {
+        const stack = projectHistory.get(project) ?? [];
+        stack.push(entry);
+        projectHistory.set(project, stack);
+        const message = err instanceof Error ? err.message : 'unknown error';
+        res.status(500).json({ error: message });
+      }
+    });
   });
 }

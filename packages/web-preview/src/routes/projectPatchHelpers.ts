@@ -9,33 +9,12 @@ import { isRecord } from './utils.js';
 // route modules. Pulled out when projectPatch.ts grew past 1100 lines
 // with the PR #28 bulk-locale additions. No routes registered here.
 
-// Reject keys that could pollute an object's prototype or shadow
-// built-in properties when used as a computed key. The locale code
-// and similar user-controlled inputs flow into `{ ...obj, [key]: v }`
-// patterns; even though spread + computed-key doesn't reach
-// Object.prototype, a key like `toString` would silently break the
-// editor state on next read.
-const UNSAFE_OBJECT_KEYS = new Set([
-  '__proto__',
-  'constructor',
-  'prototype',
-  'toString',
-  'valueOf',
-  'hasOwnProperty',
-  '__defineGetter__',
-  '__defineSetter__',
-  '__lookupGetter__',
-  '__lookupSetter__',
-]);
-
-export function isSafeObjectKey(key: string): boolean {
-  return !UNSAFE_OBJECT_KEYS.has(key);
-}
+const SAFE_PATCH_KEY_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
 function sanitizePatch(patch: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = Object.create(null);
   for (const key of Object.keys(patch)) {
-    if (isSafeObjectKey(key)) safe[key] = patch[key];
+    if (SAFE_PATCH_KEY_RE.test(key)) safe[key] = patch[key];
   }
   return safe;
 }

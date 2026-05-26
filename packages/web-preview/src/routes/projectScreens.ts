@@ -156,8 +156,9 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: 'request body must be a JSON object' });
       return;
     }
-    const { index, patch } = body;
-    if (typeof index !== 'number' || !Number.isInteger(index) || index < 0) {
+    const index = Number(body.index);
+    const patch = body.patch;
+    if (!Number.isInteger(index) || index < 0) {
       res.status(400).json({ error: '`index` must be a non-negative integer' });
       return;
     }
@@ -229,19 +230,20 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       const nextScreens = screens.slice();
       mergedScreens = [];
       for (const op of ops as Array<{ index: number; patch: Record<string, unknown> }>) {
-        if (op.index >= nextScreens.length) {
+        const idx = Number(op.index);
+        if (idx >= nextScreens.length) {
           res.status(400).json({
-            error: `op.index ${op.index} out of bounds — project has ${nextScreens.length} screen(s)`,
+            error: `op.index ${idx} out of bounds — project has ${nextScreens.length} screen(s)`,
           });
           return null;
         }
-        const existing = nextScreens[op.index];
+        const existing = nextScreens[idx];
         if (!isRecord(existing)) {
-          res.status(422).json({ error: `screens[${op.index}] is not an object` });
+          res.status(422).json({ error: `screens[${idx}] is not an object` });
           return null;
         }
         const next = mergeScreenPatch(existing, op.patch);
-        nextScreens[op.index] = next;
+        nextScreens[idx] = next;
         mergedScreens.push(next);
       }
       syncActiveVariantSnapshot(data, nextScreens);

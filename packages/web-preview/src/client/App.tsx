@@ -9,6 +9,7 @@ import { setupConsoleCapture } from './utils/consoleCapture';
 import { setupRecentActionsRecorder } from './utils/recentActions';
 import { subscribeToServerEvents } from './utils/events';
 import { handleRenderRequest } from './utils/renderRequest';
+import { handleRenderBatch } from './utils/renderBatch';
 
 // Boot-time. Module-level so the patches install once before the
 // rest of the app subscribes to anything. Both are idempotent.
@@ -318,15 +319,14 @@ export function App() {
         return;
       }
       if (event.type === 'render-request') {
-        // The server is asking us to capture a PNG of one of the
-        // screens and POST it back. Ephemeral round-trip — see
-        // routes/renderPreview.ts for the server side. Fires off
-        // async so a slow capture doesn't block other events. The
-        // handler does its own runtime validation of payload fields,
-        // so the cast is safe even though TS can't narrow from the
-        // loose SSE event shape.
         void handleRenderRequest(
           event as { type: 'render-request' } & Record<string, unknown>,
+          { getState: usePreviewStore.getState },
+        );
+      }
+      if (event.type === 'render-batch') {
+        void handleRenderBatch(
+          event as { type: 'render-batch' } & Record<string, unknown>,
           { getState: usePreviewStore.getState },
         );
       }

@@ -27,13 +27,15 @@
     "@appframe/core": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "fontkit": "^2.0.4",
+    "jszip": "^3.10.1",
     "sharp": "^0.34.5",
     "undici": "^7.5.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@appframe/web-preview": "workspace:*",
-    "@types/fontkit": "^2.0.0"
+    "@types/fontkit": "^2.0.0",
+    "@types/jszip": "^3.4.1"
   },
   "files": [
     "dist"

@@ -74,8 +74,7 @@ export const projectValidateTools: ToolDefinition[] = [
           if (opens > 0 && closes === 0) {
             malformedHtml.push({ locale, index, field, reason: 'no closing tags' });
           }
-          const stripped = html.replace(/<[^>]*>/g, '').trim();
-          if (stripped.length === 0 && opens > 0) {
+          if (opens > 0 && !hasVisibleText(html)) {
             emptyText.push({ locale, index, field });
           }
         }
@@ -116,3 +115,14 @@ export const projectValidateTools: ToolDefinition[] = [
     },
   },
 ];
+
+function hasVisibleText(html: string): boolean {
+  let inTag = false;
+  for (let i = 0; i < html.length; i++) {
+    const ch = html.charAt(i);
+    if (ch === '<') { inTag = true; continue; }
+    if (ch === '>') { inTag = false; continue; }
+    if (!inTag && ch.trim().length > 0) return true;
+  }
+  return false;
+}

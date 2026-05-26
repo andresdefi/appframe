@@ -64,7 +64,7 @@ export const screenEffectsTools: ToolDefinition[] = [
         merged.enabled = true;
       }
       const result = await client.patchScreen(slug, index, { borderSimulation: merged });
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -99,7 +99,7 @@ export const screenEffectsTools: ToolDefinition[] = [
       const { enabled, opacity, blur, color, offsetY } = a;
       if (enabled === false) {
         const result = await client.patchScreen(slug, index, { deviceShadow: null });
-        return jsonContent(result.screen);
+        return jsonContent({ success: true, savedAt: result.savedAt });
       }
       const screen = await readScreen(client, slug, index);
       const existing = isRecord(screen.deviceShadow) ? screen.deviceShadow : {};
@@ -117,7 +117,7 @@ export const screenEffectsTools: ToolDefinition[] = [
         merged.color = normalizeColor(color);
       }
       const result = await client.patchScreen(slug, index, { deviceShadow: merged });
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -172,7 +172,7 @@ export const screenEffectsTools: ToolDefinition[] = [
         patch.spotlightEnabled = true;
       }
       const result = await client.patchScreen(slug, index, patch);
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -248,7 +248,7 @@ export const screenEffectsTools: ToolDefinition[] = [
         patch.loupeEnabled = true;
       }
       const result = await client.patchScreen(slug, index, patch);
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
 ];

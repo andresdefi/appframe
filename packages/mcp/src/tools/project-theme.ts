@@ -96,16 +96,17 @@ export const projectThemeTools: ToolDefinition[] = [
       }
       const ops = screens.map((_, index) => ({ index, patch }));
       const result = await client.patchScreensBatch(slug, ops);
-      if (verbose === false) {
-        return jsonContent({
-          savedAt: result.savedAt,
-          applied: result.applied,
-          font,
-          slots,
-          weight: weight ?? null,
-        });
+      if (verbose === true) {
+        return jsonContent(result);
       }
-      return jsonContent(result);
+      return jsonContent({
+        success: true,
+        savedAt: result.savedAt,
+        applied: result.applied,
+        font,
+        slots,
+        weight: weight ?? null,
+      });
     },
   },
   {
@@ -182,14 +183,15 @@ export const projectThemeTools: ToolDefinition[] = [
         };
       });
       const result = await client.patchScreensBatch(slug, ops);
-      if (verbose === false) {
-        return jsonContent({
-          savedAt: result.savedAt,
-          applied: result.applied,
-          colors: normalised,
-        });
+      if (verbose === true) {
+        return jsonContent(result);
       }
-      return jsonContent(result);
+      return jsonContent({
+        success: true,
+        savedAt: result.savedAt,
+        applied: result.applied,
+        colors: normalised,
+      });
     },
   },
 ];

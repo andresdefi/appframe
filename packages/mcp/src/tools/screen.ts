@@ -345,10 +345,10 @@ export const screenTools: ToolDefinition[] = [
         validated.push({ index, patch });
       }
       const result = await client.patchScreensBatch(slug, validated);
-      if (verbose === false) {
-        return jsonContent({ savedAt: result.savedAt, applied: result.applied });
+      if (verbose === true) {
+        return jsonContent(result);
       }
-      return jsonContent(result);
+      return jsonContent({ success: true, savedAt: result.savedAt, applied: result.applied });
     },
   },
   {
@@ -399,10 +399,10 @@ export const screenTools: ToolDefinition[] = [
         throw new Error('`patch` must be an object of editor-state screen fields');
       }
       const result = await client.patchScreen(slug, index, patch);
-      if (verbose === false) {
-        return jsonContent({ savedAt: result.savedAt });
+      if (verbose === true) {
+        return jsonContent(result);
       }
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
 ];

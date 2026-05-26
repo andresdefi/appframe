@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from 'express';
 import { getLocaleLabel } from '@appframe/core';
 import type { RouteContext } from './context.js';
-import { isRecord, validateLocaleCode } from './utils.js';
+import { isRecord, validateLocaleCode, wantsFullReturn } from './utils.js';
 import {
   mergeScreenPatch,
   mutateProject,
@@ -196,7 +196,8 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       return { ...data, localeScreens: { ...localeScreens, [safeCode]: nextScreens } };
     });
     if (written) {
-      res.json({ success: true, savedAt: written.savedAt, screen: merged! });
+      const base = { success: true, savedAt: written.savedAt };
+      res.json(wantsFullReturn(req) ? { ...base, screen: merged! } : base);
     }
   });
 
@@ -276,7 +277,8 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       return { ...data, localeScreens: { ...localeScreens, [safeCode]: nextScreens } };
     });
     if (written) {
-      res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: mergedScreens! });
+      const base = { success: true, savedAt: written.savedAt, applied: ops.length };
+      res.json(wantsFullReturn(req) ? { ...base, screens: mergedScreens! } : base);
     }
   });
 
@@ -409,7 +411,8 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       return { ...data, localeScreens: { ...localeScreens, [safeCode]: nextScreens } };
     });
     if (written) {
-      res.json({ success: true, savedAt: written.savedAt, screen: merged! });
+      const base = { success: true, savedAt: written.savedAt };
+      res.json(wantsFullReturn(req) ? { ...base, screen: merged! } : base);
     }
   });
 

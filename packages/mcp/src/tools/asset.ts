@@ -143,7 +143,7 @@ export const assetTools: ToolDefinition[] = [
         screenshotUrl,
         screenshotName,
       });
-      return jsonContent({ screenshotUrl, screenshotName, screen: result.screen });
+      return jsonContent({ success: true, savedAt: result.savedAt, screenshotUrl, screenshotName });
     },
   },
   {

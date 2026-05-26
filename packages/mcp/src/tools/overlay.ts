@@ -88,7 +88,7 @@ export const overlayTools: ToolDefinition[] = [
       const result = await client.patchScreen(slug, index, {
         overlays: [...existing, next],
       });
-      return jsonContent({ id, overlay: next, screen: result.screen });
+      return jsonContent({ success: true, savedAt: result.savedAt, id, overlay: next });
     },
   },
   {

@@ -452,7 +452,7 @@ export class AppframeClient {
   ): Promise<{
     success: boolean;
     savedAt: string;
-    screen: Record<string, unknown>;
+    screen?: Record<string, unknown>;
   }> {
     return this.request(
       'PATCH',
@@ -471,7 +471,7 @@ export class AppframeClient {
     success: boolean;
     savedAt: string;
     applied: number;
-    screens: Record<string, unknown>[];
+    screens?: Record<string, unknown>[];
   }> {
     return this.request(
       'POST',
@@ -592,9 +592,9 @@ export class AppframeClient {
   async patchScreen(slug: string, index: number, patch: Record<string, unknown>): Promise<{
     success: boolean;
     savedAt: string;
-    screen: Record<string, unknown>;
+    screen?: Record<string, unknown>;
   }> {
-    return this.request<{ success: boolean; savedAt: string; screen: Record<string, unknown> }>(
+    return this.request<{ success: boolean; savedAt: string; screen?: Record<string, unknown> }>(
       'PATCH',
       `/api/projects/${encodeURIComponent(slug)}/screens/${encodeURIComponent(String(index))}`,
       patch,
@@ -611,7 +611,7 @@ export class AppframeClient {
     success: boolean;
     savedAt: string;
     applied: number;
-    screens: Record<string, unknown>[];
+    screens?: Record<string, unknown>[];
   }> {
     return this.request(
       'POST',

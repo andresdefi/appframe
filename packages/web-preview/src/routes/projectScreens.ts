@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { readProject, ProjectCorruptError, ProjectFutureSchemaError } from '../projectStorage.js';
 import type { RouteContext } from './context.js';
 import { getLocaleLabel } from '@appframe/core';
-import { isRecord, validateLocaleCode } from './utils.js';
+import { isRecord, validateLocaleCode, wantsFullReturn } from './utils.js';
 import {
   loadForScreenOp,
   mergeScreenPatch,
@@ -141,7 +141,8 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       return { ...data, screens: nextScreens };
     });
     if (written) {
-      res.json({ success: true, savedAt: written.savedAt, screen: merged! });
+      const base = { success: true, savedAt: written.savedAt };
+      res.json(wantsFullReturn(req) ? { ...base, screen: merged! } : base);
     }
   });
 
@@ -187,7 +188,8 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       return { ...data, screens: nextScreens };
     });
     if (written) {
-      res.json({ success: true, savedAt: written.savedAt, screen: merged! });
+      const base = { success: true, savedAt: written.savedAt };
+      res.json(wantsFullReturn(req) ? { ...base, screen: merged! } : base);
     }
   });
 
@@ -251,7 +253,8 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
       return { ...data, screens: nextScreens };
     });
     if (written) {
-      res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: mergedScreens! });
+      const base = { success: true, savedAt: written.savedAt, applied: ops.length };
+      res.json(wantsFullReturn(req) ? { ...base, screens: mergedScreens! } : base);
     }
   });
 

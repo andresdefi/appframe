@@ -68,7 +68,7 @@ export const annotationTools: ToolDefinition[] = [
       const result = await client.patchScreen(slug, index, {
         annotations: [...existing, next],
       });
-      return jsonContent({ id, annotation: next, screen: result.screen });
+      return jsonContent({ success: true, savedAt: result.savedAt, id, annotation: next });
     },
   },
   {

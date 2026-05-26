@@ -358,6 +358,74 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
     }
   });
 
+  // POST /api/projects/:project/locales/duplicate { fromCode, toCode, label? }
+  //
+  // Deep-copy all overrides from fromCode to toCode. toCode must not
+  // already exist (409 if it does). Used for setting up es-MX from es-ES,
+  // fr-CA from fr-FR, etc.
+  app.post('/api/projects/:project/locales/duplicate', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { fromCode, toCode, label } = body;
+    if (typeof fromCode !== 'string' || fromCode.length === 0) {
+      res.status(400).json({ error: '`fromCode` is required' });
+      return;
+    }
+    if (typeof toCode !== 'string' || toCode.length === 0) {
+      res.status(400).json({ error: '`toCode` is required' });
+      return;
+    }
+    if (toCode === 'default') {
+      res.status(400).json({ error: '"default" cannot be used as a target locale' });
+      return;
+    }
+    const safeFrom = validateLocaleCode(fromCode);
+    const safeTo = validateLocaleCode(toCode);
+    if (!safeFrom) {
+      res.status(400).json({ error: '`fromCode` must be a valid locale code' });
+      return;
+    }
+    if (!safeTo) {
+      res.status(400).json({ error: '`toCode` must be a valid locale code' });
+      return;
+    }
+    const resolvedLabel = typeof label === 'string' && label.length > 0 ? label : getLocaleLabel(toCode);
+    let copiedOverrides = 0;
+    const written = await mutateProject(ctx, project, res, 'locales/duplicate', ({ data }) => {
+      const sessionLocales = isRecord(data.sessionLocales) ? data.sessionLocales : {};
+      const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
+      if (!localeScreens[safeFrom] && safeFrom !== 'default') {
+        res.status(404).json({ error: `source locale "${safeFrom}" not found` });
+        return null;
+      }
+      if (sessionLocales[safeTo]) {
+        res.status(409).json({ error: `target locale "${safeTo}" already exists` });
+        return null;
+      }
+      const sourceScreens = safeFrom === 'default'
+        ? (Array.isArray(data.screens) ? data.screens : [])
+        : localeScreens[safeFrom];
+      if (!Array.isArray(sourceScreens)) {
+        res.status(404).json({ error: `source locale "${safeFrom}" has no screens` });
+        return null;
+      }
+      const cloned = structuredClone(sourceScreens);
+      copiedOverrides = cloned.length;
+      return {
+        ...data,
+        sessionLocales: { ...sessionLocales, [safeTo]: { label: resolvedLabel } },
+        localeScreens: { ...localeScreens, [safeTo]: cloned },
+      };
+    });
+    if (written) {
+      res.json({ success: true, savedAt: written.savedAt, code: safeTo, label: resolvedLabel, copiedOverrides });
+    }
+  });
+
   // PATCH /api/projects/:project/locales/:code/screens/:index
   //   Body: Partial<ScreenState> (the patch itself, no wrapper)
   //

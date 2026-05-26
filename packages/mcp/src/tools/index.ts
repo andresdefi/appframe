@@ -9,6 +9,7 @@ import { localeTools } from './locale.js';
 import { overlayTools } from './overlay.js';
 import { projectTools } from './project.js';
 import { projectThemeTools } from './project-theme.js';
+import { projectValidateTools } from './project-validate.js';
 import { screenLifecycleTools } from './screen-lifecycle.js';
 import { screenTools } from './screen.js';
 import { screenInspectTools } from './screen-inspect.js';
@@ -24,6 +25,7 @@ const NON_BATCH_TOOLS: ToolDefinition[] = [
   ...discoveryTools,
   ...projectTools,
   ...projectThemeTools,
+  ...projectValidateTools,
   ...localeTools,
   ...variantTools,
   ...screenTools,

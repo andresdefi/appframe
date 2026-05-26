@@ -40,6 +40,13 @@ export function expectArray(v: unknown): unknown[] | undefined {
   return undefined;
 }
 
+const LOCALE_CODE_RE = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
+
+export function validateLocaleCode(code: string): string | null {
+  if (!LOCALE_CODE_RE.test(code)) return null;
+  return code;
+}
+
 export function slugifyName(value: string): string {
   const slug = value
     .toLowerCase()

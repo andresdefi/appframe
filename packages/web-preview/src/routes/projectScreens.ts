@@ -2,7 +2,8 @@ import type { Express, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { readProject, ProjectCorruptError, ProjectFutureSchemaError } from '../projectStorage.js';
 import type { RouteContext } from './context.js';
-import { isRecord } from './utils.js';
+import { getLocaleLabel } from '@appframe/core';
+import { isRecord, validateLocaleCode } from './utils.js';
 import {
   loadForScreenOp,
   mergeScreenPatch,
@@ -475,6 +476,170 @@ export function registerProjectScreenRoutes(app: Express, ctx: RouteContext): vo
     });
     if (written) {
       res.json({ success: true, savedAt: written.savedAt, order });
+    }
+  });
+
+  // POST /api/projects/:project/batch
+  //   { ops: [{ op, ...params }, ...] }
+  //
+  // Mixed-op transactional batch. Reads the envelope once, applies every
+  // op in array order to a working copy, writes once. If any op fails
+  // validation the entire batch is rejected (no partial writes). Supports:
+  //   - { op: "patch_screen", index, patch }
+  //   - { op: "patch_locale_screen", code, index, patch }
+  //   - { op: "add_locale", code, label? }
+  //   - { op: "remove_locale", code }
+  const VALID_BATCH_OPS = new Set(['patch_screen', 'patch_locale_screen', 'add_locale', 'remove_locale']);
+
+  app.post('/api/projects/:project/batch', async (req: Request, res: Response) => {
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (!isRecord(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
+    }
+    const { ops } = body;
+    if (!Array.isArray(ops) || ops.length === 0) {
+      res.status(400).json({ error: '`ops` must be a non-empty array' });
+      return;
+    }
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      if (!isRecord(op) || typeof op.op !== 'string') {
+        res.status(400).json({ error: `ops[${i}]: each op must have an \`op\` string field` });
+        return;
+      }
+      if (!VALID_BATCH_OPS.has(op.op)) {
+        res.status(400).json({ error: `ops[${i}]: unknown op type "${op.op}"` });
+        return;
+      }
+    }
+    let results: Array<Record<string, unknown>>;
+    const written = await mutateProject(ctx, project, res, 'batch', ({ data, screens }) => {
+      const wd: Record<string, unknown> = { ...data };
+      const ws = screens.slice();
+      results = [];
+      for (let i = 0; i < ops.length; i++) {
+        const op = ops[i] as Record<string, unknown>;
+        switch (op.op) {
+          case 'patch_screen': {
+            const idx = Number(op.index);
+            if (!Number.isInteger(idx) || idx < 0) {
+              res.status(400).json({ error: `ops[${i}]: \`index\` must be a non-negative integer` });
+              return null;
+            }
+            if (!isRecord(op.patch)) {
+              res.status(400).json({ error: `ops[${i}]: \`patch\` must be an object` });
+              return null;
+            }
+            if (idx >= ws.length) {
+              res.status(400).json({ error: `ops[${i}]: screen index ${idx} out of bounds (${ws.length} screens)` });
+              return null;
+            }
+            const existing = ws[idx];
+            if (!isRecord(existing)) {
+              res.status(422).json({ error: `ops[${i}]: screens[${idx}] is not an object` });
+              return null;
+            }
+            ws[idx] = mergeScreenPatch(existing, op.patch);
+            results.push({ op: 'patch_screen', index: idx });
+            break;
+          }
+          case 'patch_locale_screen': {
+            const code = typeof op.code === 'string' ? op.code : '';
+            const safeCode = validateLocaleCode(code);
+            if (!safeCode) {
+              res.status(400).json({ error: `ops[${i}]: \`code\` must be a valid locale code` });
+              return null;
+            }
+            const idx = Number(op.index);
+            if (!Number.isInteger(idx) || idx < 0) {
+              res.status(400).json({ error: `ops[${i}]: \`index\` must be a non-negative integer` });
+              return null;
+            }
+            if (!isRecord(op.patch)) {
+              res.status(400).json({ error: `ops[${i}]: \`patch\` must be an object` });
+              return null;
+            }
+            const localeScreens = isRecord(wd.localeScreens) ? wd.localeScreens : {};
+            const localeArr = localeScreens[safeCode];
+            if (!Array.isArray(localeArr)) {
+              res.status(400).json({ error: `ops[${i}]: locale "${safeCode}" has no screens` });
+              return null;
+            }
+            if (idx >= localeArr.length) {
+              res.status(400).json({ error: `ops[${i}]: screen index ${idx} out of bounds for locale "${safeCode}"` });
+              return null;
+            }
+            const existing = localeArr[idx];
+            if (!isRecord(existing)) {
+              res.status(422).json({ error: `ops[${i}]: localeScreens[${safeCode}][${idx}] is not an object` });
+              return null;
+            }
+            const nextArr = localeArr.slice();
+            nextArr[idx] = mergeScreenPatch(existing, op.patch);
+            wd.localeScreens = { ...localeScreens, [safeCode]: nextArr };
+            results.push({ op: 'patch_locale_screen', code: safeCode, index: idx });
+            break;
+          }
+          case 'add_locale': {
+            const code = typeof op.code === 'string' ? op.code : '';
+            if (code === 'default') {
+              res.status(400).json({ error: `ops[${i}]: "default" cannot be added as a locale` });
+              return null;
+            }
+            const safeCode = validateLocaleCode(code);
+            if (!safeCode) {
+              res.status(400).json({ error: `ops[${i}]: \`code\` must be a valid locale code` });
+              return null;
+            }
+            const sessionLocales = isRecord(wd.sessionLocales) ? wd.sessionLocales : {};
+            if (sessionLocales[safeCode]) {
+              res.status(409).json({ error: `ops[${i}]: locale "${safeCode}" already exists` });
+              return null;
+            }
+            const label = typeof op.label === 'string' && op.label.length > 0
+              ? op.label
+              : getLocaleLabel(safeCode);
+            const localeScreens = isRecord(wd.localeScreens) ? wd.localeScreens : {};
+            wd.sessionLocales = { ...sessionLocales, [safeCode]: { label } };
+            wd.localeScreens = { ...localeScreens, [safeCode]: structuredClone(ws) };
+            results.push({ op: 'add_locale', code: safeCode, label });
+            break;
+          }
+          case 'remove_locale': {
+            const code = typeof op.code === 'string' ? op.code : '';
+            if (code === 'default') {
+              res.status(400).json({ error: `ops[${i}]: cannot remove the "default" locale` });
+              return null;
+            }
+            const safeCode = validateLocaleCode(code);
+            if (!safeCode) {
+              res.status(400).json({ error: `ops[${i}]: \`code\` must be a valid locale code` });
+              return null;
+            }
+            const sessionLocales = isRecord(wd.sessionLocales) ? { ...wd.sessionLocales } : {};
+            const localeScreens = isRecord(wd.localeScreens) ? { ...wd.localeScreens } : {};
+            if (!(safeCode in sessionLocales) && !(safeCode in localeScreens)) {
+              res.status(404).json({ error: `ops[${i}]: locale "${safeCode}" not found` });
+              return null;
+            }
+            delete sessionLocales[safeCode];
+            delete localeScreens[safeCode];
+            wd.sessionLocales = sessionLocales;
+            wd.localeScreens = localeScreens;
+            if (wd.locale === safeCode) wd.locale = 'default';
+            results.push({ op: 'remove_locale', code: safeCode });
+            break;
+          }
+        }
+      }
+      wd.screens = ws;
+      syncActiveVariantSnapshot(wd, ws);
+      return wd;
+    });
+    if (written) {
+      res.json({ success: true, savedAt: written.savedAt, applied: results!.length, results: results! });
     }
   });
 }

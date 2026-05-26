@@ -301,12 +301,12 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: '"default" is the implicit base locale and cannot be added' });
       return;
     }
-    if (!validateLocaleCode(code)) {
+    const safeCode = validateLocaleCode(code);
+    if (!safeCode) {
       res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
-    const safeCode = String(code);
-    const resolvedLabel = typeof label === 'string' && label.length > 0 ? label : getLocaleLabel(code);
+    const resolvedLabel = typeof label === 'string' && label.length > 0 ? label : getLocaleLabel(safeCode);
     const written = await mutateProject(ctx, project, res, 'locales/add', ({ data, screens }) => {
       const sessionLocales = isRecord(data.sessionLocales) ? data.sessionLocales : {};
       if (sessionLocales[safeCode]) {
@@ -335,11 +335,11 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: 'cannot remove the implicit "default" locale' });
       return;
     }
-    if (!validateLocaleCode(code)) {
+    const safeCode = validateLocaleCode(code);
+    if (!safeCode) {
       res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
-    const safeCode = String(code);
     const written = await mutateProject(ctx, project, res, 'locales/remove', ({ data }) => {
       const sessionLocales = isRecord(data.sessionLocales) ? { ...data.sessionLocales } : {};
       const localeScreens = isRecord(data.localeScreens) ? { ...data.localeScreens } : {};
@@ -442,7 +442,8 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       });
       return;
     }
-    if (!validateLocaleCode(code)) {
+    const safeCode = validateLocaleCode(code);
+    if (!safeCode) {
       res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
@@ -455,7 +456,6 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: 'request body must be an object of editor-state screen fields' });
       return;
     }
-    const safeCode = String(code);
     let merged: Record<string, unknown>;
     const written = await mutateProject(ctx, project, res, 'locales/patch-screen', ({ data }) => {
       const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};

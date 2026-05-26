@@ -642,7 +642,7 @@ describe('integration: prototype-pollution defense', () => {
       });
       expect(res.status).toBe(400);
       const body = (await res.json()) as { error: string };
-      expect(body.error).toMatch(/reserved JavaScript property name/);
+      expect(body.error).toMatch(/valid locale code/);
     }
   });
 });

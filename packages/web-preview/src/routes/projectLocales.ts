@@ -3,7 +3,6 @@ import { getLocaleLabel } from '@appframe/core';
 import type { RouteContext } from './context.js';
 import { isRecord } from './utils.js';
 import {
-  isSafeObjectKey,
   mergeScreenPatch,
   mutateProject,
 } from './projectPatchHelpers.js';
@@ -14,6 +13,11 @@ import {
 // that point on the two sets evolve independently.
 
 const LOCALE_CODE_RE = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
+
+function validateLocaleCode(code: string): string | null {
+  if (!LOCALE_CODE_RE.test(code)) return null;
+  return code;
+}
 
 export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): void {
   // POST /api/projects/:project/locales/add { code, label? }
@@ -38,26 +42,27 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: '"default" is the implicit base locale and cannot be added' });
       return;
     }
-    if (!isSafeObjectKey(code)) {
-      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
+    const safeCode = validateLocaleCode(code);
+    if (!safeCode) {
+      res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
-    const resolvedLabel = typeof label === 'string' && label.length > 0 ? label : getLocaleLabel(code);
+    const resolvedLabel = typeof label === 'string' && label.length > 0 ? label : getLocaleLabel(safeCode);
     const written = await mutateProject(ctx, project, res, 'locales/add', ({ data, screens }) => {
       const sessionLocales = isRecord(data.sessionLocales) ? data.sessionLocales : {};
-      if (sessionLocales[code]) {
-        res.status(409).json({ error: `locale "${code}" already exists on this project` });
+      if (sessionLocales[safeCode]) {
+        res.status(409).json({ error: `locale "${safeCode}" already exists on this project` });
         return null;
       }
       const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
       return {
         ...data,
-        sessionLocales: { ...sessionLocales, [code]: { label: resolvedLabel } },
-        localeScreens: { ...localeScreens, [code]: structuredClone(screens) },
+        sessionLocales: { ...sessionLocales, [safeCode]: { label: resolvedLabel } },
+        localeScreens: { ...localeScreens, [safeCode]: structuredClone(screens) },
       };
     });
     if (written) {
-      res.json({ success: true, savedAt: written.savedAt, code, label: resolvedLabel });
+      res.json({ success: true, savedAt: written.savedAt, code: safeCode, label: resolvedLabel });
     }
   });
 
@@ -81,25 +86,26 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: 'cannot remove the implicit "default" locale' });
       return;
     }
-    if (!isSafeObjectKey(code)) {
-      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
+    const safeCode = validateLocaleCode(code);
+    if (!safeCode) {
+      res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
     const written = await mutateProject(ctx, project, res, 'locales/remove', ({ data }) => {
       const sessionLocales = isRecord(data.sessionLocales) ? { ...data.sessionLocales } : {};
       const localeScreens = isRecord(data.localeScreens) ? { ...data.localeScreens } : {};
-      if (!(code in sessionLocales) && !(code in localeScreens)) {
-        res.status(404).json({ error: `locale "${code}" not found on this project` });
+      if (!(safeCode in sessionLocales) && !(safeCode in localeScreens)) {
+        res.status(404).json({ error: `locale "${safeCode}" not found on this project` });
         return null;
       }
-      delete sessionLocales[code];
-      delete localeScreens[code];
+      delete sessionLocales[safeCode];
+      delete localeScreens[safeCode];
       const nextData: Record<string, unknown> = { ...data, sessionLocales, localeScreens };
-      if (data.locale === code) nextData.locale = 'default';
+      if (data.locale === safeCode) nextData.locale = 'default';
       return nextData;
     });
     if (written) {
-      res.json({ success: true, savedAt: written.savedAt, removed: code });
+      res.json({ success: true, savedAt: written.savedAt, removed: safeCode });
     }
   });
 
@@ -119,8 +125,8 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       res.status(400).json({ error: '`code` is required' });
       return;
     }
-    if (code !== 'default' && !isSafeObjectKey(code)) {
-      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
+    if (code !== 'default' && !validateLocaleCode(code)) {
+      res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
     const written = await mutateProject(ctx, project, res, 'locales/set-active', ({ data }) => {
@@ -159,8 +165,9 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       });
       return;
     }
-    if (!isSafeObjectKey(code)) {
-      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
+    const safeCode = validateLocaleCode(code);
+    if (!safeCode) {
+      res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
     const { index, patch } = body;
@@ -175,24 +182,24 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
     let merged: Record<string, unknown>;
     const written = await mutateProject(ctx, project, res, 'locales/patch-screen', ({ data }) => {
       const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
-      const screens = localeScreens[code];
+      const screens = localeScreens[safeCode];
       if (!Array.isArray(screens)) {
-        res.status(404).json({ error: `locale "${code}" has no screens — add it first with /locales/add` });
+        res.status(404).json({ error: `locale "${safeCode}" has no screens — add it first with /locales/add` });
         return null;
       }
       if (index >= screens.length) {
-        res.status(400).json({ error: `screen index ${index} out of bounds for locale "${code}"` });
+        res.status(400).json({ error: `screen index ${index} out of bounds for locale "${safeCode}"` });
         return null;
       }
       const existing = screens[index];
       if (!isRecord(existing)) {
-        res.status(422).json({ error: `localeScreens[${code}][${index}] is not an object` });
+        res.status(422).json({ error: `localeScreens[${safeCode}][${index}] is not an object` });
         return null;
       }
       merged = mergeScreenPatch(existing, patch);
       const nextScreens = screens.slice();
       nextScreens[index] = merged;
-      return { ...data, localeScreens: { ...localeScreens, [code]: nextScreens } };
+      return { ...data, localeScreens: { ...localeScreens, [safeCode]: nextScreens } };
     });
     if (written) {
       res.json({ success: true, savedAt: written.savedAt, screen: merged! });
@@ -220,8 +227,9 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       });
       return;
     }
-    if (!isSafeObjectKey(code)) {
-      res.status(400).json({ error: '`code` cannot be a reserved JavaScript property name' });
+    const safeCode = validateLocaleCode(code);
+    if (!safeCode) {
+      res.status(400).json({ error: '`code` must be a valid locale code (e.g. "fr", "es-MX")' });
       return;
     }
     const { ops } = body;
@@ -247,9 +255,9 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
     let mergedScreens: Record<string, unknown>[];
     const written = await mutateProject(ctx, project, res, 'locales/patch-batch', ({ data }) => {
       const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
-      const screens = localeScreens[code];
+      const screens = localeScreens[safeCode];
       if (!Array.isArray(screens)) {
-        res.status(404).json({ error: `locale "${code}" has no screens — add it first with /locales/add` });
+        res.status(404).json({ error: `locale "${safeCode}" has no screens — add it first with /locales/add` });
         return null;
       }
       const nextScreens = screens.slice();
@@ -257,20 +265,20 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
       for (const op of ops as Array<{ index: number; patch: Record<string, unknown> }>) {
         if (op.index >= nextScreens.length) {
           res.status(400).json({
-            error: `op.index ${op.index} out of bounds — locale "${code}" has ${nextScreens.length} screen(s)`,
+            error: `op.index ${op.index} out of bounds — locale "${safeCode}" has ${nextScreens.length} screen(s)`,
           });
           return null;
         }
         const existing = nextScreens[op.index];
         if (!isRecord(existing)) {
-          res.status(422).json({ error: `localeScreens[${code}][${op.index}] is not an object` });
+          res.status(422).json({ error: `localeScreens[${safeCode}][${op.index}] is not an object` });
           return null;
         }
         const next = mergeScreenPatch(existing, op.patch);
         nextScreens[op.index] = next;
         mergedScreens.push(next);
       }
-      return { ...data, localeScreens: { ...localeScreens, [code]: nextScreens } };
+      return { ...data, localeScreens: { ...localeScreens, [safeCode]: nextScreens } };
     });
     if (written) {
       res.json({ success: true, savedAt: written.savedAt, applied: ops.length, screens: mergedScreens! });
@@ -446,20 +454,23 @@ export function registerProjectLocaleRoutes(app: Express, ctx: RouteContext): vo
         return null;
       }
       const localeScreens = isRecord(data.localeScreens) ? data.localeScreens : {};
-      const codes = Object.keys(localeScreens).filter(isSafeObjectKey);
+      const codes = Object.keys(localeScreens).flatMap(k => {
+        const safe = validateLocaleCode(k);
+        return safe ? [safe] : [];
+      });
       if (codes.length === 0) {
         res.json({ success: true, savedAt: null, affected: [], note: 'project has no locales configured' });
         return null;
       }
       const nextLocaleScreens: Record<string, unknown> = { ...localeScreens };
       affected = [];
-      for (const code of codes) {
-        const localeArr = localeScreens[code];
+      for (const safeCode of codes) {
+        const localeArr = localeScreens[safeCode];
         if (!Array.isArray(localeArr) || sourceIndex >= localeArr.length) continue;
         const nextArr = localeArr.slice();
         nextArr[sourceIndex] = structuredClone(sourceScreen);
-        nextLocaleScreens[code] = nextArr;
-        affected.push(code);
+        nextLocaleScreens[safeCode] = nextArr;
+        affected.push(safeCode);
       }
       if (affected.length === 0) {
         res.json({ success: true, savedAt: null, affected: [], note: 'no locales had a screen at this index' });

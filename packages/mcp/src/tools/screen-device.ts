@@ -76,7 +76,7 @@ export const screenDeviceTools: ToolDefinition[] = [
         composition,
         extraDevices: nextExtras,
       });
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -112,7 +112,7 @@ export const screenDeviceTools: ToolDefinition[] = [
         patch.deviceColor = deviceColor;
       }
       const result = await client.patchScreen(slug, index, patch);
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -167,7 +167,7 @@ export const screenDeviceTools: ToolDefinition[] = [
         throw new Error('pass at least one of scale, top, angle, tilt, rotation, offsetX');
       }
       const result = await client.patchScreen(slug, index, patch);
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
 ];

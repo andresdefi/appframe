@@ -163,7 +163,7 @@ export const screenBackgroundTools: ToolDefinition[] = [
         throw new Error('Pass `color` as a string, `gradient` / `image` as an object');
       }
       const result = await client.patchScreen(slug, index, patch);
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
 ];

@@ -122,7 +122,7 @@ export const localeTools: ToolDefinition[] = [
         throw new Error('`patch` must be an object of editor-state screen fields');
       }
       const result = await client.patchLocaleScreen(slug, code, index, patch);
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -165,7 +165,7 @@ export const localeTools: ToolDefinition[] = [
       const result = await client.patchLocaleScreen(slug, code, index, {
         [target]: wrapTextAsHtml(text),
       });
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -241,10 +241,10 @@ export const localeTools: ToolDefinition[] = [
         ops.push({ index: idx, patch });
       }
       const result = await client.patchLocaleScreensBatch(slug, code, ops);
-      if (verbose === false) {
-        return jsonContent({ savedAt: result.savedAt, applied: result.applied });
+      if (verbose === true) {
+        return jsonContent(result);
       }
-      return jsonContent(result);
+      return jsonContent({ success: true, savedAt: result.savedAt, applied: result.applied });
     },
   },
   {

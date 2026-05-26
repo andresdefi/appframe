@@ -93,7 +93,7 @@ export const screenTextTools: ToolDefinition[] = [
         patch[weightKey] = weight;
       }
       const result = await client.patchScreen(slug, index, patch);
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -138,7 +138,7 @@ export const screenTextTools: ToolDefinition[] = [
       }
       const fieldKey = `${target}Layer`;
       const result = await client.patchScreen(slug, index, { [fieldKey]: layer });
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -186,7 +186,7 @@ export const screenTextTools: ToolDefinition[] = [
       if (typeof width === 'number') newPos.width = width;
       const merged = { ...existing, [target]: newPos };
       const result = await client.patchScreen(slug, index, { textPositions: merged });
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -231,7 +231,7 @@ export const screenTextTools: ToolDefinition[] = [
       if (typeof direction === 'number') gradient.direction = direction;
       const fieldKey = `${target}Gradient`;
       const result = await client.patchScreen(slug, index, { [fieldKey]: gradient });
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
   {
@@ -302,7 +302,7 @@ export const screenTextTools: ToolDefinition[] = [
         merged.enabled = true;
       }
       const result = await client.patchScreen(slug, index, { [fieldKey]: merged });
-      return jsonContent(result.screen);
+      return jsonContent({ success: true, savedAt: result.savedAt });
     },
   },
 ];
@@ -325,5 +325,5 @@ async function setText(
   const result = await client.patchScreen(slug, index, {
     [field]: wrapTextAsHtml(text),
   });
-  return jsonContent(result.screen);
+  return jsonContent({ success: true, savedAt: result.savedAt });
 }

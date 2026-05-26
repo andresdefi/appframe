@@ -83,7 +83,7 @@ export const calloutTools: ToolDefinition[] = [
       const result = await client.patchScreen(slug, index, {
         callouts: [...existing, next],
       });
-      return jsonContent({ id, callout: next, screen: result.screen });
+      return jsonContent({ success: true, savedAt: result.savedAt, id, callout: next });
     },
   },
   {

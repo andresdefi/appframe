@@ -47,6 +47,14 @@ export function validateLocaleCode(code: string): string | null {
   return code;
 }
 
+export function wantsFullReturn(req: { query: Record<string, unknown>; body?: unknown }): boolean {
+  if (req.query.return === 'full') return true;
+  if (typeof req.body === 'object' && req.body !== null && !Array.isArray(req.body)) {
+    return (req.body as Record<string, unknown>).return === 'full';
+  }
+  return false;
+}
+
 export function slugifyName(value: string): string {
   const slug = value
     .toLowerCase()

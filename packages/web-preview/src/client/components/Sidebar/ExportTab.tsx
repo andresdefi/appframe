@@ -357,26 +357,20 @@ export function ExportTab() {
     const t0 = performance.now();
     let totalRendered = 0;
     let totalExpected = 0;
-    // Wrap everything after setExporting(true) so a throw in bundling,
-    // artifact recording, or download still releases the button —
-    // mirrors handlePanoramicExportAll. Without this, an unexpected
-    // bundleAsZip / downloadBlob failure would leave the Export tab
-    // stuck in the "rendering..." state until reload.
+    for (const lc of localesToExport) {
+      const ls = lc === 'default' ? screens : localeScreensMap[lc];
+      if (ls) totalExpected += ls.length;
+    }
     try {
-      // Each locale carries its own screen snapshot in localeScreens[code]
-      // (Default uses state.screens). Iterate locale × screens, rendering
-      // each via the locale's own ScreenState so per-locale text, position,
-      // and screenshots all flow through buildExportBody unchanged.
       for (const localeCode of localesToExport) {
         const localeScreens = localeCode === 'default' ? screens : localeScreensMap[localeCode];
         if (!localeScreens || localeScreens.length === 0) continue;
-        totalExpected += localeScreens.length;
         const localeLabel = localeCode === 'default' ? 'Default' : getLocaleLabel(localeCode);
         const localeCfg = localeCode === 'default' ? undefined : sessionLocales[localeCode];
         for (let i = 0; i < localeScreens.length; i++) {
           const screen = localeScreens[i];
           if (!screen) continue;
-          setStatus(`Rendering ${localeLabel} screen ${i + 1} of ${localeScreens.length}...`);
+          setStatus(`Rendering ${localeLabel} ${i + 1}/${localeScreens.length} (${totalRendered + 1}/${totalExpected})`);
           try {
             const body = buildExportBody(screen, {
               previewW,
@@ -552,7 +546,7 @@ export function ExportTab() {
             disabled={exporting || selectedLocales.size === 0}
           >
             {exporting
-              ? 'Rendering...'
+              ? status
               : selectedLocales.size === 0
                 ? 'Select at least one locale'
                 : selectedLocales.size === 1
@@ -571,7 +565,7 @@ export function ExportTab() {
               disabled={exporting || selectedLocales.size === 0}
             >
               {exporting
-                ? 'Rendering...'
+                ? status
                 : selectedLocales.size === 0
                   ? 'Select at least one locale'
                   : selectedLocales.size === 1
@@ -589,7 +583,7 @@ export function ExportTab() {
                 )[selectedScreen]
               }
             >
-              {exporting ? 'Rendering...' : `Download screen ${selectedScreen + 1} (current locale)`}
+              {exporting ? status : `Download screen ${selectedScreen + 1} (current locale)`}
             </button>
           </>
         )}

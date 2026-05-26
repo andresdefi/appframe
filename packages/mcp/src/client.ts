@@ -304,6 +304,32 @@ export class AppframeClient {
     return this.request('POST', '/api/render-preview', args);
   }
 
+  async renderBatch(args: {
+    slug: string;
+    outDir: string;
+    items: Array<{
+      locale: string;
+      index: number;
+      width: number;
+      height: number;
+      relPath: string;
+    }>;
+  }): Promise<{
+    files: Array<{ relPath: string; absPath: string; bytes: number }>;
+    errors: Array<{ relPath: string; error: string }>;
+  }> {
+    return this.requestWithTimeout(
+      'POST',
+      '/api/render-batch',
+      args,
+      15_000 + Math.ceil(args.items.length / 3) * 10_000,
+    );
+  }
+
+  async getSizes(): Promise<Record<string, Array<{ key: string; name: string; width: number; height: number }>>> {
+    return this.request('GET', '/api/sizes');
+  }
+
   // Top-level project field patcher (export size, etc). Whitelisted on
   // the server — see TOP_LEVEL_PATCH_WHITELIST in routes/projectPatch.ts.
   async patchProject(slug: string, patch: Record<string, unknown>): Promise<{
@@ -592,6 +618,38 @@ export class AppframeClient {
       `/api/projects/${encodeURIComponent(slug)}/patch-batch`,
       { ops },
     );
+  }
+
+  private async requestWithTimeout<T>(
+    method: string,
+    path: string,
+    body: unknown,
+    timeoutMs: number,
+  ): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new AppframeClientError(
+          `${method} ${path} failed: ${res.status} ${res.statusText}${text ? ` — ${text}` : ''}`,
+        );
+      }
+      return (await res.json()) as T;
+    } catch (err) {
+      if (err instanceof AppframeClientError) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      throw new AppframeClientError(`${method} ${path}: ${message}`);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {

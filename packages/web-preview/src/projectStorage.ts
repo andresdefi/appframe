@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import type { Express, Request, Response } from 'express';
 import { log } from './logger.js';
 import { clearHistoryForProject } from './routes/projectHistory.js';
+import { withProjectLock } from './routes/projectMutex.js';
 
 const PROJECT_SLUG_RE = /^[a-zA-Z0-9_-]+$/;
 const PROJECT_FILE = 'appframe.json';
@@ -638,71 +639,78 @@ export function registerProjectRoutes(app: Express, options: ProjectStorageOptio
   });
 
   app.post('/api/projects/:project/rename', async (req: Request, res: Response) => {
-    try {
-      const from = typeof req.params.project === 'string' ? req.params.project : '';
-      const body = (req.body ?? {}) as Record<string, unknown>;
-      const to = typeof body.to === 'string' ? body.to : '';
-      const meta = await renameProject(options, from, to);
-      res.json({ success: true, meta });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
-      res.status(400).json({ error: message });
-    }
+    const from = typeof req.params.project === 'string' ? req.params.project : '';
+    await withProjectLock(from, async () => {
+      try {
+        const body = (req.body ?? {}) as Record<string, unknown>;
+        const to = typeof body.to === 'string' ? body.to : '';
+        const meta = await renameProject(options, from, to);
+        res.json({ success: true, meta });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'unknown error';
+        res.status(400).json({ error: message });
+      }
+    });
   });
 
   app.post('/api/projects/:project/duplicate', async (req: Request, res: Response) => {
-    try {
-      const from = typeof req.params.project === 'string' ? req.params.project : '';
-      const body = (req.body ?? {}) as Record<string, unknown>;
-      const to = typeof body.to === 'string' ? body.to : '';
-      const meta = await duplicateProject(options, from, to);
-      res.json({ success: true, meta });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
-      res.status(400).json({ error: message });
-    }
+    const from = typeof req.params.project === 'string' ? req.params.project : '';
+    await withProjectLock(from, async () => {
+      try {
+        const body = (req.body ?? {}) as Record<string, unknown>;
+        const to = typeof body.to === 'string' ? body.to : '';
+        const meta = await duplicateProject(options, from, to);
+        res.json({ success: true, meta });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'unknown error';
+        res.status(400).json({ error: message });
+      }
+    });
   });
 
   app.post('/api/projects/:project/touch', async (req: Request, res: Response) => {
-    try {
-      const project = typeof req.params.project === 'string' ? req.params.project : '';
-      const meta = await touchProject(options, project);
-      res.json({ success: true, meta });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
-      res.status(400).json({ error: message });
-    }
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    await withProjectLock(project, async () => {
+      try {
+        const meta = await touchProject(options, project);
+        res.json({ success: true, meta });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'unknown error';
+        res.status(400).json({ error: message });
+      }
+    });
   });
 
   app.delete('/api/projects/:project', async (req: Request, res: Response) => {
-    try {
-      const project = typeof req.params.project === 'string' ? req.params.project : '';
-      await deleteProject(options, project);
-      // Drop any in-memory undo history for this slug so a future
-      // project that happens to take the same slug doesn't inherit
-      // ghost entries pointing at the old data.
-      clearHistoryForProject(project);
-      res.json({ success: true });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
-      res.status(400).json({ error: message });
-    }
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    await withProjectLock(project, async () => {
+      try {
+        await deleteProject(options, project);
+        clearHistoryForProject(project);
+        res.json({ success: true });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'unknown error';
+        res.status(400).json({ error: message });
+      }
+    });
   });
 
   app.put('/api/projects/:project', async (req: Request, res: Response) => {
-    try {
-      const project = typeof req.params.project === 'string' ? req.params.project : '';
-      const body = req.body;
-      if (body === null || typeof body !== 'object' || Array.isArray(body)) {
-        res.status(400).json({ error: 'request body must be a JSON object' });
-        return;
-      }
-      const written = await writeProject(options, project, body);
-      res.json({ success: true, savedAt: written.savedAt, absPath: written.absPath });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
-      res.status(400).json({ error: message });
+    const project = typeof req.params.project === 'string' ? req.params.project : '';
+    const body = req.body;
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+      res.status(400).json({ error: 'request body must be a JSON object' });
+      return;
     }
+    await withProjectLock(project, async () => {
+      try {
+        const written = await writeProject(options, project, body);
+        res.json({ success: true, savedAt: written.savedAt, absPath: written.absPath });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'unknown error';
+        res.status(400).json({ error: message });
+      }
+    });
   });
 
   app.get('/api/projects/:project', async (req: Request, res: Response) => {

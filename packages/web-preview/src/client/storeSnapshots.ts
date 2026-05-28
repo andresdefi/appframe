@@ -208,7 +208,14 @@ export function coerceVariantSnapshot(
 ): VariantSnapshot {
   if (!candidate || typeof candidate !== 'object') return fallback;
   const snapshot = candidate as Partial<VariantSnapshot>;
-  if (!Array.isArray(snapshot.screens) || !Array.isArray(snapshot.panoramicElements)) {
+  // Only `screens` is structurally required to identify a real project
+  // envelope. `panoramicElements` was previously also required, but MCP-
+  // created envelopes seed `screens: []` without seeding a panoramic
+  // section. Bailing to fallback there meant any MCP-created project
+  // silently inherited the previous project's full state on hydrate
+  // (per-screen edits never appeared on canvas). Default missing
+  // panoramic-side fields per-field instead.
+  if (!Array.isArray(snapshot.screens)) {
     return fallback;
   }
 
@@ -235,7 +242,9 @@ export function coerceVariantSnapshot(
     panoramicBackground: deepCopy(
       (snapshot.panoramicBackground ?? fallback.panoramicBackground) as PanoramicBackground,
     ),
-    panoramicElements: deepCopy(snapshot.panoramicElements as PanoramicElement[]),
+    panoramicElements: Array.isArray(snapshot.panoramicElements)
+      ? deepCopy(snapshot.panoramicElements as PanoramicElement[])
+      : [],
     panoramicEffects: deepCopy(
       (snapshot.panoramicEffects ?? fallback.panoramicEffects) as PanoramicEffects,
     ),

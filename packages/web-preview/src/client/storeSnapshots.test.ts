@@ -219,9 +219,29 @@ describe('coerceVariantSnapshot', () => {
     expect(coerceVariantSnapshot(42, fallback)).toBe(fallback);
   });
 
-  it('returns the fallback when screens or panoramicElements arrays are missing', () => {
+  it('returns the fallback when the structural screens array is missing', () => {
     const fallback = variantSnapshotFromState(makeBaseState());
     expect(coerceVariantSnapshot({ locale: 'es-MX' }, fallback)).toBe(fallback);
+  });
+
+  it('accepts an MCP-seeded envelope missing panoramicElements (defaults to [])', () => {
+    // Regression: MCP `create_project` seeds a slim envelope without a
+    // panoramic section. The strict pre-fix coerce treated that as a
+    // bail-to-fallback signal, so hydrate kept the previous project's
+    // screens on the canvas and MCP edits silently never appeared.
+    const fallback = variantSnapshotFromState(makeBaseState());
+    const candidate = {
+      screens: [makeStubScreen('mcp1', { headline: 'From MCP' })],
+      variants: [],
+      sessionLocales: {},
+      localeScreens: {},
+      locale: 'default',
+      exportSize: 'ios-6.9',
+    };
+    const result = coerceVariantSnapshot(candidate, fallback);
+    expect(result.screens).toHaveLength(1);
+    expect(result.screens[0]!.headline).toBe('From MCP');
+    expect(result.panoramicElements).toEqual([]);
   });
 
   it('accepts a well-formed candidate and deep-copies nested arrays', () => {

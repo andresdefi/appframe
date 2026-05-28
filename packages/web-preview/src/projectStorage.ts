@@ -444,12 +444,30 @@ export async function createProject(
   // it up immediately AND the MCP write endpoints (which expect
   // data.screens to be an array) work on a freshly-created project
   // without first round-tripping through a browser session.
+  //
+  // Top-level shape mirrors what the browser autosave would write on
+  // first save (see ProjectSnapshot / VariantSnapshot in client/store.ts):
+  // include the panoramic-side fields and the structural locale maps so
+  // the hydrate path's `coerceVariantSnapshot` accepts the envelope as a
+  // real (non-fresh) project and merges per-screen data correctly.
+  // Without `panoramicElements` here, hydrate previously bailed to the
+  // previous-project fallback and silently dropped MCP-written edits.
+  // Theme-derived top-level fields (platform / previewW / previewH /
+  // panoramicBackground / panoramicEffects / exportSize) are deliberately
+  // omitted — they fall back per-field in coerceVariantSnapshot from the
+  // currently-loaded slim config so the new project inherits sane
+  // canvas dimensions on hydrate.
   await writeProject(options, safeName, {
     screens: [],
     variants: [],
     sessionLocales: {},
     localeScreens: {},
+    localePanoramicElements: {},
     locale: 'default',
+    isPanoramic: false,
+    selectedScreen: 0,
+    selectedElementIndex: null,
+    panoramicElements: [],
   });
   return meta;
 }

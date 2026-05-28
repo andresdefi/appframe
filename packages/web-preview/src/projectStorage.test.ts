@@ -203,6 +203,26 @@ describe('createProject / listProjects / touchProject', () => {
     expect(dup.displayName).toBe('alpha');
   });
 
+  it('createProject seeds an envelope shape that the browser hydrate path accepts', async () => {
+    // Regression for the MCP-created-project canvas-stays-empty bug.
+    // The hydrate path's `coerceVariantSnapshot` (client/storeSnapshots.ts)
+    // only treats an envelope as a real project when `screens` is an
+    // array; a missing `panoramicElements` previously made it bail back
+    // to the previous-project state. Lock in the on-disk shape so a
+    // future trim of the seed doesn't silently regress.
+    const options = await makeRoot();
+    await createProject(options, 'shape-check');
+    const envelope = await readProject(options, 'shape-check');
+    expect(envelope).not.toBeNull();
+    const data = envelope!.data as Record<string, unknown>;
+    expect(Array.isArray(data.screens)).toBe(true);
+    expect(Array.isArray(data.panoramicElements)).toBe(true);
+    expect(data.localePanoramicElements).toEqual({});
+    expect(data.isPanoramic).toBe(false);
+    expect(data.selectedScreen).toBe(0);
+    expect(data.selectedElementIndex).toBeNull();
+  });
+
   it('createProject accepts human display names and slugifies them', async () => {
     const options = await makeRoot();
     const meta = await createProject(options, 'Impostor Party Game');

@@ -117,6 +117,30 @@ export class AppframeClient {
     return this.cachedList('frames', () => this.request<unknown[]>('GET', '/api/frames'));
   }
 
+  // Fetch a Lucide icon's raw SVG markup. The browser's UI icon picker
+  // hits the same endpoint, then recolors `currentColor` and bakes the
+  // result into `overlay.imageDataUrl`. `add_overlay` does the same so
+  // an agent's `iconRef: "lucide:<name>"` actually renders without the
+  // agent having to know about the recolor step. `name` is path-
+  // sanitized server-side, but we still throw on invalid characters
+  // here so the failure surfaces near the call site.
+  async fetchLucideIconSvg(name: string): Promise<string> {
+    if (!/^[a-z0-9-]+$/.test(name)) {
+      throw new AppframeClientError(
+        `Invalid lucide icon name "${name}" — expected lowercase letters, digits, and hyphens (e.g. "sparkle", "arrow-up").`,
+      );
+    }
+    const url = `${this.baseUrl}/api/elements/icons/svg/${encodeURIComponent(name)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new AppframeClientError(
+        `Lucide icon "${name}" not found at ${url} (${res.status} ${res.statusText})${text ? ` — ${text}` : ''}`,
+      );
+    }
+    return res.text();
+  }
+
   // Catalog of bundled fonts the renderer can use. Returned shape comes
   // straight from GET /api/fonts. Use the entry's id for set_font /
   // patch_screen `headlineFont` etc.

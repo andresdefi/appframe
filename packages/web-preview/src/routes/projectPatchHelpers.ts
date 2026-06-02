@@ -1,5 +1,7 @@
 import type { Response } from 'express';
 import { readProject, writeProject, ProjectCorruptError, ProjectFutureSchemaError } from '../projectStorage.js';
+import { buildConfigFromEditorState } from '../editorState.js';
+import { log } from '../logger.js';
 import type { RouteContext } from './context.js';
 import { recordEnvelopeWrite } from './projectHistory.js';
 import { withProjectLock } from './projectMutex.js';
@@ -133,6 +135,33 @@ export async function loadForScreenOp(
   return { envelope, data, screens };
 }
 
+// Keep the server's in-memory AppframeConfig in lockstep with the
+// envelope we just wrote — but only for the project the browser
+// currently has open (the one ctx.getConfig() represents). Agent writes
+// land on disk via writeProject and the browser re-hydrates its store
+// from the project-changed broadcast, but nothing refreshed the server's
+// slim `config` cache. The render/export pipeline (preview-html) resolves
+// per-locale TEXT from `config.locales` and falls back to it for
+// per-locale SCREENSHOT paths, so a stale cache made render_preview /
+// export_screen / export_locale show the previous (often default-locale)
+// content for any locale touched via MCP — even though disk and the
+// editor canvas were correct. Rebuild from the same transform PUT
+// /api/config uses so the cache matches what the editor would have synced.
+function refreshActiveConfig(
+  ctx: RouteContext,
+  project: string,
+  nextData: Record<string, unknown>,
+): void {
+  if (project !== ctx.getActiveProjectSlug()) return;
+  try {
+    ctx.setConfig(buildConfigFromEditorState(ctx.getConfig(), nextData));
+  } catch (err) {
+    // A malformed envelope shouldn't fail the (already-succeeded) write;
+    // the browser's debounced /api/config sync remains the backstop.
+    log.warn('refreshActiveConfig failed', { project, error: String(err) });
+  }
+}
+
 // Write the new project envelope and broadcast a project-changed SSE
 // event to the browser. Wraps writeProject so every route below shares
 // the same error handling — the write step used to be copy-pasted into
@@ -156,10 +185,14 @@ export async function writeAndBroadcast(
     // is interested in the touch. No-ops don't go into undo history
     // either — there'd be nothing to undo.
     if (previousData && deepEquals(previousData, nextData)) {
+      // No disk change, but the in-memory config could already be stale
+      // from an earlier path — cheap to reconcile and keeps render fresh.
+      refreshActiveConfig(ctx, project, nextData);
       ctx.broadcastEvent({ type: 'project-changed', source: 'agent', slug: project, unchanged: true });
       return { savedAt: '' };
     }
     const written = await writeProject(ctx.projectStorage, project, nextData);
+    refreshActiveConfig(ctx, project, nextData);
     ctx.broadcastEvent({ type: 'project-changed', source: 'agent', slug: project });
     // Push the pre-write envelope onto the undo stack. We only get here
     // when previousData was supplied and differs from nextData; both

@@ -29,7 +29,7 @@
     "fontkit": "^2.0.4",
     "jszip": "^3.10.1",
     "sharp": "^0.34.5",
-    "undici": "^7.5.0",
+    "undici": "^7.28.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

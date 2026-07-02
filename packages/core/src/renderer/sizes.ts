@@ -11,8 +11,8 @@ export const STORE_SIZES: Record<string, ScreenshotSize> = {
   // on Apple's spec.
   'ios-6.9': {
     name: 'iPhone 6.9"',
-    width: 630,  // 1260 / 2
-    height: 1368, // 2736 / 2
+    width: 660,  // 1320 / 2
+    height: 1434, // 2868 / 2
     platform: 'ios',
   },
   'ios-6.5': {

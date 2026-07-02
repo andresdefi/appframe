@@ -64,7 +64,7 @@ const HELP_OVERVIEW = {
     projectLifecycle: ['create_project', 'rename_project', 'duplicate_project', 'delete_project', 'switch_project', 'set_export_size'],
     locales: ['add_locale', 'remove_locale', 'set_active_locale', 'patch_locale_screen', 'set_locale_text'],
     variants: ['create_variant', 'delete_variant', 'set_active_variant', 'rename_variant'],
-    perScreenEdits: ['patch_screen', 'set_headline', 'set_subtitle', 'set_background', 'set_font', 'set_device_frame', 'move_device_frame', 'set_spotlight', 'set_loupe', 'set_composition', 'set_border_simulation', 'set_device_shadow', 'set_text_position', 'set_text_gradient', 'set_text_shadow'],
+    perScreenEdits: ['patch_screen', 'set_headline', 'set_subtitle', 'set_background', 'set_font', 'set_device_frame', 'move_device_frame', 'set_device_position', 'set_frame_style', 'set_spotlight', 'set_loupe', 'set_composition', 'set_border_simulation', 'set_device_shadow', 'set_text_position', 'set_text_gradient', 'set_text_shadow'],
     screenLifecycle: ['add_screen', 'remove_screen', 'reorder_screens'],
     callouts: ['add_callout', 'update_callout', 'remove_callout'],
     annotations: ['add_annotation', 'update_annotation', 'remove_annotation'],
@@ -84,7 +84,7 @@ const HELP_OVERVIEW = {
     note: 'patch_screen accepts editor-state shape. Top-level keys merge wholesale (nested objects like `spotlight` get replaced entirely).',
     textSlots: ['headline', 'subtitle', 'freeText'],
     perSlotFields: ['<slot>Font', '<slot>FontWeight', '<slot>Size', '<slot>LetterSpacing', '<slot>TextTransform', '<slot>Gradient', '<slot>Shadow'],
-    device: ['frameId', 'deviceColor', 'deviceScale', 'deviceTop', 'deviceAngle', 'deviceTilt', 'deviceRotation', 'deviceOffsetX'],
+    device: ['frameId', 'deviceColor', 'frameStyle ("flat"|"none")', 'deviceScale', 'deviceTop', 'deviceAngle', 'deviceTilt', 'deviceRotation', 'deviceOffsetX'],
     background: ['backgroundType ("solid"|"gradient"|"image")', 'backgroundColor', 'backgroundGradient', 'backgroundImageDataUrl', 'backgroundImageFit', 'backgroundImagePositionX/Y', 'backgroundImageScale', 'backgroundOverlay'],
     effects: ['spotlightEnabled', 'spotlight {x,y,w,h,shape,dimOpacity,blur,borderRadius}', 'loupeEnabled', 'loupe {sourceX,sourceY,displayX,displayY,width,height,zoom,...}', 'borderSimulation {enabled,thickness,color,radius}', 'deviceShadow {opacity,blur,color,offsetY}'],
     arrays: ['callouts[]', 'annotations[]', 'overlays[]', 'extraDevices[]'],
@@ -121,8 +121,12 @@ export const discoveryTools: ToolDefinition[] = [
         '`default`, and an `optional` flag. Use this when you need to ' +
         'know exact field types / ranges before constructing a ' +
         '`patch_screen` body — more precise than the hand-written tool ' +
-        "descriptions. Supported `name` values are listed in the " +
-        'response when called without arguments.',
+        "descriptions. The \"screen\" schema also lists the editor-state " +
+        'device-positioning / frame-style fields (frameStyle, ' +
+        'deviceScale, deviceTop, deviceOffsetX, deviceAngle, deviceTilt, ' +
+        'deviceRotation, textPositions) that patch_screen accepts but ' +
+        'that live outside the slim config schema. Supported `name` ' +
+        'values are listed in the response when called without arguments.',
       inputSchema: {
         type: 'object',
         properties: { name: { type: 'string' } },

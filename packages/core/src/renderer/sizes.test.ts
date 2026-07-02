@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { STORE_SIZES, getTargetSizes } from './sizes.js';
 
 describe('STORE_SIZES', () => {
-  it('has the correct iPhone 6.9" dimensions (1260x2736 at 2x)', () => {
+  it('has the correct iPhone 6.9" dimensions (1320x2868 at 2x)', () => {
     const size = STORE_SIZES['ios-6.9']!;
-    expect(size.width * 2).toBe(1260);
-    expect(size.height * 2).toBe(2736);
+    expect(size.width * 2).toBe(1320);
+    expect(size.height * 2).toBe(2868);
     expect(size.platform).toBe('ios');
   });
 

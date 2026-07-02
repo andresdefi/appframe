@@ -15,7 +15,7 @@ describe('platform selection helpers', () => {
     const sizes = {
       iphone: [
         { key: 'ios-6.5', name: 'iPhone 6.5"', width: 1284, height: 2778 },
-        { key: 'ios-6.9', name: 'iPhone 6.9"', width: 1260, height: 2736 },
+        { key: 'ios-6.9', name: 'iPhone 6.9"', width: 1320, height: 2868 },
         { key: 'ios-6.3', name: 'iPhone 6.3"', width: 1206, height: 2622 },
       ],
       android: [

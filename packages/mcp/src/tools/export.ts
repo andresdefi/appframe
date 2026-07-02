@@ -19,7 +19,7 @@ async function resolveExportDims(
     const match = group.find((s) => s.key === exportSizeKey);
     if (match) return { width: match.width, height: match.height };
   }
-  return { width: 1260, height: 2736 };
+  return { width: 1320, height: 2868 };
 }
 
 interface BatchItem {

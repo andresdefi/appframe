@@ -98,8 +98,8 @@ export function registerRenderBatchRoutes(app: Express, ctx: RouteContext): void
       validatedItems.push({
         locale: typeof item.locale === 'string' ? item.locale : 'default',
         index: typeof item.index === 'number' ? item.index : 0,
-        width: typeof item.width === 'number' ? item.width : 1260,
-        height: typeof item.height === 'number' ? item.height : 2736,
+        width: typeof item.width === 'number' ? item.width : 1320,
+        height: typeof item.height === 'number' ? item.height : 2868,
         relPath: typeof item.relPath === 'string' ? item.relPath : `screen-${i + 1}.png`,
       });
     }

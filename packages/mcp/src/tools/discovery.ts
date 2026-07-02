@@ -347,7 +347,7 @@ export const discoveryTools: ToolDefinition[] = [
         '`width`/`height` are the actual EXPORT pixel dimensions (the ' +
         'renderer ships these to Apple / Google). `default` is the ' +
         "platform's preferred size:\n" +
-        '  • iphone → "ios-6.9" (1260×2736 — Apple requires for ' +
+        '  • iphone → "ios-6.9" (1320×2868 — Apple requires for ' +
         'App Store submission)\n' +
         '  • ipad → "ios-ipad-13" (2064×2752 — highest iPad resolution)\n' +
         '  • mac → "mac-2880x1800" (highest 16:10 macOS size)\n' +

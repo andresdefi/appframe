@@ -71,7 +71,7 @@ export const screenLayoutTools: ToolDefinition[] = [
       const fontId = typeof screen.headlineFont === 'string' ? screen.headlineFont : 'inter';
       const fontWeight = typeof screen.headlineFontWeight === 'number' ? screen.headlineFontWeight : 700;
       // Canvas dimensions: read from the project's exportSize via
-      // STORE_SIZES, falling back to iPhone 6.9 (1260 x 2736). iPad /
+      // STORE_SIZES, falling back to iPhone 6.9 (1320 x 2868). iPad /
       // Mac targets have very different widths so reading the actual
       // size matters for binary-search accuracy.
       const { width: canvasWidth } = await projectCanvas(client, slug);

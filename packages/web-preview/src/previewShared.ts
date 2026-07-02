@@ -37,8 +37,13 @@ export function resolveLocalizedScreenText(
   preferLocaleText: boolean,
 ): string | undefined {
   const localizedValue = getLocaleText(config, index, locale, localeConfig, field);
+  // The client already localizes per-(locale, index) and sends the correct text
+  // as requestedValue (mirroring the screenshot path, which uses the client URL
+  // directly). Treat it as authoritative; keep the config.locales lookup only as
+  // a fallback for callers that don't pre-localize.
+  if (requestedValue !== undefined) return requestedValue;
   if (preferLocaleText && localizedValue !== undefined) return localizedValue;
-  return requestedValue ?? localizedValue ?? fallbackValue;
+  return localizedValue ?? fallbackValue;
 }
 
 export function getLocalizedScreenshotPath(
